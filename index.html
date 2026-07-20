@@ -71,7 +71,7 @@
       <p class="text-xs font-semibold text-sfl-woodLight mt-2">Live item prices & farm inventory sync</p>
     </div>
 
-    <!-- Farm Sync Credentials Panel -->
+    <!-- Farm Credentials Panel -->
     <div class="mb-6 bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder">
       <h3 class="text-sm font-bold text-sfl-wood uppercase mb-2 flex items-center gap-2">
         <span>🔑</span> Farm Credentials (Saved Locally)
@@ -89,7 +89,7 @@
         </div>
       </div>
       <button id="import-farm-btn" class="mt-3 w-full bg-sfl-wood text-amber-200 font-bold py-2 rounded-lg border-2 border-sfl-dirt text-sm hover:bg-sfl-woodLight transition">
-        🔄 Import Farm Quantities & Auto-Fill Basket
+        🔄 Import All Farm Quantities
       </button>
       <p id="sync-status" class="text-xs text-center mt-2 font-bold text-sfl-woodLight"></p>
     </div>
@@ -134,14 +134,14 @@
         
         <div class="bg-white/70 border-2 border-sfl-cardBorder rounded-xl overflow-hidden flex-grow shadow-sm">
           <div class="bg-sfl-wood text-amber-200 px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-sfl-dirt flex justify-between items-center">
-            <span>🛒 Farm Basket</span>
+            <span>🛒 Farm Inventory & Basket</span>
             <div class="flex items-center gap-2">
               <button id="clear-basket" class="text-[10px] bg-sfl-accent text-white px-2 py-0.5 rounded font-bold hover:bg-red-700">Clear</button>
               <span id="item-count" class="text-amber-300 font-mono">0 Items</span>
             </div>
           </div>
 
-          <div class="max-h-[280px] overflow-y-auto">
+          <div class="max-h-[320px] overflow-y-auto">
             <table class="w-full text-left text-sm text-sfl-dirt">
               <thead class="text-xs uppercase bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood">
                 <tr>
@@ -214,7 +214,7 @@
       return pricesMap;
     }
 
-    // Advanced Sync & Auto-Fill
+    // Direct Import of Quantities
     document.getElementById('import-farm-btn').addEventListener('click', () => {
       const farmId = document.getElementById('farm-id').value.trim();
       const apiKey = document.getElementById('api-key').value.trim();
@@ -234,54 +234,59 @@
 
           const inventory = data.inventory;
           if (!inventory || typeof inventory !== 'object') {
-            throw new Error('Received unexpected inventory format from sfl.world');
+            throw new Error('Could not read inventory structure.');
           }
 
           let addedCount = 0;
-          basket = []; // Clear basket for clean sync
+          basket = []; // Clear basket for new sync
 
-          // Scan inventory entries recursively
+          // Recursively extract EVERY item and its quantity
           function scanInventory(obj) {
             for (let rawItemName in obj) {
               let val = obj[rawItemName];
 
               if (typeof val === 'number' && val > 0) {
-                processItem(rawItemName, val);
+                addItemToBasket(rawItemName, val);
               } else if (val && typeof val === 'object') {
                 let qty = parseFloat(val.amount || val.quantity || val.count || 0);
                 if (qty > 0) {
-                  processItem(rawItemName, qty);
+                  addItemToBasket(rawItemName, qty);
                 } else {
-                  scanInventory(val); // Drill deeper into nested inventory objects
+                  scanInventory(val); // Look deeper inside nested objects
                 }
               }
             }
           }
 
-          function processItem(itemName, quantity) {
-            // Flexible string matching between inventory item and market price key
+          function addItemToBasket(itemName, quantity) {
+            // Check if we have a price for this item
             let cleanItem = itemName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-            let priceKey = Object.keys(allPrices).find(key => {
+            let matchedPriceKey = Object.keys(allPrices).find(key => {
               let cleanPriceKey = key.replace(/^\[.*?\]\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
               return cleanPriceKey === cleanItem;
             });
 
-            if (priceKey && allPrices[priceKey] > 0) {
-              let unitPrice = allPrices[priceKey];
-              let subtotal = unitPrice * quantity;
-              basket.push({ item: priceKey, qty: quantity, unitPrice, subtotal });
-              addedCount++;
-            }
+            let unitPrice = matchedPriceKey ? allPrices[matchedPriceKey] : 0;
+            let subtotal = unitPrice * quantity;
+
+            // Add item regardless of whether a price was found
+            basket.push({ 
+              item: matchedPriceKey || itemName, 
+              qty: quantity, 
+              unitPrice: unitPrice, 
+              subtotal: subtotal 
+            });
+            addedCount++;
           }
 
           scanInventory(inventory);
           updateBasketTable();
 
           if (addedCount > 0) {
-            status.textContent = `✅ Successfully imported ${addedCount} items into your basket!`;
+            status.textContent = `✅ Successfully imported ${addedCount} item quantities from your farm!`;
           } else {
-            status.textContent = `⚠️ Connected successfully, but 0 items matched current market prices.`;
+            status.textContent = `⚠️ Connected to sfl.world, but 0 items with quantity > 0 were found on your farm.`;
           }
         })
         .catch(err => {
@@ -336,9 +341,9 @@
     document.getElementById('add-btn').addEventListener('click', () => {
       const qty = parseFloat(document.getElementById('quantity').value) || 0;
 
-      if (!selectedItemKey || allPrices[selectedItemKey] === undefined || qty <= 0) return;
+      if (!selectedItemKey || qty <= 0) return;
 
-      const unitPrice = allPrices[selectedItemKey];
+      const unitPrice = allPrices[selectedItemKey] || 0;
       const subtotal = unitPrice * qty;
 
       basket.push({ item: selectedItemKey, qty, unitPrice, subtotal });
@@ -363,10 +368,15 @@
           grandTotal += entry.subtotal;
           let tr = document.createElement('tr');
           tr.className = "hover:bg-amber-50/50 transition";
+          
+          let subtotalDisplay = entry.unitPrice > 0 
+            ? `${entry.subtotal.toFixed(4)} SFL` 
+            : `<span class="text-sfl-woodLight font-normal">No Market Price</span>`;
+
           tr.innerHTML = `
             <td class="px-4 py-2.5 font-bold text-sfl-dirt">${entry.item}</td>
-            <td class="px-4 py-2.5">${entry.qty}</td>
-            <td class="px-4 py-2.5 text-sfl-green font-bold">${entry.subtotal.toFixed(4)} SFL</td>
+            <td class="px-4 py-2.5 font-mono">${entry.qty}</td>
+            <td class="px-4 py-2.5 text-sfl-green font-bold">${subtotalDisplay}</td>
             <td class="px-4 py-2.5 text-right">
               <button onclick="removeItem(${index})" class="text-sfl-accent hover:text-red-700 font-bold px-2">✕</button>
             </td>
