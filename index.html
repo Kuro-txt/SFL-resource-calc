@@ -138,38 +138,22 @@
         </button>
       </div>
 
-      <!-- RIGHT SIDE: Combined Settings, Basket Table & Currency Conversion -->
+      <!-- RIGHT SIDE: Settings, Basket Table & Currency Conversion -->
       <div class="flex flex-col h-full space-y-4">
         
-        <!-- Combined Settings Panel (Tax + Coin Ratio) ABOVE Basket -->
-        <div class="bg-sfl-card/90 p-3.5 rounded-xl border-2 border-sfl-cardBorder shadow-sm">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            
-            <!-- Market Tax Option -->
-            <div class="flex flex-col">
-              <label class="text-xs font-bold text-sfl-wood uppercase mb-1 flex items-center gap-1">
-                <span>🏷️</span> Market Tax Rate
-              </label>
-              <select id="tax-select" class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold cursor-pointer">
-                <option value="0">0% (No Tax)</option>
-                <option value="0.05">5% Tax</option>
-                <option value="0.075">7.5% Tax</option>
-                <option value="0.10" selected>10% Tax</option>
-                <option value="0.125">12.5% Tax</option>
-                <option value="0.15">15% Tax</option>
-              </select>
-            </div>
-
-            <!-- Coin Ratio Option -->
-            <div class="flex flex-col">
-              <label class="text-xs font-bold text-sfl-wood uppercase mb-1 flex items-center gap-1">
-                <span>🪙</span> Coins per 1 Flower
-              </label>
-              <input type="number" id="coin-ratio" value="1000" min="1" step="1" 
-                class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
-            </div>
-
-          </div>
+        <!-- Settings Panel (Tax Selector) ABOVE Basket -->
+        <div class="bg-sfl-card/90 p-3 rounded-xl border-2 border-sfl-cardBorder flex items-center justify-between gap-2 shadow-sm">
+          <label class="text-xs font-bold text-sfl-wood uppercase flex items-center gap-1">
+            <span>🏷️</span> Market Tax Rate:
+          </label>
+          <select id="tax-select" class="sfl-input rounded-lg px-3 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold cursor-pointer">
+            <option value="0">0% (No Tax)</option>
+            <option value="0.05">5% Tax</option>
+            <option value="0.075">7.5% Tax</option>
+            <option value="0.10" selected>10% Tax</option>
+            <option value="0.125">12.5% Tax</option>
+            <option value="0.15">15% Tax</option>
+          </select>
         </div>
 
         <!-- Basket Table Container -->
@@ -189,7 +173,7 @@
                   <th class="px-3 py-2">Item</th>
                   <th class="px-2 py-2">Qty</th>
                   <th class="px-3 py-2">Flowers</th>
-                  <th class="px-3 py-2">Coins</th>
+                  <th class="px-3 py-2">Betty Coins</th>
                   <th class="px-2 py-2 text-right">✕</th>
                 </tr>
               </thead>
@@ -218,7 +202,7 @@
               <h2 id="total-flowers" class="text-2xl sm:text-3xl font-pixel font-bold text-sfl-green mt-0.5">0.00 🌸</h2>
             </div>
             <div class="border-l-2 border-sfl-cardBorder/40 pl-2">
-              <span class="text-xs font-bold uppercase tracking-widest text-sfl-wood block">Coins (Crops & Fruit)</span>
+              <span class="text-xs font-bold uppercase tracking-widest text-sfl-wood block">Betty Shop Coins</span>
               <h2 id="total-coins" class="text-2xl sm:text-3xl font-pixel font-bold text-sfl-gold mt-0.5">0.00 🪙</h2>
             </div>
           </div>
@@ -236,19 +220,53 @@
     let selectedItemKey = null;
     let farmInventoryData = {};
 
-    // Approved Crops and Fruits list (including saltwort):
-    const APPROVED_CROPS_AND_FRUITS = [
-      "sunflower", "potato", "pumpkin", "carrot", "cabbage", "beetroot", 
-      "cauliflower", "parsnip", "radish", "wheat", "kale", "eggplant", 
-      "corn", "soybean", "barley", "rhubarb", "zucchini", "yam", "broccoli", 
-      "pepper", "onion", "turnip", "artichoke", "apple", "blueberry", "orange", 
-      "banana", "grape", "rice", "olive", "tomato", "lemon", "duskberry", 
-      "lunara", "celestine", "saltwort"
-    ];
+    // Exact Betty Shop coin prices per item from in-game guides:
+    const BETTY_SHOP_PRICES = {
+      // Basic Crops
+      "sunflower": 0.02,
+      "potato": 0.14,
+      "rhubarb": 0.24,
+      "pumpkin": 0.4,
+      "zucchini": 0.4,
+      "carrot": 0.8,
+      // Medium & Advanced Crops
+      "yam": 0.8,
+      "cabbage": 1.5,
+      "broccoli": 1.5,
+      "soybean": 2.3,
+      "beetroot": 2.8,
+      "pepper": 3,
+      "cauliflower": 4.25,
+      "parsnip": 6.5,
+      "eggplant": 8,
+      "corn": 9,
+      "onion": 10,
+      "radish": 9.5,
+      "wheat": 7,
+      "turnip": 8,
+      "kale": 10,
+      "artichoke": 12,
+      "barley": 12,
+      "saltwort": 50,
+      // Fruits
+      "tomato": 2,
+      "lemon": 6,
+      "blueberry": 12,
+      "orange": 18,
+      "apple": 25,
+      "banana": 25,
+      "celestine": 200,
+      "lunara": 500,
+      "duskberry": 1000,
+      // Greenhouse Crops
+      "grape": 240,
+      "rice": 320,
+      "olive": 400
+    };
 
-    function isCropOrFruit(itemName) {
+    function getBettyUnitPrice(itemName) {
       let clean = itemName.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
-      return APPROVED_CROPS_AND_FRUITS.includes(clean);
+      return BETTY_SHOP_PRICES[clean] !== undefined ? BETTY_SHOP_PRICES[clean] : null;
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -438,15 +456,13 @@
     });
 
     document.getElementById('tax-select').addEventListener('change', updateBasketTable);
-    document.getElementById('coin-ratio').addEventListener('input', updateBasketTable);
 
     function updateBasketTable() {
       const tbody = document.getElementById('basket-body');
       tbody.innerHTML = '';
 
       let grandGrossTotal = 0;
-      let totalCropFruitCoins = 0;
-      const coinMultiplier = parseFloat(document.getElementById('coin-ratio').value) || 1000;
+      let totalBettyCoins = 0;
 
       if (basket.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-sfl-woodLight italic">Your farm basket is empty!</td></tr>';
@@ -455,19 +471,14 @@
           grandGrossTotal += entry.subtotal;
 
           let cleanName = entry.item.replace(/^\[.*?\]\s*/, '');
-          const isSaltwort = cleanName.toLowerCase().trim() === "saltwort";
-          const validForCoins = isCropOrFruit(entry.item);
+          let bettyUnitPrice = getBettyUnitPrice(cleanName);
 
-          let itemCoins = 0;
+          let coinsDisplay = `<span class="text-sfl-woodLight/70 font-normal italic text-xs">Unavailable</span>`;
 
-          if (isSaltwort) {
-            // Saltwort is explicitly 50 coins per item
-            itemCoins = entry.qty * 50;
-            totalCropFruitCoins += itemCoins;
-          } else if (validForCoins && entry.unitPrice > 0) {
-            // Standard crops and fruits use Flower subtotal * Coin Ratio
-            itemCoins = entry.subtotal * coinMultiplier;
-            totalCropFruitCoins += itemCoins;
+          if (bettyUnitPrice !== null) {
+            let itemCoins = entry.qty * bettyUnitPrice;
+            totalBettyCoins += itemCoins;
+            coinsDisplay = `${roundUpToTwoDecimals(itemCoins).toFixed(2)} 🪙`;
           }
 
           let tr = document.createElement('tr');
@@ -476,10 +487,6 @@
           let subtotalDisplay = entry.unitPrice > 0 
             ? `${roundUpToTwoDecimals(entry.subtotal).toFixed(2)} 🌸` 
             : `<span class="text-sfl-woodLight font-normal">Untradeable</span>`;
-
-          let coinsDisplay = (validForCoins || isSaltwort)
-            ? `${roundUpToTwoDecimals(itemCoins).toFixed(2)} 🪙` 
-            : `<span class="text-sfl-woodLight font-normal text-xs">-</span>`;
 
           tr.innerHTML = `
             <td class="px-3 py-2.5 font-bold text-sfl-dirt">${cleanName}</td>
@@ -503,7 +510,7 @@
       document.getElementById('gross-flowers').textContent = `${roundUpToTwoDecimals(grandGrossTotal).toFixed(2)} Flowers`;
       document.getElementById('tax-deduction').textContent = `${roundUpToTwoDecimals(taxAmount).toFixed(2)} Flowers`;
       document.getElementById('total-flowers').textContent = `${roundUpToTwoDecimals(netFlowers).toFixed(2)} 🌸`;
-      document.getElementById('total-coins').textContent = `${roundUpToTwoDecimals(totalCropFruitCoins).toFixed(2)} 🪙`;
+      document.getElementById('total-coins').textContent = `${roundUpToTwoDecimals(totalBettyCoins).toFixed(2)} 🪙`;
       document.getElementById('item-count').textContent = `${basket.length} Item${basket.length === 1 ? '' : 's'}`;
     }
 
