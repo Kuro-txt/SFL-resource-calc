@@ -89,17 +89,17 @@
         </div>
       </div>
       <button id="import-farm-btn" class="mt-3 w-full bg-sfl-wood text-amber-200 font-bold py-2 rounded-lg border-2 border-sfl-dirt text-sm hover:bg-sfl-woodLight transition">
-        🔄 Import Farm Quantities & Auto-Fill Basket
+        🔄 Sync Farm Quantities
       </button>
       <p id="sync-status" class="text-xs text-center mt-2 font-bold text-sfl-woodLight"></p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
       
-      <!-- LEFT SIDE: Manual Add -->
+      <!-- LEFT SIDE: Item Selector -->
       <div class="bg-sfl-card/80 p-5 rounded-xl border-2 border-sfl-cardBorder space-y-4">
         <h2 class="text-lg font-bold text-sfl-wood border-b-2 border-sfl-cardBorder pb-2 flex items-center gap-2">
-          <span>📦</span> Manual Item Add
+          <span>📦</span> Select Item
         </h2>
 
         <div class="relative">
@@ -118,7 +118,10 @@
         </div>
 
         <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood mb-1">🔢 Quantity</label>
+          <div class="flex justify-between items-center mb-1">
+            <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood">🔢 Quantity</label>
+            <span id="inventory-hint" class="text-[11px] font-bold text-sfl-green hidden">Farm Stock: <span id="stock-count">0</span></span>
+          </div>
           <input type="number" id="quantity" value="1" min="1" 
             class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
         </div>
@@ -134,7 +137,7 @@
         
         <div class="bg-white/70 border-2 border-sfl-cardBorder rounded-xl overflow-hidden flex-grow shadow-sm">
           <div class="bg-sfl-wood text-amber-200 px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-sfl-dirt flex justify-between items-center">
-            <span>🛒 Farm Inventory & Basket</span>
+            <span>🛒 Farm Basket</span>
             <div class="flex items-center gap-2">
               <button id="clear-basket" class="text-[10px] bg-sfl-accent text-white px-2 py-0.5 rounded font-bold hover:bg-red-700">Clear</button>
               <span id="item-count" class="text-amber-300 font-mono">0 Items</span>
@@ -177,6 +180,7 @@
     let allPrices = {};
     let basket = [];
     let selectedItemKey = null;
+    let farmInventoryData = {}; // Stores farm inventory in background memory
 
     document.addEventListener('DOMContentLoaded', () => {
       if (localStorage.getItem('sfl_farm_id')) {
@@ -214,7 +218,7 @@
       return pricesMap;
     }
 
-    // Sync with API Key
+    // Background Sync Inventory Only
     document.getElementById('import-farm-btn').addEventListener('click', () => {
       const farmId = document.getElementById('farm-id').value.trim();
       const apiKey = document.getElementById('api-key').value.trim();
@@ -233,42 +237,14 @@
           if (data.error) throw new Error(data.error);
 
           const farmData = data.farm?.farm || data.farm?.data || data.farm;
-          const inventory = farmData?.inventory || {};
+          farmInventoryData = farmData?.inventory || {};
 
-          basket = [];
-          let addedCount = 0;
+          let totalItemsCount = Object.keys(farmInventoryData).length;
 
-          for (let itemName in inventory) {
-            let rawQty = inventory[itemName];
-            let qty = typeof rawQty === 'number' ? rawQty : parseFloat(rawQty.amount || rawQty);
-
-            if (isNaN(qty) || qty <= 0) continue;
-
-            let cleanItem = itemName.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-            let matchedPriceKey = Object.keys(allPrices).find(key => {
-              let cleanPriceKey = key.replace(/^\[.*?\]\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
-              return cleanPriceKey === cleanItem;
-            });
-
-            let unitPrice = matchedPriceKey ? allPrices[matchedPriceKey] : 0;
-            let subtotal = unitPrice * qty;
-
-            basket.push({
-              item: matchedPriceKey || itemName,
-              qty: qty,
-              unitPrice: unitPrice,
-              subtotal: subtotal
-            });
-            addedCount++;
-          }
-
-          updateBasketTable();
-
-          if (addedCount > 0) {
-            status.textContent = `✅ Successfully imported ${addedCount} items from Farm #${farmId}!`;
+          if (totalItemsCount > 0) {
+            status.textContent = `✅ Synced ${totalItemsCount} item types from Farm #${farmId}! Select any item to auto-fill stock quantity.`;
           } else {
-            status.textContent = `⚠️ Farm connected, but no inventory quantities were found.`;
+            status.textContent = `⚠️ Connected, but no inventory found on farm.`;
           }
         })
         .catch(err => {
@@ -318,6 +294,29 @@
       document.getElementById('selected-item-badge').classList.remove('hidden');
       document.getElementById('selected-item-name').textContent = itemKey;
       document.getElementById('selected-item-price').textContent = `${allPrices[itemKey]} SFL`;
+
+      // Clean item name to check background farm inventory
+      let cleanSelected = itemKey.replace(/^\[.*?\]\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      let foundStock = 0;
+
+      for (let invKey in farmInventoryData) {
+        let cleanInvKey = invKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanInvKey === cleanSelected) {
+          let val = farmInventoryData[invKey];
+          foundStock = typeof val === 'number' ? val : parseFloat(val.amount || val || 0);
+          break;
+        }
+      }
+
+      // Auto-fill quantity box if stock is found!
+      if (foundStock > 0) {
+        document.getElementById('quantity').value = foundStock;
+        document.getElementById('inventory-hint').classList.remove('hidden');
+        document.getElementById('stock-count').textContent = foundStock;
+      } else {
+        document.getElementById('quantity').value = 1;
+        document.getElementById('inventory-hint').classList.add('hidden');
+      }
     }
 
     document.getElementById('add-btn').addEventListener('click', () => {
