@@ -262,7 +262,6 @@
             📸 Save Today's Snapshot
           </button>
           
-          <!-- Hidden File Input for Importing -->
           <input type="file" id="import-file-input" accept=".json" class="hidden">
           
           <button id="import-json-btn" class="bg-amber-600 text-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-700 transition">
@@ -283,11 +282,12 @@
               <th class="px-3 py-2">Total Items</th>
               <th class="px-3 py-2">Individual Crop Values</th>
               <th class="px-3 py-2">Grand Net Value</th>
+              <th class="px-2 py-2 text-center">Actions</th>
             </tr>
           </thead>
           <tbody id="snapshot-history-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
             <tr>
-              <td colspan="4" class="px-4 py-6 text-center text-sfl-woodLight italic">
+              <td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">
                 No crop snapshots saved yet. Click "Save Today's Snapshot" to record today's count!
               </td>
             </tr>
@@ -303,8 +303,8 @@
     let basket = [];
     let selectedItemKey = null;
     let farmInventoryData = {};
+    let editingSnapshotDate = null; // Tracks row date currently being edited
 
-    // Robust image tags with local paths + online fallbacks
     const FLOWER_ICON = `<img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-4 h-4 sfl-icon" alt="Flower Token">`;
     const COIN_ICON = `<img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-4 h-4 sfl-icon" alt="Coins">`;
 
@@ -705,29 +705,126 @@
       alert(`✅ Crop snapshot saved for ${today}!`);
     });
 
+    // --- SNAPSHOT EDIT & DELETE FUNCTIONS ---
+
+    function editSnapshotRow(date) {
+      editingSnapshotDate = date;
+      renderSnapshotHistory();
+    }
+
+    function cancelEditSnapshot() {
+      editingSnapshotDate = null;
+      renderSnapshotHistory();
+    }
+
+    function saveEditedSnapshot(date) {
+      let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+      let entryIndex = history.findIndex(item => item.date === date);
+
+      if (entryIndex === -1) return;
+
+      const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
+      const coinMultiplier = parseFloat(document.getElementById('coin-ratio').value) || 1000;
+
+      let entry = history[entryIndex];
+      let updatedCrops = [];
+      let grandTotalCount = 0;
+      let grandNetFlowers = 0;
+
+      if (Array.isArray(entry.crops)) {
+        entry.crops.forEach((crop, cropIdx) => {
+          let inputEl = document.getElementById(`edit-qty-${date}-${cropIdx}`);
+          let newQty = inputEl ? roundUpToOneDecimal(parseFloat(inputEl.value) || 0) : crop.qty;
+
+          if (newQty > 0) {
+            // Find unit price in allPrices
+            let matchedKey = Object.keys(allPrices).find(k => k.replace(/^\[.*?\]\s*/, '').toLowerCase() === crop.name.toLowerCase());
+            let unitPrice = matchedKey ? allPrices[matchedKey] : (crop.flowers / (crop.qty || 1));
+
+            let itemNetFlowers = roundUpToThreeDecimals((unitPrice * newQty) * (1 - taxRate));
+            let itemRatioCoins = roundUpToTwoDecimals(itemNetFlowers * coinMultiplier);
+
+            updatedCrops.push({
+              name: crop.name,
+              qty: newQty,
+              flowers: itemNetFlowers,
+              coins: itemRatioCoins
+            });
+
+            grandTotalCount += newQty;
+            grandNetFlowers += itemNetFlowers;
+          }
+        });
+      }
+
+      if (updatedCrops.length === 0) {
+        deleteSnapshotRow(date);
+        return;
+      }
+
+      let grandRatioCoins = roundUpToTwoDecimals(grandNetFlowers * coinMultiplier);
+
+      history[entryIndex] = {
+        date: date,
+        totalCount: roundUpToOneDecimal(grandTotalCount),
+        crops: updatedCrops,
+        netFlowers: roundUpToThreeDecimals(grandNetFlowers).toFixed(3),
+        ratioCoins: grandRatioCoins.toFixed(2)
+      };
+
+      localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
+      editingSnapshotDate = null;
+      renderSnapshotHistory();
+      alert(`✅ Snapshot for ${date} updated successfully!`);
+    }
+
+    function deleteSnapshotRow(date) {
+      if (!confirm(`Are you sure you want to delete the snapshot for ${date}?`)) return;
+
+      let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+      let updatedHistory = history.filter(item => item.date !== date);
+
+      localStorage.setItem('sfl_daily_snapshots', JSON.stringify(updatedHistory));
+      if (editingSnapshotDate === date) editingSnapshotDate = null;
+      renderSnapshotHistory();
+    }
+
     function renderSnapshotHistory() {
       const tbody = document.getElementById('snapshot-history-body');
       let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
 
       if (history.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-sfl-woodLight italic">No crop snapshots saved yet. Click "Save Today's Snapshot" to record today's count!</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">No crop snapshots saved yet. Click "Save Today's Snapshot" to record today's count!</td></tr>`;
         return;
       }
 
       tbody.innerHTML = '';
       history.forEach(entry => {
+        let isEditing = editingSnapshotDate === entry.date;
         let cropBadges = '';
 
         if (Array.isArray(entry.crops)) {
           cropBadges = entry.crops
-            .map(crop => `
-              <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-400 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
-                <span>${crop.name}:</span>
-                <span class="font-mono text-sfl-wood">${crop.qty.toFixed(1)}</span>
-                <span class="text-sfl-green font-normal flex items-center gap-0.5">(${crop.flowers.toFixed(3)} ${FLOWER_ICON})</span>
-                <span class="text-amber-700 font-normal flex items-center gap-0.5">(${crop.coins.toFixed(2)} ${COIN_ICON})</span>
-              </span>
-            `)
+            .map((crop, idx) => {
+              if (isEditing) {
+                return `
+                  <span class="inline-flex items-center gap-1 bg-amber-200 text-amber-900 border-2 border-sfl-green text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
+                    <span>${crop.name}:</span>
+                    <input type="number" id="edit-qty-${entry.date}-${idx}" value="${crop.qty.toFixed(1)}" step="0.1" min="0" 
+                      class="w-14 sfl-input text-xs font-mono font-bold rounded px-1 text-sfl-dirt">
+                  </span>
+                `;
+              } else {
+                return `
+                  <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-400 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
+                    <span>${crop.name}:</span>
+                    <span class="font-mono text-sfl-wood">${crop.qty.toFixed(1)}</span>
+                    <span class="text-sfl-green font-normal flex items-center gap-0.5">(${crop.flowers.toFixed(3)} ${FLOWER_ICON})</span>
+                    <span class="text-amber-700 font-normal flex items-center gap-0.5">(${crop.coins.toFixed(2)} ${COIN_ICON})</span>
+                  </span>
+                `;
+              }
+            })
             .join('');
         } else {
           cropBadges = Object.entries(entry.crops)
@@ -735,8 +832,18 @@
             .join('');
         }
 
+        let actionButtons = isEditing 
+          ? `
+            <button onclick="saveEditedSnapshot('${entry.date}')" class="bg-sfl-green text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-green-700 mr-1">💾 Save</button>
+            <button onclick="cancelEditSnapshot()" class="bg-sfl-wood text-amber-200 px-2 py-1 rounded text-[10px] font-bold hover:bg-sfl-woodLight">✕</button>
+          `
+          : `
+            <button onclick="editSnapshotRow('${entry.date}')" class="bg-amber-600 text-amber-100 px-2 py-1 rounded text-[10px] font-bold hover:bg-amber-700 mr-1">✏️ Edit</button>
+            <button onclick="deleteSnapshotRow('${entry.date}')" class="bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700">🗑️</button>
+          `;
+
         let tr = document.createElement('tr');
-        tr.className = "hover:bg-amber-50/50 transition";
+        tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
         tr.innerHTML = `
           <td class="px-3 py-2.5 font-bold">${entry.date}</td>
           <td class="px-3 py-2.5 font-bold text-sfl-wood">${entry.totalCount.toFixed(1)} Crops</td>
@@ -745,12 +852,13 @@
             <span class="inline-flex items-center gap-1 text-sfl-green">${entry.netFlowers} ${FLOWER_ICON}</span> | 
             <span class="inline-flex items-center gap-1 text-amber-600">${entry.ratioCoins} ${COIN_ICON}</span>
           </td>
+          <td class="px-2 py-2.5 text-center whitespace-nowrap">${actionButtons}</td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    // Export History to JSON File
+    // Export History
     document.getElementById('export-json-btn').addEventListener('click', () => {
       let history = localStorage.getItem('sfl_daily_snapshots') || '[]';
       let blob = new Blob([history], { type: 'application/json' });
@@ -783,19 +891,17 @@
 
           let currentHistory = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
 
-          // Merge imported entries into current history (avoiding duplicate dates)
           importedData.forEach(importedEntry => {
             if (importedEntry.date) {
               let existingIdx = currentHistory.findIndex(item => item.date === importedEntry.date);
               if (existingIdx >= 0) {
-                currentHistory[existingIdx] = importedEntry; // Update existing record
+                currentHistory[existingIdx] = importedEntry;
               } else {
-                currentHistory.push(importedEntry); // Add new record
+                currentHistory.push(importedEntry);
               }
             }
           });
 
-          // Sort entries newest date first
           currentHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
 
           localStorage.setItem('sfl_daily_snapshots', JSON.stringify(currentHistory));
@@ -809,7 +915,7 @@
       };
 
       reader.readAsText(file);
-      importFileInput.value = ''; // Reset file input
+      importFileInput.value = '';
     });
   </script>
 
