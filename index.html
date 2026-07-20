@@ -62,6 +62,7 @@
 
   <div class="w-full max-w-5xl sfl-panel rounded-2xl p-6 sm:p-8 relative">
     
+    <!-- Top Header Ribbon -->
     <div class="text-center mb-6">
       <div class="inline-block bg-sfl-wood text-amber-200 border-2 border-sfl-dirt px-6 py-1.5 rounded-full shadow-md">
         <h1 class="text-2xl sm:text-4xl font-pixel tracking-wider font-bold text-amber-300 flex items-center gap-2 justify-center">
@@ -114,7 +115,7 @@
 
         <div id="selected-item-badge" class="hidden bg-sfl-gold/20 border border-sfl-gold rounded-lg p-2 text-xs font-bold text-sfl-wood flex justify-between items-center">
           <span>Selected: <span id="selected-item-name" class="text-sfl-green font-extrabold">None</span></span>
-          <span id="selected-item-price" class="font-mono text-sfl-dirt">0 SFL</span>
+          <span id="selected-item-price" class="font-mono text-sfl-dirt">0 Flowers</span>
         </div>
 
         <div>
@@ -132,9 +133,25 @@
         </button>
       </div>
 
-      <!-- RIGHT SIDE: Basket Table & Tax Calculator -->
+      <!-- RIGHT SIDE: Tax, Basket Table & Currency Conversion -->
       <div class="flex flex-col h-full space-y-4">
         
+        <!-- Market Tax Selector ABOVE Basket -->
+        <div class="bg-sfl-card/90 p-3 rounded-xl border-2 border-sfl-cardBorder flex items-center justify-between gap-2 shadow-sm">
+          <label class="text-xs font-bold text-sfl-wood uppercase flex items-center gap-1">
+            <span>🏷️</span> Market Tax Rate:
+          </label>
+          <select id="tax-select" class="sfl-input rounded-lg px-3 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold cursor-pointer">
+            <option value="0">0% (No Tax)</option>
+            <option value="0.05">5% Tax</option>
+            <option value="0.075">7.5% Tax</option>
+            <option value="0.10" selected>10% Tax</option>
+            <option value="0.125">12.5% Tax</option>
+            <option value="0.15">15% Tax</option>
+          </select>
+        </div>
+
+        <!-- Basket Table Container -->
         <div class="bg-white/70 border-2 border-sfl-cardBorder rounded-xl overflow-hidden flex-grow shadow-sm">
           <div class="bg-sfl-wood text-amber-200 px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-sfl-dirt flex justify-between items-center">
             <span>🛒 Farm Basket</span>
@@ -144,7 +161,7 @@
             </div>
           </div>
 
-          <div class="max-h-[260px] overflow-y-auto">
+          <div class="max-h-[220px] overflow-y-auto">
             <table class="w-full text-left text-sm text-sfl-dirt">
               <thead class="text-xs uppercase bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood">
                 <tr>
@@ -165,30 +182,33 @@
           </div>
         </div>
 
-        <!-- Market Tax Dropdown Selection -->
+        <!-- Manual Coin Ratio Setting -->
         <div class="bg-sfl-card/90 p-3 rounded-xl border-2 border-sfl-cardBorder flex items-center justify-between gap-2">
           <label class="text-xs font-bold text-sfl-wood uppercase flex items-center gap-1">
-            <span>🏷️</span> Market Tax Rate:
+            <span>🪙</span> Coins per 1 Flower Ratio:
           </label>
-          <select id="tax-select" class="sfl-input rounded-lg px-3 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold cursor-pointer">
-            <option value="0">0% (No Tax)</option>
-            <option value="0.05">5% Tax</option>
-            <option value="0.075">7.5% Tax</option>
-            <option value="0.10" selected>10% Tax</option>
-            <option value="0.125">12.5% Tax</option>
-            <option value="0.15">15% Tax</option>
-          </select>
+          <input type="number" id="coin-ratio" value="1000" min="1" step="1" 
+            class="w-28 sfl-input text-right rounded-lg px-2 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
         </div>
 
-        <!-- Total Display Banner -->
-        <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 text-center shadow-inner space-y-1">
+        <!-- Total Display Banner (Flowers & Coins) -->
+        <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 text-center shadow-inner space-y-2">
           <div class="flex justify-between text-xs text-sfl-woodLight font-semibold px-2">
-            <span>Gross Total: <span id="gross-sfl" class="font-mono text-sfl-dirt">0.0000 SFL</span></span>
-            <span>Tax (-): <span id="tax-deduction" class="font-mono text-sfl-accent">0.0000 SFL</span></span>
+            <span>Gross: <span id="gross-flowers" class="font-mono text-sfl-dirt">0.0000 Flowers</span></span>
+            <span>Tax (-): <span id="tax-deduction" class="font-mono text-sfl-accent">0.0000 Flowers</span></span>
           </div>
-          <hr class="border-sfl-cardBorder/40 my-1">
-          <span class="text-xs font-bold uppercase tracking-widest text-sfl-wood">Net SFL Value</span>
-          <h2 id="total-sfl" class="text-3xl font-pixel font-bold text-sfl-green mt-0.5">0.0000 SFL</h2>
+          <hr class="border-sfl-cardBorder/40">
+          
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-widest text-sfl-wood block">Net Flowers</span>
+              <h2 id="total-flowers" class="text-2xl sm:text-3xl font-pixel font-bold text-sfl-green mt-0.5">0.0000 🌸</h2>
+            </div>
+            <div class="border-l-2 border-sfl-cardBorder/40 pl-2">
+              <span class="text-xs font-bold uppercase tracking-widest text-sfl-wood block">Total Coins</span>
+              <h2 id="total-coins" class="text-2xl sm:text-3xl font-pixel font-bold text-sfl-gold mt-0.5">0 🪙</h2>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -229,7 +249,7 @@
           if (typeof val === 'number') {
             pricesMap[category + key] = val;
           } else if (val && typeof val === 'object') {
-            let p = val.price || val.sfl || val.sflPrice;
+            let p = val.price || val.sfl || val.sflPrice || val.flowerPrice;
             if (p !== undefined) pricesMap[category + key] = parseFloat(p);
             else searchObj(val, key.length <= 4 ? `[${key.toUpperCase()}] ` : '');
           }
@@ -295,7 +315,7 @@
         matches.forEach(item => {
           const li = document.createElement('li');
           li.className = 'p-2.5 hover:bg-amber-100 cursor-pointer transition flex justify-between items-center';
-          li.innerHTML = `<span class="font-bold text-sfl-dirt">${item}</span><span class="text-sfl-green font-mono text-xs">${allPrices[item]} SFL</span>`;
+          li.innerHTML = `<span class="font-bold text-sfl-dirt">${item}</span><span class="text-sfl-green font-mono text-xs">${allPrices[item]} Flowers</span>`;
           li.addEventListener('click', () => selectItem(item));
           menu.appendChild(li);
         });
@@ -319,7 +339,7 @@
 
       document.getElementById('selected-item-badge').classList.remove('hidden');
       document.getElementById('selected-item-name').textContent = itemKey;
-      document.getElementById('selected-item-price').textContent = `${allPrices[itemKey]} SFL`;
+      document.getElementById('selected-item-price').textContent = `${allPrices[itemKey]} Flowers`;
 
       let cleanSelected = itemKey.replace(/^\[.*?\]\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
       let foundStock = 0;
@@ -356,7 +376,7 @@
       basket.push({ item: selectedItemKey, qty, unitPrice, subtotal });
       updateBasketTable();
 
-      // Reset input fields
+      // Clear search inputs
       input.value = '';
       selectedItemKey = null;
       document.getElementById('quantity').value = 1;
@@ -370,6 +390,7 @@
     });
 
     document.getElementById('tax-select').addEventListener('change', updateBasketTable);
+    document.getElementById('coin-ratio').addEventListener('input', updateBasketTable);
 
     function updateBasketTable() {
       const tbody = document.getElementById('basket-body');
@@ -386,7 +407,7 @@
           tr.className = "hover:bg-amber-50/50 transition";
           
           let subtotalDisplay = entry.unitPrice > 0 
-            ? `${entry.subtotal.toFixed(4)} SFL` 
+            ? `${entry.subtotal.toFixed(4)} Flowers` 
             : `<span class="text-sfl-woodLight font-normal">Untradeable</span>`;
 
           tr.innerHTML = `
@@ -401,14 +422,18 @@
         });
       }
 
-      // Calculate tax and net value
+      // Calculate tax and net values in Flowers & Coins
       const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
-      const taxAmount = grandGrossTotal * taxRate;
-      const netTotal = grandGrossTotal - taxAmount;
+      const coinMultiplier = parseFloat(document.getElementById('coin-ratio').value) || 1000;
 
-      document.getElementById('gross-sfl').textContent = `${grandGrossTotal.toFixed(4)} SFL`;
-      document.getElementById('tax-deduction').textContent = `${taxAmount.toFixed(4)} SFL`;
-      document.getElementById('total-sfl').textContent = `${netTotal.toFixed(4)} SFL`;
+      const taxAmount = grandGrossTotal * taxRate;
+      const netFlowers = grandGrossTotal - taxAmount;
+      const totalCoins = Math.round(netFlowers * coinMultiplier);
+
+      document.getElementById('gross-flowers').textContent = `${grandGrossTotal.toFixed(4)} Flowers`;
+      document.getElementById('tax-deduction').textContent = `${taxAmount.toFixed(4)} Flowers`;
+      document.getElementById('total-flowers').textContent = `${netFlowers.toFixed(4)} 🌸`;
+      document.getElementById('total-coins').textContent = `${totalCoins.toLocaleString()} 🪙`;
       document.getElementById('item-count').textContent = `${basket.length} Item${basket.length === 1 ? '' : 's'}`;
     }
 
