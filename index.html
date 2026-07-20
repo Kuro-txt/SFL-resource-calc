@@ -223,7 +223,7 @@
               <h2 id="total-betty-coins" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-gold mt-0.5">0.00 🪙</h2>
             </div>
             <div class="border-l border-sfl-cardBorder/40 pl-1">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Ratio Coins</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Ratio Coins (Net)</span>
               <h2 id="total-ratio-coins" class="text-xl sm:text-2xl font-pixel font-bold text-amber-600 mt-0.5">0.00 🪙</h2>
             </div>
           </div>
@@ -489,8 +489,9 @@
 
       let grandGrossTotal = 0;
       let totalBettyCoins = 0;
-      let totalRatioCoins = 0;
+      let totalGrossRatioCoins = 0;
 
+      const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
       const coinMultiplier = parseFloat(document.getElementById('coin-ratio').value) || 1000;
 
       if (basket.length === 0) {
@@ -502,7 +503,7 @@
           let cleanName = entry.item.replace(/^\[.*?\]\s*/, '');
           let bettyUnitPrice = getBettyUnitPrice(cleanName);
 
-          // 1. Betty Shop Coins Calculation
+          // 1. Betty Shop Coins Calculation (No Tax)
           let bettyCoinsDisplay = `<span class="text-sfl-woodLight/70 font-normal italic text-[10px]">Unavailable</span>`;
           if (bettyUnitPrice !== null) {
             let itemBettyCoins = entry.qty * bettyUnitPrice;
@@ -510,11 +511,14 @@
             bettyCoinsDisplay = `${roundUpToTwoDecimals(itemBettyCoins).toFixed(2)} 🪙`;
           }
 
-          // 2. Ratio Coins Calculation (Flower Subtotal * Coin Ratio)
-          let itemRatioCoins = entry.subtotal * coinMultiplier;
-          totalRatioCoins += itemRatioCoins;
+          // 2. Ratio Coins Calculation (After Tax Subtotal * Coin Ratio)
+          let itemNetFlowers = entry.subtotal * (1 - taxRate);
+          let itemNetRatioCoins = itemNetFlowers * coinMultiplier;
+          
+          totalGrossRatioCoins += (entry.subtotal * coinMultiplier);
+
           let ratioCoinsDisplay = entry.unitPrice > 0 
-            ? `${roundUpToTwoDecimals(itemRatioCoins).toFixed(2)} 🪙` 
+            ? `${roundUpToTwoDecimals(itemNetRatioCoins).toFixed(2)} 🪙` 
             : `<span class="text-sfl-woodLight/70 font-normal italic text-[10px]">-</span>`;
 
           let tr = document.createElement('tr');
@@ -539,16 +543,15 @@
       }
 
       // Tax & Net Totals
-      const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
-
       const taxAmount = grandGrossTotal * taxRate;
       const netFlowers = grandGrossTotal - taxAmount;
+      const totalNetRatioCoins = totalGrossRatioCoins * (1 - taxRate);
 
       document.getElementById('gross-flowers').textContent = `${roundUpToThreeDecimals(grandGrossTotal).toFixed(3)} Flowers`;
       document.getElementById('tax-deduction').textContent = `${roundUpToThreeDecimals(taxAmount).toFixed(3)} Flowers`;
       document.getElementById('total-flowers').textContent = `${roundUpToThreeDecimals(netFlowers).toFixed(3)} 🌸`;
       document.getElementById('total-betty-coins').textContent = `${roundUpToTwoDecimals(totalBettyCoins).toFixed(2)} 🪙`;
-      document.getElementById('total-ratio-coins').textContent = `${roundUpToTwoDecimals(totalRatioCoins).toFixed(2)} 🪙`;
+      document.getElementById('total-ratio-coins').textContent = `${roundUpToTwoDecimals(totalNetRatioCoins).toFixed(2)} 🪙`;
       document.getElementById('item-count').textContent = `${basket.length} Item${basket.length === 1 ? '' : 's'}`;
     }
 
