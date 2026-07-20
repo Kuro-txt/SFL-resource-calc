@@ -240,7 +240,7 @@
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
             <span>📸</span> Daily Crop Snapshot
           </h3>
-          <p class="text-[11px] text-sfl-woodLight font-semibold">Stores crops & fruit counts locally. Auto-clears entries older than 30 days.</p>
+          <p class="text-[11px] text-sfl-woodLight font-semibold">Stores individual crop values & counts locally. Auto-clears entries older than 30 days.</p>
         </div>
         <div class="flex gap-2">
           <button id="save-snapshot-btn" class="bg-sfl-green text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-green-700 transition">
@@ -258,8 +258,8 @@
             <tr>
               <th class="px-3 py-2">Date</th>
               <th class="px-3 py-2">Total Items</th>
-              <th class="px-3 py-2">Crops & Fruits Logged</th>
-              <th class="px-3 py-2">Net Value</th>
+              <th class="px-3 py-2">Individual Crop Values</th>
+              <th class="px-3 py-2">Grand Net Value</th>
             </tr>
           </thead>
           <tbody id="snapshot-history-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
@@ -321,7 +321,6 @@
       if (localStorage.getItem('sfl_api_key')) {
         document.getElementById('api-key').value = localStorage.getItem('sfl_api_key');
       }
-      // Auto-prune history on load
       pruneOldSnapshots();
       renderSnapshotHistory();
     });
@@ -502,7 +501,6 @@
       basket.push({ item: selectedItemKey, qty, unitPrice, subtotal });
       updateBasketTable();
 
-      // Reset search bar and inputs
       input.value = '';
       selectedItemKey = null;
       document.getElementById('quantity').value = 1;
@@ -595,7 +593,6 @@
 
     // --- DAILY CROP SNAPSHOT & AUTO-PRUNE LOGIC ---
 
-    // Automatically remove logs older than 30 days (1 month)
     function pruneOldSnapshots() {
       let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
       const now = new Date();
@@ -610,7 +607,6 @@
     }
 
     document.getElementById('save-snapshot-btn').addEventListener('click', () => {
-      // Filter basket items to only include Crops & Fruits
       let cropEntries = basket.filter(entry => isCropOrFruit(entry.item));
 
       if (cropEntries.length === 0) {
@@ -619,16 +615,28 @@
       }
 
       const today = new Date().toISOString().split('T')[0];
-      let cropsData = {};
+      const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
+      const coinMultiplier = parseFloat(document.getElementById('coin-ratio').value) || 1000;
+
+      let cropsData = [];
       let totalCropCount = 0;
 
       cropEntries.forEach(entry => {
         let cleanName = entry.item.replace(/^\[.*?\]\s*/, '');
-        cropsData[cleanName] = entry.qty;
+        let itemNetFlowers = roundUpToThreeDecimals(entry.subtotal * (1 - taxRate));
+        let itemRatioCoins = roundUpToTwoDecimals(itemNetFlowers * coinMultiplier);
+
+        cropsData.push({
+          name: cleanName,
+          qty: entry.qty,
+          flowers: itemNetFlowers,
+          coins: itemRatioCoins
+        });
+
         totalCropCount += entry.qty;
       });
 
-      pruneOldSnapshots(); // Clean up before adding new
+      pruneOldSnapshots();
       let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
       let existingIndex = history.findIndex(item => item.date === today);
 
@@ -648,7 +656,7 @@
 
       localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
       renderSnapshotHistory();
-      alert(`✅ Crop snapshot saved for ${today}!`);
+      alert(`✅ Crop snapshot with individual values saved for ${today}!`);
     });
 
     function renderSnapshotHistory() {
@@ -662,9 +670,26 @@
 
       tbody.innerHTML = '';
       history.forEach(entry => {
-        let cropBadges = Object.entries(entry.crops)
-          .map(([name, qty]) => `<span class="inline-block bg-amber-100 text-amber-900 border border-amber-400 text-[10px] font-bold px-1.5 py-0.5 rounded mr-1 mb-1">${name}: ${qty.toFixed(1)}</span>`)
-          .join('');
+        let cropBadges = '';
+
+        if (Array.isArray(entry.crops)) {
+          // Render detailed crop badges with individual values
+          cropBadges = entry.crops
+            .map(crop => `
+              <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-400 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
+                <span>${crop.name}:</span>
+                <span class="font-mono text-sfl-wood">${crop.qty.toFixed(1)}</span>
+                <span class="text-sfl-green font-normal">(${crop.flowers.toFixed(3)}🌸)</span>
+                <span class="text-amber-700 font-normal">(${crop.coins.toFixed(2)}🪙)</span>
+              </span>
+            `)
+            .join('');
+        } else {
+          // Fallback compatibility for old simple key-value format
+          cropBadges = Object.entries(entry.crops)
+            .map(([name, qty]) => `<span class="inline-block bg-amber-100 text-amber-900 border border-amber-400 text-[11px] font-bold px-1.5 py-0.5 rounded mr-1 mb-1">${name}: ${qty.toFixed(1)}</span>`)
+            .join('');
+        }
 
         let tr = document.createElement('tr');
         tr.className = "hover:bg-amber-50/50 transition";
