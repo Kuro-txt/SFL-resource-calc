@@ -1,20 +1,20 @@
 export default async function handler(req, res) {
-  const { farmId, apiKey } = req.query; // Accept optional key from frontend query
+  const { farmId, apiKey } = req.query;
 
   if (!farmId) {
     return res.status(400).json({ error: 'Farm ID is required' });
   }
 
-  // Construct request headers dynamically
+  // Build request headers with key support
   const headers = {
     'Accept': 'application/json',
     'User-Agent': 'Mozilla/5.0'
   };
 
-  // If the user provided a key, pass it along in the headers
   if (apiKey) {
+    // Send key as x-api-key or Bearer token depending on key type
+    headers['x-api-key'] = apiKey;
     headers['Authorization'] = `Bearer ${apiKey}`;
-    // OR: headers['x-api-key'] = apiKey;
   }
 
   try {
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       return res.status(response.status).json({ 
-        error: `Sunflower Land API returned status ${response.status}. Double check your Farm ID.` 
+        error: `API returned status ${response.status}. Please check your Farm ID or API Key.` 
       });
     }
 
