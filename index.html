@@ -128,7 +128,7 @@
             <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood">🔢 Quantity</label>
             <span id="inventory-hint" class="text-[11px] font-bold text-sfl-green hidden">Farm Stock: <span id="stock-count">0</span></span>
           </div>
-          <input type="number" id="quantity" value="1" min="1" step="0.01" 
+          <input type="number" id="quantity" value="1" min="1" step="0.001" 
             class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
         </div>
 
@@ -141,19 +141,35 @@
       <!-- RIGHT SIDE: Settings, Basket Table & Currency Conversion -->
       <div class="flex flex-col h-full space-y-4">
         
-        <!-- Settings Panel (Tax Selector) ABOVE Basket -->
-        <div class="bg-sfl-card/90 p-3 rounded-xl border-2 border-sfl-cardBorder flex items-center justify-between gap-2 shadow-sm">
-          <label class="text-xs font-bold text-sfl-wood uppercase flex items-center gap-1">
-            <span>🏷️</span> Market Tax Rate:
-          </label>
-          <select id="tax-select" class="sfl-input rounded-lg px-3 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold cursor-pointer">
-            <option value="0">0% (No Tax)</option>
-            <option value="0.05">5% Tax</option>
-            <option value="0.075">7.5% Tax</option>
-            <option value="0.10" selected>10% Tax</option>
-            <option value="0.125">12.5% Tax</option>
-            <option value="0.15">15% Tax</option>
-          </select>
+        <!-- Combined Settings Panel (Tax + Coin Ratio) ABOVE Basket -->
+        <div class="bg-sfl-card/90 p-3.5 rounded-xl border-2 border-sfl-cardBorder shadow-sm">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            
+            <!-- Market Tax Option -->
+            <div class="flex flex-col">
+              <label class="text-xs font-bold text-sfl-wood uppercase mb-1 flex items-center gap-1">
+                <span>🏷️</span> Market Tax Rate
+              </label>
+              <select id="tax-select" class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold cursor-pointer">
+                <option value="0">0% (No Tax)</option>
+                <option value="0.05">5% Tax</option>
+                <option value="0.075">7.5% Tax</option>
+                <option value="0.10" selected>10% Tax</option>
+                <option value="0.125">12.5% Tax</option>
+                <option value="0.15">15% Tax</option>
+              </select>
+            </div>
+
+            <!-- Coin Ratio Option -->
+            <div class="flex flex-col">
+              <label class="text-xs font-bold text-sfl-wood uppercase mb-1 flex items-center gap-1">
+                <span>🪙</span> Coins per 1 Flower
+              </label>
+              <input type="number" id="coin-ratio" value="1000" min="1" step="1" 
+                class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
+            </div>
+
+          </div>
         </div>
 
         <!-- Basket Table Container -->
@@ -167,19 +183,20 @@
           </div>
 
           <div class="max-h-[220px] overflow-y-auto">
-            <table class="w-full text-left text-sm text-sfl-dirt">
-              <thead class="text-xs uppercase bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood">
+            <table class="w-full text-left text-xs text-sfl-dirt">
+              <thead class="text-[11px] uppercase bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood">
                 <tr>
-                  <th class="px-3 py-2">Item</th>
-                  <th class="px-2 py-2">Qty</th>
-                  <th class="px-3 py-2">Flowers</th>
-                  <th class="px-3 py-2">Betty Coins</th>
-                  <th class="px-2 py-2 text-right">✕</th>
+                  <th class="px-2 py-2">Item</th>
+                  <th class="px-1 py-2">Qty</th>
+                  <th class="px-2 py-2">Flowers</th>
+                  <th class="px-2 py-2">Betty Coins</th>
+                  <th class="px-2 py-2">Ratio Coins</th>
+                  <th class="px-1 py-2 text-right">✕</th>
                 </tr>
               </thead>
               <tbody id="basket-body" class="divide-y divide-sfl-cardBorder/50 font-medium">
                 <tr>
-                  <td colspan="5" class="px-4 py-8 text-center text-sfl-woodLight italic">
+                  <td colspan="6" class="px-4 py-8 text-center text-sfl-woodLight italic">
                     Your farm basket is empty!
                   </td>
                 </tr>
@@ -191,19 +208,23 @@
         <!-- Total Display Banner -->
         <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 text-center shadow-inner space-y-2">
           <div class="flex justify-between text-xs text-sfl-woodLight font-semibold px-2">
-            <span>Gross: <span id="gross-flowers" class="font-mono text-sfl-dirt">0.00 Flowers</span></span>
-            <span>Tax (-): <span id="tax-deduction" class="font-mono text-sfl-accent">0.00 Flowers</span></span>
+            <span>Gross: <span id="gross-flowers" class="font-mono text-sfl-dirt">0.000 Flowers</span></span>
+            <span>Tax (-): <span id="tax-deduction" class="font-mono text-sfl-accent">0.000 Flowers</span></span>
           </div>
           <hr class="border-sfl-cardBorder/40">
           
-          <div class="grid grid-cols-2 gap-2 pt-1">
+          <div class="grid grid-cols-3 gap-1 pt-1 text-center">
             <div>
-              <span class="text-xs font-bold uppercase tracking-widest text-sfl-wood block">Net Flowers</span>
-              <h2 id="total-flowers" class="text-2xl sm:text-3xl font-pixel font-bold text-sfl-green mt-0.5">0.00 🌸</h2>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Net Flowers</span>
+              <h2 id="total-flowers" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green mt-0.5">0.000 🌸</h2>
             </div>
-            <div class="border-l-2 border-sfl-cardBorder/40 pl-2">
-              <span class="text-xs font-bold uppercase tracking-widest text-sfl-wood block">Betty Shop Coins</span>
-              <h2 id="total-coins" class="text-2xl sm:text-3xl font-pixel font-bold text-sfl-gold mt-0.5">0.00 🪙</h2>
+            <div class="border-l border-sfl-cardBorder/40 px-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Betty Coins</span>
+              <h2 id="total-betty-coins" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-gold mt-0.5">0.00 🪙</h2>
+            </div>
+            <div class="border-l border-sfl-cardBorder/40 pl-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Ratio Coins</span>
+              <h2 id="total-ratio-coins" class="text-xl sm:text-2xl font-pixel font-bold text-amber-600 mt-0.5">0.00 🪙</h2>
             </div>
           </div>
         </div>
@@ -222,14 +243,12 @@
 
     // Exact Betty Shop coin prices per item from in-game guides:
     const BETTY_SHOP_PRICES = {
-      // Basic Crops
       "sunflower": 0.02,
       "potato": 0.14,
       "rhubarb": 0.24,
       "pumpkin": 0.4,
       "zucchini": 0.4,
       "carrot": 0.8,
-      // Medium & Advanced Crops
       "yam": 0.8,
       "cabbage": 1.5,
       "broccoli": 1.5,
@@ -248,7 +267,6 @@
       "artichoke": 12,
       "barley": 12,
       "saltwort": 50,
-      // Fruits
       "tomato": 2,
       "lemon": 6,
       "blueberry": 12,
@@ -258,7 +276,6 @@
       "celestine": 200,
       "lunara": 500,
       "duskberry": 1000,
-      // Greenhouse Crops
       "grape": 240,
       "rice": 320,
       "olive": 400
@@ -305,9 +322,17 @@
       return pricesMap;
     }
 
-    function roundUpToTwoDecimals(val) {
+    // Rounding Flowers to 3 Decimal Places
+    function roundUpToThreeDecimals(val) {
       let num = typeof val === 'number' ? val : parseFloat(val);
       if (isNaN(num) || num < 0.0001) return 0;
+      return Math.ceil(num * 1000) / 1000;
+    }
+
+    // Rounding Coins to 2 Decimal Places
+    function roundUpToTwoDecimals(val) {
+      let num = typeof val === 'number' ? val : parseFloat(val);
+      if (isNaN(num) || num < 0.01) return 0;
       return Math.ceil(num * 100) / 100;
     }
 
@@ -318,7 +343,7 @@
         if (cleanInvKey === cleanSelected) {
           let val = farmInventoryData[invKey];
           let rawVal = typeof val === 'number' ? val : parseFloat(val.amount || val || 0);
-          return roundUpToTwoDecimals(rawVal);
+          return roundUpToThreeDecimals(rawVal);
         }
       }
       return 0;
@@ -432,7 +457,7 @@
 
     document.getElementById('add-btn').addEventListener('click', () => {
       const rawQty = parseFloat(document.getElementById('quantity').value) || 0;
-      const qty = roundUpToTwoDecimals(rawQty);
+      const qty = roundUpToThreeDecimals(rawQty);
 
       if (!selectedItemKey || qty <= 0) return;
 
@@ -456,6 +481,7 @@
     });
 
     document.getElementById('tax-select').addEventListener('change', updateBasketTable);
+    document.getElementById('coin-ratio').addEventListener('input', updateBasketTable);
 
     function updateBasketTable() {
       const tbody = document.getElementById('basket-body');
@@ -463,9 +489,12 @@
 
       let grandGrossTotal = 0;
       let totalBettyCoins = 0;
+      let totalRatioCoins = 0;
+
+      const coinMultiplier = parseFloat(document.getElementById('coin-ratio').value) || 1000;
 
       if (basket.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-sfl-woodLight italic">Your farm basket is empty!</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-sfl-woodLight italic">Your farm basket is empty!</td></tr>';
       } else {
         basket.forEach((entry, index) => {
           grandGrossTotal += entry.subtotal;
@@ -473,27 +502,35 @@
           let cleanName = entry.item.replace(/^\[.*?\]\s*/, '');
           let bettyUnitPrice = getBettyUnitPrice(cleanName);
 
-          let coinsDisplay = `<span class="text-sfl-woodLight/70 font-normal italic text-xs">Unavailable</span>`;
-
+          // 1. Betty Shop Coins Calculation
+          let bettyCoinsDisplay = `<span class="text-sfl-woodLight/70 font-normal italic text-[10px]">Unavailable</span>`;
           if (bettyUnitPrice !== null) {
-            let itemCoins = entry.qty * bettyUnitPrice;
-            totalBettyCoins += itemCoins;
-            coinsDisplay = `${roundUpToTwoDecimals(itemCoins).toFixed(2)} 🪙`;
+            let itemBettyCoins = entry.qty * bettyUnitPrice;
+            totalBettyCoins += itemBettyCoins;
+            bettyCoinsDisplay = `${roundUpToTwoDecimals(itemBettyCoins).toFixed(2)} 🪙`;
           }
+
+          // 2. Ratio Coins Calculation (Flower Subtotal * Coin Ratio)
+          let itemRatioCoins = entry.subtotal * coinMultiplier;
+          totalRatioCoins += itemRatioCoins;
+          let ratioCoinsDisplay = entry.unitPrice > 0 
+            ? `${roundUpToTwoDecimals(itemRatioCoins).toFixed(2)} 🪙` 
+            : `<span class="text-sfl-woodLight/70 font-normal italic text-[10px]">-</span>`;
 
           let tr = document.createElement('tr');
           tr.className = "hover:bg-amber-50/50 transition";
           
           let subtotalDisplay = entry.unitPrice > 0 
-            ? `${roundUpToTwoDecimals(entry.subtotal).toFixed(2)} 🌸` 
+            ? `${roundUpToThreeDecimals(entry.subtotal).toFixed(3)} 🌸` 
             : `<span class="text-sfl-woodLight font-normal">Untradeable</span>`;
 
           tr.innerHTML = `
-            <td class="px-3 py-2.5 font-bold text-sfl-dirt">${cleanName}</td>
-            <td class="px-2 py-2.5 font-mono">${entry.qty}</td>
-            <td class="px-3 py-2.5 text-sfl-green font-bold">${subtotalDisplay}</td>
-            <td class="px-3 py-2.5 text-sfl-gold font-bold">${coinsDisplay}</td>
-            <td class="px-2 py-2.5 text-right">
+            <td class="px-2 py-2.5 font-bold text-sfl-dirt">${cleanName}</td>
+            <td class="px-1 py-2.5 font-mono">${entry.qty}</td>
+            <td class="px-2 py-2.5 text-sfl-green font-bold">${subtotalDisplay}</td>
+            <td class="px-2 py-2.5 text-sfl-gold font-bold">${bettyCoinsDisplay}</td>
+            <td class="px-2 py-2.5 text-amber-600 font-bold">${ratioCoinsDisplay}</td>
+            <td class="px-1 py-2.5 text-right">
               <button onclick="removeItem(${index})" class="text-sfl-accent hover:text-red-700 font-bold px-1">✕</button>
             </td>
           `;
@@ -507,10 +544,11 @@
       const taxAmount = grandGrossTotal * taxRate;
       const netFlowers = grandGrossTotal - taxAmount;
 
-      document.getElementById('gross-flowers').textContent = `${roundUpToTwoDecimals(grandGrossTotal).toFixed(2)} Flowers`;
-      document.getElementById('tax-deduction').textContent = `${roundUpToTwoDecimals(taxAmount).toFixed(2)} Flowers`;
-      document.getElementById('total-flowers').textContent = `${roundUpToTwoDecimals(netFlowers).toFixed(2)} 🌸`;
-      document.getElementById('total-coins').textContent = `${roundUpToTwoDecimals(totalBettyCoins).toFixed(2)} 🪙`;
+      document.getElementById('gross-flowers').textContent = `${roundUpToThreeDecimals(grandGrossTotal).toFixed(3)} Flowers`;
+      document.getElementById('tax-deduction').textContent = `${roundUpToThreeDecimals(taxAmount).toFixed(3)} Flowers`;
+      document.getElementById('total-flowers').textContent = `${roundUpToThreeDecimals(netFlowers).toFixed(3)} 🌸`;
+      document.getElementById('total-betty-coins').textContent = `${roundUpToTwoDecimals(totalBettyCoins).toFixed(2)} 🪙`;
+      document.getElementById('total-ratio-coins').textContent = `${roundUpToTwoDecimals(totalRatioCoins).toFixed(2)} 🪙`;
       document.getElementById('item-count').textContent = `${basket.length} Item${basket.length === 1 ? '' : 's'}`;
     }
 
