@@ -224,16 +224,14 @@
     let selectedItemKey = null;
     let farmInventoryData = {};
 
-    // Strictly approved Crops and Fruits list based on your data:
+    // Approved Crops and Fruits list:
     const APPROVED_CROPS_AND_FRUITS = [
-      // Crops
       "sunflower", "potato", "pumpkin", "carrot", "cabbage", "beetroot", 
       "cauliflower", "parsnip", "radish", "wheat", "kale", "eggplant", 
       "corn", "soybean", "barley", "rhubarb", "zucchini", "yam", "broccoli", 
-      "pepper", "onion", "turnip", "artichoke",
-      // Fruits & Exotics
-      "apple", "blueberry", "orange", "banana", "grape", "rice", 
-      "olive", "tomato", "lemon", "duskberry", "lunara", "celestine"
+      "pepper", "onion", "turnip", "artichoke", "apple", "blueberry", "orange", 
+      "banana", "grape", "rice", "olive", "tomato", "lemon", "duskberry", 
+      "lunara", "celestine"
     ];
 
     function isCropOrFruit(itemName) {
@@ -320,21 +318,26 @@
     const menu = document.getElementById('combobox-menu');
 
     input.addEventListener('input', () => {
-      const query = input.value.toLowerCase();
+      const query = input.value.toLowerCase().trim();
       menu.innerHTML = '';
 
       const matches = Object.keys(allPrices)
-        .filter(key => key.toLowerCase().includes(query))
-        .sort();
+        .filter(key => {
+          let cleanKey = key.replace(/^\[.*?\]\s*/, '');
+          return cleanKey.toLowerCase().includes(query) || key.toLowerCase().includes(query);
+        })
+        .sort((a, b) => a.replace(/^\[.*?\]\s*/, '').localeCompare(b.replace(/^\[.*?\]\s*/, '')));
 
       if (matches.length === 0) {
         menu.innerHTML = '<li class="p-2 text-sfl-woodLight italic">No items found</li>';
       } else {
         matches.forEach(item => {
+          let displayName = item.replace(/^\[.*?\]\s*/, '');
+
           const li = document.createElement('li');
           li.className = 'p-2.5 hover:bg-amber-100 cursor-pointer transition flex justify-between items-center';
-          li.innerHTML = `<span class="font-bold text-sfl-dirt">${item}</span><span class="text-sfl-green font-mono text-xs">${allPrices[item]} Flowers</span>`;
-          li.addEventListener('click', () => selectItem(item));
+          li.innerHTML = `<span class="font-bold text-sfl-dirt">${displayName}</span><span class="text-sfl-green font-mono text-xs">${allPrices[item]} Flowers</span>`;
+          li.addEventListener('click', () => selectItem(item, displayName));
           menu.appendChild(li);
         });
       }
@@ -350,16 +353,18 @@
       }
     });
 
-    function selectItem(itemKey) {
+    function selectItem(itemKey, displayName) {
       selectedItemKey = itemKey;
-      input.value = itemKey;
+      let cleanName = displayName || itemKey.replace(/^\[.*?\]\s*/, '');
+
+      input.value = cleanName;
       menu.classList.add('hidden');
 
       document.getElementById('selected-item-badge').classList.remove('hidden');
-      document.getElementById('selected-item-name').textContent = itemKey;
+      document.getElementById('selected-item-name').textContent = cleanName;
       document.getElementById('selected-item-price').textContent = `${allPrices[itemKey]} Flowers`;
 
-      let cleanSelected = itemKey.replace(/^\[.*?\]\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      let cleanSelected = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
       let foundStock = 0;
 
       for (let invKey in farmInventoryData) {
@@ -424,7 +429,6 @@
         basket.forEach((entry, index) => {
           grandGrossTotal += entry.subtotal;
 
-          // Only calculate coins if the item is in the approved crops/fruits list
           const validForCoins = isCropOrFruit(entry.item) && entry.unitPrice > 0;
           let itemCoins = 0;
 
@@ -433,6 +437,7 @@
             totalCropFruitCoins += itemCoins;
           }
 
+          let cleanName = entry.item.replace(/^\[.*?\]\s*/, '');
           let tr = document.createElement('tr');
           tr.className = "hover:bg-amber-50/50 transition";
           
@@ -445,7 +450,7 @@
             : `<span class="text-sfl-woodLight font-normal text-xs">-</span>`;
 
           tr.innerHTML = `
-            <td class="px-3 py-2.5 font-bold text-sfl-dirt">${entry.item}</td>
+            <td class="px-3 py-2.5 font-bold text-sfl-dirt">${cleanName}</td>
             <td class="px-2 py-2.5 font-mono">${entry.qty}</td>
             <td class="px-3 py-2.5 text-sfl-green font-bold">${subtotalDisplay}</td>
             <td class="px-3 py-2.5 text-sfl-gold font-bold">${coinsDisplay}</td>
@@ -457,7 +462,7 @@
         });
       }
 
-      // Calculate tax and totals
+      // Tax & Net Totals
       const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
 
       const taxAmount = grandGrossTotal * taxRate;
