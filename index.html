@@ -76,25 +76,28 @@
     <!-- Two Column Grid Layout -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
       
-      <!-- LEFT SIDE: Item Selection & Inputs -->
+      <!-- LEFT SIDE: Merged Searchable Item Selector -->
       <div class="bg-sfl-card/80 p-5 rounded-xl border-2 border-sfl-cardBorder space-y-4">
         <h2 class="text-lg font-bold text-sfl-wood border-b-2 border-sfl-cardBorder pb-2 flex items-center gap-2">
           <span>📦</span> Select & Add Items
         </h2>
 
-        <!-- Search Input -->
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood mb-1">🔍 Search Items</label>
-          <input type="text" id="search" placeholder="Type to filter (e.g., Gold, Sunflower)..." 
+        <!-- Merged Search & Dropdown Combobox -->
+        <div class="relative">
+          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood mb-1">🔍 Search & Select Item</label>
+          <input type="text" id="combobox-input" placeholder="Type to search (e.g. Gold, Sunflower)..." autocomplete="off"
             class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
+          
+          <!-- Dropdown items menu -->
+          <ul id="combobox-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border-2 border-sfl-woodLight rounded-lg shadow-xl z-20 divide-y divide-sfl-cardBorder/30 text-sm">
+            <li class="p-2 text-sfl-woodLight italic">Loading items...</li>
+          </ul>
         </div>
 
-        <!-- Item Select Dropdown -->
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood mb-1">Choice Item</label>
-          <select id="item-select" class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
-            <option>Loading live prices...</option>
-          </select>
+        <!-- Selected Item Indicator -->
+        <div id="selected-item-badge" class="hidden bg-sfl-gold/20 border border-sfl-gold rounded-lg p-2 text-xs font-bold text-sfl-wood flex justify-between items-center">
+          <span>Selected: <span id="selected-item-name" class="text-sfl-green font-extrabold">None</span></span>
+          <span id="selected-item-price" class="font-mono text-sfl-dirt">0 SFL</span>
         </div>
 
         <!-- Quantity Input -->
@@ -157,12 +160,12 @@
   <script>
     let allPrices = {};
     let basket = [];
+    let selectedItemKey = null;
 
     fetch('/api/get-data')
       .then(res => res.json())
       .then(rawData => {
         allPrices = extractPrices(rawData);
-        renderDropdown();
       });
 
     function extractPrices(data) {
@@ -183,38 +186,64 @@
       return pricesMap;
     }
 
-    function renderDropdown() {
-      const select = document.getElementById('item-select');
-      const searchTerm = document.getElementById('search').value.toLowerCase();
-      select.innerHTML = '';
+    const input = document.getElementById('combobox-input');
+    const menu = document.getElementById('combobox-menu');
 
-      const filteredKeys = Object.keys(allPrices)
-        .filter(key => key.toLowerCase().includes(searchTerm))
+    // Show menu and filter items on typing
+    input.addEventListener('input', () => {
+      const query = input.value.toLowerCase();
+      menu.innerHTML = '';
+
+      const matches = Object.keys(allPrices)
+        .filter(key => key.toLowerCase().includes(query))
         .sort();
 
-      if (filteredKeys.length === 0) {
-        select.innerHTML = '<option>No matching items</option>';
-        return;
+      if (matches.length === 0) {
+        menu.innerHTML = '<li class="p-2 text-sfl-woodLight italic">No items found</li>';
+      } else {
+        matches.forEach(item => {
+          const li = document.createElement('li');
+          li.className = 'p-2.5 hover:bg-amber-100 cursor-pointer transition flex justify-between items-center';
+          li.innerHTML = `<span class="font-bold text-sfl-dirt">${item}</span><span class="text-sfl-green font-mono text-xs">${allPrices[item]} SFL</span>`;
+          li.addEventListener('click', () => selectItem(item));
+          menu.appendChild(li);
+        });
       }
 
-      filteredKeys.forEach(item => {
-        let opt = document.createElement('option');
-        opt.value = item;
-        opt.textContent = `${item} — (${allPrices[item]} SFL)`;
-        select.appendChild(opt);
-      });
+      menu.classList.remove('hidden');
+    });
+
+    input.addEventListener('focus', () => {
+      input.dispatchEvent(new Event('input'));
+    });
+
+    // Close dropdown menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!input.contains(e.target) && !menu.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    function selectItem(itemKey) {
+      selectedItemKey = itemKey;
+      input.value = itemKey;
+      menu.classList.add('hidden');
+
+      // Update badge
+      document.getElementById('selected-item-badge').classList.remove('hidden');
+      document.getElementById('selected-item-name').textContent = itemKey;
+      document.getElementById('selected-item-price').textContent = `${allPrices[itemKey]} SFL`;
     }
 
     document.getElementById('add-btn').addEventListener('click', () => {
-      const item = document.getElementById('item-select').value;
       const qty = parseFloat(document.getElementById('quantity').value) || 0;
 
-      if (!item || allPrices[item] === undefined || qty <= 0) return;
+      if (!selectedItemKey || allPrices[selectedItemKey] === undefined || qty <= 0) return;
 
-      const unitPrice = allPrices[item];
+      const unitPrice = allPrices[selectedItemKey];
       const subtotal = unitPrice * qty;
 
-      basket.push({ item, qty, unitPrice, subtotal });
+      basket.push({ item: selectedItemKey, qty, unitPrice, subtotal });
       updateBasketTable();
     });
 
@@ -223,14 +252,12 @@
       tbody.innerHTML = '';
 
       let grandTotal = 0;
-      let totalQty = 0;
 
       if (basket.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-sfl-woodLight italic">Your farm basket is empty!</td></tr>';
       } else {
         basket.forEach((entry, index) => {
           grandTotal += entry.subtotal;
-          totalQty += entry.qty;
           let tr = document.createElement('tr');
           tr.className = "hover:bg-amber-50/50 transition";
           tr.innerHTML = `
@@ -253,8 +280,6 @@
       basket.splice(index, 1);
       updateBasketTable();
     }
-
-    document.getElementById('search').addEventListener('input', renderDropdown);
   </script>
 
 </body>
