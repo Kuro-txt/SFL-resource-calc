@@ -14,12 +14,23 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      return res.status(response.status).json({ error: `API error status: ${response.status}` });
+      return res.status(response.status).json({ 
+        error: `API responded with HTTP status ${response.status}. Please check your Farm ID and API Key.` 
+      });
     }
 
-    const data = await response.json();
-    res.status(200).json(data);
+    const rawData = await response.json();
+
+    // Dynamically locate the inventory object regardless of API response wrapping
+    let inventory = 
+      rawData.inventory || 
+      rawData.data?.inventory || 
+      rawData.farm?.inventory || 
+      rawData.data || 
+      rawData;
+
+    res.status(200).json({ success: true, inventory });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to connect to farm API', details: error.message });
+    res.status(500).json({ error: 'Server connection failed', details: error.message });
   }
 }
