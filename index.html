@@ -192,7 +192,7 @@
             class="w-28 sfl-input text-right rounded-lg px-2 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
         </div>
 
-        <!-- Total Display Banner (Flowers & Gross Coins) -->
+        <!-- Total Display Banner -->
         <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 text-center shadow-inner space-y-2">
           <div class="flex justify-between text-xs text-sfl-woodLight font-semibold px-2">
             <span>Gross: <span id="gross-flowers" class="font-mono text-sfl-dirt">0.00 Flowers</span></span>
@@ -206,7 +206,7 @@
               <h2 id="total-flowers" class="text-2xl sm:text-3xl font-pixel font-bold text-sfl-green mt-0.5">0.00 🌸</h2>
             </div>
             <div class="border-l-2 border-sfl-cardBorder/40 pl-2">
-              <span class="text-xs font-bold uppercase tracking-widest text-sfl-wood block">Gross Coins (No Tax)</span>
+              <span class="text-xs font-bold uppercase tracking-widest text-sfl-wood block">Coins (Crops & Fruit)</span>
               <h2 id="total-coins" class="text-2xl sm:text-3xl font-pixel font-bold text-sfl-gold mt-0.5">0.00 🪙</h2>
             </div>
           </div>
@@ -223,6 +223,23 @@
     let basket = [];
     let selectedItemKey = null;
     let farmInventoryData = {};
+
+    // Strictly approved Crops and Fruits list based on your data:
+    const APPROVED_CROPS_AND_FRUITS = [
+      // Crops
+      "sunflower", "potato", "pumpkin", "carrot", "cabbage", "beetroot", 
+      "cauliflower", "parsnip", "radish", "wheat", "kale", "eggplant", 
+      "corn", "soybean", "barley", "rhubarb", "zucchini", "yam", "broccoli", 
+      "pepper", "onion", "turnip", "artichoke",
+      // Fruits & Exotics
+      "apple", "blueberry", "orange", "banana", "grape", "rice", 
+      "olive", "tomato", "lemon", "duskberry", "lunara", "celestine"
+    ];
+
+    function isCropOrFruit(itemName) {
+      let clean = itemName.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
+      return APPROVED_CROPS_AND_FRUITS.includes(clean);
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       if (localStorage.getItem('sfl_farm_id')) {
@@ -377,7 +394,7 @@
       basket.push({ item: selectedItemKey, qty, unitPrice, subtotal });
       updateBasketTable();
 
-      // Clear search inputs
+      // Reset search bar and inputs
       input.value = '';
       selectedItemKey = null;
       document.getElementById('quantity').value = 1;
@@ -398,6 +415,7 @@
       tbody.innerHTML = '';
 
       let grandGrossTotal = 0;
+      let totalCropFruitCoins = 0;
       const coinMultiplier = parseFloat(document.getElementById('coin-ratio').value) || 1000;
 
       if (basket.length === 0) {
@@ -406,8 +424,14 @@
         basket.forEach((entry, index) => {
           grandGrossTotal += entry.subtotal;
 
-          // Individual crop coin calculation (Gross Flowers * Coin Ratio)
-          const itemCoins = entry.subtotal * coinMultiplier;
+          // Only calculate coins if the item is in the approved crops/fruits list
+          const validForCoins = isCropOrFruit(entry.item) && entry.unitPrice > 0;
+          let itemCoins = 0;
+
+          if (validForCoins) {
+            itemCoins = entry.subtotal * coinMultiplier;
+            totalCropFruitCoins += itemCoins;
+          }
 
           let tr = document.createElement('tr');
           tr.className = "hover:bg-amber-50/50 transition";
@@ -416,9 +440,9 @@
             ? `${roundUpToTwoDecimals(entry.subtotal).toFixed(2)} 🌸` 
             : `<span class="text-sfl-woodLight font-normal">Untradeable</span>`;
 
-          let coinsDisplay = entry.unitPrice > 0 
+          let coinsDisplay = validForCoins 
             ? `${roundUpToTwoDecimals(itemCoins).toFixed(2)} 🪙` 
-            : `<span class="text-sfl-woodLight font-normal">-</span>`;
+            : `<span class="text-sfl-woodLight font-normal text-xs">-</span>`;
 
           tr.innerHTML = `
             <td class="px-3 py-2.5 font-bold text-sfl-dirt">${entry.item}</td>
@@ -438,14 +462,11 @@
 
       const taxAmount = grandGrossTotal * taxRate;
       const netFlowers = grandGrossTotal - taxAmount;
-      
-      // Coins calculated purely from Gross Flowers (Tax not subtracted)
-      const totalGrossCoins = grandGrossTotal * coinMultiplier;
 
       document.getElementById('gross-flowers').textContent = `${roundUpToTwoDecimals(grandGrossTotal).toFixed(2)} Flowers`;
       document.getElementById('tax-deduction').textContent = `${roundUpToTwoDecimals(taxAmount).toFixed(2)} Flowers`;
       document.getElementById('total-flowers').textContent = `${roundUpToTwoDecimals(netFlowers).toFixed(2)} 🌸`;
-      document.getElementById('total-coins').textContent = `${roundUpToTwoDecimals(totalGrossCoins).toFixed(2)} 🪙`;
+      document.getElementById('total-coins').textContent = `${roundUpToTwoDecimals(totalCropFruitCoins).toFixed(2)} 🪙`;
       document.getElementById('item-count').textContent = `${basket.length} Item${basket.length === 1 ? '' : 's'}`;
     }
 
