@@ -261,6 +261,14 @@
           <button id="save-snapshot-btn" class="bg-sfl-green text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-green-700 transition">
             📸 Save Today's Snapshot
           </button>
+          
+          <!-- Hidden File Input for Importing -->
+          <input type="file" id="import-file-input" accept=".json" class="hidden">
+          
+          <button id="import-json-btn" class="bg-amber-600 text-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-700 transition">
+            📤 Import JSON
+          </button>
+          
           <button id="export-json-btn" class="bg-sfl-wood text-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition">
             📥 Export JSON
           </button>
@@ -742,6 +750,7 @@
       });
     }
 
+    // Export History to JSON File
     document.getElementById('export-json-btn').addEventListener('click', () => {
       let history = localStorage.getItem('sfl_daily_snapshots') || '[]';
       let blob = new Blob([history], { type: 'application/json' });
@@ -749,6 +758,58 @@
       a.href = URL.createObjectURL(blob);
       a.download = `sfl_crop_snapshots_${new Date().toISOString().split('T')[0]}.json`;
       a.click();
+    });
+
+    // Import JSON Handler
+    const importFileInput = document.getElementById('import-file-input');
+
+    document.getElementById('import-json-btn').addEventListener('click', () => {
+      importFileInput.click();
+    });
+
+    importFileInput.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const importedData = JSON.parse(e.target.result);
+
+          if (!Array.isArray(importedData)) {
+            alert('❌ Invalid JSON format! File must contain an array of snapshot records.');
+            return;
+          }
+
+          let currentHistory = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+
+          // Merge imported entries into current history (avoiding duplicate dates)
+          importedData.forEach(importedEntry => {
+            if (importedEntry.date) {
+              let existingIdx = currentHistory.findIndex(item => item.date === importedEntry.date);
+              if (existingIdx >= 0) {
+                currentHistory[existingIdx] = importedEntry; // Update existing record
+              } else {
+                currentHistory.push(importedEntry); // Add new record
+              }
+            }
+          });
+
+          // Sort entries newest date first
+          currentHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+          localStorage.setItem('sfl_daily_snapshots', JSON.stringify(currentHistory));
+          
+          pruneOldSnapshots();
+          renderSnapshotHistory();
+          alert('✅ Successfully imported snapshot history!');
+        } catch (err) {
+          alert('❌ Failed to read JSON file: ' + err.message);
+        }
+      };
+
+      reader.readAsText(file);
+      importFileInput.value = ''; // Reset file input
     });
   </script>
 
