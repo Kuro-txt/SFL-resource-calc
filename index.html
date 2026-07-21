@@ -3,103 +3,159 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sunflower Land - Market Calculator & Auto Sync</title>
+  <title>SFL Buddy - Market Calculator & Auto Sync</title>
+  
+  <!-- Pixel Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+
   <style>
     :root {
-      --bg-color: #1a1a2e;
-      --card-bg: #16213e;
-      --accent-color: #0f3460;
-      --highlight: #00fff5;
-      --danger: #e94560;
-      --text-color: #ffffff;
-      --subtext: #a0a0a0;
+      --sfl-green: #63ab3f;
+      --sfl-dark-green: #3e7327;
+      --sfl-brown: #8b5a2b;
+      --sfl-dark-brown: #5c3a17;
+      --sfl-wood-light: #d4a373;
+      --sfl-wood-dark: #a97142;
+      --sfl-card-bg: #faedcd;
+      --sfl-border: #3a220f;
+      --sfl-text: #2b1704;
+      --sfl-yellow: #f4a261;
+      --sfl-highlight: #e76f51;
+      --sfl-cyan: #2a9d8f;
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text-color);
+      font-family: 'VT323', monospace;
+      background-color: var(--sfl-dark-green);
+      background-image: 
+        radial-gradient(var(--sfl-green) 15%, transparent 16%),
+        radial-gradient(var(--sfl-green) 15%, transparent 16%);
+      background-size: 30px 30px;
+      background-position: 0 0, 15px 15px;
+      color: var(--sfl-text);
       margin: 0;
       padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      font-size: 20px;
     }
 
     .container {
-      width: 100%;
-      max-width: 800px;
+      max-width: 900px;
+      margin: 0 auto;
       display: flex;
       flex-direction: column;
       gap: 20px;
     }
 
-    .card {
-      background-color: var(--card-bg);
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    /* Pixel Art Container Box */
+    .pixel-box {
+      background-color: var(--sfl-card-bg);
+      border: 4px solid var(--sfl-border);
+      box-shadow: 
+        inset -4px -4px 0px var(--sfl-wood-dark),
+        inset 4px 4px 0px #fff,
+        6px 6px 0px rgba(0,0,0,0.4);
+      border-radius: 4px;
+      padding: 20px;
+      position: relative;
     }
 
-    h1, h2 {
-      margin-top: 0;
-      color: var(--highlight);
+    .pixel-box-header {
+      background-color: var(--sfl-brown);
+      color: #fff;
+      border: 3px solid var(--sfl-border);
+      padding: 8px 16px;
+      margin: -32px -10px 16px -10px;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 14px;
+      text-shadow: 2px 2px #000;
+      box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+      display: inline-block;
+    }
+
+    h1 {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 18px;
+      color: #fff;
+      text-shadow: 3px 3px 0px var(--sfl-border);
+      text-align: center;
+      margin: 10px 0 25px 0;
     }
 
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      margin-bottom: 16px;
+      gap: 6px;
+      margin-bottom: 14px;
     }
 
     label {
-      font-weight: 600;
-      font-size: 14px;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 10px;
+      color: var(--sfl-dark-brown);
     }
 
-    input, select, button {
-      padding: 10px 14px;
-      border-radius: 6px;
-      border: 1px solid var(--accent-color);
-      background-color: var(--accent-color);
-      color: var(--text-color);
-      font-size: 15px;
+    input, select {
+      font-family: 'VT323', monospace;
+      font-size: 22px;
+      padding: 6px 10px;
+      background-color: #fff;
+      border: 3px solid var(--sfl-border);
+      border-radius: 2px;
+      color: var(--sfl-text);
       outline: none;
     }
 
     input:focus, select:focus {
-      border-color: var(--highlight);
+      border-color: var(--sfl-yellow);
+      background-color: #fffdf5;
     }
 
-    button {
-      background-color: var(--highlight);
-      color: #000;
-      font-weight: bold;
+    .btn-pixel {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 12px;
+      padding: 10px 16px;
+      background-color: var(--sfl-yellow);
+      color: var(--sfl-dark-brown);
+      border: 3px solid var(--sfl-border);
+      box-shadow: inset -3px -3px 0px var(--sfl-highlight), 3px 3px 0px #000;
       cursor: pointer;
-      transition: background 0.2s ease;
-      border: none;
+      transition: all 0.1s ease;
+      text-transform: uppercase;
     }
 
-    button:hover {
-      background-color: #00cccc;
+    .btn-pixel:active {
+      box-shadow: inset 2px 2px 0px var(--sfl-dark-brown);
+      transform: translate(2px, 2px);
     }
 
-    /* Auto-Sync Toggle Bar */
+    /* Auto-Sync Pixel Switch */
     .sync-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: var(--accent-color);
-      padding: 12px 16px;
-      border-radius: 8px;
+      background-color: var(--sfl-wood-light);
+      border: 3px solid var(--sfl-border);
+      padding: 10px 14px;
+      margin-top: 15px;
+    }
+
+    .sync-bar span {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 10px;
+      color: var(--sfl-dark-brown);
     }
 
     .switch {
       position: relative;
       display: inline-block;
-      width: 50px;
-      height: 26px;
+      width: 52px;
+      height: 28px;
     }
 
     .switch input {
@@ -112,56 +168,71 @@
       position: absolute;
       cursor: pointer;
       top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #4e4e50;
-      transition: .4s;
-      border-radius: 34px;
+      background-color: var(--sfl-dark-brown);
+      border: 3px solid var(--sfl-border);
+      transition: .2s;
     }
 
     .slider:before {
       position: absolute;
       content: "";
-      height: 18px;
-      width: 18px;
+      height: 14px;
+      width: 14px;
       left: 4px;
       bottom: 4px;
-      background-color: white;
-      transition: .4s;
-      border-radius: 50%;
+      background-color: #fff;
+      border: 2px solid var(--sfl-border);
+      transition: .2s;
     }
 
     input:checked + .slider {
-      background-color: var(--highlight);
+      background-color: var(--sfl-green);
     }
 
     input:checked + .slider:before {
       transform: translateX(24px);
     }
 
-    /* Status Messages */
-    #statusMessage {
-      font-size: 14px;
-      margin-top: 8px;
-      min-height: 20px;
-    }
-
-    .table-container {
-      overflow-x: auto;
-    }
-
+    /* Pixel Table */
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 10px;
+      background-color: #fff;
+      border: 3px solid var(--sfl-border);
     }
 
     th, td {
-      padding: 10px;
+      padding: 8px 12px;
       text-align: left;
-      border-bottom: 1px solid var(--accent-color);
+      border: 2px solid var(--sfl-border);
+      font-size: 22px;
     }
 
     th {
-      color: var(--subtext);
+      font-family: 'Press Start 2P', cursive;
+      font-size: 9px;
+      background-color: var(--sfl-wood-light);
+      color: var(--sfl-dark-brown);
+    }
+
+    #statusMessage {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 10px;
+      margin-top: 12px;
+      line-height: 1.6;
+    }
+
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    @media (max-width: 600px) {
+      .grid-2col {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -169,27 +240,29 @@
 
   <div class="container">
     
-    <!-- HEADER & FARM SYNC CARD -->
-    <div class="card">
-      <h1>🌻 Sunflower Land Market & Sync Tool</h1>
+    <h1>🌻 SFL BUDDY CALCULATOR</h1>
+
+    <!-- FARM SYNC PANEL -->
+    <div class="pixel-box">
+      <div class="pixel-box-header">FARM SYNC</div>
       
-      <div class="form-group">
-        <label for="farmId">Farm ID:</label>
-        <input type="number" id="farmId" placeholder="e.g. 12345" />
+      <div class="grid-2col">
+        <div class="form-group">
+          <label for="farmId">FARM ID</label>
+          <input type="number" id="farmId" placeholder="e.g. 12345" />
+        </div>
+
+        <div class="form-group">
+          <label for="apiKey">API KEY (OPTIONAL)</label>
+          <input type="password" id="apiKey" placeholder="Optional Key" />
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="apiKey">API Key (Optional):</label>
-        <input type="password" id="apiKey" placeholder="Optional API Key for private data" />
-      </div>
+      <button class="btn-pixel" onclick="fetchFarmInventory()">🔄 Sync Inventory</button>
 
-      <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-        <button onclick="fetchFarmInventory()">🔄 Sync Farm Inventory</button>
-      </div>
-
-      <!-- 00:00 UTC Auto-Sync Toggle -->
+      <!-- 00:00 UTC Cloud Auto-Sync -->
       <div class="sync-bar">
-        <span>⚡ Cloud Auto-Sync (00:00 UTC)</span>
+        <span>⚡ AUTO-SYNC (00:00 UTC)</span>
         <label class="switch">
           <input type="checkbox" id="autoSyncToggle" onchange="toggleAutoSync()" />
           <span class="slider"></span>
@@ -199,71 +272,76 @@
       <div id="statusMessage"></div>
     </div>
 
-    <!-- MARKET CALCULATOR CARD -->
-    <div class="card">
-      <h2>📊 Market Calculator</h2>
-      
-      <div class="form-group">
-        <label for="taxRate">Market Tax Rate:</label>
-        <select id="taxRate" onchange="calculateMarket()">
-          <option value="0.10">10% Standard Tax</option>
-          <option value="0.05">5% Goblin Discount</option>
-          <option value="0.00">0% No Tax</option>
-        </select>
+    <!-- MARKET CALCULATOR PANEL -->
+    <div class="pixel-box">
+      <div class="pixel-box-header">MARKET CALCULATOR</div>
+
+      <div class="grid-2col">
+        <div class="form-group">
+          <label for="taxRate">MARKET TAX</label>
+          <select id="taxRate" onchange="calculateMarket()">
+            <option value="0.10">10% Standard Tax</option>
+            <option value="0.05">5% Goblin Discount</option>
+            <option value="0.00">0% No Tax</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="itemSelect">CROP / RESOURCE</label>
+          <select id="itemSelect" onchange="calculateMarket()">
+            <option value="Sunflower">Sunflower</option>
+            <option value="Potato">Potato</option>
+            <option value="Pumpkin">Pumpkin</option>
+            <option value="Carrot">Carrot</option>
+            <option value="Cabbage">Cabbage</option>
+            <option value="Beetroot">Beetroot</option>
+            <option value="Cauliflower">Cauliflower</option>
+            <option value="Parsnip">Parsnip</option>
+            <option value="Eggplant">Eggplant</option>
+            <option value="Corn">Corn</option>
+            <option value="Radish">Radish</option>
+            <option value="Wheat">Wheat</option>
+            <option value="Kale">Kale</option>
+          </select>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="itemSelect">Select Crop/Resource:</label>
-        <select id="itemSelect" onchange="calculateMarket()">
-          <option value="Sunflower">Sunflower</option>
-          <option value="Potato">Potato</option>
-          <option value="Pumpkin">Pumpkin</option>
-          <option value="Carrot">Carrot</option>
-          <option value="Cabbage">Cabbage</option>
-          <option value="Beetroot">Beetroot</option>
-          <option value="Cauliflower">Cauliflower</option>
-          <option value="Parsnip">Parsnip</option>
-          <option value="Eggplant">Eggplant</option>
-          <option value="Corn">Corn</option>
-          <option value="Radish">Radish</option>
-          <option value="Wheat">Wheat</option>
-          <option value="Kale">Kale</option>
-        </select>
+      <div class="grid-2col">
+        <div class="form-group">
+          <label for="itemQuantity">QUANTITY</label>
+          <input type="number" id="itemQuantity" value="100" oninput="calculateMarket()" />
+        </div>
+
+        <div class="form-group">
+          <label for="unitPrice">UNIT PRICE (SFL / COINS)</label>
+          <input type="number" id="unitPrice" step="0.0001" value="0.01" oninput="calculateMarket()" />
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="itemQuantity">Quantity:</label>
-        <input type="number" id="itemQuantity" value="100" oninput="calculateMarket()" />
-      </div>
-
-      <div class="form-group">
-        <label for="unitPrice">Unit Price (SFL / Coins):</label>
-        <input type="number" id="unitPrice" step="0.0001" value="0.01" oninput="calculateMarket()" />
-      </div>
-
-      <div class="table-container">
-        <table>
+      <table>
+        <thead>
           <tr>
-            <th>Gross Value</th>
-            <th>Tax Amount</th>
-            <th>Net Revenue</th>
+            <th>GROSS VALUE</th>
+            <th>TAX</th>
+            <th>NET REVENUE</th>
           </tr>
+        </thead>
+        <tbody>
           <tr>
-            <td id="grossValue">0.00</td>
-            <td id="taxAmount" style="color: var(--danger);">0.00</td>
-            <td id="netRevenue" style="color: var(--highlight); font-weight: bold;">0.00</td>
+            <td id="grossValue">0.000</td>
+            <td id="taxAmount" style="color: var(--sfl-highlight);">0.000</td>
+            <td id="netRevenue" style="color: var(--sfl-dark-green); font-weight: bold;">0.000</td>
           </tr>
-        </table>
-      </div>
+        </tbody>
+      </table>
     </div>
 
   </div>
 
   <script>
-    // Live Render Backend URL
+    // Live Render URL
     const BACKEND_URL = "https://sfl-calculator-backend.onrender.com";
 
-    // Initialize saved settings on page load
     document.addEventListener('DOMContentLoaded', () => {
       const savedFarmId = localStorage.getItem('sfl_farm_id');
       const savedApiKey = localStorage.getItem('sfl_api_key');
@@ -278,7 +356,6 @@
       calculateMarket();
     });
 
-    // --- MARKET CALCULATOR LOGIC ---
     function calculateMarket() {
       const qty = parseFloat(document.getElementById('itemQuantity').value) || 0;
       const price = parseFloat(document.getElementById('unitPrice').value) || 0;
@@ -288,12 +365,11 @@
       const tax = gross * taxRate;
       const net = gross - tax;
 
-      document.getElementById('grossValue').innerText = gross.toFixed(4);
-      document.getElementById('taxAmount').innerText = tax.toFixed(4);
-      document.getElementById('netRevenue').innerText = net.toFixed(4);
+      document.getElementById('grossValue').innerText = gross.toFixed(3);
+      document.getElementById('taxAmount').innerText = tax.toFixed(3);
+      document.getElementById('netRevenue').innerText = net.toFixed(3);
     }
 
-    // --- MANUAL FARM SYNC LOGIC ---
     async function fetchFarmInventory() {
       const farmId = document.getElementById('farmId').value.trim();
       const apiKey = document.getElementById('apiKey').value.trim();
@@ -304,12 +380,11 @@
         return;
       }
 
-      // Save local credentials
       localStorage.setItem('sfl_farm_id', farmId);
       if (apiKey) localStorage.setItem('sfl_api_key', apiKey);
 
-      statusDiv.style.color = '#ffffff';
-      statusDiv.innerText = '⏳ Syncing with Sunflower Land API...';
+      statusDiv.style.color = 'var(--sfl-dark-brown)';
+      statusDiv.innerText = '⏳ Syncing with Sunflower Land...';
 
       try {
         const response = await fetch(`https://api.sunflower-land.com/community/farms/${farmId}`);
@@ -318,29 +393,27 @@
         const data = await response.json();
         const inventory = data.inventory || {};
 
-        statusDiv.style.color = '#00fff5';
-        statusDiv.innerText = `✅ Successfully synced Farm #${farmId}!`;
+        statusDiv.style.color = 'var(--sfl-dark-green)';
+        statusDiv.innerText = `✅ Synced Farm #${farmId}!`;
 
-        // Auto-fill quantity if selected item exists in inventory
         const selectedItem = document.getElementById('itemSelect').value;
         if (inventory[selectedItem]) {
           document.getElementById('itemQuantity').value = parseFloat(inventory[selectedItem]);
           calculateMarket();
         }
       } catch (err) {
-        statusDiv.style.color = '#e94560';
+        statusDiv.style.color = 'var(--sfl-highlight)';
         statusDiv.innerText = `❌ Sync failed: ${err.message}`;
       }
     }
 
-    // --- 00:00 UTC AUTO-SYNC BACKEND TOGGLE ---
     async function toggleAutoSync() {
       const farmId = document.getElementById('farmId').value.trim();
       const isChecked = document.getElementById('autoSyncToggle').checked;
       const statusDiv = document.getElementById('statusMessage');
 
       if (!farmId) {
-        alert("Please enter a Farm ID before enabling Cloud Auto-Sync.");
+        alert("Enter a Farm ID before enabling Cloud Auto-Sync.");
         document.getElementById('autoSyncToggle').checked = false;
         return;
       }
@@ -348,8 +421,8 @@
       localStorage.setItem('sfl_farm_id', farmId);
       localStorage.setItem('sfl_auto_sync', isChecked);
 
-      statusDiv.style.color = '#ffffff';
-      statusDiv.innerText = "Connecting to Render server...";
+      statusDiv.style.color = 'var(--sfl-dark-brown)';
+      statusDiv.innerText = "Connecting to cloud server...";
 
       try {
         const endpoint = isChecked 
@@ -365,16 +438,16 @@
         const data = await response.json();
 
         if (data.success) {
-          statusDiv.style.color = "#00fff5";
+          statusDiv.style.color = "var(--sfl-dark-green)";
           statusDiv.innerText = isChecked 
-            ? `✅ Cloud Auto-Sync registered for Farm #${farmId} (Runs daily at 00:00 UTC)!` 
-            : `Auto-sync disabled for Farm #${farmId}.`;
+            ? `✅ Auto-Sync active for Farm #${farmId} (00:00 UTC)!` 
+            : `Auto-Sync disabled.`;
         } else {
-          throw new Error(data.error || 'Server request failed');
+          throw new Error(data.error || 'Server error');
         }
       } catch (err) {
-        statusDiv.style.color = "#e94560";
-        statusDiv.innerText = `❌ Could not connect to Render sync server.`;
+        statusDiv.style.color = "var(--sfl-highlight)";
+        statusDiv.innerText = `❌ Connection error to sync server.`;
         document.getElementById('autoSyncToggle').checked = !isChecked;
       }
     }
