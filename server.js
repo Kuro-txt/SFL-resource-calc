@@ -9,9 +9,10 @@ app.use(cors());
 app.use(express.json());
 
 // Keywords to filter out seeds, tools, and non-sellable consumables
+// NOTE: 'root' removed so 'Beetroot' is NOT excluded!
 const EXCLUDED_KEYWORDS = [
   'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
-  'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 'root', 
+  'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 
   'bait', 'potion', 'feed', 'box', 'chest'
 ];
 
