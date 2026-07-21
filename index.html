@@ -248,47 +248,53 @@
 
     </div>
 
-    <!-- DAILY CROP SNAPSHOT SECTION -->
+    <!-- HARVEST SESSION YIELD TRACKER SECTION -->
     <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder shadow-sm space-y-3">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
-            <span>📸</span> Daily Crop Snapshot
+            <span>🌾</span> Harvest Session Yield Tracker
           </h3>
-          <p class="text-[11px] text-sfl-woodLight font-semibold">Stores individual crop values & counts locally. Auto-clears entries older than 30 days.</p>
+          <p class="text-[11px] text-sfl-woodLight font-semibold">Save stock BEFORE harvesting, then log AFTER harvesting to calculate exact crop yields.</p>
         </div>
-        <div class="flex gap-2">
-          <button id="save-snapshot-btn" class="bg-sfl-green text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-green-700 transition">
-            📸 Save Today's Snapshot
+        <div class="flex flex-wrap gap-2">
+          <button id="save-pre-harvest-btn" class="bg-amber-600 text-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-700 transition">
+            🚩 1. Save Pre-Harvest Stock
+          </button>
+          <button id="log-yield-btn" class="bg-sfl-green text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-green-700 transition">
+            🏁 2. Calculate Harvest Yield
           </button>
           
           <input type="file" id="import-file-input" accept=".json" class="hidden">
-          
-          <button id="import-json-btn" class="bg-amber-600 text-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-700 transition">
-            📤 Import JSON
+          <button id="import-json-btn" class="bg-sfl-wood text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition">
+            📤 Import
           </button>
-          
-          <button id="export-json-btn" class="bg-sfl-wood text-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition">
-            📥 Export JSON
+          <button id="export-json-btn" class="bg-sfl-wood text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition">
+            📥 Export
           </button>
         </div>
+      </div>
+
+      <div id="pre-harvest-status" class="hidden bg-amber-100/80 border border-amber-400 p-2 rounded-lg text-xs font-bold text-amber-900 flex justify-between items-center">
+        <span>🚩 Pre-Harvest Baseline Set (<span id="pre-harvest-time"></span>)</span>
+        <button id="clear-pre-harvest-btn" class="text-[10px] bg-sfl-accent text-white px-2 py-0.5 rounded">Clear Baseline</button>
       </div>
 
       <div class="overflow-x-auto bg-white/70 border-2 border-sfl-cardBorder rounded-lg">
         <table class="w-full text-left text-xs text-sfl-dirt">
           <thead class="bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood uppercase text-[11px]">
             <tr>
-              <th class="px-3 py-2">Date</th>
-              <th class="px-3 py-2">Total Items</th>
-              <th class="px-3 py-2">Individual Crop Values</th>
-              <th class="px-3 py-2">Grand Net Value</th>
+              <th class="px-3 py-2">Date & Time</th>
+              <th class="px-3 py-2">Total Yield</th>
+              <th class="px-3 py-2">Harvested Crops Breakdown</th>
+              <th class="px-3 py-2">Harvest Net Value</th>
               <th class="px-2 py-2 text-center">Actions</th>
             </tr>
           </thead>
           <tbody id="snapshot-history-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
             <tr>
               <td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">
-                No crop snapshots saved yet. Click "Save Today's Snapshot" to record today's count!
+                No harvest sessions logged yet! Click "1. Save Pre-Harvest Stock" before harvesting.
               </td>
             </tr>
           </tbody>
@@ -303,7 +309,7 @@
     let basket = [];
     let selectedItemKey = null;
     let farmInventoryData = {};
-    let editingSnapshotDate = null; // Tracks row date currently being edited
+    let editingSnapshotDate = null;
 
     const FLOWER_ICON = `<img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-4 h-4 sfl-icon" alt="Flower Token">`;
     const COIN_ICON = `<img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-4 h-4 sfl-icon" alt="Coins">`;
@@ -346,6 +352,7 @@
       if (localStorage.getItem('sfl_api_key')) {
         document.getElementById('api-key').value = localStorage.getItem('sfl_api_key');
       }
+      updatePreHarvestUI();
       pruneOldSnapshots();
       renderSnapshotHistory();
     });
@@ -634,75 +641,150 @@
       updateBasketTable();
     }
 
-    // --- DAILY CROP SNAPSHOT LOGIC ---
+    // --- PRE-HARVEST & HARVEST YIELD LOGIC ---
 
-    function pruneOldSnapshots() {
-      let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
-      const now = new Date();
-      const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
-
-      let validSnapshots = history.filter(entry => {
-        let entryDate = new Date(entry.date);
-        return (now - entryDate) <= thirtyDaysInMs;
-      });
-
-      localStorage.setItem('sfl_daily_snapshots', JSON.stringify(validSnapshots));
+    function updatePreHarvestUI() {
+      const baseline = localStorage.getItem('sfl_pre_harvest_stock');
+      const container = document.getElementById('pre-harvest-status');
+      if (baseline) {
+        const data = JSON.parse(baseline);
+        document.getElementById('pre-harvest-time').textContent = data.timestamp;
+        container.classList.remove('hidden');
+      } else {
+        container.classList.add('hidden');
+      }
     }
 
-    document.getElementById('save-snapshot-btn').addEventListener('click', () => {
-      let cropEntries = basket.filter(entry => isCropOrFruit(entry.item));
+    document.getElementById('save-pre-harvest-btn').addEventListener('click', () => {
+      // Capture current farm inventory stock or basket state
+      let baselineStock = {};
+      
+      // If basket is populated, use basket; otherwise use synced farmInventoryData
+      if (basket.length > 0) {
+        basket.forEach(entry => {
+          let cleanName = entry.item.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
+          if (isCropOrFruit(cleanName)) {
+            baselineStock[cleanName] = (baselineStock[cleanName] || 0) + entry.qty;
+          }
+        });
+      } else {
+        for (let key in farmInventoryData) {
+          let cleanName = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (APPROVED_CROPS_AND_FRUITS.includes(cleanName)) {
+            let val = typeof farmInventoryData[key] === 'number' ? farmInventoryData[key] : parseFloat(farmInventoryData[key]?.amount || 0);
+            baselineStock[cleanName] = roundUpToOneDecimal(val);
+          }
+        }
+      }
 
-      if (cropEntries.length === 0) {
-        alert("⚠️ Your basket has no Crops or Fruits to log! Please add crop/fruit items first.");
+      if (Object.keys(baselineStock).length === 0) {
+        alert("⚠️ No Crops or Fruits found in your farm inventory or basket! Sync your farm or add crops to basket first.");
         return;
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      const preHarvestPayload = {
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        stock: baselineStock
+      };
+
+      localStorage.setItem('sfl_pre_harvest_stock', JSON.stringify(preHarvestPayload));
+      updatePreHarvestUI();
+      alert("🚩 Pre-Harvest baseline saved! Go harvest your crops in-game, then click '2. Calculate Harvest Yield'.");
+    });
+
+    document.getElementById('clear-pre-harvest-btn').addEventListener('click', () => {
+      localStorage.removeItem('sfl_pre_harvest_stock');
+      updatePreHarvestUI();
+    });
+
+    document.getElementById('log-yield-btn').addEventListener('click', () => {
+      const preHarvestRaw = localStorage.getItem('sfl_pre_harvest_stock');
+      if (!preHarvestRaw) {
+        alert("⚠️ Please click '1. Save Pre-Harvest Stock' FIRST before logging your harvest yield!");
+        return;
+      }
+
+      const preHarvestData = JSON.parse(preHarvestRaw).stock;
       const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
       const coinMultiplier = parseFloat(document.getElementById('coin-ratio').value) || 1000;
 
-      let cropsData = [];
-      let totalCropCount = 0;
+      let postHarvestStock = {};
 
-      cropEntries.forEach(entry => {
-        let cleanName = entry.item.replace(/^\[.*?\]\s*/, '');
-        let itemNetFlowers = roundUpToThreeDecimals(entry.subtotal * (1 - taxRate));
-        let itemRatioCoins = roundUpToTwoDecimals(itemNetFlowers * coinMultiplier);
-
-        cropsData.push({
-          name: cleanName,
-          qty: entry.qty,
-          flowers: itemNetFlowers,
-          coins: itemRatioCoins
+      if (basket.length > 0) {
+        basket.forEach(entry => {
+          let cleanName = entry.item.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
+          if (isCropOrFruit(cleanName)) {
+            postHarvestStock[cleanName] = (postHarvestStock[cleanName] || 0) + entry.qty;
+          }
         });
+      } else {
+        for (let key in farmInventoryData) {
+          let cleanName = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (APPROVED_CROPS_AND_FRUITS.includes(cleanName)) {
+            let val = typeof farmInventoryData[key] === 'number' ? farmInventoryData[key] : parseFloat(farmInventoryData[key]?.amount || 0);
+            postHarvestStock[cleanName] = roundUpToOneDecimal(val);
+          }
+        }
+      }
 
-        totalCropCount += entry.qty;
+      let yields = [];
+      let totalYieldCount = 0;
+      let totalYieldFlowers = 0;
+
+      // Calculate Difference (Yield) = Post Harvest - Pre Harvest
+      let allCropKeys = new Set([...Object.keys(preHarvestData), ...Object.keys(postHarvestStock)]);
+
+      allCropKeys.forEach(cropName => {
+        let startQty = preHarvestData[cropName] || 0;
+        let endQty = postHarvestStock[cropName] || 0;
+        let harvestedQty = roundUpToOneDecimal(endQty - startQty);
+
+        if (harvestedQty > 0) {
+          // Find market price for harvested crop
+          let matchedKey = Object.keys(allPrices).find(k => k.replace(/^\[.*?\]\s*/, '').toLowerCase() === cropName);
+          let unitPrice = matchedKey ? allPrices[matchedKey] : 0;
+
+          let itemFlowers = roundUpToThreeDecimals((unitPrice * harvestedQty) * (1 - taxRate));
+          let itemCoins = roundUpToTwoDecimals(itemFlowers * coinMultiplier);
+
+          yields.push({
+            name: cropName.charAt(0).toUpperCase() + cropName.slice(1),
+            qty: harvestedQty,
+            flowers: itemFlowers,
+            coins: itemCoins
+          });
+
+          totalYieldCount += harvestedQty;
+          totalYieldFlowers += itemFlowers;
+        }
       });
+
+      if (yields.length === 0) {
+        alert("⚠️ No increase in crop stock detected. Did you harvest your crops in-game or resync your farm?");
+        return;
+      }
+
+      const now = new Date();
+      const timestampStr = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      const grandRatioCoins = roundUpToTwoDecimals(totalYieldFlowers * coinMultiplier);
+
+      const yieldEntry = {
+        date: timestampStr,
+        totalCount: roundUpToOneDecimal(totalYieldCount),
+        crops: yields,
+        netFlowers: roundUpToThreeDecimals(totalYieldFlowers).toFixed(3),
+        ratioCoins: grandRatioCoins.toFixed(2)
+      };
 
       pruneOldSnapshots();
       let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
-      let existingIndex = history.findIndex(item => item.date === today);
-
-      const netFlowersVal = document.getElementById('total-flowers').textContent;
-      const ratioCoinsVal = document.getElementById('total-ratio-coins').textContent;
-
-      const snapshotEntry = {
-        date: today,
-        totalCount: roundUpToOneDecimal(totalCropCount),
-        crops: cropsData,
-        netFlowers: netFlowersVal,
-        ratioCoins: ratioCoinsVal
-      };
-
-      if (existingIndex >= 0) {
-        history[existingIndex] = snapshotEntry;
-      } else {
-        history.unshift(snapshotEntry);
-      }
+      history.unshift(yieldEntry);
 
       localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
+      localStorage.removeItem('sfl_pre_harvest_stock'); // Reset baseline for next session
+      updatePreHarvestUI();
       renderSnapshotHistory();
-      alert(`✅ Crop snapshot saved for ${today}!`);
+      alert(`🎉 Harvest session logged! Total Harvest Yield: +${totalYieldCount.toFixed(1)} crops.`);
     });
 
     // --- SNAPSHOT EDIT & DELETE FUNCTIONS ---
@@ -733,11 +815,10 @@
 
       if (Array.isArray(entry.crops)) {
         entry.crops.forEach((crop, cropIdx) => {
-          let inputEl = document.getElementById(`edit-qty-${date}-${cropIdx}`);
+          let inputEl = document.getElementById(`edit-qty-${date.replace(/[^a-zA-Z0-9]/g, '')}-${cropIdx}`);
           let newQty = inputEl ? roundUpToOneDecimal(parseFloat(inputEl.value) || 0) : crop.qty;
 
           if (newQty > 0) {
-            // Find unit price in allPrices
             let matchedKey = Object.keys(allPrices).find(k => k.replace(/^\[.*?\]\s*/, '').toLowerCase() === crop.name.toLowerCase());
             let unitPrice = matchedKey ? allPrices[matchedKey] : (crop.flowers / (crop.qty || 1));
 
@@ -775,11 +856,11 @@
       localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
       editingSnapshotDate = null;
       renderSnapshotHistory();
-      alert(`✅ Snapshot for ${date} updated successfully!`);
+      alert(`✅ Harvest record for ${date} updated!`);
     }
 
     function deleteSnapshotRow(date) {
-      if (!confirm(`Are you sure you want to delete the snapshot for ${date}?`)) return;
+      if (!confirm(`Delete harvest record for ${date}?`)) return;
 
       let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
       let updatedHistory = history.filter(item => item.date !== date);
@@ -789,12 +870,25 @@
       renderSnapshotHistory();
     }
 
+    function pruneOldSnapshots() {
+      let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+      const now = new Date();
+      const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+
+      let validSnapshots = history.filter(entry => {
+        let entryDate = new Date(entry.date.split(' ')[0]);
+        return (now - entryDate) <= thirtyDaysInMs;
+      });
+
+      localStorage.setItem('sfl_daily_snapshots', JSON.stringify(validSnapshots));
+    }
+
     function renderSnapshotHistory() {
       const tbody = document.getElementById('snapshot-history-body');
       let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
 
       if (history.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">No crop snapshots saved yet. Click "Save Today's Snapshot" to record today's count!</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">No harvest sessions logged yet! Click "1. Save Pre-Harvest Stock" before harvesting.</td></tr>`;
         return;
       }
 
@@ -802,6 +896,7 @@
       history.forEach(entry => {
         let isEditing = editingSnapshotDate === entry.date;
         let cropBadges = '';
+        let cleanDateId = entry.date.replace(/[^a-zA-Z0-9]/g, '');
 
         if (Array.isArray(entry.crops)) {
           cropBadges = entry.crops
@@ -810,25 +905,20 @@
                 return `
                   <span class="inline-flex items-center gap-1 bg-amber-200 text-amber-900 border-2 border-sfl-green text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
                     <span>${crop.name}:</span>
-                    <input type="number" id="edit-qty-${entry.date}-${idx}" value="${crop.qty.toFixed(1)}" step="0.1" min="0" 
+                    <input type="number" id="edit-qty-${cleanDateId}-${idx}" value="${crop.qty.toFixed(1)}" step="0.1" min="0" 
                       class="w-14 sfl-input text-xs font-mono font-bold rounded px-1 text-sfl-dirt">
                   </span>
                 `;
               } else {
                 return `
-                  <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-400 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
-                    <span>${crop.name}:</span>
-                    <span class="font-mono text-sfl-wood">${crop.qty.toFixed(1)}</span>
+                  <span class="inline-flex items-center gap-1 bg-green-100 text-sfl-green border border-sfl-green/40 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
+                    <span>+${crop.qty.toFixed(1)} ${crop.name}</span>
                     <span class="text-sfl-green font-normal flex items-center gap-0.5">(${crop.flowers.toFixed(3)} ${FLOWER_ICON})</span>
                     <span class="text-amber-700 font-normal flex items-center gap-0.5">(${crop.coins.toFixed(2)} ${COIN_ICON})</span>
                   </span>
                 `;
               }
             })
-            .join('');
-        } else {
-          cropBadges = Object.entries(entry.crops)
-            .map(([name, qty]) => `<span class="inline-block bg-amber-100 text-amber-900 border border-amber-400 text-[11px] font-bold px-1.5 py-0.5 rounded mr-1 mb-1">${name}: ${qty.toFixed(1)}</span>`)
             .join('');
         }
 
@@ -845,8 +935,8 @@
         let tr = document.createElement('tr');
         tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
         tr.innerHTML = `
-          <td class="px-3 py-2.5 font-bold">${entry.date}</td>
-          <td class="px-3 py-2.5 font-bold text-sfl-wood">${entry.totalCount.toFixed(1)} Crops</td>
+          <td class="px-3 py-2.5 font-bold whitespace-nowrap">${entry.date}</td>
+          <td class="px-3 py-2.5 font-bold text-sfl-green">+${entry.totalCount.toFixed(1)} Yield</td>
           <td class="px-3 py-2.5">${cropBadges}</td>
           <td class="px-3 py-2.5 font-bold">
             <span class="inline-flex items-center gap-1 text-sfl-green">${entry.netFlowers} ${FLOWER_ICON}</span> | 
@@ -864,7 +954,7 @@
       let blob = new Blob([history], { type: 'application/json' });
       let a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `sfl_crop_snapshots_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `sfl_harvest_yields_${new Date().toISOString().split('T')[0]}.json`;
       a.click();
     });
 
@@ -908,7 +998,7 @@
           
           pruneOldSnapshots();
           renderSnapshotHistory();
-          alert('✅ Successfully imported snapshot history!');
+          alert('✅ Successfully imported harvest history!');
         } catch (err) {
           alert('❌ Failed to read JSON file: ' + err.message);
         }
