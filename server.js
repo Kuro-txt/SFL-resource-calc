@@ -11,7 +11,7 @@ app.use(express.json());
 
 let registeredFarms = new Set();
 
-// Keywords to exclude seeds, tools, and consumables
+// Filter keywords to exclude seeds, tools, and consumables from search
 const EXCLUDED_KEYWORDS = [
   'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
   'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 'root', 
@@ -73,40 +73,31 @@ app.get('/api/get-farm', async (req, res) => {
   }
 });
 
-// Proxy Endpoint 2: Fetches Live Market Prices (Crops, Fruits & Resources ONLY)
+// Proxy Endpoint 2: Fetches Live Market Prices from sfl.world API
 app.get('/api/get-data', async (req, res) => {
-  // Comprehensive SFL Market Prices Catalog in Flower Tokens (Corrected Fruit Values)
-  const fullSFLCatalog = {
-    // Basic Crops
+  // Fallback catalog in case sfl.world is temporarily down
+  const fallbackCatalog = {
     "Sunflower": 0.0002, "Potato": 0.0014, "Rhubarb": 0.0024, "Pumpkin": 0.0040, 
     "Zucchini": 0.0040, "Carrot": 0.0080, "Yam": 0.0080, "Cabbage": 0.0150, 
     "Broccoli": 0.0150, "Soybean": 0.0230, "Beetroot": 0.0280, "Pepper": 0.0300, 
     "Cauliflower": 0.0425, "Parsnip": 0.0650, "Eggplant": 0.0800, "Corn": 0.0900, 
     "Onion": 0.1000, "Radish": 0.0950, "Wheat": 0.0700, "Turnip": 0.0800, 
-    "Kale": 0.1000, "Artichoke": 0.1200, "Barley": 0.1200,
-
-    // Fruits (Corrected Real Market Prices in SFL Tokens)
-    "Apple": 0.0230, "Tomato": 0.0020, "Lemon": 0.0060, "Blueberry": 0.0120, 
-    "Orange": 0.0180, "Banana": 0.0250, "Grape": 0.2400, "Rice": 0.3200, "Olive": 0.4000,
-
-    // Greenhouse / Exotic
+    "Kale": 0.1000, "Artichoke": 0.1200, "Barley": 0.1200, "Apple": 0.0230, 
+    "Tomato": 0.0020, "Lemon": 0.0060, "Blueberry": 0.0120, "Orange": 0.0180, 
+    "Banana": 0.0250, "Grape": 0.2400, "Rice": 0.3200, "Olive": 0.4000,
     "Duskberry": 1.0000, "Lunara": 0.5000, "Celestine": 0.2000, "Saltwort": 0.0500,
-
-    // Resources & Minerals
     "Wood": 0.0100, "Stone": 0.0200, "Iron": 0.0800, "Gold": 0.3500, 
     "Crimstone": 1.2000, "Sunstone": 5.0000, "Oil": 0.0500,
-
-    // Animal Products
     "Egg": 0.0150, "Milk": 0.0300, "Honey": 0.0400, "Feather": 0.0200, "Wool": 0.0500
   };
 
   try {
-    const response = await axios.get('https://api.sunflower-land.com/community/prices', {
+    const response = await axios.get('https://sfl.world/api/v1/prices', {
       headers: { 
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 
         'Accept': 'application/json' 
       },
-      timeout: 6000
+      timeout: 8000
     });
 
     let livePrices = response.data || {};
@@ -122,10 +113,10 @@ app.get('/api/get-data', async (req, res) => {
       return res.json(filteredPrices);
     }
   } catch (err) {
-    console.log('[PRICE API INFO] Serving fallback SFL Crop, Fruit & Resource market prices.');
+    console.log('[SFL.WORLD API WARNING] Live API fetch failed. Using fallback market prices:', err.message);
   }
 
-  return res.json(fullSFLCatalog);
+  return res.json(fallbackCatalog);
 });
 
 // API Endpoint: Register Auto Sync
