@@ -6,19 +6,16 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS for all incoming requests
 app.use(cors());
 app.use(express.json());
 
-// In-memory registered farms
 let registeredFarms = new Set();
 
-// Health Check
 app.get('/', (req, res) => {
   res.send('🌻 SFL Calculator Backend Server is Active!');
 });
 
-// Proxy Endpoint: Forwards Farm ID + API Key to Sunflower Land
+// Proxy Endpoint 1: Fetches live farm inventory from Sunflower Land API
 app.get('/api/get-farm', async (req, res) => {
   const { farmId, apiKey } = req.query;
 
@@ -32,7 +29,6 @@ app.get('/api/get-farm', async (req, res) => {
       'Accept': 'application/json'
     };
 
-    // Attach API Key if provided by user
     if (apiKey) {
       headers['x-api-key'] = apiKey;
       headers['Authorization'] = `Bearer ${apiKey}`;
@@ -48,13 +44,13 @@ app.get('/api/get-farm', async (req, res) => {
     console.error(`[SFL API ERROR] Farm #${farmId}:`, err.response?.status, err.response?.data || err.message);
 
     if (err.response?.status === 401) {
-      return res.status(401).json({ error: '401 Unauthorized: Sunflower Land requires a valid API Key/Token to fetch this farm.' });
+      return res.status(401).json({ error: '401 Unauthorized: Valid API Key/Token required.' });
     }
     if (err.response?.status === 404) {
       return res.status(404).json({ error: `Farm #${farmId} does not exist on Sunflower Land.` });
     }
     if (err.response?.status === 429) {
-      return res.status(429).json({ error: 'Sunflower Land API rate limit reached. Please wait a minute.' });
+      return res.status(429).json({ error: 'Rate limit reached. Please wait a minute.' });
     }
 
     return res.status(500).json({ 
@@ -63,32 +59,65 @@ app.get('/api/get-farm', async (req, res) => {
   }
 });
 
-// Proxy Endpoint 2: Fallback price data
+// Proxy Endpoint 2: Fetches LIVE SFL Market Prices in Flowers / SFL Token
 app.get('/api/get-data', async (req, res) => {
   try {
-    const defaultPrices = {
-      "Sunflower": 0.02, "Potato": 0.14, "Pumpkin": 0.4, "Carrot": 0.8,
-      "Cabbage": 1.5, "Beetroot": 2.8, "Cauliflower": 4.25, "Parsnip": 6.5,
-      "Eggplant": 8.0, "Corn": 9.0, "Radish": 9.5, "Wheat": 7.0, "Kale": 10.0
-    };
-    return res.json(defaultPrices);
+    // Attempt to fetch live market prices from SFL community API
+    const response = await axios.get('https://api.sunflower-land.com/community/prices', {
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+      timeout: 5000
+    });
+    return res.json(response.data);
   } catch (err) {
-    return res.status(500).json({ error: 'Failed to fetch price data.' });
+    console.log('[PRICE API WARNING] Live price fetch failed, serving default Flower token prices.');
+
+    // Realistic default Flower (SFL Token) prices (NOT Betty Shop coins)
+    const defaultFlowerPrices = {
+      "Sunflower": 0.0002,
+      "Potato": 0.0014,
+      "Pumpkin": 0.0040,
+      "Carrot": 0.0080,
+      "Cabbage": 0.0150,
+      "Beetroot": 0.0280,
+      "Cauliflower": 0.0425,
+      "Parsnip": 0.0650,
+      "Eggplant": 0.0800,
+      "Corn": 0.0900,
+      "Radish": 0.0950,
+      "Wheat": 0.0700,
+      "Kale": 0.1000,
+      "Soybean": 0.0230,
+      "Barley": 0.1200,
+      "Rhubarb": 0.0024,
+      "Zucchini": 0.0040,
+      "Yam": 0.0080,
+      "Broccoli": 0.0150,
+      "Pepper": 0.0300,
+      "Onion": 0.1000,
+      "Turnip": 0.0800,
+      "Artichoke": 0.1200,
+      "Apple": 0.2500,
+      "Blueberry": 0.1200,
+      "Orange": 0.1800,
+      "Banana": 0.2500,
+      "Grape": 2.4000,
+      "Rice": 3.2000,
+      "Olive": 4.0000
+    };
+    return res.json(defaultFlowerPrices);
   }
 });
 
-// API Endpoint: Register Farm for Auto-Sync
+// Register Auto Sync
 app.post('/api/register-auto-sync', (req, res) => {
   const { farmId } = req.body;
   if (!farmId) return res.status(400).json({ success: false, error: 'Farm ID is required.' });
 
   registeredFarms.add(String(farmId));
-  console.log(`[REGISTER] Farm #${farmId} registered for daily sync.`);
-
   return res.json({ success: true, message: `Farm #${farmId} registered for daily 00:00 UTC sync!` });
 });
 
-// API Endpoint: Unregister Farm
+// Unregister Auto Sync
 app.post('/api/unregister-auto-sync', (req, res) => {
   const { farmId } = req.body;
   if (farmId) registeredFarms.delete(String(farmId));
