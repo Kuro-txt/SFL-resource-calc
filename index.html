@@ -1,339 +1,385 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SFL Buddy - Market Calculator & Auto Sync</title>
-  
-  <!-- Pixel Font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SFL Resource Calculator & Cloud Sync</title>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            pixel: ['"VT323"', 'monospace'],
+            game: ['"Fredoka"', 'sans-serif'],
+          },
+          colors: {
+            sfl: {
+              green: '#3e8914',
+              dirt: '#2b1e17',
+              wood: '#633d1f',
+              woodLight: '#8a5832',
+              card: '#fff3db',
+              cardBorder: '#c49a6c',
+              gold: '#f2a900',
+              accent: '#e76f51'
+            }
+          }
+        }
+      }
+    }
+  </script>
   <style>
-    :root {
-      --sfl-green: #63ab3f;
-      --sfl-dark-green: #3e7327;
-      --sfl-brown: #8b5a2b;
-      --sfl-dark-brown: #5c3a17;
-      --sfl-wood-light: #d4a373;
-      --sfl-wood-dark: #a97142;
-      --sfl-card-bg: #faedcd;
-      --sfl-border: #3a220f;
-      --sfl-text: #2b1704;
-      --sfl-yellow: #f4a261;
-      --sfl-highlight: #e76f51;
-      --sfl-cyan: #2a9d8f;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
     body {
-      font-family: 'VT323', monospace;
-      background-color: var(--sfl-dark-green);
-      background-image: 
-        radial-gradient(var(--sfl-green) 15%, transparent 16%),
-        radial-gradient(var(--sfl-green) 15%, transparent 16%);
+      background-color: #2e531c;
+      background-image: radial-gradient(#3a6923 15%, transparent 16%), radial-gradient(#3a6923 15%, transparent 16%);
       background-size: 30px 30px;
       background-position: 0 0, 15px 15px;
-      color: var(--sfl-text);
-      margin: 0;
-      padding: 20px;
-      font-size: 20px;
     }
-
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
+    .sfl-panel {
+      background-color: #fceade;
+      border: 4px solid #5c3317;
+      box-shadow: inset -4px -4px 0px #d4a373, 0px 8px 0px #1a0f07;
     }
-
-    /* Pixel Art Container Box */
-    .pixel-box {
-      background-color: var(--sfl-card-bg);
-      border: 4px solid var(--sfl-border);
-      box-shadow: 
-        inset -4px -4px 0px var(--sfl-wood-dark),
-        inset 4px 4px 0px #fff,
-        6px 6px 0px rgba(0,0,0,0.4);
-      border-radius: 4px;
-      padding: 20px;
-      position: relative;
+    .sfl-input {
+      background-color: #ffffff;
+      border: 3px solid #8a5832;
+      box-shadow: inset 2px 2px 0px #d9d9d9;
     }
-
-    .pixel-box-header {
-      background-color: var(--sfl-brown);
-      color: #fff;
-      border: 3px solid var(--sfl-border);
-      padding: 8px 16px;
-      margin: -32px -10px 16px -10px;
-      font-family: 'Press Start 2P', cursive;
-      font-size: 14px;
-      text-shadow: 2px 2px #000;
-      box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+    .sfl-btn {
+      background-color: #e76f51;
+      border: 3px solid #4a1e05;
+      box-shadow: 0px 4px 0px #311302;
+    }
+    .sfl-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0px 2px 0px #311302;
+    }
+    .sfl-icon {
+      image-rendering: pixelated;
       display: inline-block;
+      vertical-align: middle;
+      flex-shrink: 0;
     }
-
-    h1 {
-      font-family: 'Press Start 2P', cursive;
-      font-size: 18px;
-      color: #fff;
-      text-shadow: 3px 3px 0px var(--sfl-border);
-      text-align: center;
-      margin: 10px 0 25px 0;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 14px;
-    }
-
-    label {
-      font-family: 'Press Start 2P', cursive;
-      font-size: 10px;
-      color: var(--sfl-dark-brown);
-    }
-
-    input, select {
-      font-family: 'VT323', monospace;
-      font-size: 22px;
-      padding: 6px 10px;
-      background-color: #fff;
-      border: 3px solid var(--sfl-border);
-      border-radius: 2px;
-      color: var(--sfl-text);
-      outline: none;
-    }
-
-    input:focus, select:focus {
-      border-color: var(--sfl-yellow);
-      background-color: #fffdf5;
-    }
-
-    .btn-pixel {
-      font-family: 'Press Start 2P', cursive;
-      font-size: 12px;
-      padding: 10px 16px;
-      background-color: var(--sfl-yellow);
-      color: var(--sfl-dark-brown);
-      border: 3px solid var(--sfl-border);
-      box-shadow: inset -3px -3px 0px var(--sfl-highlight), 3px 3px 0px #000;
-      cursor: pointer;
-      transition: all 0.1s ease;
-      text-transform: uppercase;
-    }
-
-    .btn-pixel:active {
-      box-shadow: inset 2px 2px 0px var(--sfl-dark-brown);
-      transform: translate(2px, 2px);
-    }
-
-    /* Auto-Sync Pixel Switch */
-    .sync-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background-color: var(--sfl-wood-light);
-      border: 3px solid var(--sfl-border);
-      padding: 10px 14px;
-      margin-top: 15px;
-    }
-
-    .sync-bar span {
-      font-family: 'Press Start 2P', cursive;
-      font-size: 10px;
-      color: var(--sfl-dark-brown);
-    }
-
+    /* Pixel Custom Toggle Switch */
     .switch {
       position: relative;
       display: inline-block;
-      width: 52px;
-      height: 28px;
+      width: 48px;
+      height: 24px;
     }
-
     .switch input {
       opacity: 0;
       width: 0;
       height: 0;
     }
-
     .slider {
       position: absolute;
       cursor: pointer;
       top: 0; left: 0; right: 0; bottom: 0;
-      background-color: var(--sfl-dark-brown);
-      border: 3px solid var(--sfl-border);
+      background-color: #633d1f;
+      border: 2px solid #2b1e17;
       transition: .2s;
+      border-radius: 6px;
     }
-
     .slider:before {
       position: absolute;
       content: "";
       height: 14px;
       width: 14px;
-      left: 4px;
-      bottom: 4px;
-      background-color: #fff;
-      border: 2px solid var(--sfl-border);
+      left: 3px;
+      bottom: 3px;
+      background-color: #ffffff;
+      border: 1px solid #2b1e17;
       transition: .2s;
+      border-radius: 4px;
     }
-
     input:checked + .slider {
-      background-color: var(--sfl-green);
+      background-color: #3e8914;
     }
-
     input:checked + .slider:before {
       transform: translateX(24px);
     }
-
-    /* Pixel Table */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      background-color: #fff;
-      border: 3px solid var(--sfl-border);
-    }
-
-    th, td {
-      padding: 8px 12px;
-      text-align: left;
-      border: 2px solid var(--sfl-border);
-      font-size: 22px;
-    }
-
-    th {
-      font-family: 'Press Start 2P', cursive;
-      font-size: 9px;
-      background-color: var(--sfl-wood-light);
-      color: var(--sfl-dark-brown);
-    }
-
-    #statusMessage {
-      font-family: 'Press Start 2P', cursive;
-      font-size: 10px;
-      margin-top: 12px;
-      line-height: 1.6;
-    }
-
-    .grid-2col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-    }
-
-    @media (max-width: 600px) {
-      .grid-2col {
-        grid-template-columns: 1fr;
-      }
-    }
   </style>
 </head>
-<body>
+<body class="font-game text-sfl-dirt min-h-screen p-4 sm:p-8 flex items-center justify-center">
 
-  <div class="container">
+  <div class="w-full max-w-5xl sfl-panel rounded-2xl p-6 sm:p-8 relative space-y-6">
     
-    <h1>🌻 SFL BUDDY CALCULATOR</h1>
-
-    <!-- FARM SYNC PANEL -->
-    <div class="pixel-box">
-      <div class="pixel-box-header">FARM SYNC</div>
-      
-      <div class="grid-2col">
-        <div class="form-group">
-          <label for="farmId">FARM ID</label>
-          <input type="number" id="farmId" placeholder="e.g. 12345" />
-        </div>
-
-        <div class="form-group">
-          <label for="apiKey">API KEY (OPTIONAL)</label>
-          <input type="password" id="apiKey" placeholder="Optional Key" />
-        </div>
+    <!-- Top Header Ribbon -->
+    <div class="text-center">
+      <div class="inline-block bg-sfl-wood text-amber-200 border-2 border-sfl-dirt px-6 py-1.5 rounded-full shadow-md">
+        <h1 class="text-2xl sm:text-4xl font-pixel tracking-wider font-bold text-amber-300 flex items-center gap-2 justify-center">
+          <span>🌻</span> SFL RESOURCE CALCULATOR
+        </h1>
       </div>
-
-      <button class="btn-pixel" onclick="fetchFarmInventory()">🔄 Sync Inventory</button>
-
-      <!-- 00:00 UTC Cloud Auto-Sync -->
-      <div class="sync-bar">
-        <span>⚡ AUTO-SYNC (00:00 UTC)</span>
-        <label class="switch">
-          <input type="checkbox" id="autoSyncToggle" onchange="toggleAutoSync()" />
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div id="statusMessage"></div>
+      <p class="text-xs font-semibold text-sfl-woodLight mt-2">Live item prices & farm inventory sync</p>
     </div>
 
-    <!-- MARKET CALCULATOR PANEL -->
-    <div class="pixel-box">
-      <div class="pixel-box-header">MARKET CALCULATOR</div>
+    <!-- Info Note -->
+    <p class="text-xs text-sfl-woodLight text-center -mt-4 font-medium">
+      💡 Farm credentials are only needed to auto-fetch inventory — you can still manually search & add items below.
+    </p>
 
-      <div class="grid-2col">
-        <div class="form-group">
-          <label for="taxRate">MARKET TAX</label>
-          <select id="taxRate" onchange="calculateMarket()">
-            <option value="0.10">10% Standard Tax</option>
-            <option value="0.05">5% Goblin Discount</option>
-            <option value="0.00">0% No Tax</option>
-          </select>
+    <!-- Farm Credentials & Cloud Sync Panel -->
+    <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder space-y-3">
+      <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
+        <span>🔑</span> Farm Credentials & Cloud Auto-Sync
+      </h3>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-sfl-wood mb-1">Farm ID</label>
+          <input type="text" id="farm-id" placeholder="e.g. 12345" 
+            class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm">
         </div>
-
-        <div class="form-group">
-          <label for="itemSelect">CROP / RESOURCE</label>
-          <select id="itemSelect" onchange="calculateMarket()">
-            <option value="Sunflower">Sunflower</option>
-            <option value="Potato">Potato</option>
-            <option value="Pumpkin">Pumpkin</option>
-            <option value="Carrot">Carrot</option>
-            <option value="Cabbage">Cabbage</option>
-            <option value="Beetroot">Beetroot</option>
-            <option value="Cauliflower">Cauliflower</option>
-            <option value="Parsnip">Parsnip</option>
-            <option value="Eggplant">Eggplant</option>
-            <option value="Corn">Corn</option>
-            <option value="Radish">Radish</option>
-            <option value="Wheat">Wheat</option>
-            <option value="Kale">Kale</option>
-          </select>
+        <div>
+          <label class="block text-xs font-bold text-sfl-wood mb-1">API Key / Token (Optional)</label>
+          <input type="password" id="api-key" placeholder="Paste Key or Token" 
+            class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm">
         </div>
       </div>
 
-      <div class="grid-2col">
-        <div class="form-group">
-          <label for="itemQuantity">QUANTITY</label>
-          <input type="number" id="itemQuantity" value="100" oninput="calculateMarket()" />
-        </div>
+      <div class="flex flex-col sm:flex-row gap-3 pt-1">
+        <button id="import-farm-btn" class="flex-1 bg-sfl-wood text-amber-200 font-bold py-2 px-3 rounded-lg border-2 border-sfl-dirt text-sm hover:bg-sfl-woodLight transition flex items-center justify-center gap-2">
+          🔄 Sync Farm Quantities Now
+        </button>
 
-        <div class="form-group">
-          <label for="unitPrice">UNIT PRICE (SFL / COINS)</label>
-          <input type="number" id="unitPrice" step="0.0001" value="0.01" oninput="calculateMarket()" />
+        <!-- 00:00 UTC Auto-Sync Toggle -->
+        <div class="flex-1 bg-sfl-wood/10 border-2 border-sfl-cardBorder p-2 rounded-lg flex items-center justify-between px-3">
+          <span class="text-xs font-bold text-sfl-wood flex items-center gap-1.5">
+            <span>⚡</span> Cloud Auto-Sync (00:00 UTC)
+          </span>
+          <label class="switch">
+            <input type="checkbox" id="autoSyncToggle" onchange="toggleAutoSync()">
+            <span class="slider"></span>
+          </label>
         </div>
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>GROSS VALUE</th>
-            <th>TAX</th>
-            <th>NET REVENUE</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td id="grossValue">0.000</td>
-            <td id="taxAmount" style="color: var(--sfl-highlight);">0.000</td>
-            <td id="netRevenue" style="color: var(--sfl-dark-green); font-weight: bold;">0.000</td>
-          </tr>
-        </tbody>
-      </table>
+      <p id="sync-status" class="text-xs text-center font-bold text-sfl-woodLight min-h-[16px]"></p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+      
+      <!-- LEFT SIDE: Item Selector -->
+      <div class="bg-sfl-card/80 p-5 rounded-xl border-2 border-sfl-cardBorder space-y-4">
+        <h2 class="text-lg font-bold text-sfl-wood border-b-2 border-sfl-cardBorder pb-2 flex items-center gap-2">
+          <span>📦</span> Select Item
+        </h2>
+
+        <div class="relative">
+          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood mb-1">🔍 Search & Select Item</label>
+          <input type="text" id="combobox-input" placeholder="Type to search..." autocomplete="off"
+            class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
+          
+          <ul id="combobox-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border-2 border-sfl-woodLight rounded-lg shadow-xl z-20 divide-y divide-sfl-cardBorder/30 text-sm">
+            <li class="p-2 text-sfl-woodLight italic">Loading items...</li>
+          </ul>
+        </div>
+
+        <div id="selected-item-badge" class="hidden bg-sfl-gold/20 border border-sfl-gold rounded-lg p-2 text-xs font-bold text-sfl-wood flex justify-between items-center">
+          <span>Selected: <span id="selected-item-name" class="text-sfl-green font-extrabold">None</span></span>
+          <span id="selected-item-price" class="font-mono text-sfl-dirt flex items-center gap-1">0 Flowers</span>
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood">🔢 Quantity</label>
+            <span id="inventory-hint" class="text-[11px] font-bold text-sfl-green hidden">Farm Stock: <span id="stock-count">0</span></span>
+          </div>
+          <input type="number" id="quantity" value="1" min="0.1" step="0.1" 
+            class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
+        </div>
+
+        <button id="add-btn" 
+          class="w-full sfl-btn text-white font-bold py-3 rounded-xl transition text-base tracking-wide flex items-center justify-center gap-2 mt-2">
+          <span>🧺</span> Add to Farm Basket
+        </button>
+      </div>
+
+      <!-- RIGHT SIDE: Settings, Basket Table & Currency Conversion -->
+      <div class="flex flex-col h-full space-y-4">
+        
+        <!-- Combined Settings Panel -->
+        <div class="bg-sfl-card/90 p-3.5 rounded-xl border-2 border-sfl-cardBorder shadow-sm">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            
+            <!-- Market Tax Option -->
+            <div class="flex flex-col">
+              <label class="text-xs font-bold text-sfl-wood uppercase mb-1 flex items-center gap-1">
+                <span>🏷️</span> Market Tax Rate
+              </label>
+              <select id="tax-select" class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold cursor-pointer">
+                <option value="0">0% (No Tax)</option>
+                <option value="0.05">5% Tax</option>
+                <option value="0.075">7.5% Tax</option>
+                <option value="0.10" selected>10% Tax</option>
+                <option value="0.125">12.5% Tax</option>
+                <option value="0.15">15% Tax</option>
+              </select>
+            </div>
+
+            <!-- Coin Ratio Option -->
+            <div class="flex flex-col">
+              <label class="text-xs font-bold text-sfl-wood uppercase mb-1 flex items-center gap-1">
+                <img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-4 h-4 sfl-icon" alt="Coins"> Coins per 1 Flower
+              </label>
+              <input type="number" id="coin-ratio" value="1000" min="1" step="1" 
+                class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Basket Table Container -->
+        <div class="bg-white/70 border-2 border-sfl-cardBorder rounded-xl overflow-hidden flex-grow shadow-sm">
+          <div class="bg-sfl-wood text-amber-200 px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-sfl-dirt flex justify-between items-center">
+            <span>🛒 Farm Basket</span>
+            <div class="flex items-center gap-2">
+              <button id="clear-basket" class="text-[10px] bg-sfl-accent text-white px-2 py-0.5 rounded font-bold hover:bg-red-700">Clear</button>
+              <span id="item-count" class="text-amber-300 font-mono">0 Items</span>
+            </div>
+          </div>
+
+          <div class="max-h-[220px] overflow-y-auto">
+            <table class="w-full text-left text-xs text-sfl-dirt">
+              <thead class="text-[11px] uppercase bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood">
+                <tr>
+                  <th class="px-2 py-2">Item</th>
+                  <th class="px-1 py-2 w-20">Qty</th>
+                  <th class="px-2 py-2">Flowers</th>
+                  <th class="px-2 py-2">Betty Coins</th>
+                  <th class="px-2 py-2">Ratio Coins</th>
+                  <th class="px-1 py-2 text-right">✕</th>
+                </tr>
+              </thead>
+              <tbody id="basket-body" class="divide-y divide-sfl-cardBorder/50 font-medium">
+                <tr>
+                  <td colspan="6" class="px-4 py-8 text-center text-sfl-woodLight italic">
+                    Your farm basket is empty!
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Total Display Banner -->
+        <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 text-center shadow-inner space-y-2">
+          <div class="flex justify-between text-xs text-sfl-woodLight font-semibold px-2">
+            <span>Gross: <span id="gross-flowers" class="font-mono text-sfl-dirt">0.000 Flowers</span></span>
+            <span>Tax (-): <span id="tax-deduction" class="font-mono text-sfl-accent">0.000 Flowers</span></span>
+          </div>
+          <hr class="border-sfl-cardBorder/40">
+          
+          <div class="grid grid-cols-3 gap-1 pt-1 text-center items-center">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Net Flowers</span>
+              <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green mt-0.5 flex items-center justify-center gap-1">
+                <span id="total-flowers">0.000</span>
+                <img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-5 h-5 sfl-icon" alt="Flower">
+              </h2>
+            </div>
+            <div class="border-l border-sfl-cardBorder/40 px-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Betty Coins</span>
+              <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-gold mt-0.5 flex items-center justify-center gap-1">
+                <span id="total-betty-coins">0.00</span>
+                <img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-5 h-5 sfl-icon" alt="Coins">
+              </h2>
+            </div>
+            <div class="border-l border-sfl-cardBorder/40 pl-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Ratio Coins (Net)</span>
+              <h2 class="text-xl sm:text-2xl font-pixel font-bold text-amber-600 mt-0.5 flex items-center justify-center gap-1">
+                <span id="total-ratio-coins">0.00</span>
+                <img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-5 h-5 sfl-icon" alt="Coins">
+              </h2>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- HARVEST SESSION YIELD TRACKER SECTION -->
+    <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder shadow-sm space-y-3">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+          <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
+            <span>🌾</span> Harvest Session Yield Tracker
+          </h3>
+          <p class="text-[11px] text-sfl-woodLight font-semibold">Track exact crop yields harvested per session.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="toggle-guide-btn" class="bg-amber-100 text-sfl-wood border border-amber-400 px-2.5 py-1 rounded-lg text-xs font-bold hover:bg-amber-200 transition flex items-center gap-1">
+            <span>📖</span> How it Works
+          </button>
+          <button id="save-pre-harvest-btn" class="bg-amber-600 text-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-700 transition">
+            🚩 1. Save Pre-Harvest Stock
+          </button>
+          <button id="log-yield-btn" class="bg-sfl-green text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-green-700 transition">
+            🏁 2. Calculate Harvest Yield
+          </button>
+          
+          <input type="file" id="import-file-input" accept=".json" class="hidden">
+          <button id="import-json-btn" class="bg-sfl-wood text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition">
+            📤 Import
+          </button>
+          <button id="export-json-btn" class="bg-sfl-wood text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition">
+            📥 Export
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick How-To Guide (Collapsible) -->
+      <div id="harvest-guide-card" class="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 text-xs text-sfl-dirt space-y-1.5 shadow-sm">
+        <div class="font-bold text-sfl-wood text-[12px] flex items-center gap-1 border-b border-amber-200 pb-1">
+          <span>📖</span> How to Log Your Harvest Session
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+          <div class="bg-white/80 p-2 rounded-lg border border-amber-200">
+            <span class="font-bold text-amber-800 block">Step 1: Set Baseline</span>
+            Before harvesting, sync your farm or load your basket, then click <b class="text-amber-700">"🚩 1. Save Pre-Harvest Stock"</b>.
+          </div>
+          <div class="bg-white/80 p-2 rounded-lg border border-amber-200">
+            <span class="font-bold text-amber-800 block">Step 2: Harvest In-Game</span>
+            Open Sunflower Land and harvest all your ripe crops or fruits on your farm.
+          </div>
+          <div class="bg-white/80 p-2 rounded-lg border border-amber-200">
+            <span class="font-bold text-amber-800 block">Step 3: Log Yield</span>
+            Sync your farm again (or update basket) and click <b class="text-sfl-green">"🏁 2. Calculate Harvest Yield"</b> to calculate Net Yields!
+          </div>
+        </div>
+      </div>
+
+      <!-- Pre-Harvest Baseline Status -->
+      <div id="pre-harvest-status" class="hidden bg-amber-100/80 border border-amber-400 p-2 rounded-lg text-xs font-bold text-amber-900 flex justify-between items-center">
+        <span>🚩 Pre-Harvest Baseline Set (<span id="pre-harvest-time"></span>)</span>
+        <button id="clear-pre-harvest-btn" class="text-[10px] bg-sfl-accent text-white px-2 py-0.5 rounded">Clear Baseline</button>
+      </div>
+
+      <div class="overflow-x-auto bg-white/70 border-2 border-sfl-cardBorder rounded-lg">
+        <table class="w-full text-left text-xs text-sfl-dirt">
+          <thead class="bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood uppercase text-[11px]">
+            <tr>
+              <th class="px-3 py-2">Date & Time</th>
+              <th class="px-3 py-2">Total Yield</th>
+              <th class="px-3 py-2">Harvested Crops Breakdown</th>
+              <th class="px-3 py-2">Harvest Net Flowers</th>
+              <th class="px-2 py-2 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="snapshot-history-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
+            <tr>
+              <td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">
+                No harvest sessions logged yet! Click "1. Save Pre-Harvest Stock" before harvesting.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
   </div>
@@ -342,78 +388,177 @@
     // Live Render URL
     const BACKEND_URL = "https://sfl-calculator-backend.onrender.com";
 
+    let allPrices = {};
+    let basket = [];
+    let selectedItemKey = null;
+    let farmInventoryData = {};
+    let editingSnapshotDate = null;
+
+    const FLOWER_ICON = `<img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-4 h-4 sfl-icon" alt="Flower Token">`;
+    const COIN_ICON = `<img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-4 h-4 sfl-icon" alt="Coins">`;
+
+    const APPROVED_CROPS_AND_FRUITS = [
+      "sunflower", "potato", "pumpkin", "carrot", "cabbage", "beetroot", 
+      "cauliflower", "parsnip", "radish", "wheat", "kale", "eggplant", 
+      "corn", "soybean", "barley", "rhubarb", "zucchini", "yam", "broccoli", 
+      "pepper", "onion", "turnip", "artichoke", "apple", "blueberry", "orange", 
+      "banana", "grape", "rice", "olive", "tomato", "lemon", "duskberry", 
+      "lunara", "celestine", "saltwort"
+    ];
+
+    function isCropOrFruit(itemName) {
+      let clean = itemName.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
+      return APPROVED_CROPS_AND_FRUITS.includes(clean);
+    }
+
+    const BETTY_SHOP_PRICES = {
+      "sunflower": 0.02, "potato": 0.14, "rhubarb": 0.24, "pumpkin": 0.4,
+      "zucchini": 0.4, "carrot": 0.8, "yam": 0.8, "cabbage": 1.5,
+      "broccoli": 1.5, "soybean": 2.3, "beetroot": 2.8, "pepper": 3,
+      "cauliflower": 4.25, "parsnip": 6.5, "eggplant": 8, "corn": 9,
+      "onion": 10, "radish": 9.5, "wheat": 7, "turnip": 8, "kale": 10,
+      "artichoke": 12, "barley": 12, "saltwort": 50, "tomato": 2,
+      "lemon": 6, "blueberry": 12, "orange": 18, "apple": 25,
+      "banana": 25, "celestine": 200, "lunara": 500, "duskberry": 1000,
+      "grape": 240, "rice": 320, "olive": 400
+    };
+
+    function getBettyUnitPrice(itemName) {
+      let clean = itemName.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
+      return BETTY_SHOP_PRICES[clean] !== undefined ? BETTY_SHOP_PRICES[clean] : null;
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       const savedFarmId = localStorage.getItem('sfl_farm_id');
       const savedApiKey = localStorage.getItem('sfl_api_key');
       const savedAutoSync = localStorage.getItem('sfl_auto_sync') === 'true';
 
-      if (savedFarmId) document.getElementById('farmId').value = savedFarmId;
-      if (savedApiKey) document.getElementById('apiKey').value = savedApiKey;
+      if (savedFarmId) document.getElementById('farm-id').value = savedFarmId;
+      if (savedApiKey) document.getElementById('api-key').value = savedApiKey;
       
       const toggle = document.getElementById('autoSyncToggle');
       if (toggle) toggle.checked = savedAutoSync;
 
-      calculateMarket();
+      updatePreHarvestUI();
+      pruneOldSnapshots();
+      renderSnapshotHistory();
     });
 
-    function calculateMarket() {
-      const qty = parseFloat(document.getElementById('itemQuantity').value) || 0;
-      const price = parseFloat(document.getElementById('unitPrice').value) || 0;
-      const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+    document.getElementById('farm-id').addEventListener('input', (e) => localStorage.setItem('sfl_farm_id', e.target.value));
+    document.getElementById('api-key').addEventListener('input', (e) => localStorage.setItem('sfl_api_key', e.target.value));
 
-      const gross = qty * price;
-      const tax = gross * taxRate;
-      const net = gross - tax;
+    // Toggle Guide Visibility
+    document.getElementById('toggle-guide-btn').addEventListener('click', () => {
+      const guide = document.getElementById('harvest-guide-card');
+      guide.classList.toggle('hidden');
+    });
 
-      document.getElementById('grossValue').innerText = gross.toFixed(3);
-      document.getElementById('taxAmount').innerText = tax.toFixed(3);
-      document.getElementById('netRevenue').innerText = net.toFixed(3);
+    fetch('/api/get-data')
+      .then(res => res.json())
+      .then(rawData => {
+        allPrices = extractPrices(rawData);
+      })
+      .catch(() => {
+        // Fallback default crop prices if api/get-data route isn't active
+        allPrices = {
+          "Sunflower": 0.02, "Potato": 0.14, "Pumpkin": 0.4, "Carrot": 0.8,
+          "Cabbage": 1.5, "Beetroot": 2.8, "Cauliflower": 4.25, "Parsnip": 6.5,
+          "Eggplant": 8.0, "Corn": 9.0, "Radish": 9.5, "Wheat": 7.0, "Kale": 10.0
+        };
+      });
+
+    function extractPrices(data) {
+      let pricesMap = {};
+      function searchObj(obj, category = '') {
+        for (let key in obj) {
+          let val = obj[key];
+          if (typeof val === 'number') {
+            pricesMap[category + key] = val;
+          } else if (val && typeof val === 'object') {
+            let p = val.price || val.sfl || val.sflPrice || val.flowerPrice;
+            if (p !== undefined) pricesMap[category + key] = parseFloat(p);
+            else searchObj(val, key.length <= 4 ? `[${key.toUpperCase()}] ` : '');
+          }
+        }
+      }
+      searchObj(data);
+      return pricesMap;
     }
 
-    async function fetchFarmInventory() {
-      const farmId = document.getElementById('farmId').value.trim();
-      const apiKey = document.getElementById('apiKey').value.trim();
-      const statusDiv = document.getElementById('statusMessage');
+    function roundUpToOneDecimal(val) {
+      let num = typeof val === 'number' ? val : parseFloat(val);
+      if (isNaN(num) || num < 0.01) return 0;
+      return Math.ceil(num * 10) / 10;
+    }
+
+    function roundUpToThreeDecimals(val) {
+      let num = typeof val === 'number' ? val : parseFloat(val);
+      if (isNaN(num) || num < 0.0001) return 0;
+      return Math.ceil(num * 1000) / 1000;
+    }
+
+    function roundUpToTwoDecimals(val) {
+      let num = typeof val === 'number' ? val : parseFloat(val);
+      if (isNaN(num) || num < 0.01) return 0;
+      return Math.ceil(num * 100) / 100;
+    }
+
+    function getItemStock(displayName) {
+      let cleanSelected = displayName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (let invKey in farmInventoryData) {
+        let cleanInvKey = invKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanInvKey === cleanSelected) {
+          let val = farmInventoryData[invKey];
+          let rawVal = typeof val === 'number' ? val : parseFloat(val.amount || val || 0);
+          return roundUpToOneDecimal(rawVal);
+        }
+      }
+      return 0;
+    }
+
+    // MANUAL SYNC BUTTON
+    document.getElementById('import-farm-btn').addEventListener('click', async () => {
+      const farmId = document.getElementById('farm-id').value.trim();
+      const apiKey = document.getElementById('api-key').value.trim();
+      const status = document.getElementById('sync-status');
 
       if (!farmId) {
-        alert('Please enter a valid Farm ID.');
+        status.textContent = '❌ Please enter a Farm ID.';
         return;
       }
 
-      localStorage.setItem('sfl_farm_id', farmId);
-      if (apiKey) localStorage.setItem('sfl_api_key', apiKey);
-
-      statusDiv.style.color = 'var(--sfl-dark-brown)';
-      statusDiv.innerText = '⏳ Syncing with Sunflower Land...';
+      status.textContent = '⏳ Fetching farm data...';
 
       try {
-        const response = await fetch(`https://api.sunflower-land.com/community/farms/${farmId}`);
-        if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-
+        let response = await fetch(`https://api.sunflower-land.com/community/farms/${farmId}`);
+        if (!response.ok) {
+          response = await fetch(`/api/get-farm?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`);
+        }
+        
         const data = await response.json();
-        const inventory = data.inventory || {};
+        const farmData = data.inventory ? data : (data.farm?.farm || data.farm?.data || data.farm);
+        farmInventoryData = farmData?.inventory || {};
 
-        statusDiv.style.color = 'var(--sfl-dark-green)';
-        statusDiv.innerText = `✅ Synced Farm #${farmId}!`;
+        let totalItemsCount = Object.keys(farmInventoryData).length;
 
-        const selectedItem = document.getElementById('itemSelect').value;
-        if (inventory[selectedItem]) {
-          document.getElementById('itemQuantity').value = parseFloat(inventory[selectedItem]);
-          calculateMarket();
+        if (totalItemsCount > 0) {
+          status.textContent = `✅ Synced ${totalItemsCount} item types from Farm #${farmId}!`;
+        } else {
+          status.textContent = `⚠️ Connected, but no inventory found on farm.`;
         }
       } catch (err) {
-        statusDiv.style.color = 'var(--sfl-highlight)';
-        statusDiv.innerText = `❌ Sync failed: ${err.message}`;
+        status.textContent = '❌ Sync Error: ' + err.message;
       }
-    }
+    });
 
+    // 00:00 UTC CLOUD AUTO-SYNC TOGGLE HANDLER
     async function toggleAutoSync() {
-      const farmId = document.getElementById('farmId').value.trim();
+      const farmId = document.getElementById('farm-id').value.trim();
       const isChecked = document.getElementById('autoSyncToggle').checked;
-      const statusDiv = document.getElementById('statusMessage');
+      const status = document.getElementById('sync-status');
 
       if (!farmId) {
-        alert("Enter a Farm ID before enabling Cloud Auto-Sync.");
+        alert("Please enter a Farm ID before enabling Cloud Auto-Sync.");
         document.getElementById('autoSyncToggle').checked = false;
         return;
       }
@@ -421,8 +566,7 @@
       localStorage.setItem('sfl_farm_id', farmId);
       localStorage.setItem('sfl_auto_sync', isChecked);
 
-      statusDiv.style.color = 'var(--sfl-dark-brown)';
-      statusDiv.innerText = "Connecting to cloud server...";
+      status.textContent = "Connecting to Render server...";
 
       try {
         const endpoint = isChecked 
@@ -438,19 +582,561 @@
         const data = await response.json();
 
         if (data.success) {
-          statusDiv.style.color = "var(--sfl-dark-green)";
-          statusDiv.innerText = isChecked 
-            ? `✅ Auto-Sync active for Farm #${farmId} (00:00 UTC)!` 
-            : `Auto-Sync disabled.`;
+          status.textContent = isChecked 
+            ? `✅ Cloud Auto-Sync registered for Farm #${farmId} (Runs daily at 00:00 UTC)!` 
+            : `Auto-sync disabled for Farm #${farmId}.`;
         } else {
-          throw new Error(data.error || 'Server error');
+          throw new Error(data.error || 'Server request failed');
         }
       } catch (err) {
-        statusDiv.style.color = "var(--sfl-highlight)";
-        statusDiv.innerText = `❌ Connection error to sync server.`;
+        status.textContent = `❌ Could not connect to Render sync server.`;
         document.getElementById('autoSyncToggle').checked = !isChecked;
       }
     }
+
+    const input = document.getElementById('combobox-input');
+    const menu = document.getElementById('combobox-menu');
+
+    input.addEventListener('input', () => {
+      const query = input.value.toLowerCase().trim();
+      menu.innerHTML = '';
+
+      const matches = Object.keys(allPrices)
+        .filter(key => {
+          let cleanKey = key.replace(/^\[.*?\]\s*/, '');
+          return cleanKey.toLowerCase().includes(query) || key.toLowerCase().includes(query);
+        })
+        .sort((a, b) => a.replace(/^\[.*?\]\s*/, '').localeCompare(b.replace(/^\[.*?\]\s*/, '')));
+
+      if (matches.length === 0) {
+        menu.innerHTML = '<li class="p-2 text-sfl-woodLight italic">No items found</li>';
+      } else {
+        matches.forEach(item => {
+          let displayName = item.replace(/^\[.*?\]\s*/, '');
+          let stock = getItemStock(displayName);
+
+          let stockBadge = stock > 0 
+            ? `<span class="text-[11px] font-bold text-sfl-green bg-green-100 border border-sfl-green/30 px-1.5 py-0.5 rounded ml-1.5">Qty: ${stock.toFixed(1)}</span>`
+            : `<span class="text-[11px] text-sfl-woodLight/60 ml-1.5">(0)</span>`;
+
+          const li = document.createElement('li');
+          li.className = 'p-2.5 hover:bg-amber-100 cursor-pointer transition flex justify-between items-center';
+          li.innerHTML = `
+            <div class="flex items-center">
+              <span class="font-bold text-sfl-dirt">${displayName}</span>
+              ${stockBadge}
+            </div>
+            <span class="text-sfl-green font-mono text-xs font-bold flex items-center gap-1">${allPrices[item]} ${FLOWER_ICON}</span>
+          `;
+          li.addEventListener('click', () => selectItem(item, displayName));
+          menu.appendChild(li);
+        });
+      }
+
+      menu.classList.remove('hidden');
+    });
+
+    input.addEventListener('focus', () => input.dispatchEvent(new Event('input')));
+
+    document.addEventListener('click', (e) => {
+      if (!input.contains(e.target) && !menu.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    function selectItem(itemKey, displayName) {
+      selectedItemKey = itemKey;
+      let cleanName = displayName || itemKey.replace(/^\[.*?\]\s*/, '');
+
+      input.value = cleanName;
+      menu.classList.add('hidden');
+
+      document.getElementById('selected-item-badge').classList.remove('hidden');
+      document.getElementById('selected-item-name').textContent = cleanName;
+      document.getElementById('selected-item-price').innerHTML = `${allPrices[itemKey]} ${FLOWER_ICON}`;
+
+      let foundStock = getItemStock(cleanName);
+
+      if (foundStock > 0) {
+        document.getElementById('quantity').value = foundStock.toFixed(1);
+        document.getElementById('inventory-hint').classList.remove('hidden');
+        document.getElementById('stock-count').textContent = foundStock.toFixed(1);
+      } else {
+        document.getElementById('quantity').value = 1;
+        document.getElementById('inventory-hint').classList.add('hidden');
+      }
+    }
+
+    document.getElementById('add-btn').addEventListener('click', () => {
+      const rawQty = parseFloat(document.getElementById('quantity').value) || 0;
+      const qty = roundUpToOneDecimal(rawQty);
+
+      if (!selectedItemKey || qty <= 0) return;
+
+      const unitPrice = allPrices[selectedItemKey] || 0;
+      const subtotal = unitPrice * qty;
+
+      basket.push({ item: selectedItemKey, qty, unitPrice, subtotal });
+      updateBasketTable();
+
+      input.value = '';
+      selectedItemKey = null;
+      document.getElementById('quantity').value = 1;
+      document.getElementById('selected-item-badge').classList.add('hidden');
+      document.getElementById('inventory-hint').classList.add('hidden');
+    });
+
+    document.getElementById('clear-basket').addEventListener('click', () => {
+      basket = [];
+      updateBasketTable();
+    });
+
+    document.getElementById('tax-select').addEventListener('change', updateBasketTable);
+    document.getElementById('coin-ratio').addEventListener('input', updateBasketTable);
+
+    function updateBasketQuantity(index, newQtyVal) {
+      let rawQty = parseFloat(newQtyVal) || 0;
+      let newQty = roundUpToOneDecimal(rawQty);
+
+      if (newQty <= 0) {
+        removeItem(index);
+        return;
+      }
+
+      basket[index].qty = newQty;
+      basket[index].subtotal = basket[index].unitPrice * newQty;
+      updateBasketTable();
+    }
+
+    function updateBasketTable() {
+      const tbody = document.getElementById('basket-body');
+      tbody.innerHTML = '';
+
+      let grandGrossTotal = 0;
+      let totalBettyCoins = 0;
+      let totalGrossRatioCoins = 0;
+
+      const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
+      const coinMultiplier = parseFloat(document.getElementById('coin-ratio').value) || 1000;
+
+      if (basket.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-sfl-woodLight italic">Your farm basket is empty!</td></tr>';
+      } else {
+        basket.forEach((entry, index) => {
+          grandGrossTotal += entry.subtotal;
+
+          let cleanName = entry.item.replace(/^\[.*?\]\s*/, '');
+          let bettyUnitPrice = getBettyUnitPrice(cleanName);
+
+          let bettyCoinsDisplay = `<span class="text-sfl-woodLight/70 font-normal italic text-[10px]">Unavailable</span>`;
+          if (bettyUnitPrice !== null) {
+            let itemBettyCoins = entry.qty * bettyUnitPrice;
+            totalBettyCoins += itemBettyCoins;
+            bettyCoinsDisplay = `<span class="inline-flex items-center gap-1">${roundUpToTwoDecimals(itemBettyCoins).toFixed(2)} ${COIN_ICON}</span>`;
+          }
+
+          let itemNetFlowers = entry.subtotal * (1 - taxRate);
+          let itemNetRatioCoins = itemNetFlowers * coinMultiplier;
+          
+          totalGrossRatioCoins += (entry.subtotal * coinMultiplier);
+
+          let ratioCoinsDisplay = entry.unitPrice > 0 
+            ? `<span class="inline-flex items-center gap-1">${roundUpToTwoDecimals(itemNetRatioCoins).toFixed(2)} ${COIN_ICON}</span>` 
+            : `<span class="text-sfl-woodLight/70 font-normal italic text-[10px]">-</span>`;
+
+          let tr = document.createElement('tr');
+          tr.className = "hover:bg-amber-50/50 transition";
+          
+          let subtotalDisplay = entry.unitPrice > 0 
+            ? `<span class="inline-flex items-center gap-1">${roundUpToThreeDecimals(entry.subtotal).toFixed(3)} ${FLOWER_ICON}</span>` 
+            : `<span class="text-sfl-woodLight font-normal">Untradeable</span>`;
+
+          tr.innerHTML = `
+            <td class="px-2 py-2.5 font-bold text-sfl-dirt">${cleanName}</td>
+            <td class="px-1 py-2 font-mono">
+              <input type="number" value="${entry.qty.toFixed(1)}" min="0.1" step="0.1"
+                onchange="updateBasketQuantity(${index}, this.value)"
+                class="w-16 sfl-input rounded px-1.5 py-0.5 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-1 focus:ring-sfl-gold">
+            </td>
+            <td class="px-2 py-2.5 text-sfl-green font-bold">${subtotalDisplay}</td>
+            <td class="px-2 py-2.5 text-sfl-gold font-bold">${bettyCoinsDisplay}</td>
+            <td class="px-2 py-2.5 text-amber-600 font-bold">${ratioCoinsDisplay}</td>
+            <td class="px-1 py-2.5 text-right">
+              <button onclick="removeItem(${index})" class="text-sfl-accent hover:text-red-700 font-bold px-1">✕</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Tax & Net Totals
+      const taxAmount = grandGrossTotal * taxRate;
+      const netFlowers = grandGrossTotal - taxAmount;
+      const totalNetRatioCoins = totalGrossRatioCoins * (1 - taxRate);
+
+      document.getElementById('gross-flowers').textContent = `${roundUpToThreeDecimals(grandGrossTotal).toFixed(3)} Flowers`;
+      document.getElementById('tax-deduction').textContent = `${roundUpToThreeDecimals(taxAmount).toFixed(3)} Flowers`;
+      document.getElementById('total-flowers').textContent = `${roundUpToThreeDecimals(netFlowers).toFixed(3)}`;
+      document.getElementById('total-betty-coins').textContent = `${roundUpToTwoDecimals(totalBettyCoins).toFixed(2)}`;
+      document.getElementById('total-ratio-coins').textContent = `${roundUpToTwoDecimals(totalNetRatioCoins).toFixed(2)}`;
+      document.getElementById('item-count').textContent = `${basket.length} Item${basket.length === 1 ? '' : 's'}`;
+    }
+
+    function removeItem(index) {
+      basket.splice(index, 1);
+      updateBasketTable();
+    }
+
+    // --- PRE-HARVEST & HARVEST YIELD LOGIC ---
+
+    function updatePreHarvestUI() {
+      const baseline = localStorage.getItem('sfl_pre_harvest_stock');
+      const container = document.getElementById('pre-harvest-status');
+      if (baseline) {
+        const data = JSON.parse(baseline);
+        document.getElementById('pre-harvest-time').textContent = data.timestamp;
+        container.classList.remove('hidden');
+      } else {
+        container.classList.add('hidden');
+      }
+    }
+
+    document.getElementById('save-pre-harvest-btn').addEventListener('click', () => {
+      let baselineStock = {};
+      
+      if (basket.length > 0) {
+        basket.forEach(entry => {
+          let cleanName = entry.item.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
+          if (isCropOrFruit(cleanName)) {
+            baselineStock[cleanName] = (baselineStock[cleanName] || 0) + entry.qty;
+          }
+        });
+      } else {
+        for (let key in farmInventoryData) {
+          let cleanName = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (APPROVED_CROPS_AND_FRUITS.includes(cleanName)) {
+            let val = typeof farmInventoryData[key] === 'number' ? farmInventoryData[key] : parseFloat(farmInventoryData[key]?.amount || 0);
+            baselineStock[cleanName] = roundUpToOneDecimal(val);
+          }
+        }
+      }
+
+      if (Object.keys(baselineStock).length === 0) {
+        alert("⚠️ No Crops or Fruits found in your farm inventory or basket! Sync your farm or add crops to basket first.");
+        return;
+      }
+
+      const preHarvestPayload = {
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        stock: baselineStock
+      };
+
+      localStorage.setItem('sfl_pre_harvest_stock', JSON.stringify(preHarvestPayload));
+      updatePreHarvestUI();
+      alert("🚩 Pre-Harvest baseline saved! Go harvest your crops in-game, then click '2. Calculate Harvest Yield'.");
+    });
+
+    document.getElementById('clear-pre-harvest-btn').addEventListener('click', () => {
+      localStorage.removeItem('sfl_pre_harvest_stock');
+      updatePreHarvestUI();
+    });
+
+    document.getElementById('log-yield-btn').addEventListener('click', () => {
+      const preHarvestRaw = localStorage.getItem('sfl_pre_harvest_stock');
+      if (!preHarvestRaw) {
+        alert("⚠️ Please click '1. Save Pre-Harvest Stock' FIRST before logging your harvest yield!");
+        return;
+      }
+
+      const preHarvestData = JSON.parse(preHarvestRaw).stock;
+      const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
+
+      let postHarvestStock = {};
+
+      if (basket.length > 0) {
+        basket.forEach(entry => {
+          let cleanName = entry.item.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
+          if (isCropOrFruit(cleanName)) {
+            postHarvestStock[cleanName] = (postHarvestStock[cleanName] || 0) + entry.qty;
+          }
+        });
+      } else {
+        for (let key in farmInventoryData) {
+          let cleanName = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (APPROVED_CROPS_AND_FRUITS.includes(cleanName)) {
+            let val = typeof farmInventoryData[key] === 'number' ? farmInventoryData[key] : parseFloat(farmInventoryData[key]?.amount || 0);
+            postHarvestStock[cleanName] = roundUpToOneDecimal(val);
+          }
+        }
+      }
+
+      let yields = [];
+      let totalYieldCount = 0;
+      let totalYieldFlowers = 0;
+
+      let allCropKeys = new Set([...Object.keys(preHarvestData), ...Object.keys(postHarvestStock)]);
+
+      allCropKeys.forEach(cropName => {
+        let startQty = preHarvestData[cropName] || 0;
+        let endQty = postHarvestStock[cropName] || 0;
+        let harvestedQty = roundUpToOneDecimal(endQty - startQty);
+
+        if (harvestedQty > 0) {
+          let matchedKey = Object.keys(allPrices).find(k => k.replace(/^\[.*?\]\s*/, '').toLowerCase() === cropName);
+          let unitPrice = matchedKey ? allPrices[matchedKey] : 0;
+
+          let itemFlowers = roundUpToThreeDecimals((unitPrice * harvestedQty) * (1 - taxRate));
+
+          yields.push({
+            name: cropName.charAt(0).toUpperCase() + cropName.slice(1),
+            qty: harvestedQty,
+            flowers: itemFlowers
+          });
+
+          totalYieldCount += harvestedQty;
+          totalYieldFlowers += itemFlowers;
+        }
+      });
+
+      if (yields.length === 0) {
+        alert("⚠️ No increase in crop stock detected. Did you harvest your crops in-game or resync your farm?");
+        return;
+      }
+
+      const now = new Date();
+      const timestampStr = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+      const yieldEntry = {
+        date: timestampStr,
+        totalCount: roundUpToOneDecimal(totalYieldCount),
+        crops: yields,
+        netFlowers: roundUpToThreeDecimals(totalYieldFlowers).toFixed(3)
+      };
+
+      pruneOldSnapshots();
+      let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+      history.unshift(yieldEntry);
+
+      localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
+      localStorage.removeItem('sfl_pre_harvest_stock');
+      updatePreHarvestUI();
+      renderSnapshotHistory();
+      alert(`🎉 Harvest session logged! Total Harvest Yield: +${totalYieldCount.toFixed(1)} crops.`);
+    });
+
+    // --- SNAPSHOT EDIT & DELETE FUNCTIONS ---
+
+    function editSnapshotRow(date) {
+      editingSnapshotDate = date;
+      renderSnapshotHistory();
+    }
+
+    function cancelEditSnapshot() {
+      editingSnapshotDate = null;
+      renderSnapshotHistory();
+    }
+
+    function saveEditedSnapshot(date) {
+      let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+      let entryIndex = history.findIndex(item => item.date === date);
+
+      if (entryIndex === -1) return;
+
+      const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
+
+      let entry = history[entryIndex];
+      let updatedCrops = [];
+      let grandTotalCount = 0;
+      let grandNetFlowers = 0;
+
+      if (Array.isArray(entry.crops)) {
+        entry.crops.forEach((crop, cropIdx) => {
+          let inputEl = document.getElementById(`edit-qty-${date.replace(/[^a-zA-Z0-9]/g, '')}-${cropIdx}`);
+          let newQty = inputEl ? roundUpToOneDecimal(parseFloat(inputEl.value) || 0) : crop.qty;
+
+          if (newQty > 0) {
+            let matchedKey = Object.keys(allPrices).find(k => k.replace(/^\[.*?\]\s*/, '').toLowerCase() === crop.name.toLowerCase());
+            let unitPrice = matchedKey ? allPrices[matchedKey] : (crop.flowers / (crop.qty || 1));
+
+            let itemNetFlowers = roundUpToThreeDecimals((unitPrice * newQty) * (1 - taxRate));
+
+            updatedCrops.push({
+              name: crop.name,
+              qty: newQty,
+              flowers: itemNetFlowers
+            });
+
+            grandTotalCount += newQty;
+            grandNetFlowers += itemNetFlowers;
+          }
+        });
+      }
+
+      if (updatedCrops.length === 0) {
+        deleteSnapshotRow(date);
+        return;
+      }
+
+      history[entryIndex] = {
+        date: date,
+        totalCount: roundUpToOneDecimal(grandTotalCount),
+        crops: updatedCrops,
+        netFlowers: roundUpToThreeDecimals(grandNetFlowers).toFixed(3)
+      };
+
+      localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
+      editingSnapshotDate = null;
+      renderSnapshotHistory();
+      alert(`✅ Harvest record for ${date} updated!`);
+    }
+
+    function deleteSnapshotRow(date) {
+      if (!confirm(`Delete harvest record for ${date}?`)) return;
+
+      let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+      let updatedHistory = history.filter(item => item.date !== date);
+
+      localStorage.setItem('sfl_daily_snapshots', JSON.stringify(updatedHistory));
+      if (editingSnapshotDate === date) editingSnapshotDate = null;
+      renderSnapshotHistory();
+    }
+
+    function pruneOldSnapshots() {
+      let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+      const now = new Date();
+      const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+
+      let validSnapshots = history.filter(entry => {
+        let entryDate = new Date(entry.date.split(' ')[0]);
+        return (now - entryDate) <= thirtyDaysInMs;
+      });
+
+      localStorage.setItem('sfl_daily_snapshots', JSON.stringify(validSnapshots));
+    }
+
+    function renderSnapshotHistory() {
+      const tbody = document.getElementById('snapshot-history-body');
+      let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+
+      if (history.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">No harvest sessions logged yet! Click "1. Save Pre-Harvest Stock" before harvesting.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = '';
+      history.forEach(entry => {
+        let isEditing = editingSnapshotDate === entry.date;
+        let cropBadges = '';
+        let cleanDateId = entry.date.replace(/[^a-zA-Z0-9]/g, '');
+
+        if (Array.isArray(entry.crops)) {
+          cropBadges = entry.crops
+            .map((crop, idx) => {
+              if (isEditing) {
+                return `
+                  <span class="inline-flex items-center gap-1 bg-amber-200 text-amber-900 border-2 border-sfl-green text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
+                    <span>${crop.name}:</span>
+                    <input type="number" id="edit-qty-${cleanDateId}-${idx}" value="${crop.qty.toFixed(1)}" step="0.1" min="0" 
+                      class="w-14 sfl-input text-xs font-mono font-bold rounded px-1 text-sfl-dirt">
+                  </span>
+                `;
+              } else {
+                return `
+                  <span class="inline-flex items-center gap-1 bg-green-100 text-sfl-green border border-sfl-green/40 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
+                    <span>+${crop.qty.toFixed(1)} ${crop.name}</span>
+                    <span class="text-sfl-green font-normal flex items-center gap-0.5">(${crop.flowers.toFixed(3)} ${FLOWER_ICON})</span>
+                  </span>
+                `;
+              }
+            })
+            .join('');
+        }
+
+        let actionButtons = isEditing 
+          ? `
+            <button onclick="saveEditedSnapshot('${entry.date}')" class="bg-sfl-green text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-green-700 mr-1">💾 Save</button>
+            <button onclick="cancelEditSnapshot()" class="bg-sfl-wood text-amber-200 px-2 py-1 rounded text-[10px] font-bold hover:bg-sfl-woodLight">✕</button>
+          `
+          : `
+            <button onclick="editSnapshotRow('${entry.date}')" class="bg-amber-600 text-amber-100 px-2 py-1 rounded text-[10px] font-bold hover:bg-amber-700 mr-1">✏️ Edit</button>
+            <button onclick="deleteSnapshotRow('${entry.date}')" class="bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700">🗑️</button>
+          `;
+
+        let tr = document.createElement('tr');
+        tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
+        tr.innerHTML = `
+          <td class="px-3 py-2.5 font-bold whitespace-nowrap">${entry.date}</td>
+          <td class="px-3 py-2.5 font-bold text-sfl-green">+${entry.totalCount.toFixed(1)} Yield</td>
+          <td class="px-3 py-2.5">${cropBadges}</td>
+          <td class="px-3 py-2.5 font-bold">
+            <span class="inline-flex items-center gap-1 text-sfl-green">${entry.netFlowers} ${FLOWER_ICON}</span>
+          </td>
+          <td class="px-2 py-2.5 text-center whitespace-nowrap">${actionButtons}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Export History
+    document.getElementById('export-json-btn').addEventListener('click', () => {
+      let history = localStorage.getItem('sfl_daily_snapshots') || '[]';
+      let blob = new Blob([history], { type: 'application/json' });
+      let a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `sfl_harvest_yields_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+    });
+
+    // Import JSON Handler
+    const importFileInput = document.getElementById('import-file-input');
+
+    document.getElementById('import-json-btn').addEventListener('click', () => {
+      importFileInput.click();
+    });
+
+    importFileInput.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const importedData = JSON.parse(e.target.result);
+
+          if (!Array.isArray(importedData)) {
+            alert('❌ Invalid JSON format! File must contain an array of snapshot records.');
+            return;
+          }
+
+          let currentHistory = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+
+          importedData.forEach(importedEntry => {
+            if (importedEntry.date) {
+              let existingIdx = currentHistory.findIndex(item => item.date === importedEntry.date);
+              if (existingIdx >= 0) {
+                currentHistory[existingIdx] = importedEntry;
+              } else {
+                currentHistory.push(importedEntry);
+              }
+            }
+          });
+
+          currentHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+          localStorage.setItem('sfl_daily_snapshots', JSON.stringify(currentHistory));
+          
+          pruneOldSnapshots();
+          renderSnapshotHistory();
+          alert('✅ Successfully imported harvest history!');
+        } catch (err) {
+          alert('❌ Failed to read JSON file: ' + err.message);
+        }
+      };
+
+      reader.readAsText(file);
+      importFileInput.value = '';
+    });
   </script>
+
 </body>
 </html>
