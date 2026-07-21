@@ -255,9 +255,13 @@
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
             <span>🌾</span> Harvest Session Yield Tracker
           </h3>
-          <p class="text-[11px] text-sfl-woodLight font-semibold">Save stock BEFORE harvesting, then log AFTER harvesting to calculate exact crop yields.</p>
+          <p class="text-[11px] text-sfl-woodLight font-semibold">Track exact crop yields harvested per session.</p>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Guide Toggle Button -->
+          <button id="toggle-guide-btn" class="bg-amber-100 text-sfl-wood border border-amber-400 px-2.5 py-1 rounded-lg text-xs font-bold hover:bg-amber-200 transition flex items-center gap-1">
+            <span>📖</span> How it Works
+          </button>
           <button id="save-pre-harvest-btn" class="bg-amber-600 text-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-700 transition">
             🚩 1. Save Pre-Harvest Stock
           </button>
@@ -275,6 +279,28 @@
         </div>
       </div>
 
+      <!-- Quick How-To Guide (Collapsible) -->
+      <div id="harvest-guide-card" class="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 text-xs text-sfl-dirt space-y-1.5 shadow-sm">
+        <div class="font-bold text-sfl-wood text-[12px] flex items-center gap-1 border-b border-amber-200 pb-1">
+          <span>📖</span> How to Log Your Harvest Session
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+          <div class="bg-white/80 p-2 rounded-lg border border-amber-200">
+            <span class="font-bold text-amber-800 block">Step 1: Set Baseline</span>
+            Before harvesting, sync your farm or load your basket, then click <b class="text-amber-700">"🚩 1. Save Pre-Harvest Stock"</b>.
+          </div>
+          <div class="bg-white/80 p-2 rounded-lg border border-amber-200">
+            <span class="font-bold text-amber-800 block">Step 2: Harvest In-Game</span>
+            Open Sunflower Land and harvest all your ripe crops or fruits on your farm.
+          </div>
+          <div class="bg-white/80 p-2 rounded-lg border border-amber-200">
+            <span class="font-bold text-amber-800 block">Step 3: Log Yield</span>
+            Sync your farm again (or update basket) and click <b class="text-sfl-green">"🏁 2. Calculate Harvest Yield"</b> to calculate Net Yields!
+          </div>
+        </div>
+      </div>
+
+      <!-- Pre-Harvest Baseline Status -->
       <div id="pre-harvest-status" class="hidden bg-amber-100/80 border border-amber-400 p-2 rounded-lg text-xs font-bold text-amber-900 flex justify-between items-center">
         <span>🚩 Pre-Harvest Baseline Set (<span id="pre-harvest-time"></span>)</span>
         <button id="clear-pre-harvest-btn" class="text-[10px] bg-sfl-accent text-white px-2 py-0.5 rounded">Clear Baseline</button>
@@ -287,7 +313,7 @@
               <th class="px-3 py-2">Date & Time</th>
               <th class="px-3 py-2">Total Yield</th>
               <th class="px-3 py-2">Harvested Crops Breakdown</th>
-              <th class="px-3 py-2">Harvest Net Value</th>
+              <th class="px-3 py-2">Harvest Net Flowers</th>
               <th class="px-2 py-2 text-center">Actions</th>
             </tr>
           </thead>
@@ -359,6 +385,12 @@
 
     document.getElementById('farm-id').addEventListener('input', (e) => localStorage.setItem('sfl_farm_id', e.target.value));
     document.getElementById('api-key').addEventListener('input', (e) => localStorage.setItem('sfl_api_key', e.target.value));
+
+    // Toggle Guide Visibility
+    document.getElementById('toggle-guide-btn').addEventListener('click', () => {
+      const guide = document.getElementById('harvest-guide-card');
+      guide.classList.toggle('hidden');
+    });
 
     fetch('/api/get-data')
       .then(res => res.json())
@@ -656,10 +688,8 @@
     }
 
     document.getElementById('save-pre-harvest-btn').addEventListener('click', () => {
-      // Capture current farm inventory stock or basket state
       let baselineStock = {};
       
-      // If basket is populated, use basket; otherwise use synced farmInventoryData
       if (basket.length > 0) {
         basket.forEach(entry => {
           let cleanName = entry.item.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
@@ -706,7 +736,6 @@
 
       const preHarvestData = JSON.parse(preHarvestRaw).stock;
       const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
-      const coinMultiplier = parseFloat(document.getElementById('coin-ratio').value) || 1000;
 
       let postHarvestStock = {};
 
@@ -731,7 +760,6 @@
       let totalYieldCount = 0;
       let totalYieldFlowers = 0;
 
-      // Calculate Difference (Yield) = Post Harvest - Pre Harvest
       let allCropKeys = new Set([...Object.keys(preHarvestData), ...Object.keys(postHarvestStock)]);
 
       allCropKeys.forEach(cropName => {
@@ -740,18 +768,15 @@
         let harvestedQty = roundUpToOneDecimal(endQty - startQty);
 
         if (harvestedQty > 0) {
-          // Find market price for harvested crop
           let matchedKey = Object.keys(allPrices).find(k => k.replace(/^\[.*?\]\s*/, '').toLowerCase() === cropName);
           let unitPrice = matchedKey ? allPrices[matchedKey] : 0;
 
           let itemFlowers = roundUpToThreeDecimals((unitPrice * harvestedQty) * (1 - taxRate));
-          let itemCoins = roundUpToTwoDecimals(itemFlowers * coinMultiplier);
 
           yields.push({
             name: cropName.charAt(0).toUpperCase() + cropName.slice(1),
             qty: harvestedQty,
-            flowers: itemFlowers,
-            coins: itemCoins
+            flowers: itemFlowers
           });
 
           totalYieldCount += harvestedQty;
@@ -766,14 +791,12 @@
 
       const now = new Date();
       const timestampStr = `${now.toISOString().split('T')[0]} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-      const grandRatioCoins = roundUpToTwoDecimals(totalYieldFlowers * coinMultiplier);
 
       const yieldEntry = {
         date: timestampStr,
         totalCount: roundUpToOneDecimal(totalYieldCount),
         crops: yields,
-        netFlowers: roundUpToThreeDecimals(totalYieldFlowers).toFixed(3),
-        ratioCoins: grandRatioCoins.toFixed(2)
+        netFlowers: roundUpToThreeDecimals(totalYieldFlowers).toFixed(3)
       };
 
       pruneOldSnapshots();
@@ -781,7 +804,7 @@
       history.unshift(yieldEntry);
 
       localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
-      localStorage.removeItem('sfl_pre_harvest_stock'); // Reset baseline for next session
+      localStorage.removeItem('sfl_pre_harvest_stock');
       updatePreHarvestUI();
       renderSnapshotHistory();
       alert(`🎉 Harvest session logged! Total Harvest Yield: +${totalYieldCount.toFixed(1)} crops.`);
@@ -806,7 +829,6 @@
       if (entryIndex === -1) return;
 
       const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
-      const coinMultiplier = parseFloat(document.getElementById('coin-ratio').value) || 1000;
 
       let entry = history[entryIndex];
       let updatedCrops = [];
@@ -823,13 +845,11 @@
             let unitPrice = matchedKey ? allPrices[matchedKey] : (crop.flowers / (crop.qty || 1));
 
             let itemNetFlowers = roundUpToThreeDecimals((unitPrice * newQty) * (1 - taxRate));
-            let itemRatioCoins = roundUpToTwoDecimals(itemNetFlowers * coinMultiplier);
 
             updatedCrops.push({
               name: crop.name,
               qty: newQty,
-              flowers: itemNetFlowers,
-              coins: itemRatioCoins
+              flowers: itemNetFlowers
             });
 
             grandTotalCount += newQty;
@@ -843,14 +863,11 @@
         return;
       }
 
-      let grandRatioCoins = roundUpToTwoDecimals(grandNetFlowers * coinMultiplier);
-
       history[entryIndex] = {
         date: date,
         totalCount: roundUpToOneDecimal(grandTotalCount),
         crops: updatedCrops,
-        netFlowers: roundUpToThreeDecimals(grandNetFlowers).toFixed(3),
-        ratioCoins: grandRatioCoins.toFixed(2)
+        netFlowers: roundUpToThreeDecimals(grandNetFlowers).toFixed(3)
       };
 
       localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
@@ -914,7 +931,6 @@
                   <span class="inline-flex items-center gap-1 bg-green-100 text-sfl-green border border-sfl-green/40 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
                     <span>+${crop.qty.toFixed(1)} ${crop.name}</span>
                     <span class="text-sfl-green font-normal flex items-center gap-0.5">(${crop.flowers.toFixed(3)} ${FLOWER_ICON})</span>
-                    <span class="text-amber-700 font-normal flex items-center gap-0.5">(${crop.coins.toFixed(2)} ${COIN_ICON})</span>
                   </span>
                 `;
               }
@@ -939,8 +955,7 @@
           <td class="px-3 py-2.5 font-bold text-sfl-green">+${entry.totalCount.toFixed(1)} Yield</td>
           <td class="px-3 py-2.5">${cropBadges}</td>
           <td class="px-3 py-2.5 font-bold">
-            <span class="inline-flex items-center gap-1 text-sfl-green">${entry.netFlowers} ${FLOWER_ICON}</span> | 
-            <span class="inline-flex items-center gap-1 text-amber-600">${entry.ratioCoins} ${COIN_ICON}</span>
+            <span class="inline-flex items-center gap-1 text-sfl-green">${entry.netFlowers} ${FLOWER_ICON}</span>
           </td>
           <td class="px-2 py-2.5 text-center whitespace-nowrap">${actionButtons}</td>
         `;
