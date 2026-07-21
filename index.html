@@ -313,9 +313,6 @@
           <p class="text-[11px] text-sfl-woodLight font-semibold">Track exact crop yields harvested per session.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <button id="toggle-guide-btn" class="bg-amber-100 text-sfl-wood border border-amber-400 px-2.5 py-1 rounded-lg text-xs font-bold hover:bg-amber-200 transition flex items-center gap-1">
-            <span>📖</span> How it Works
-          </button>
           <button id="save-pre-harvest-btn" class="bg-amber-600 text-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-700 transition">
             🚩 1. Save Pre-Harvest Stock
           </button>
@@ -330,27 +327,6 @@
           <button id="export-json-btn" class="bg-sfl-wood text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition">
             📥 Export
           </button>
-        </div>
-      </div>
-
-      <!-- Quick How-To Guide (Collapsible) -->
-      <div id="harvest-guide-card" class="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 text-xs text-sfl-dirt space-y-1.5 shadow-sm">
-        <div class="font-bold text-sfl-wood text-[12px] flex items-center gap-1 border-b border-amber-200 pb-1">
-          <span>📖</span> How to Log Your Harvest Session
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
-          <div class="bg-white/80 p-2 rounded-lg border border-amber-200">
-            <span class="font-bold text-amber-800 block">Step 1: Set Baseline</span>
-            Before harvesting, sync your farm or load your basket, then click <b class="text-amber-700">"🚩 1. Save Pre-Harvest Stock"</b>.
-          </div>
-          <div class="bg-white/80 p-2 rounded-lg border border-amber-200">
-            <span class="font-bold text-amber-800 block">Step 2: Harvest In-Game</span>
-            Open Sunflower Land and harvest all your ripe crops or fruits on your farm.
-          </div>
-          <div class="bg-white/80 p-2 rounded-lg border border-amber-200">
-            <span class="font-bold text-amber-800 block">Step 3: Log Yield</span>
-            Sync your farm again (or update basket) and click <b class="text-sfl-green">"🏁 2. Calculate Harvest Yield"</b> to calculate Net Yields!
-          </div>
         </div>
       </div>
 
@@ -447,19 +423,12 @@
     document.getElementById('farm-id').addEventListener('input', (e) => localStorage.setItem('sfl_farm_id', e.target.value));
     document.getElementById('api-key').addEventListener('input', (e) => localStorage.setItem('sfl_api_key', e.target.value));
 
-    // Toggle Guide Visibility
-    document.getElementById('toggle-guide-btn').addEventListener('click', () => {
-      const guide = document.getElementById('harvest-guide-card');
-      guide.classList.toggle('hidden');
-    });
-
     fetch('/api/get-data')
       .then(res => res.json())
       .then(rawData => {
         allPrices = extractPrices(rawData);
       })
       .catch(() => {
-        // Fallback default crop prices if api/get-data route isn't active
         allPrices = {
           "Sunflower": 0.02, "Potato": 0.14, "Pumpkin": 0.4, "Carrot": 0.8,
           "Cabbage": 1.5, "Beetroot": 2.8, "Cauliflower": 4.25, "Parsnip": 6.5,
