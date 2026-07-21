@@ -11,6 +11,19 @@ app.use(express.json());
 
 let registeredFarms = new Set();
 
+// Keywords to exclude seeds, tools, and consumables
+const EXCLUDED_KEYWORDS = [
+  'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
+  'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 'root', 
+  'bait', 'potion', 'feed', 'potion', 'box', 'chest'
+];
+
+function isExcludedItem(itemName) {
+  const lower = itemName.toLowerCase();
+  return EXCLUDED_KEYWORDS.some(keyword => lower.includes(keyword));
+}
+
+// Health Check
 app.get('/', (req, res) => {
   res.send('🌻 SFL Calculator Backend Server is Active!');
 });
@@ -59,58 +72,60 @@ app.get('/api/get-farm', async (req, res) => {
   }
 });
 
-// Proxy Endpoint 2: Fetches ALL live item prices from Sunflower Land API
+// Proxy Endpoint 2: Fetches Item Market Prices (Crops & Resources ONLY - No Seeds/Tools/Consumables)
 app.get('/api/get-data', async (req, res) => {
+  // Clean Catalog of SFL Market Prices (Flower Tokens per item)
+  const cleanSFLCatalog = {
+    // Basic Crops
+    "Sunflower": 0.00005, "Potato": 0.0003, "Rhubarb": 0.0005, "Pumpkin": 0.0008, 
+    "Zucchini": 0.0009, "Carrot": 0.0015, "Yam": 0.0016, "Cabbage": 0.0030, 
+    "Broccoli": 0.0032, "Soybean": 0.0045, "Beetroot": 0.0055, "Pepper": 0.0060, 
+    "Cauliflower": 0.0085, "Parsnip": 0.0120, "Eggplant": 0.0150, "Corn": 0.0180, 
+    "Onion": 0.0200, "Radish": 0.0190, "Wheat": 0.0140, "Turnip": 0.0160, 
+    "Kale": 0.0220, "Artichoke": 0.0250, "Barley": 0.0240,
+
+    // Fruits
+    "Apple": 0.0500, "Blueberry": 0.0250, "Orange": 0.0350, "Banana": 0.0500, 
+    "Grape": 0.4500, "Rice": 0.6000, "Olive": 0.8000, "Tomato": 0.0100, "Lemon": 0.0300,
+
+    // Greenhouse / Exotic
+    "Duskberry": 2.0000, "Lunara": 1.0000, "Celestine": 0.5000, "Saltwort": 0.1000,
+
+    // Resources & Minerals
+    "Wood": 0.0100, "Stone": 0.0200, "Iron": 0.0800, "Gold": 0.3500, 
+    "Crimstone": 1.2000, "Sunstone": 5.0000, "Oil": 0.0500,
+
+    // Animal Products
+    "Egg": 0.0150, "Milk": 0.0300, "Honey": 0.0400, "Feather": 0.0200, "Wool": 0.0500
+  };
+
   try {
     const response = await axios.get('https://api.sunflower-land.com/community/prices', {
       headers: { 
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 
         'Accept': 'application/json' 
       },
-      timeout: 8000
+      timeout: 5000
     });
 
-    return res.json(response.data);
+    let livePrices = response.data || {};
+    let filteredPrices = {};
+
+    // Filter live prices to remove seeds, tools, and consumables
+    for (let key in livePrices) {
+      if (!isExcludedItem(key)) {
+        filteredPrices[key] = livePrices[key];
+      }
+    }
+
+    if (Object.keys(filteredPrices).length > 0) {
+      return res.json(filteredPrices);
+    }
   } catch (err) {
-    console.log('[PRICE API WARNING] Live API fetch failed. Serving comprehensive SFL item catalog.');
-
-    // Comprehensive Fallback List covering all game item types (in SFL Flower tokens)
-    const fullSFLCatalog = {
-      // Basic Crops
-      "Sunflower": 0.00005, "Potato": 0.0003, "Rhubarb": 0.0005, "Pumpkin": 0.0008, 
-      "Zucchini": 0.0009, "Carrot": 0.0015, "Yam": 0.0016, "Cabbage": 0.0030, 
-      "Broccoli": 0.0032, "Soybean": 0.0045, "Beetroot": 0.0055, "Pepper": 0.0060, 
-      "Cauliflower": 0.0085, "Parsnip": 0.0120, "Eggplant": 0.0150, "Corn": 0.0180, 
-      "Onion": 0.0200, "Radish": 0.0190, "Wheat": 0.0140, "Turnip": 0.0160, 
-      "Kale": 0.0220, "Artichoke": 0.0250, "Barley": 0.0240,
-
-      // Fruit
-      "Apple": 0.0500, "Blueberry": 0.0250, "Orange": 0.0350, "Banana": 0.0500, 
-      "Grape": 0.4500, "Rice": 0.6000, "Olive": 0.8000, "Tomato": 0.0100, "Lemon": 0.0300,
-
-      // Exotic & Greenhouse
-      "Duskberry": 2.0000, "Lunara": 1.0000, "Celestine": 0.5000, "Saltwort": 0.1000,
-
-      // Resources & Minerals
-      "Wood": 0.0100, "Stone": 0.0200, "Iron": 0.0800, "Gold": 0.3500, 
-      "Crimstone": 1.2000, "Sunstone": 5.0000, "Oil": 0.0500,
-
-      // Animal & Craft Products
-      "Egg": 0.0150, "Milk": 0.0300, "Honey": 0.0400, "Feather": 0.0200, "Wool": 0.0500,
-
-      // Seeds
-      "Sunflower Seed": 0.00001, "Potato Seed": 0.0001, "Pumpkin Seed": 0.0003, 
-      "Carrot Seed": 0.0005, "Cabbage Seed": 0.0010, "Beetroot Seed": 0.0020, 
-      "Cauliflower Seed": 0.0030, "Parsnip Seed": 0.0040, "Radish Seed": 0.0060, 
-      "Wheat Seed": 0.0050, "Kale Seed": 0.0070, "Apple Seed": 0.0200,
-
-      // Tools & Consumables
-      "Axe": 0.0500, "Pickaxe": 0.1000, "Stone Pickaxe": 0.2000, 
-      "Iron Pickaxe": 0.5000, "Gold Pickaxe": 1.5000, "Rod": 0.0800, "Earthworm": 0.0100
-    };
-
-    return res.json(fullSFLCatalog);
+    console.log('[PRICE API INFO] Serving fallback SFL Crop & Resource market prices.');
   }
+
+  return res.json(cleanSFLCatalog);
 });
 
 // API Endpoint: Register Auto Sync
