@@ -113,7 +113,7 @@
           <span>🌻</span> SFL RESOURCE CALCULATOR
         </h1>
       </div>
-      <p class="text-xs font-semibold text-sfl-woodLight mt-2">Flower market prices & farm inventory sync</p>
+      <p class="text-xs font-semibold text-sfl-woodLight mt-2">Live Flower market prices from sfl.world & farm inventory sync</p>
     </div>
 
     <!-- Info Note -->
@@ -173,7 +173,7 @@
             class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
           
           <ul id="combobox-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border-2 border-sfl-woodLight rounded-lg shadow-xl z-20 divide-y divide-sfl-cardBorder/30 text-sm">
-            <li class="p-2 text-sfl-woodLight italic">Loading item catalog...</li>
+            <li class="p-2 text-sfl-woodLight italic">Loading live sfl.world market prices...</li>
           </ul>
         </div>
 
@@ -455,7 +455,7 @@
           } else if (typeof val === 'string' && !isNaN(parseFloat(val))) {
             pricesMap[prefix + key] = parseFloat(val);
           } else if (val && typeof val === 'object') {
-            let p = val.price ?? val.sfl ?? val.sflPrice ?? val.flowerPrice ?? val.unitPrice;
+            let p = val.price ?? val.sfl ?? val.sflPrice ?? val.flowerPrice ?? val.unitPrice ?? val.buyPrice ?? val.sellPrice;
             if (p !== undefined && p !== null) {
               pricesMap[prefix + key] = parseFloat(p) || 0;
             } else {
@@ -470,7 +470,7 @@
       return pricesMap;
     }
 
-    // Helper: Formats prices to 4 decimal places
+    // Formats prices to 4 decimal places
     function formatFourDecimals(val) {
       let num = typeof val === 'number' ? val : parseFloat(val);
       if (isNaN(num)) return '0.0000';
