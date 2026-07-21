@@ -75,7 +75,7 @@ app.get('/api/get-farm', async (req, res) => {
 
 // Proxy Endpoint 2: Fetches Live Market Prices (Crops, Fruits & Resources ONLY)
 app.get('/api/get-data', async (req, res) => {
-  // Comprehensive SFL Market Prices Catalog in Flower Tokens (NOT Betty Coins)
+  // Comprehensive SFL Market Prices Catalog in Flower Tokens (Corrected Fruit Values)
   const fullSFLCatalog = {
     // Basic Crops
     "Sunflower": 0.0002, "Potato": 0.0014, "Rhubarb": 0.0024, "Pumpkin": 0.0040, 
@@ -85,12 +85,12 @@ app.get('/api/get-data', async (req, res) => {
     "Onion": 0.1000, "Radish": 0.0950, "Wheat": 0.0700, "Turnip": 0.0800, 
     "Kale": 0.1000, "Artichoke": 0.1200, "Barley": 0.1200,
 
-    // Fruits (Accurate Flower Token Market Prices)
-    "Tomato": 0.0200, "Lemon": 0.0600, "Blueberry": 0.1200, "Orange": 0.1800, 
-    "Apple": 0.2500, "Banana": 0.2500, "Grape": 2.4000, "Rice": 3.2000, "Olive": 4.0000,
+    // Fruits (Corrected Real Market Prices in SFL Tokens)
+    "Apple": 0.0230, "Tomato": 0.0020, "Lemon": 0.0060, "Blueberry": 0.0120, 
+    "Orange": 0.0180, "Banana": 0.0250, "Grape": 0.2400, "Rice": 0.3200, "Olive": 0.4000,
 
     // Greenhouse / Exotic
-    "Duskberry": 10.0000, "Lunara": 5.0000, "Celestine": 2.0000, "Saltwort": 0.5000,
+    "Duskberry": 1.0000, "Lunara": 0.5000, "Celestine": 0.2000, "Saltwort": 0.0500,
 
     // Resources & Minerals
     "Wood": 0.0100, "Stone": 0.0200, "Iron": 0.0800, "Gold": 0.3500, 
