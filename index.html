@@ -485,7 +485,7 @@
       return 0;
     }
 
-    // MANUAL SYNC BUTTON (Proxied through Render to bypass browser CORS)
+    // MANUAL SYNC BUTTON (Proxied through Render backend)
     document.getElementById('import-farm-btn').addEventListener('click', async () => {
       const farmId = document.getElementById('farm-id').value.trim();
       const status = document.getElementById('sync-status');
@@ -499,11 +499,14 @@
 
       try {
         const response = await fetch(`${BACKEND_URL}/api/get-farm?farmId=${encodeURIComponent(farmId)}`);
-        if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || `HTTP Error ${response.status}`);
+        }
 
         const data = await response.json();
-        const farmData = data.farm?.farm || data.farm?.data || data.farm || data;
-        farmInventoryData = farmData?.inventory || {};
+        const farmObj = data.farm?.farm || data.farm?.data || data.farm || data;
+        farmInventoryData = farmObj?.inventory || {};
 
         let totalItemsCount = Object.keys(farmInventoryData).length;
 
