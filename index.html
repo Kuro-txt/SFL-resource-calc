@@ -118,7 +118,7 @@
 
     <!-- Info Note -->
     <p class="text-xs text-sfl-woodLight text-center -mt-4 font-medium">
-      💡 Farm credentials are only needed to auto-fetch inventory — you can still manually search & add items below.
+      💡 Paste your API Token below if your farm requires authentication.
     </p>
 
     <!-- Farm Credentials & Cloud Sync Panel -->
@@ -134,7 +134,7 @@
             class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm">
         </div>
         <div>
-          <label class="block text-xs font-bold text-sfl-wood mb-1">API Key / Token (Optional)</label>
+          <label class="block text-xs font-bold text-sfl-wood mb-1">API Key / Token</label>
           <input type="password" id="api-key" placeholder="Paste Key or Token" 
             class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm">
         </div>
@@ -422,17 +422,16 @@
     document.getElementById('farm-id').addEventListener('input', (e) => localStorage.setItem('sfl_farm_id', e.target.value));
     document.getElementById('api-key').addEventListener('input', (e) => localStorage.setItem('sfl_api_key', e.target.value));
 
-    // Safe Fetch for Prices with Default Fallback
+    // Fetch prices safely
     fetch(`${BACKEND_URL}/api/get-data`)
       .then(res => {
-        if (!res.ok) throw new Error('Route not found');
+        if (!res.ok) throw new Error('Price API error');
         return res.json();
       })
       .then(rawData => {
         allPrices = extractPrices(rawData);
       })
       .catch(() => {
-        // Local Fallback Crop Prices
         allPrices = {
           "Sunflower": 0.02, "Potato": 0.14, "Pumpkin": 0.4, "Carrot": 0.8,
           "Cabbage": 1.5, "Beetroot": 2.8, "Cauliflower": 4.25, "Parsnip": 6.5,
@@ -489,9 +488,10 @@
       return 0;
     }
 
-    // MANUAL SYNC BUTTON (Proxied through Render backend)
+    // MANUAL SYNC BUTTON (Sends Farm ID & API Key to Render Proxy)
     document.getElementById('import-farm-btn').addEventListener('click', async () => {
       const farmId = document.getElementById('farm-id').value.trim();
+      const apiKey = document.getElementById('api-key').value.trim();
       const status = document.getElementById('sync-status');
 
       if (!farmId) {
@@ -502,12 +502,12 @@
       status.textContent = '⏳ Fetching farm data...';
 
       try {
-        const response = await fetch(`${BACKEND_URL}/api/get-farm?farmId=${encodeURIComponent(farmId)}`);
+        const url = `${BACKEND_URL}/api/get-farm?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`;
+        const response = await fetch(url);
         
-        // Handle Non-JSON or HTML 404/500 Error Responses Cleanly
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('Backend route not ready or returned HTML error page.');
+          throw new Error('Server returned HTML instead of JSON.');
         }
 
         const data = await response.json();
@@ -561,7 +561,7 @@
 
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('Server returned HTML instead of JSON.');
+          throw new Error('Server returned HTML response.');
         }
 
         const data = await response.json();
@@ -754,7 +754,6 @@
         });
       }
 
-      // Tax & Net Totals
       const taxAmount = grandGrossTotal * taxRate;
       const netFlowers = grandGrossTotal - taxAmount;
       const totalNetRatioCoins = totalGrossRatioCoins * (1 - taxRate);
