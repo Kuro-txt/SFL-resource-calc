@@ -1,6 +1,8 @@
 {
-  "name": "sfl-calculator",
+  "name": "sfl-calculator-backend",
   "version": "1.0.0",
+  "description": "Backend auto-sync server for Sunflower Land Calculator",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
