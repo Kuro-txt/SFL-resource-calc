@@ -281,14 +281,14 @@
         </div>
       </div>
 
-      <!-- Guide Box with Basket & Morning/Night Advice -->
+      <!-- Guide Box with Morning/Night Advice -->
       <div class="bg-amber-50/80 border border-sfl-cardBorder rounded-lg p-3 text-xs text-sfl-wood space-y-1.5">
         <p class="font-bold flex items-center gap-1.5 text-sfl-wood">
           <span>📖</span> How to Save Snapshots & Log Daily Yields:
         </p>
         <ul class="list-disc list-inside space-y-1 text-[11px] text-sfl-woodLight font-medium pl-1">
           <li>
-            <strong>Item Selection:</strong> Snapshots read all crops, fruits & resources directly from your <strong>Farm Basket</strong> (if added) or your synced farm inventory!
+            <strong>Item Selection:</strong> Snapshots read all crops, fruits & resources directly from your <strong>Farm Basket</strong> (if added)!
           </li>
           <li>
             <strong>🌅 Recommended Workflow (Morning):</strong> Sync your farm (or populate your basket) and click <span class="text-amber-800 font-bold">"🚩 1. Save Pre-Harvest Stock"</span> to lock in your baseline before harvesting or gathering.
@@ -343,7 +343,6 @@
     const FLOWER_ICON = `<img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-4 h-4 sfl-icon" alt="Flower Token">`;
     const COIN_ICON = `<img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-4 h-4 sfl-icon" alt="Coins">`;
 
-    // NOTE: 'root' removed so 'Beetroot' is NOT excluded
     const EXCLUDED_KEYWORDS = [
       'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
       'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 
@@ -356,7 +355,6 @@
       return EXCLUDED_KEYWORDS.some(kw => lower.includes(kw));
     }
 
-    // Allows any non-excluded item from the price API into snapshots
     function isSnapshotEligible(itemName) {
       let clean = itemName.replace(/^\[.*?\]\s*/, '').trim();
       return !isExcludedItem(clean);
@@ -398,7 +396,6 @@
     document.getElementById('farm-id').addEventListener('input', (e) => localStorage.setItem('sfl_farm_id', e.target.value));
     document.getElementById('api-key').addEventListener('input', (e) => localStorage.setItem('sfl_api_key', e.target.value));
 
-    // SAVE TAX & COIN RATIO ON CHANGE
     document.getElementById('tax-select').addEventListener('change', (e) => {
       localStorage.setItem('sfl_tax_rate', e.target.value);
       updateBasketTable();
@@ -513,7 +510,7 @@
 
         if (totalItemsCount > 0) {
           status.textContent = `✅ Synced ${totalItemsCount} item types from Farm #${farmId}!`;
-          updateBasketTable(); // Refresh stock in basket table if items exist
+          updateBasketTable();
         } else {
           status.textContent = `⚠️ Connected, but no inventory found on farm.`;
         }
@@ -736,6 +733,7 @@
       }
     }
 
+    // SAVE PRE-HARVEST BASELINE (PREVENTS EMPTY BASKET SAVES)
     document.getElementById('save-pre-harvest-btn').addEventListener('click', () => {
       let baselineStock = {};
       
@@ -751,13 +749,16 @@
           let cleanName = key.toLowerCase().replace(/[^a-z0-9]/g, '');
           if (isSnapshotEligible(cleanName)) {
             let val = typeof farmInventoryData[key] === 'number' ? farmInventoryData[key] : parseFloat(farmInventoryData[key]?.amount || 0);
-            baselineStock[cleanName] = roundUpToOneDecimal(val);
+            if (val > 0) {
+              baselineStock[cleanName] = roundUpToOneDecimal(val);
+            }
           }
         }
       }
 
+      // Check if baseline stock is completely empty
       if (Object.keys(baselineStock).length === 0) {
-        alert("⚠️ No eligible items found! Sync your farm or add items to basket first.");
+        alert("⚠️ Cannot save an empty snapshot! Please add items to your Farm Basket or sync your farm inventory first.");
         return;
       }
 
