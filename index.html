@@ -62,7 +62,6 @@
       vertical-align: middle;
       flex-shrink: 0;
     }
-    /* Pixel Custom Toggle Switch */
     .switch {
       position: relative;
       display: inline-block;
@@ -423,12 +422,17 @@
     document.getElementById('farm-id').addEventListener('input', (e) => localStorage.setItem('sfl_farm_id', e.target.value));
     document.getElementById('api-key').addEventListener('input', (e) => localStorage.setItem('sfl_api_key', e.target.value));
 
-    fetch('/api/get-data')
-      .then(res => res.json())
+    // Safe Fetch for Prices with Default Fallback
+    fetch(`${BACKEND_URL}/api/get-data`)
+      .then(res => {
+        if (!res.ok) throw new Error('Route not found');
+        return res.json();
+      })
       .then(rawData => {
         allPrices = extractPrices(rawData);
       })
       .catch(() => {
+        // Local Fallback Crop Prices
         allPrices = {
           "Sunflower": 0.02, "Potato": 0.14, "Pumpkin": 0.4, "Carrot": 0.8,
           "Cabbage": 1.5, "Beetroot": 2.8, "Cauliflower": 4.25, "Parsnip": 6.5,
@@ -499,12 +503,19 @@
 
       try {
         const response = await fetch(`${BACKEND_URL}/api/get-farm?farmId=${encodeURIComponent(farmId)}`);
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || `HTTP Error ${response.status}`);
+        
+        // Handle Non-JSON or HTML 404/500 Error Responses Cleanly
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Backend route not ready or returned HTML error page.');
         }
 
         const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP Error ${response.status}`);
+        }
+
         const farmObj = data.farm?.farm || data.farm?.data || data.farm || data;
         farmInventoryData = farmObj?.inventory || {};
 
@@ -547,6 +558,11 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ farmId: farmId })
         });
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Server returned HTML instead of JSON.');
+        }
 
         const data = await response.json();
 
