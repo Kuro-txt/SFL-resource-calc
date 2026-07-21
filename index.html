@@ -470,6 +470,7 @@
       return pricesMap;
     }
 
+    // Helper: Formats prices to 4 decimal places
     function formatFourDecimals(val) {
       let num = typeof val === 'number' ? val : parseFloat(val);
       if (isNaN(num)) return '0.0000';
@@ -593,7 +594,7 @@
     const input = document.getElementById('combobox-input');
     const menu = document.getElementById('combobox-menu');
 
-    // SEARCH & COMBOBOX: SHOWS 4 DECIMAL PLACES FOR FLOWER PRICES
+    // SEARCH & COMBOBOX: DISPLAY 4 DECIMAL PLACES FOR FLOWER PRICES
     input.addEventListener('input', () => {
       const query = input.value.toLowerCase().trim();
       menu.innerHTML = '';
