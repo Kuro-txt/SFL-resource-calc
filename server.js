@@ -15,10 +15,11 @@ let registeredFarms = new Set();
 const EXCLUDED_KEYWORDS = [
   'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
   'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 'root', 
-  'bait', 'potion', 'feed', 'potion', 'box', 'chest'
+  'bait', 'potion', 'feed', 'box', 'chest'
 ];
 
 function isExcludedItem(itemName) {
+  if (!itemName) return true;
   const lower = itemName.toLowerCase();
   return EXCLUDED_KEYWORDS.some(keyword => lower.includes(keyword));
 }
@@ -72,24 +73,24 @@ app.get('/api/get-farm', async (req, res) => {
   }
 });
 
-// Proxy Endpoint 2: Fetches Item Market Prices (Crops & Resources ONLY - No Seeds/Tools/Consumables)
+// Proxy Endpoint 2: Fetches Live Market Prices (Crops, Fruits & Resources ONLY)
 app.get('/api/get-data', async (req, res) => {
-  // Clean Catalog of SFL Market Prices (Flower Tokens per item)
-  const cleanSFLCatalog = {
+  // Comprehensive SFL Market Prices Catalog in Flower Tokens (NOT Betty Coins)
+  const fullSFLCatalog = {
     // Basic Crops
-    "Sunflower": 0.00005, "Potato": 0.0003, "Rhubarb": 0.0005, "Pumpkin": 0.0008, 
-    "Zucchini": 0.0009, "Carrot": 0.0015, "Yam": 0.0016, "Cabbage": 0.0030, 
-    "Broccoli": 0.0032, "Soybean": 0.0045, "Beetroot": 0.0055, "Pepper": 0.0060, 
-    "Cauliflower": 0.0085, "Parsnip": 0.0120, "Eggplant": 0.0150, "Corn": 0.0180, 
-    "Onion": 0.0200, "Radish": 0.0190, "Wheat": 0.0140, "Turnip": 0.0160, 
-    "Kale": 0.0220, "Artichoke": 0.0250, "Barley": 0.0240,
+    "Sunflower": 0.0002, "Potato": 0.0014, "Rhubarb": 0.0024, "Pumpkin": 0.0040, 
+    "Zucchini": 0.0040, "Carrot": 0.0080, "Yam": 0.0080, "Cabbage": 0.0150, 
+    "Broccoli": 0.0150, "Soybean": 0.0230, "Beetroot": 0.0280, "Pepper": 0.0300, 
+    "Cauliflower": 0.0425, "Parsnip": 0.0650, "Eggplant": 0.0800, "Corn": 0.0900, 
+    "Onion": 0.1000, "Radish": 0.0950, "Wheat": 0.0700, "Turnip": 0.0800, 
+    "Kale": 0.1000, "Artichoke": 0.1200, "Barley": 0.1200,
 
-    // Fruits
-    "Apple": 0.0500, "Blueberry": 0.0250, "Orange": 0.0350, "Banana": 0.0500, 
-    "Grape": 0.4500, "Rice": 0.6000, "Olive": 0.8000, "Tomato": 0.0100, "Lemon": 0.0300,
+    // Fruits (Accurate Flower Token Market Prices)
+    "Tomato": 0.0200, "Lemon": 0.0600, "Blueberry": 0.1200, "Orange": 0.1800, 
+    "Apple": 0.2500, "Banana": 0.2500, "Grape": 2.4000, "Rice": 3.2000, "Olive": 4.0000,
 
     // Greenhouse / Exotic
-    "Duskberry": 2.0000, "Lunara": 1.0000, "Celestine": 0.5000, "Saltwort": 0.1000,
+    "Duskberry": 10.0000, "Lunara": 5.0000, "Celestine": 2.0000, "Saltwort": 0.5000,
 
     // Resources & Minerals
     "Wood": 0.0100, "Stone": 0.0200, "Iron": 0.0800, "Gold": 0.3500, 
@@ -105,13 +106,12 @@ app.get('/api/get-data', async (req, res) => {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 
         'Accept': 'application/json' 
       },
-      timeout: 5000
+      timeout: 6000
     });
 
     let livePrices = response.data || {};
     let filteredPrices = {};
 
-    // Filter live prices to remove seeds, tools, and consumables
     for (let key in livePrices) {
       if (!isExcludedItem(key)) {
         filteredPrices[key] = livePrices[key];
@@ -122,10 +122,10 @@ app.get('/api/get-data', async (req, res) => {
       return res.json(filteredPrices);
     }
   } catch (err) {
-    console.log('[PRICE API INFO] Serving fallback SFL Crop & Resource market prices.');
+    console.log('[PRICE API INFO] Serving fallback SFL Crop, Fruit & Resource market prices.');
   }
 
-  return res.json(cleanSFLCatalog);
+  return res.json(fullSFLCatalog);
 });
 
 // API Endpoint: Register Auto Sync
