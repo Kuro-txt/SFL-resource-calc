@@ -503,8 +503,8 @@
     async function loadCloudUserData() {
       if (!currentUser || !supabaseClient) return;
 
-      // 1. Fetch Profile (Farm ID)
-      const { data: profile } = await supabaseClient.from('profiles').select('farm_id').eq('id', currentUser.id).single();
+      // 1. Fetch Profile (Farm ID) — Using .maybeSingle() to prevent 406 error on new accounts
+      const { data: profile } = await supabaseClient.from('profiles').select('farm_id').eq('id', currentUser.id).maybeSingle();
       if (profile && profile.farm_id) {
         document.getElementById('farm-id').value = profile.farm_id;
         localStorage.setItem('sfl_farm_id', profile.farm_id);
@@ -883,10 +883,10 @@
     async function updatePreHarvestUI() {
       const container = document.getElementById('pre-harvest-status');
       
-      // Check Cloud Base first
+      // Check Cloud Base first (.maybeSingle prevents 406 error when no row exists)
       if (currentUser && supabaseClient) {
         const todayDate = new Date().toISOString().split('T')[0];
-        const { data } = await supabaseClient.from('preharvest_baselines').select('created_at').eq('user_id', currentUser.id).eq('snapshot_date', todayDate).single();
+        const { data } = await supabaseClient.from('preharvest_baselines').select('created_at').eq('user_id', currentUser.id).eq('snapshot_date', todayDate).maybeSingle();
         if (data) {
           document.getElementById('pre-harvest-time').textContent = "00:00 UTC Cloud Auto-Baseline";
           container.classList.remove('hidden');
@@ -962,9 +962,9 @@
       let preHarvestData = null;
       const todayDate = new Date().toISOString().split('T')[0];
 
-      // 1. Try to fetch 00:00 UTC cloud baseline first
+      // 1. Try to fetch 00:00 UTC cloud baseline first (.maybeSingle prevents 406 error)
       if (currentUser && supabaseClient) {
-        const { data } = await supabaseClient.from('preharvest_baselines').select('stock').eq('user_id', currentUser.id).eq('snapshot_date', todayDate).single();
+        const { data } = await supabaseClient.from('preharvest_baselines').select('stock').eq('user_id', currentUser.id).eq('snapshot_date', todayDate).maybeSingle();
         if (data && data.stock) {
           preHarvestData = data.stock;
         }
