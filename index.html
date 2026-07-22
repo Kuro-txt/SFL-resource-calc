@@ -87,7 +87,6 @@
         </span>
         <div class="flex items-center gap-2 w-full sm:w-auto">
           <input type="email" id="auth-email" placeholder="Email" class="sfl-input px-2 py-1 text-xs text-sfl-dirt rounded w-full sm:w-36">
-          <!-- Password set to type="text" so typing is visible -->
           <input type="text" id="auth-password" placeholder="Password" class="sfl-input px-2 py-1 text-xs text-sfl-dirt rounded w-full sm:w-32">
           <button id="btn-login" class="bg-sfl-green text-white font-bold px-3 py-1 rounded text-xs hover:bg-green-700 transition whitespace-nowrap">Sign In</button>
           <button id="btn-signup" class="bg-amber-600 text-white font-bold px-3 py-1 rounded text-xs hover:bg-amber-700 transition whitespace-nowrap">Sign Up</button>
@@ -132,7 +131,6 @@
           <label class="block text-xs font-bold text-sfl-wood mb-1">
             API Key / Token <span class="text-sfl-woodLight font-normal">(Optional - Uses Server Key by default)</span>
           </label>
-          <!-- API Key remains hidden with type="password" -->
           <input type="password" id="api-key" placeholder="Paste custom Key/Token (Optional)" 
             class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm">
         </div>
@@ -386,7 +384,7 @@
     let farmInventoryData = {};
     let editingSnapshotDate = null;
     let syncCooldownTimer = null;
-    let syncCount = 0; // Tracks sync fetch attempts
+    let syncCount = 0;
 
     const FLOWER_ICON = `<img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-4 h-4 sfl-icon" alt="Flower Token">`;
     const COIN_ICON = `<img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-4 h-4 sfl-icon" alt="Coins">`;
@@ -426,7 +424,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      // Local Storage Fallbacks
       const savedFarmId = localStorage.getItem('sfl_farm_id');
       const savedApiKey = localStorage.getItem('sfl_api_key');
       const savedTaxRate = localStorage.getItem('sfl_tax_rate');
@@ -517,23 +514,19 @@
     async function loadCloudUserData() {
       if (!currentUser || !supabaseClient) return;
 
-      // 1. Calculate 30-day cutoff date
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - 30);
       const cutoffDateStr = cutoff.toISOString().split('T')[0];
 
-      // 2. Fetch Profile (Farm ID)
       const { data: profile } = await supabaseClient.from('profiles').select('farm_id').eq('id', currentUser.id).maybeSingle();
       if (profile && profile.farm_id) {
         document.getElementById('farm-id').value = profile.farm_id;
         localStorage.setItem('sfl_farm_id', profile.farm_id);
       }
 
-      // 3. Purge Cloud Records older than 30 days automatically
       await supabaseClient.from('daily_yields').delete().eq('user_id', currentUser.id).lt('yield_date', cutoffDateStr);
       await supabaseClient.from('preharvest_baselines').delete().eq('user_id', currentUser.id).lt('snapshot_date', cutoffDateStr);
 
-      // 4. Fetch Active Daily Yields History (Last 30 Days)
       const { data: yields } = await supabaseClient.from('daily_yields').select('*').eq('user_id', currentUser.id).order('yield_date', { ascending: false });
       if (yields && yields.length > 0) {
         let history = yields.map(y => ({
@@ -547,7 +540,6 @@
         localStorage.setItem('sfl_daily_snapshots', JSON.stringify([]));
       }
 
-      // 5. Purge Local Storage array for entries older than 30 days
       let localHistory = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
       let filteredLocal = localHistory.filter(item => item.date >= cutoffDateStr);
       localStorage.setItem('sfl_daily_snapshots', JSON.stringify(filteredLocal));
@@ -682,7 +674,6 @@
 
       status.textContent = '⏳ Fetching farm data...';
       
-      // Increment sync count and apply timer on 2nd sync and beyond
       syncCount++;
       if (syncCount >= 2) {
         startSyncCooldown();
@@ -913,7 +904,6 @@
       updateBasketTable();
     }
 
-    // --- HELPER: FORMAT BASELINE BADGES ---
     function renderStockBadges(stockObj, targetElId) {
       const container = document.getElementById(targetElId);
       if (!container || !stockObj) return;
@@ -938,8 +928,6 @@
       container.innerHTML = html;
     }
 
-    // --- DUAL PRE-HARVEST LOGIC ---
-
     async function updatePreHarvestUI() {
       const mainContainer = document.getElementById('pre-harvest-status');
       const cloudStatus = document.getElementById('cloud-baseline-status');
@@ -948,7 +936,6 @@
       let hasCloud = false;
       let hasManual = false;
 
-      // 1. Check Cloud Auto-Baseline
       if (currentUser && supabaseClient) {
         const todayDate = new Date().toISOString().split('T')[0];
         const { data } = await supabaseClient
@@ -968,7 +955,6 @@
         cloudStatus.classList.add('hidden');
       }
 
-      // 2. Check Manual Local Baseline
       const baseline = localStorage.getItem('sfl_pre_harvest_stock');
       if (baseline) {
         hasManual = true;
@@ -980,7 +966,6 @@
         manualStatus.classList.add('hidden');
       }
 
-      // Show outer panel if at least one baseline exists
       if (hasCloud || hasManual) {
         mainContainer.classList.remove('hidden');
       } else {
@@ -1034,13 +1019,11 @@
       let preHarvestData = null;
       const todayDate = new Date().toISOString().split('T')[0];
 
-      // 1. Prefer manual baseline first
       const preHarvestRaw = localStorage.getItem('sfl_pre_harvest_stock');
       if (preHarvestRaw) {
         preHarvestData = JSON.parse(preHarvestRaw).stock;
       }
 
-      // 2. Fallback to 00:00 UTC cloud baseline
       if (!preHarvestData && currentUser && supabaseClient) {
         const { data } = await supabaseClient
           .from('preharvest_baselines')
@@ -1155,7 +1138,6 @@
         });
       }
 
-      // Save to Supabase Cloud if signed in
       if (currentUser && supabaseClient) {
         await supabaseClient.from('daily_yields').upsert({
           user_id: currentUser.id,
@@ -1172,8 +1154,6 @@
       renderSnapshotHistory();
       alert(`🎉 Logged harvest yield for ${todayDate}!`);
     });
-
-    // --- EDITING & DELETING SNAPSHOTS ---
 
     function editSnapshotRow(date) {
       editingSnapshotDate = date;
