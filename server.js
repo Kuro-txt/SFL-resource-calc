@@ -9,7 +9,6 @@ app.use(cors());
 app.use(express.json());
 
 // Keywords to filter out seeds, tools, and non-sellable consumables
-// NOTE: 'root' is excluded from this array so 'Beetroot' is supported!
 const EXCLUDED_KEYWORDS = [
   'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
   'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 
@@ -59,11 +58,19 @@ app.get('/api/get-farm', async (req, res) => {
   } catch (err) {
     console.error(`[SFL API ERROR] Farm #${farmId}:`, err.response?.status, err.message);
 
-    if (err.response?.status === 401) {
-      return res.status(401).json({ error: '401 Unauthorized: Invalid API Key/Token provided.' });
+    // RATE LIMIT ERROR HANDLER (429)
+    if (err.response?.status === 429) {
+      return res.status(429).json({ 
+        error: '⚠️ Server API rate limit reached! Please wait a few minutes, or paste your own personal SFL API Key above to sync immediately.' 
+      });
     }
+
+    if (err.response?.status === 401) {
+      return res.status(401).json({ error: '❌ 401 Unauthorized: Invalid API Key or Token provided.' });
+    }
+
     if (err.response?.status === 404) {
-      return res.status(404).json({ error: `Farm #${farmId} does not exist.` });
+      return res.status(404).json({ error: `❌ Farm #${farmId} does not exist.` });
     }
 
     return res.status(500).json({ 
