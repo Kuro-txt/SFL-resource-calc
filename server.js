@@ -1,12 +1,20 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// Initialize Supabase Admin Client (Uses service_role key to bypass RLS for background cron jobs)
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAdmin = (supabaseUrl && supabaseServiceKey) 
+  ? createClient(supabaseUrl, supabaseServiceKey) 
+  : null;
 
 // Keywords to filter out seeds, tools, and non-sellable consumables
 const EXCLUDED_KEYWORDS = [
@@ -40,7 +48,6 @@ app.get('/api/get-farm', async (req, res) => {
       'Accept': 'application/json'
     };
 
-    // Use user-provided key OR fallback to Render's secret environment variable
     const cleanUserKey = (apiKey && apiKey !== 'undefined' && apiKey !== 'null') ? apiKey.trim() : null;
     const effectiveApiKey = cleanUserKey || process.env.SFL_API_KEY;
 
@@ -58,7 +65,6 @@ app.get('/api/get-farm', async (req, res) => {
   } catch (err) {
     console.error(`[SFL API ERROR] Farm #${farmId}:`, err.response?.status, err.message);
 
-    // RATE LIMIT ERROR HANDLER (429)
     if (err.response?.status === 429) {
       return res.status(429).json({ 
         error: '⚠️ Server API rate limit reached! Please wait a few minutes, or paste your own personal SFL API Key above to sync immediately.' 
@@ -119,6 +125,80 @@ app.get('/api/get-data', async (req, res) => {
   }
 
   return res.json(fallbackCatalog);
+});
+
+// CRON ENDPOINT: Triggered at 00:00 UTC to save Pre-Harvest Baseline for all registered users
+app.get('/api/trigger-daily-baseline', async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: 'Supabase admin client not initialized on server.' });
+  }
+
+  try {
+    // 1. Fetch all registered user profiles from Supabase
+    const { data: profiles, error: profileErr } = await supabaseAdmin
+      .from('profiles')
+      .select('id, farm_id');
+
+    if (profileErr) throw profileErr;
+    if (!profiles || profiles.length === 0) {
+      return res.json({ message: 'No registered profiles found to snapshot.' });
+    }
+
+    const todayDate = new Date().toISOString().split('T')[0];
+    let successCount = 0;
+    let errors = [];
+
+    // 2. Loop through each registered user farm and record baseline
+    for (const profile of profiles) {
+      try {
+        const headers = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' };
+        if (process.env.SFL_API_KEY) {
+          headers['x-api-key'] = process.env.SFL_API_KEY;
+          headers['Authorization'] = `Bearer ${process.env.SFL_API_KEY}`;
+        }
+
+        const response = await axios.get(`https://api.sunflower-land.com/community/farms/${profile.farm_id}`, {
+          headers,
+          timeout: 8000
+        });
+
+        const farmObj = response.data.farm?.farm || response.data.farm?.data || response.data.farm || response.data;
+        const rawInventory = farmObj?.inventory || {};
+
+        let cleanBaseline = {};
+        for (let key in rawInventory) {
+          if (!isExcludedItem(key)) {
+            let val = typeof rawInventory[key] === 'number' ? rawInventory[key] : parseFloat(rawInventory[key]?.amount || 0);
+            if (val > 0) cleanBaseline[key.toLowerCase()] = Math.ceil(val * 10) / 10;
+          }
+        }
+
+        // Save baseline record directly into Supabase
+        const { error: insertErr } = await supabaseAdmin
+          .from('preharvest_baselines')
+          .upsert({
+            user_id: profile.id,
+            farm_id: profile.farm_id,
+            snapshot_date: todayDate,
+            stock: cleanBaseline
+          }, { onConflict: 'user_id,snapshot_date' });
+
+        if (insertErr) throw insertErr;
+        successCount++;
+      } catch (err) {
+        console.error(`Baseline snapshot failed for Farm #${profile.farm_id}:`, err.message);
+        errors.push({ farm_id: profile.farm_id, error: err.message });
+      }
+    }
+
+    return res.json({
+      message: `00:00 UTC Snapshot Complete! Saved ${successCount}/${profiles.length} baselines.`,
+      errors
+    });
+  } catch (err) {
+    console.error('[CRON BASELINE ERROR]:', err);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
