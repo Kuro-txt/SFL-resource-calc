@@ -114,7 +114,7 @@
         </div>
       </div>
 
-      <button id="import-farm-btn" class="w-full bg-sfl-wood text-amber-200 font-bold py-2.5 px-3 rounded-lg border-2 border-sfl-dirt text-sm hover:bg-sfl-woodLight transition flex items-center justify-center gap-2">
+      <button id="import-farm-btn" class="w-full bg-sfl-wood text-amber-200 font-bold py-2.5 px-3 rounded-lg border-2 border-sfl-dirt text-sm hover:bg-sfl-woodLight transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
         🔄 Sync Farm Quantities Now
       </button>
 
@@ -341,6 +341,7 @@
     let selectedItemKey = null;
     let farmInventoryData = {};
     let editingSnapshotDate = null;
+    let syncCooldownTimer = null;
 
     const FLOWER_ICON = `<img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-4 h-4 sfl-icon" alt="Flower Token">`;
     const COIN_ICON = `<img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-4 h-4 sfl-icon" alt="Coins">`;
@@ -485,7 +486,24 @@
       return 0;
     }
 
-    // MANUAL SYNC BUTTON
+    // 20-SECOND COOLDOWN SYNC BUTTON
+    function startSyncCooldown() {
+      const syncBtn = document.getElementById('import-farm-btn');
+      let timeLeft = 20;
+      syncBtn.disabled = true;
+
+      syncCooldownTimer = setInterval(() => {
+        timeLeft--;
+        if (timeLeft > 0) {
+          syncBtn.textContent = `⏳ Please wait ${timeLeft}s...`;
+        } else {
+          clearInterval(syncCooldownTimer);
+          syncBtn.disabled = false;
+          syncBtn.textContent = '🔄 Sync Farm Quantities Now';
+        }
+      }, 1000);
+    }
+
     document.getElementById('import-farm-btn').addEventListener('click', async () => {
       const farmId = document.getElementById('farm-id').value.trim();
       const apiKey = document.getElementById('api-key').value.trim();
@@ -497,13 +515,16 @@
       }
 
       status.textContent = '⏳ Fetching farm data...';
+      startSyncCooldown();
 
       try {
         const url = `${BACKEND_URL}/api/get-farm?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`;
         const response = await fetch(url);
-        
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || `HTTP Error ${response.status}`);
+
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP Error ${response.status}`);
+        }
 
         const farmObj = data.farm?.farm || data.farm?.data || data.farm || data;
         farmInventoryData = farmObj?.inventory || {};
@@ -517,7 +538,7 @@
           status.textContent = `⚠️ Connected, but no inventory found on farm.`;
         }
       } catch (err) {
-        status.textContent = '❌ Sync Error: ' + err.message;
+        status.textContent = err.message;
       }
     });
 
@@ -735,7 +756,6 @@
       }
     }
 
-    // SAVE PRE-HARVEST BASELINE (PREVENTS EMPTY SAVES)
     document.getElementById('save-pre-harvest-btn').addEventListener('click', () => {
       let baselineStock = {};
       
