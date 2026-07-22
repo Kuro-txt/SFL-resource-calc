@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 // Keywords to filter out seeds, tools, and non-sellable consumables
-// NOTE: 'root' removed so 'Beetroot' is NOT excluded!
+// NOTE: 'root' is excluded from this array so 'Beetroot' is supported!
 const EXCLUDED_KEYWORDS = [
   'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
   'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 
@@ -41,9 +41,13 @@ app.get('/api/get-farm', async (req, res) => {
       'Accept': 'application/json'
     };
 
-    if (apiKey && apiKey !== 'undefined' && apiKey !== 'null') {
-      headers['x-api-key'] = apiKey;
-      headers['Authorization'] = `Bearer ${apiKey}`;
+    // Use user-provided key OR fallback to Render's secret environment variable
+    const cleanUserKey = (apiKey && apiKey !== 'undefined' && apiKey !== 'null') ? apiKey.trim() : null;
+    const effectiveApiKey = cleanUserKey || process.env.SFL_API_KEY;
+
+    if (effectiveApiKey) {
+      headers['x-api-key'] = effectiveApiKey;
+      headers['Authorization'] = `Bearer ${effectiveApiKey}`;
     }
 
     const response = await axios.get(`https://api.sunflower-land.com/community/farms/${farmId}`, {
@@ -56,7 +60,7 @@ app.get('/api/get-farm', async (req, res) => {
     console.error(`[SFL API ERROR] Farm #${farmId}:`, err.response?.status, err.message);
 
     if (err.response?.status === 401) {
-      return res.status(401).json({ error: '401 Unauthorized: Valid API Key/Token required for this farm.' });
+      return res.status(401).json({ error: '401 Unauthorized: Invalid API Key/Token provided.' });
     }
     if (err.response?.status === 404) {
       return res.status(404).json({ error: `Farm #${farmId} does not exist.` });
