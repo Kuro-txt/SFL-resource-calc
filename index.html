@@ -502,7 +502,14 @@
       if (error) {
         alert("❌ Sign Up Error: " + error.message);
       } else if (data.user) {
-        await supabaseClient.from('profiles').upsert({ id: data.user.id, farm_id: farmId });
+        const { error: profileErr } = await supabaseClient
+          .from('profiles')
+          .upsert({ id: data.user.id, farm_id: farmId });
+
+        if (profileErr) {
+          console.error("Profile link error:", profileErr.message);
+        }
+
         alert("🎉 Account created & Farm ID linked successfully!");
       }
     });
