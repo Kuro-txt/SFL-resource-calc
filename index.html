@@ -353,17 +353,18 @@
   </div>
 
   <script>
- // --- SUPABASE CONFIGURATION ---
-const SUPABASE_URL = "https://gtvglgeoznnrsdcfazpc.supabase.co"; 
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo";
+    // --- SINGLE SUPABASE CONFIGURATION (GLOBAL SCOPE) ---
+    const SUPABASE_URL = "https://gtvglgeoznnrsdcfazpc.supabase.co"; 
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo";
+    const BACKEND_URL = "https://sfl-calculator-backend.onrender.com";
 
-const BACKEND_URL = "https://sfl-calculator-backend.onrender.com";
-
-// Use 'let' ONCE here at the top level
-let supabase = null;
-if (window.supabase) {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-}
+    let supabaseClient = null;
+    if (window.supabase) {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log("✅ Supabase initialized successfully!");
+    } else {
+      console.error("❌ Supabase CDN failed to load.");
+    }
 
     let currentUser = null;
     let allPrices = {};
@@ -428,14 +429,14 @@ if (window.supabase) {
 
     // --- AUTH & SUPABASE SYNC ---
     async function initAuth() {
-      if (!supabase) return;
+      if (!supabaseClient) return;
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
         setLoggedInUser(session.user);
       }
 
-      supabase.auth.onAuthStateChange((_event, session) => {
+      supabaseClient.auth.onAuthStateChange((_event, session) => {
         if (session) {
           setLoggedInUser(session.user);
         } else {
@@ -462,10 +463,17 @@ if (window.supabase) {
     document.getElementById('btn-login').addEventListener('click', async () => {
       const email = document.getElementById('auth-email').value.trim();
       const password = document.getElementById('auth-password').value.trim();
-      if (!email || !password) return alert("Please enter email and password.");
 
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) alert("Login Error: " + error.message);
+      if (!supabaseClient) return alert("❌ Supabase client is not initialized.");
+      if (!email || !password) return alert("⚠️ Please enter email and password.");
+
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        alert("❌ Login Error: " + error.message);
+      } else if (data.user) {
+        alert("🎉 Logged in successfully!");
+      }
     });
 
     document.getElementById('btn-signup').addEventListener('click', async () => {
@@ -473,34 +481,37 @@ if (window.supabase) {
       const password = document.getElementById('auth-password').value.trim();
       const farmId = document.getElementById('farm-id').value.trim();
 
-      if (!email || !password) return alert("Please enter email and password.");
-      if (!farmId) return alert("Please enter your Farm ID first so we can link your farm!");
+      if (!supabaseClient) return alert("❌ Supabase client is not initialized.");
+      if (!email || !password) return alert("⚠️ Please enter email and password.");
+      if (password.length < 6) return alert("⚠️ Password must be at least 6 characters.");
+      if (!farmId) return alert("⚠️ Please enter your Farm ID below first!");
 
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) return alert("Sign Up Error: " + error.message);
-
-      if (data.user) {
-        await supabase.from('profiles').upsert({ id: data.user.id, farm_id: farmId });
+      const { data, error } = await supabaseClient.auth.signUp({ email, password });
+      
+      if (error) {
+        alert("❌ Sign Up Error: " + error.message);
+      } else if (data.user) {
+        await supabaseClient.from('profiles').upsert({ id: data.user.id, farm_id: farmId });
         alert("🎉 Account created & Farm ID linked successfully!");
       }
     });
 
     document.getElementById('btn-logout').addEventListener('click', async () => {
-      if (supabase) await supabase.auth.signOut();
+      if (supabaseClient) await supabaseClient.auth.signOut();
     });
 
     async function loadCloudUserData() {
-      if (!currentUser || !supabase) return;
+      if (!currentUser || !supabaseClient) return;
 
       // 1. Fetch Profile (Farm ID)
-      const { data: profile } = await supabase.from('profiles').select('farm_id').eq('id', currentUser.id).single();
+      const { data: profile } = await supabaseClient.from('profiles').select('farm_id').eq('id', currentUser.id).single();
       if (profile && profile.farm_id) {
         document.getElementById('farm-id').value = profile.farm_id;
         localStorage.setItem('sfl_farm_id', profile.farm_id);
       }
 
       // 2. Fetch Daily Yields History
-      const { data: yields } = await supabase.from('daily_yields').select('*').eq('user_id', currentUser.id).order('yield_date', { ascending: false });
+      const { data: yields } = await supabaseClient.from('daily_yields').select('*').eq('user_id', currentUser.id).order('yield_date', { ascending: false });
       if (yields && yields.length > 0) {
         let history = yields.map(y => ({
           date: y.yield_date,
@@ -518,8 +529,8 @@ if (window.supabase) {
     document.getElementById('farm-id').addEventListener('input', async (e) => {
       const farmId = e.target.value.trim();
       localStorage.setItem('sfl_farm_id', farmId);
-      if (currentUser && supabase && farmId) {
-        await supabase.from('profiles').upsert({ id: currentUser.id, farm_id: farmId });
+      if (currentUser && supabaseClient && farmId) {
+        await supabaseClient.from('profiles').upsert({ id: currentUser.id, farm_id: farmId });
       }
     });
 
@@ -873,9 +884,9 @@ if (window.supabase) {
       const container = document.getElementById('pre-harvest-status');
       
       // Check Cloud Base first
-      if (currentUser && supabase) {
+      if (currentUser && supabaseClient) {
         const todayDate = new Date().toISOString().split('T')[0];
-        const { data } = await supabase.from('preharvest_baselines').select('created_at').eq('user_id', currentUser.id).eq('snapshot_date', todayDate).single();
+        const { data } = await supabaseClient.from('preharvest_baselines').select('created_at').eq('user_id', currentUser.id).eq('snapshot_date', todayDate).single();
         if (data) {
           document.getElementById('pre-harvest-time').textContent = "00:00 UTC Cloud Auto-Baseline";
           container.classList.remove('hidden');
@@ -927,9 +938,9 @@ if (window.supabase) {
         stock: baselineStock
       };
 
-      if (currentUser && supabase) {
+      if (currentUser && supabaseClient) {
         const farmId = document.getElementById('farm-id').value.trim();
-        await supabase.from('preharvest_baselines').upsert({
+        await supabaseClient.from('preharvest_baselines').upsert({
           user_id: currentUser.id,
           farm_id: farmId,
           snapshot_date: todayDate,
@@ -952,8 +963,8 @@ if (window.supabase) {
       const todayDate = new Date().toISOString().split('T')[0];
 
       // 1. Try to fetch 00:00 UTC cloud baseline first
-      if (currentUser && supabase) {
-        const { data } = await supabase.from('preharvest_baselines').select('stock').eq('user_id', currentUser.id).eq('snapshot_date', todayDate).single();
+      if (currentUser && supabaseClient) {
+        const { data } = await supabaseClient.from('preharvest_baselines').select('stock').eq('user_id', currentUser.id).eq('snapshot_date', todayDate).single();
         if (data && data.stock) {
           preHarvestData = data.stock;
         }
@@ -1067,8 +1078,8 @@ if (window.supabase) {
       }
 
       // Save to Supabase Cloud if signed in
-      if (currentUser && supabase) {
-        await supabase.from('daily_yields').upsert({
+      if (currentUser && supabaseClient) {
+        await supabaseClient.from('daily_yields').upsert({
           user_id: currentUser.id,
           yield_date: todayDate,
           total_count: roundUpToOneDecimal(grandCount),
@@ -1143,8 +1154,8 @@ if (window.supabase) {
         netFlowers: roundUpToThreeDecimals(grandNetFlowers).toFixed(3)
       };
 
-      if (currentUser && supabase) {
-        await supabase.from('daily_yields').upsert({
+      if (currentUser && supabaseClient) {
+        await supabaseClient.from('daily_yields').upsert({
           user_id: currentUser.id,
           yield_date: date,
           total_count: roundUpToOneDecimal(grandTotalCount),
@@ -1164,8 +1175,8 @@ if (window.supabase) {
       let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
       localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history.filter(i => i.date !== date)));
 
-      if (currentUser && supabase) {
-        await supabase.from('daily_yields').delete().eq('user_id', currentUser.id).eq('yield_date', date);
+      if (currentUser && supabaseClient) {
+        await supabaseClient.from('daily_yields').delete().eq('user_id', currentUser.id).eq('yield_date', date);
       }
 
       if (editingSnapshotDate === date) editingSnapshotDate = null;
