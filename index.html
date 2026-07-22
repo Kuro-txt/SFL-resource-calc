@@ -106,8 +106,10 @@
             class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm">
         </div>
         <div>
-          <label class="block text-xs font-bold text-sfl-wood mb-1">API Key / Token (Optional)</label>
-          <input type="password" id="api-key" placeholder="Paste Key or Token" 
+          <label class="block text-xs font-bold text-sfl-wood mb-1">
+            API Key / Token <span class="text-sfl-woodLight font-normal">(Optional - Uses Server Key by default)</span>
+          </label>
+          <input type="password" id="api-key" placeholder="Paste custom Key/Token (Optional)" 
             class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm">
         </div>
       </div>
@@ -281,7 +283,7 @@
         </div>
       </div>
 
-      <!-- Guide Box with Morning/Night Advice -->
+      <!-- Guide Box -->
       <div class="bg-amber-50/80 border border-sfl-cardBorder rounded-lg p-3 text-xs text-sfl-wood space-y-1.5">
         <p class="font-bold flex items-center gap-1.5 text-sfl-wood">
           <span>📖</span> How to Save Snapshots & Log Daily Yields:
@@ -733,7 +735,7 @@
       }
     }
 
-    // SAVE PRE-HARVEST BASELINE (PREVENTS EMPTY BASKET SAVES)
+    // SAVE PRE-HARVEST BASELINE (PREVENTS EMPTY SAVES)
     document.getElementById('save-pre-harvest-btn').addEventListener('click', () => {
       let baselineStock = {};
       
@@ -756,7 +758,6 @@
         }
       }
 
-      // Check if baseline stock is completely empty
       if (Object.keys(baselineStock).length === 0) {
         alert("⚠️ Cannot save an empty snapshot! Please add items to your Farm Basket or sync your farm inventory first.");
         return;
