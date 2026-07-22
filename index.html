@@ -285,7 +285,7 @@
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
             <span>🌾</span> Daily Yield & Resource Tracker
           </h3>
-          <p class="text-[11px] text-sfl-woodLight font-semibold">Track crop, fruit, & resource yields harvested between sessions.</p>
+          <p class="text-[11px] text-sfl-woodLight font-semibold">Track crop, fruit, & resource yields harvested between sessions (Kept for 30 days).</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button id="save-pre-harvest-btn" class="bg-amber-600 text-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-700 transition">
@@ -503,14 +503,23 @@
     async function loadCloudUserData() {
       if (!currentUser || !supabaseClient) return;
 
-      // 1. Fetch Profile (Farm ID) — Using .maybeSingle() to prevent 406 error on new accounts
+      // 1. Calculate 30-day cutoff date
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 30);
+      const cutoffDateStr = cutoff.toISOString().split('T')[0];
+
+      // 2. Fetch Profile (Farm ID)
       const { data: profile } = await supabaseClient.from('profiles').select('farm_id').eq('id', currentUser.id).maybeSingle();
       if (profile && profile.farm_id) {
         document.getElementById('farm-id').value = profile.farm_id;
         localStorage.setItem('sfl_farm_id', profile.farm_id);
       }
 
-      // 2. Fetch Daily Yields History
+      // 3. Purge Cloud Records older than 30 days automatically
+      await supabaseClient.from('daily_yields').delete().eq('user_id', currentUser.id).lt('yield_date', cutoffDateStr);
+      await supabaseClient.from('preharvest_baselines').delete().eq('user_id', currentUser.id).lt('snapshot_date', cutoffDateStr);
+
+      // 4. Fetch Active Daily Yields History (Last 30 Days)
       const { data: yields } = await supabaseClient.from('daily_yields').select('*').eq('user_id', currentUser.id).order('yield_date', { ascending: false });
       if (yields && yields.length > 0) {
         let history = yields.map(y => ({
@@ -520,7 +529,14 @@
           crops: y.crops
         }));
         localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
+      } else {
+        localStorage.setItem('sfl_daily_snapshots', JSON.stringify([]));
       }
+
+      // 5. Purge Local Storage array for entries older than 30 days
+      let localHistory = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+      let filteredLocal = localHistory.filter(item => item.date >= cutoffDateStr);
+      localStorage.setItem('sfl_daily_snapshots', JSON.stringify(filteredLocal));
 
       renderSnapshotHistory();
       updatePreHarvestUI();
