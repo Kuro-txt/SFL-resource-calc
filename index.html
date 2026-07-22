@@ -323,15 +323,19 @@
         </ul>
       </div>
 
-      <!-- DUAL BASELINE DISPLAY -->
-      <div id="pre-harvest-status" class="hidden bg-amber-100/90 border-2 border-amber-400 p-3 rounded-lg text-xs font-bold text-amber-900 space-y-1.5 shadow-sm">
+      <!-- BASELINE STATUS DISPLAY -->
+      <div id="pre-harvest-status" class="hidden bg-amber-100/90 border-2 border-amber-400 p-3 rounded-lg text-xs font-bold text-amber-900 space-y-2 shadow-sm">
         <div id="cloud-baseline-status" class="hidden flex justify-between items-center text-green-800 border-b border-amber-300/60 pb-1">
           <span>☁️ 00:00 UTC Cloud Baseline: <span class="font-extrabold">Active</span></span>
           <span class="text-[10px] bg-green-200 text-green-900 px-2 py-0.5 rounded-full font-bold">Automatic</span>
         </div>
-        <div id="manual-baseline-status" class="hidden flex justify-between items-center text-amber-900">
-          <span>🚩 Manual Baseline: <span class="font-extrabold text-amber-800">Active</span> (<span id="pre-harvest-time">Today</span>)</span>
-          <button id="clear-pre-harvest-btn" class="text-[10px] bg-sfl-accent text-white px-2 py-0.5 rounded font-bold hover:bg-red-700 transition">Clear Manual Baseline</button>
+
+        <div id="manual-baseline-status" class="hidden">
+          <div class="flex justify-between items-center text-amber-900">
+            <span>🚩 Manual Baseline: <span class="font-extrabold text-amber-800">Active</span> (<span id="pre-harvest-time">Today</span>)</span>
+            <button id="clear-pre-harvest-btn" class="text-[10px] bg-sfl-accent text-white px-2 py-0.5 rounded font-bold hover:bg-red-700 transition">Clear Manual Baseline</button>
+          </div>
+          <div id="manual-baseline-items" class="mt-1 flex flex-wrap gap-1 text-[10px]"></div>
         </div>
       </div>
 
@@ -380,6 +384,7 @@
     let farmInventoryData = {};
     let editingSnapshotDate = null;
     let syncCooldownTimer = null;
+    let syncCount = 0; // Tracks sync fetch attempts
 
     const FLOWER_ICON = `<img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-4 h-4 sfl-icon" alt="Flower Token">`;
     const COIN_ICON = `<img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-4 h-4 sfl-icon" alt="Coins">`;
@@ -674,7 +679,12 @@
       }
 
       status.textContent = '⏳ Fetching farm data...';
-      startSyncCooldown();
+      
+      // Increment sync count and apply timer on 2nd sync and beyond
+      syncCount++;
+      if (syncCount >= 2) {
+        startSyncCooldown();
+      }
 
       try {
         const url = `${BACKEND_URL}/api/get-farm?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`;
@@ -901,6 +911,31 @@
       updateBasketTable();
     }
 
+    // --- HELPER: FORMAT BASELINE BADGES ---
+    function renderStockBadges(stockObj, targetElId) {
+      const container = document.getElementById(targetElId);
+      if (!container || !stockObj) return;
+
+      let html = '';
+      let entries = Object.entries(stockObj);
+
+      if (entries.length === 0) {
+        container.innerHTML = `<span class="italic text-amber-800/60">No items saved</span>`;
+        return;
+      }
+
+      entries.forEach(([itemKey, qty]) => {
+        let cleanName = itemKey.charAt(0).toUpperCase() + itemKey.slice(1);
+        let numericQty = typeof qty === 'number' ? qty : parseFloat(qty?.amount || qty || 0);
+        
+        if (numericQty > 0) {
+          html += `<span class="bg-amber-200/90 text-amber-950 font-semibold px-2 py-0.5 rounded border border-amber-300">${cleanName}: ${numericQty.toFixed(1)}</span> `;
+        }
+      });
+
+      container.innerHTML = html;
+    }
+
     // --- DUAL PRE-HARVEST LOGIC ---
 
     async function updatePreHarvestUI() {
@@ -938,6 +973,7 @@
         const data = JSON.parse(baseline);
         document.getElementById('pre-harvest-time').textContent = data.timestamp;
         manualStatus.classList.remove('hidden');
+        renderStockBadges(data.stock, 'manual-baseline-items');
       } else {
         manualStatus.classList.add('hidden');
       }
