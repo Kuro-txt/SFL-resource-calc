@@ -66,6 +66,13 @@ function loadPrices() {
   fetch(`${backend}/api/get-data`)
     .then(res => res.json())
     .then(rawData => {
+      // Hard delete any accidental metadata fields if they exist at the root
+      if (rawData && typeof rawData === 'object') {
+        delete rawData.updated_text;
+        delete rawData.updatedText;
+        delete rawData.updated_at;
+        delete rawData.updatedAt;
+      }
       allPrices = extractPrices(rawData);
     })
     .catch(() => console.warn("Using default fallback prices."));
@@ -75,15 +82,15 @@ function extractPrices(data) {
   let pricesMap = {};
   if (!data || typeof data !== 'object') return pricesMap;
 
-  // Strict blacklist to wipe out metadata fields at extraction
   const GLOBAL_EXCLUDES = ['updated_text', 'updatedtext', 'updatedat', 'updated_at', 'created_at', 'id'];
 
   function searchObj(obj, prefix = '') {
     for (let key in obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
       
-      let lowerKey = key.toLowerCase().replace(/[^a-z]/g, ''); // strip underscores & spaces for deep matching
-      if (GLOBAL_EXCLUDES.some(ex => lowerKey.includes(ex))) continue;
+      let lowerKey = key.toLowerCase().trim();
+      if (GLOBAL_EXCLUDES.includes(lowerKey)) continue;
+      if (lowerKey.includes('updated')) continue; // Blocks any key containing 'updated'
       if (typeof isExcludedItem === 'function' && isExcludedItem(key)) continue;
 
       let val = obj[key];
@@ -198,7 +205,7 @@ if (input && menu) {
     const matches = Object.keys(allPrices)
       .filter(key => {
         let lowerKey = key.toLowerCase().trim();
-        if (SEARCH_EXCLUDED_KEYS.includes(lowerKey)) return false;
+        if (SEARCH_EXCLUDED_KEYS.includes(lowerKey) || lowerKey.includes('updated')) return false;
         if (typeof isExcludedItem === 'function' && isExcludedItem(key)) return false;
         let cleanKey = key.replace(/^\[.*?\]\s*/, '');
         return cleanKey.toLowerCase().includes(query) || lowerKey.includes(query);
@@ -440,11 +447,11 @@ document.getElementById('donate-btn')?.addEventListener('click', async () => {
     // Visual text feedback
     const originalText = donateBtn.textContent;
     donateBtn.textContent = "Copied!";
-    donateBtn.classList.add('text-green-600');
+    donateBtn.classList.add('text-green-400');
 
     setTimeout(() => {
       donateBtn.textContent = originalText;
-      donateBtn.classList.remove('text-green-600');
+      donateBtn.classList.remove('text-green-400');
     }, 2000);
 
   } catch (err) {
