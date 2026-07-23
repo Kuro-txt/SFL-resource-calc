@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Clean Tab Switcher
+// Tab Switcher
 function setupTabs() {
   const tabCalcBtn = document.getElementById('tab-calc-btn');
   const tabWishlistBtn = document.getElementById('tab-wishlist-btn');
@@ -39,9 +39,8 @@ function setupTabs() {
   });
 }
 
-// Fetch NFT list from Backend (With Graceful Fallback)
+// Fetch NFT list from Backend
 async function loadNftCatalog() {
-  const menu = document.getElementById('wishlist-search-menu');
   try {
     const backendUrl = typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : '';
     const res = await fetch(`${backendUrl}/api/nfts`);
@@ -49,21 +48,13 @@ async function loadNftCatalog() {
     if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
     const data = await res.json();
     
-    let rawList = Array.isArray(data) ? data : (data.data || data.nfts || Object.values(data));
+    if (Array.isArray(data) && data.length > 0) {
+      allNfts = data;
+    } else {
+      throw new Error("API returned empty list");
+    }
 
-    allNfts = rawList.map(item => {
-      const name = item.name || item.title || 'Unknown NFT';
-      const price = parseFloat(item.floor ?? item.price ?? item.lastSalePrice ?? 0) || 0;
-      const boost = item.boost_text || item.boost || (item.have_boost ? "Boost Active" : "No Boost");
-
-      return {
-        name: String(name).trim(),
-        price: price,
-        boost: String(boost).trim()
-      };
-    }).filter(item => item.name !== 'Unknown NFT');
-
-    // Update live prices for saved wishlist items
+    // Sync saved items with live prices
     wishlistItems.forEach(savedItem => {
       let match = allNfts.find(n => n.name.toLowerCase() === savedItem.name.toLowerCase());
       if (match) {
@@ -74,20 +65,19 @@ async function loadNftCatalog() {
 
     saveWishlist();
     renderWishlist();
-
   } catch (err) {
-    console.error("Failed to load NFT catalog from backend:", err.message);
+    console.warn("Could not fetch live catalog, using fallback catalog:", err.message);
     
-    // Fallback: Populate basic items if backend fails so search bar works
-    if (allNfts.length === 0) {
-      allNfts = [
-        { name: "Lunar Temple", price: 169, boost: "+1 help progress to player's monuments" },
-        { name: "Scarecrow", price: 24, boost: "+15% Crop Yield" },
-        { name: "Nancy", price: 12.5, boost: "+20% Crop Growth Speed" },
-        { name: "Kuebiko", price: 110, boost: "Free Seeds & +5% Yield" },
-        { name: "Golden Cauliflower", price: 78, boost: "+100% Cauliflower Yield" }
-      ];
-    }
+    allNfts = [
+      { name: "Lunar Temple", price: 169, boost: "+1 help progress to player's monuments" },
+      { name: "Scarecrow", price: 24, boost: "+15% Crop Yield" },
+      { name: "Nancy", price: 12.5, boost: "+20% Crop Growth Speed" },
+      { name: "Kuebiko", price: 110, boost: "Free Seeds & +5% Yield" },
+      { name: "Golden Cauliflower", price: 78, boost: "+100% Cauliflower Yield" },
+      { name: "Cinder", price: 310, boost: "+50% Coal Mining Yield" },
+      { name: "Rock Golem", price: 95, boost: "+1 Stone Yield" },
+      { name: "Rooster", price: 65, boost: "2x Egg Drop Speed" }
+    ];
   }
 }
 
@@ -103,6 +93,7 @@ function initNftCombobox() {
     menu.innerHTML = '';
 
     const matches = allNfts.filter(nft => {
+      if (!query) return true; // Show top items when search input is empty
       return nft.name.toLowerCase().includes(query) || 
              nft.boost.toLowerCase().includes(query);
     }).slice(0, 30);
