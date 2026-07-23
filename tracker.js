@@ -140,14 +140,10 @@ document.getElementById('log-yield-btn').addEventListener('click', async () => {
   const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
   let postHarvestStock = {};
 
-  if (basket.length > 0) {
-    basket.forEach(entry => {
-      let cleanName = entry.item.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
-      if (isSnapshotEligible(cleanName)) {
-        postHarvestStock[cleanName] = (postHarvestStock[cleanName] || 0) + entry.qty;
-      }
-    });
-  } else {
+  // FIX: Prioritize full farm inventory if synced; fallback to Basket only if farm inventory is completely empty
+  const hasFarmInventory = Object.keys(farmInventoryData).length > 0;
+
+  if (hasFarmInventory) {
     for (let key in farmInventoryData) {
       let cleanName = key.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (isSnapshotEligible(cleanName)) {
@@ -155,6 +151,13 @@ document.getElementById('log-yield-btn').addEventListener('click', async () => {
         postHarvestStock[cleanName] = roundUpToOneDecimal(val);
       }
     }
+  } else if (basket.length > 0) {
+    basket.forEach(entry => {
+      let cleanName = entry.item.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
+      if (isSnapshotEligible(cleanName)) {
+        postHarvestStock[cleanName] = (postHarvestStock[cleanName] || 0) + entry.qty;
+      }
+    });
   }
 
   let newYieldsMap = {};
@@ -318,7 +321,7 @@ function renderSnapshotHistory() {
   let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
 
   if (history.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">No harvest sessions logged yet!</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-sfl-woodLight italic">No harvest sessions logged yet!</td></tr>`;
     return;
   }
 
@@ -365,7 +368,6 @@ function renderSnapshotHistory() {
     tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
     tr.innerHTML = `
       <td class="px-3 py-2.5 font-bold whitespace-nowrap">${entry.date}</td>
-      <td class="px-3 py-2.5 font-bold text-sfl-green">+${entry.totalCount.toFixed(1)} Yield</td>
       <td class="px-3 py-2.5">${cropBadges}</td>
       <td class="px-3 py-2.5 font-bold text-sfl-green">${entry.netFlowers} ${FLOWER_ICON}</td>
       <td class="px-2 py-2.5 text-center whitespace-nowrap">${actionButtons}</td>
