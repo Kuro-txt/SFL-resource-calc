@@ -4,7 +4,7 @@ if (typeof window.editingSnapshotDate === 'undefined') {
   window.editingSnapshotDate = null;
 }
 
-// Unified Key Normalizer across entire app
+// Unified Key Normalizer
 function normalizeItemKey(rawInput) {
   if (!rawInput) return '';
   let str = typeof rawInput === 'object' ? (rawInput.item || rawInput.name || '') : String(rawInput);
@@ -31,7 +31,6 @@ function renderStockBadges(stockObj, targetElId) {
     return;
   }
 
-  // Display top saved items
   entries.forEach(([itemKey, qty]) => {
     let cleanName = itemKey.charAt(0).toUpperCase() + itemKey.slice(1);
     let numericQty = typeof qty === 'number' ? qty : parseFloat(qty?.amount || qty || 0);
@@ -96,34 +95,11 @@ async function updatePreHarvestUI() {
   }
 }
 
-// 1. SAVE PRE-HARVEST BASELINE (MERGES LOCAL + CLOUD BASELINES CLEANLY)
+// 1. SAVE MANUAL BASELINE (STRICTLY BASKET ITEMS ONLY, ACCUMULATIVE)
 document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async () => {
   let baselineStock = {};
-  const todayDate = new Date().toISOString().split('T')[0];
 
-  // Step A: Load Cloud Baseline first if signed in
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
-    try {
-      const { data } = await supabaseClient
-        .from('preharvest_baselines')
-        .select('stock')
-        .eq('user_id', currentUser.id)
-        .eq('snapshot_date', todayDate)
-        .maybeSingle();
-
-      if (data && data.stock) {
-        for (let k in data.stock) {
-          let cleanK = normalizeItemKey(k);
-          let val = parseFloat(data.stock[k]) || 0;
-          if (cleanK && val > 0) baselineStock[cleanK] = val;
-        }
-      }
-    } catch(e) {
-      console.warn("Cloud baseline fetch skipped");
-    }
-  }
-
-  // Step B: Merge existing local baseline storage
+  // Preserve existing local manual snapshot items
   const existingRaw = localStorage.getItem('sfl_pre_harvest_stock');
   if (existingRaw) {
     try {
@@ -137,23 +113,7 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
     } catch (e) {}
   }
 
-  // Step C: Merge Synced Farm Inventory if available
-  if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
-    for (let key in farmInventoryData) {
-      let cleanName = normalizeItemKey(key);
-      let val = typeof farmInventoryData[key] === 'number' 
-        ? farmInventoryData[key] 
-        : parseFloat(farmInventoryData[key]?.amount || 0);
-      
-      if (cleanName && val > 0) {
-        if (baselineStock[cleanName] === undefined) {
-          baselineStock[cleanName] = roundUpToOneDecimal(val);
-        }
-      }
-    }
-  }
-
-  // Step D: Merge Basket items
+  // INTENTIONAL DESIGN: Add/Update strictly from Basket
   if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
     basket.forEach(entry => {
       let cleanName = normalizeItemKey(entry);
@@ -166,7 +126,7 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
   }
 
   if (Object.keys(baselineStock).length === 0) {
-    alert("⚠️ Cannot save an empty snapshot! Please add items to your Farm Basket or sync your farm inventory first.");
+    alert("⚠️ Cannot save an empty snapshot! Please add items to your Farm Basket first.");
     return;
   }
 
@@ -176,18 +136,8 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
   };
 
   localStorage.setItem('sfl_pre_harvest_stock', JSON.stringify(preHarvestPayload));
-
-  // Sync back to cloud if logged in
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
-    await supabaseClient.from('preharvest_baselines').upsert({
-      user_id: currentUser.id,
-      snapshot_date: todayDate,
-      stock: baselineStock
-    }, { onConflict: 'user_id,snapshot_date' });
-  }
-
   updatePreHarvestUI();
-  alert("🚩 Pre-Harvest baseline saved and synced with cloud!");
+  alert("🚩 Manual Pre-Harvest baseline saved! Basket items recorded.");
 });
 
 document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () => {
@@ -201,8 +151,9 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
+  let isManualBaseline = false;
 
-  // Load from local storage
+  // Load Manual Baseline first if active
   const preHarvestRaw = localStorage.getItem('sfl_pre_harvest_stock');
   if (preHarvestRaw) {
     try {
@@ -211,11 +162,14 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
       for (let k in rawObj) {
         preHarvestData[normalizeItemKey(k)] = parseFloat(rawObj[k]) || 0;
       }
+      if (Object.keys(preHarvestData).length > 0) {
+        isManualBaseline = true;
+      }
     } catch (e) {}
   }
 
-  // Fallback to Supabase Cloud Baseline if local is empty
-  if (Object.keys(preHarvestData).length === 0 && typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
+  // Fallback to Supabase Cloud Baseline if local manual baseline is not found
+  if (!isManualBaseline && typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
     const { data } = await supabaseClient
       .from('preharvest_baselines')
       .select('stock')
@@ -238,13 +192,13 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
   let postHarvestStock = {};
 
-  // Copy baseline floor
   for (let k in preHarvestData) {
     postHarvestStock[k] = preHarvestData[k];
   }
 
   let hasBasketItems = typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0;
 
+  // If calculating using Basket items: treat Basket Qty as harvested additions over starting baseline floor
   if (hasBasketItems) {
     basket.forEach(entry => {
       let cleanName = normalizeItemKey(entry);
@@ -254,7 +208,9 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
         postHarvestStock[cleanName] = baseQty + harvestedQty;
       }
     });
-  } else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
+  } 
+  // Otherwise use Synced Farm Inventory total balances if farm is synced
+  else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
     for (let key in farmInventoryData) {
       let cleanName = normalizeItemKey(key);
       let val = typeof farmInventoryData[key] === 'number' 
