@@ -75,12 +75,17 @@ function extractPrices(data) {
   let pricesMap = {};
   if (!data || typeof data !== 'object') return pricesMap;
 
+  const GLOBAL_EXCLUDES = ['updated_at', 'updatedat', 'updated_text', 'created_at', 'id'];
+
   function searchObj(obj, prefix = '') {
     for (let key in obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
-      let val = obj[key];
       
+      let lowerKey = key.toLowerCase().trim();
+      if (GLOBAL_EXCLUDES.includes(lowerKey)) continue;
       if (typeof isExcludedItem === 'function' && isExcludedItem(key)) continue;
+
+      let val = obj[key];
 
       if (typeof val === 'number') {
         pricesMap[prefix + key] = val;
@@ -182,8 +187,7 @@ document.getElementById('import-farm-btn')?.addEventListener('click', async () =
 const input = document.getElementById('combobox-input');
 const menu = document.getElementById('combobox-menu');
 
-// Added updated_test and updatedat to exclusion blacklist
-const SEARCH_EXCLUDED_KEYS = ['updated_test', 'updatedat', 'updated_at', 'created_at', 'id'];
+const SEARCH_EXCLUDED_KEYS = ['updated_text', 'updatedtext', 'updatedat', 'updated_at', 'created_at', 'id'];
 
 if (input && menu) {
   input.addEventListener('input', () => {
