@@ -93,7 +93,7 @@ function initNftCombobox() {
     menu.innerHTML = '';
 
     const matches = allNfts.filter(nft => {
-      if (!query) return true; // Show top items when search input is empty
+      if (!query) return true;
       return nft.name.toLowerCase().includes(query) || 
              nft.boost.toLowerCase().includes(query);
     }).slice(0, 30);
@@ -173,13 +173,10 @@ function renderWishlist() {
   const tbody = document.getElementById('wishlist-body');
   if (!tbody) return;
 
-  const coinRatio = parseFloat(localStorage.getItem('sfl_coin_ratio')) || 1000;
-
   if (wishlistItems.length === 0) {
     tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-sfl-woodLight italic">Your wishlist is empty! Search above to add items.</td></tr>`;
     document.getElementById('wishlist-item-count').textContent = '0 Items';
     document.getElementById('wishlist-total-flowers').textContent = '0.00';
-    document.getElementById('wishlist-total-coins').textContent = '0.00';
     return;
   }
 
@@ -206,9 +203,6 @@ function renderWishlist() {
     tbody.appendChild(tr);
   });
 
-  const grandTotalCoins = grandTotalFlowers * coinRatio;
-
   document.getElementById('wishlist-item-count').textContent = `${wishlistItems.length} Item${wishlistItems.length === 1 ? '' : 's'}`;
   document.getElementById('wishlist-total-flowers').textContent = grandTotalFlowers.toFixed(2);
-  document.getElementById('wishlist-total-coins').textContent = grandTotalCoins.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
