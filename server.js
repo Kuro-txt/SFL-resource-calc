@@ -191,7 +191,7 @@ app.get('/api/nfts', async (req, res) => {
   }
 });
 
-// CRON ENDPOINT: Daily Snapshot Trigger (WITH MERGE FIX)
+// CRON ENDPOINT: Daily Snapshot Trigger (FIXED SNAPSHOT KEYING)
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   if (!supabaseAdmin) {
     return res.status(500).json({ error: 'Supabase admin client not initialized on server.' });
@@ -235,16 +235,7 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
           data?.data?.inventory || 
           {};
 
-        // FIX: Fetch existing baseline first so we MERGE instead of OVERWRITE
-        const { data: existingBaseline } = await supabaseAdmin
-          .from('preharvest_baselines')
-          .select('stock')
-          .eq('user_id', profile.id)
-          .eq('snapshot_date', todayDate)
-          .maybeSingle();
-
-        let cleanBaseline = existingBaseline?.stock || {};
-
+        let cleanBaseline = {};
         for (let rawKey in rawInventory) {
           if (!isExcludedItem(rawKey)) {
             let itemVal = rawInventory[rawKey];
@@ -252,8 +243,7 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
             
             if (val > 0) {
               const cleanKey = normalizeKey(rawKey);
-              // Merge/update synced items without removing existing manual items
-              cleanBaseline[cleanKey] = val;
+              cleanBaseline[cleanKey] = val; // Store exact float value with standardized key
             }
           }
         }
