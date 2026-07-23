@@ -320,7 +320,7 @@
             <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
               <span>⭐</span> NFT & Collectibles Wishlist
             </h3>
-            <p class="text-[11px] text-sfl-woodLight font-semibold">Track live floor prices, boosts, and total cost of target items from sfl.world.</p>
+            <p class="text-[11px] text-sfl-woodLight font-semibold">Track live floor prices, custom offers, boosts, and total cost of target items from sfl.world.</p>
           </div>
           <button id="clear-wishlist-btn" class="bg-sfl-accent text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-red-700 transition cursor-pointer">
             🗑️ Clear Wishlist
@@ -347,12 +347,13 @@
                 <th class="px-3 py-2.5">NFT / Item Name</th>
                 <th class="px-3 py-2.5">Boost / Description</th>
                 <th class="px-3 py-2.5">Floor Price</th>
+                <th class="px-3 py-2.5">Offer Price</th>
                 <th class="px-2 py-2.5 text-center">Action</th>
               </tr>
             </thead>
             <tbody id="wishlist-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
               <tr>
-                <td colspan="4" class="px-4 py-8 text-center text-sfl-woodLight italic">
+                <td colspan="5" class="px-4 py-8 text-center text-sfl-woodLight italic">
                   Your wishlist is empty! Search above to add items.
                 </td>
               </tr>
@@ -362,17 +363,24 @@
 
         <!-- WISHLIST SUMMARY PANEL -->
         <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 text-center shadow-inner space-y-2">
-          <div class="grid grid-cols-2 gap-2 text-center items-center">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center items-center">
             <div>
               <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Saved Items</span>
               <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-wood mt-0.5">
                 <span id="wishlist-item-count">0 Items</span>
               </h2>
             </div>
-            <div class="border-l border-sfl-cardBorder/40 px-1">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Total Flowers Needed</span>
+            <div class="border-l sm:border-r border-sfl-cardBorder/40 px-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Total Floor Price</span>
               <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green mt-0.5 flex items-center justify-center gap-1">
                 <span id="wishlist-total-flowers">0.00</span>
+                <img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-5 h-5 sfl-icon" alt="Flower">
+              </h2>
+            </div>
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Total Offer Price</span>
+              <h2 class="text-xl sm:text-2xl font-pixel font-bold text-amber-700 mt-0.5 flex items-center justify-center gap-1">
+                <span id="wishlist-total-offer">0.00</span>
                 <img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-5 h-5 sfl-icon" alt="Flower">
               </h2>
             </div>
