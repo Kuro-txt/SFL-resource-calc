@@ -130,6 +130,26 @@ app.get('/api/get-data', async (req, res) => {
   return res.json(fallbackCatalog);
 });
 
+// Proxy Endpoint 3: Fetches Live NFT Catalog & Boost Info from sfl.world
+app.get('/api/nfts', async (req, res) => {
+  try {
+    const response = await axios.get('https://sfl.world/api/v1/nfts', {
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 
+        'Accept': 'application/json' 
+      },
+      timeout: 10000
+    });
+
+    return res.json(response.data);
+  } catch (err) {
+    console.error('[NFT API ERROR]:', err.message);
+    return res.status(500).json({ 
+      error: `Failed to fetch NFTs from sfl.world: ${err.message}` 
+    });
+  }
+});
+
 // CRON ENDPOINT: Triggered at 00:00 UTC to save Pre-Harvest Baseline for all registered users
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   if (!supabaseAdmin) {
@@ -168,7 +188,6 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
           timeout: 8000
         });
 
-        // Robust multi-path inventory extraction to support all SFL API response formats
         const data = response.data;
         const rawInventory = 
           data?.inventory || 
