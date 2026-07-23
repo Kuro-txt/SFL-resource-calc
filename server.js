@@ -47,7 +47,7 @@ app.get('/api/get-farm', async (req, res) => {
 
   try {
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       'Accept': 'application/json'
     };
 
@@ -107,7 +107,10 @@ app.get('/api/get-data', async (req, res) => {
 
   try {
     const response = await axios.get('https://sfl.world/api/v1/prices', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Accept': 'application/json' },
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 
+        'Accept': 'application/json' 
+      },
       timeout: 8000
     });
 
@@ -130,18 +133,41 @@ app.get('/api/get-data', async (req, res) => {
   return res.json(fallbackCatalog);
 });
 
-// Proxy Endpoint 3: Fetches Live NFT Catalog & Boost Info from sfl.world
+// Proxy Endpoint 3: Live NFT Catalog & Boost Info from sfl.world
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
       headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 
-        'Accept': 'application/json' 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36', 
+        'Accept': 'application/json, text/plain, */*',
+        'Referer': 'https://sfl.world/'
       },
-      timeout: 10000
+      timeout: 12000
     });
 
-    return res.json(response.data);
+    const rawData = response.data;
+    let itemsArray = [];
+
+    if (Array.isArray(rawData)) {
+      itemsArray = rawData;
+    } else if (rawData && typeof rawData === 'object') {
+      itemsArray = rawData.data || rawData.nfts || rawData.items || Object.values(rawData);
+    }
+
+    // Standardize to clean structure: name, price (floor), boost (boost_text)
+    const cleanedList = itemsArray.map(item => {
+      const name = item.name || item.title || 'Unknown NFT';
+      const price = parseFloat(item.floor ?? item.price ?? item.lastSalePrice ?? 0) || 0;
+      const boost = item.boost_text || item.boost || (item.have_boost ? "Boost Active" : "No Boost");
+
+      return {
+        name: String(name).trim(),
+        price: price,
+        boost: String(boost).trim()
+      };
+    }).filter(item => item.name !== 'Unknown NFT');
+
+    return res.json(cleanedList);
   } catch (err) {
     console.error('[NFT API ERROR]:', err.message);
     return res.status(500).json({ 
@@ -175,7 +201,10 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
       try {
         if (!profile.farm_id) continue;
 
-        const headers = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' };
+        const headers = { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 
+          'Accept': 'application/json' 
+        };
         if (process.env.SFL_API_KEY) {
           headers['x-api-key'] = process.env.SFL_API_KEY;
           headers['Authorization'] = `Bearer ${process.env.SFL_API_KEY}`;
