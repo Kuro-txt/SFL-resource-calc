@@ -444,12 +444,12 @@
 
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session) {
-        setLoggedInUser(session.user);
+        await setLoggedInUser(session.user);
       }
 
-      supabaseClient.auth.onAuthStateChange((_event, session) => {
+      supabaseClient.auth.onAuthStateChange(async (_event, session) => {
         if (session) {
-          setLoggedInUser(session.user);
+          await setLoggedInUser(session.user);
         } else {
           setLoggedOutUser();
         }
@@ -462,7 +462,7 @@
       document.getElementById('auth-logged-in').classList.remove('hidden');
       document.getElementById('user-email-display').textContent = user.email;
 
-      // Auto-save/sync profile if farm ID is already typed
+      // Ensure profile row exists with farm ID
       const currentFarmId = document.getElementById('farm-id').value.trim();
       if (currentFarmId && supabaseClient) {
         await supabaseClient
