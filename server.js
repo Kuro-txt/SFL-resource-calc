@@ -20,22 +20,13 @@ const supabaseAdmin = (supabaseUrl && supabaseServiceKey)
 const EXCLUDED_KEYWORDS = [
   'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
   'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 
-  'bait', 'potion', 'feed'
+  'bait', 'potion', 'feed', 'box', 'chest'
 ];
 
 function isExcludedItem(itemName) {
   if (!itemName) return true;
-  const lower = itemName.toLowerCase().trim();
+  const lower = itemName.toLowerCase();
   return EXCLUDED_KEYWORDS.some(kw => lower.includes(kw));
-}
-
-// Standard key normalizer matching frontend
-function normalizeKey(rawKey) {
-  if (!rawKey) return '';
-  return rawKey
-    .replace(/^\[.*?\]\s*/, '')
-    .toLowerCase()
-    .trim();
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -138,7 +129,7 @@ app.get('/api/get-data', async (req, res) => {
   return res.json(fallbackCatalog);
 });
 
-// Proxy Endpoint 3: Live NFT Catalog
+// Proxy Endpoint 3: Live NFT Catalog (Flattens all nested categories)
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
@@ -153,11 +144,11 @@ app.get('/api/nfts', async (req, res) => {
     const rawData = response.data;
     let itemsList = [];
 
-    // Safely parse deeply nested object nodes with recursion depth limit
-    function extractItems(node, depth = 0) {
-      if (!node || depth > 8) return;
+    // Recursive extractor to flatten nested categories
+    function extractItems(node) {
+      if (!node) return;
       if (Array.isArray(node)) {
-        node.forEach(child => extractItems(child, depth + 1));
+        node.forEach(extractItems);
       } else if (typeof node === 'object') {
         if (node.name || node.title) {
           const name = node.name || node.title;
@@ -170,7 +161,7 @@ app.get('/api/nfts', async (req, res) => {
             boost: String(boost).trim()
           });
         } else {
-          Object.values(node).forEach(child => extractItems(child, depth + 1));
+          Object.values(node).forEach(extractItems);
         }
       }
     }
@@ -192,14 +183,8 @@ app.get('/api/nfts', async (req, res) => {
   }
 });
 
-// CRON ENDPOINT: Daily Snapshot Trigger (Protected with Secret Key check)
+// CRON ENDPOINT: Daily Snapshot Trigger
 app.get('/api/trigger-daily-baseline', async (req, res) => {
-  // Optional security key check (e.g. ?key=YOUR_CRON_SECRET)
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.query.key !== cronSecret) {
-    return res.status(403).json({ error: 'Unauthorized cron trigger.' });
-  }
-
   if (!supabaseAdmin) {
     return res.status(500).json({ error: 'Supabase admin client not initialized on server.' });
   }
@@ -243,14 +228,13 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
           {};
 
         let cleanBaseline = {};
-        for (let rawKey in rawInventory) {
-          if (!isExcludedItem(rawKey)) {
-            let itemVal = rawInventory[rawKey];
+        for (let key in rawInventory) {
+          if (!isExcludedItem(key)) {
+            let itemVal = rawInventory[key];
             let val = typeof itemVal === 'number' ? itemVal : parseFloat(itemVal?.amount || itemVal || 0);
             
             if (val > 0) {
-              const cleanKey = normalizeKey(rawKey);
-              cleanBaseline[cleanKey] = val;
+              cleanBaseline[key.toLowerCase().trim()] = Math.ceil(val * 10) / 10;
             }
           }
         }
