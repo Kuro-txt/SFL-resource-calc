@@ -1,40 +1,51 @@
 // --- WISHLIST MODULE ---
-let allNfts = [];
+const FALLBACK_NFTS = [
+  { name: "Nancy", price: 15.0, boost: "20% Crop Growth Speed", image: "https://sunflower-land.com/play/v2/collectibles/nancy.png" },
+  { name: "Scarecrow", price: 25.5, boost: "15% Yield Increase on Crops", image: "https://sunflower-land.com/play/v2/collectibles/scarecrow.png" },
+  { name: "Kuebiko", price: 120.0, boost: "Free Seeds & +5% Yield", image: "https://sunflower-land.com/play/v2/collectibles/kuebiko.png" },
+  { name: "Golden Cauliflower", price: 85.0, boost: "100% Cauliflower Yield", image: "https://sunflower-land.com/play/v2/collectibles/golden_cauliflower.png" },
+  { name: "Mysterious Parsnip", price: 45.0, boost: "50% Parsnip Growth Speed", image: "https://sunflower-land.com/play/v2/collectibles/mysterious_parsnip.png" },
+  { name: "Victoria Cultivated", price: 210.0, boost: "+1 Yellow Cake & Fruit Speed", image: "" },
+  { name: "Cinder", price: 350.0, boost: "50% Faster Coal Mining", image: "" },
+  { name: "Emerald Turtle", price: 60.0, boost: "+0.5 Mineral Yield", image: "" },
+  { name: "Tin Turtle", price: 30.0, boost: "+0.1 Stone Yield", image: "" }
+];
+
+let allNfts = [...FALLBACK_NFTS];
 let wishlistItems = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]');
 
 document.addEventListener('DOMContentLoaded', () => {
-  initTabSwitching();
+  initNftCombobox();
   loadNftCatalog();
+  renderWishlist();
 });
 
-// Top Tab Switcher Logic
-function initTabSwitching() {
-  const tabCalcBtn = document.getElementById('tab-calc-btn');
-  const tabWishlistBtn = document.getElementById('tab-wishlist-btn');
+// Global Tab Switcher Function
+window.switchTab = function(tabName) {
   const calcSection = document.getElementById('calculator-section');
   const wishlistSection = document.getElementById('wishlist-section');
+  const tabCalcBtn = document.getElementById('tab-calc-btn');
+  const tabWishlistBtn = document.getElementById('tab-wishlist-btn');
 
-  if (!tabCalcBtn || !tabWishlistBtn) return;
+  if (!calcSection || !wishlistSection) return;
 
-  tabCalcBtn.addEventListener('click', () => {
-    tabCalcBtn.className = "bg-sfl-wood text-amber-200 px-5 py-2.5 rounded-t-xl font-bold text-xs border-t-2 border-x-2 border-sfl-dirt shadow-md flex items-center gap-2";
-    tabWishlistBtn.className = "bg-amber-100/60 text-sfl-woodLight px-5 py-2.5 rounded-t-xl font-bold text-xs border-t-2 border-x-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-2";
+  if (tabName === 'calc') {
     calcSection.classList.remove('hidden');
     wishlistSection.classList.add('hidden');
-  });
-
-  tabWishlistBtn.addEventListener('click', () => {
-    tabWishlistBtn.className = "bg-sfl-wood text-amber-200 px-5 py-2.5 rounded-t-xl font-bold text-xs border-t-2 border-x-2 border-sfl-dirt shadow-md flex items-center gap-2";
-    tabCalcBtn.className = "bg-amber-100/60 text-sfl-woodLight px-5 py-2.5 rounded-t-xl font-bold text-xs border-t-2 border-x-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-2";
+    tabCalcBtn.className = "bg-sfl-wood text-amber-200 px-5 py-2 rounded-xl font-bold text-xs border-2 border-sfl-dirt shadow-md flex items-center gap-2 cursor-pointer";
+    tabWishlistBtn.className = "bg-amber-100/60 text-sfl-woodLight px-5 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-2 cursor-pointer";
+  } else if (tabName === 'wishlist') {
     wishlistSection.classList.remove('hidden');
     calcSection.classList.add('hidden');
+    tabWishlistBtn.className = "bg-sfl-wood text-amber-200 px-5 py-2 rounded-xl font-bold text-xs border-2 border-sfl-dirt shadow-md flex items-center gap-2 cursor-pointer";
+    tabCalcBtn.className = "bg-amber-100/60 text-sfl-woodLight px-5 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-2 cursor-pointer";
     renderWishlist();
-  });
-}
+  }
+};
 
-// Robust NFT Data Normalization
+// Data Normalizer
 function normalizeNftData(raw) {
-  if (!raw) return [];
+  if (!raw) return FALLBACK_NFTS;
   
   let list = [];
   if (Array.isArray(raw)) {
@@ -44,7 +55,6 @@ function normalizeNftData(raw) {
     else if (Array.isArray(raw.nfts)) list = raw.nfts;
     else if (Array.isArray(raw.items)) list = raw.items;
     else {
-      // Map key-value objects: { "Bumpkin": { price: ... } }
       list = Object.entries(raw).map(([key, item]) => {
         if (typeof item === 'object' && item !== null) {
           return { name: item.name || key, ...item };
@@ -54,14 +64,15 @@ function normalizeNftData(raw) {
     }
   }
 
-  // Format consistent properties
+  if (list.length === 0) return FALLBACK_NFTS;
+
   return list.map(item => {
     const name = item.name || item.title || item.itemName || 'Unknown Item';
     const price = item.price ?? item.floorPrice ?? item.sflPrice ?? item.sfl ?? item.cost ?? 0;
     const boost = item.boost || item.boostInfo || item.buff || item.description || item.details || 'No Boost Info';
     const image = item.image || item.image_url || item.icon || '';
 
-    return { name, price: parseFloat(price) || 0, boost, image, raw: item };
+    return { name, price: parseFloat(price) || 0, boost, image };
   });
 }
 
@@ -69,16 +80,16 @@ function normalizeNftData(raw) {
 async function loadNftCatalog() {
   try {
     const res = await fetch(`${BACKEND_URL}/api/nfts`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     
     allNfts = normalizeNftData(data);
-    initNftCombobox();
   } catch (err) {
-    console.warn("Failed to load NFT catalog from server:", err);
+    console.warn("Using default NFT catalog (Server sleeping/offline):", err.message);
   }
 }
 
-// NFT Combobox / Search Selector with Full List on Focus
+// NFT Combobox / Dropdown Selector
 function initNftCombobox() {
   const input = document.getElementById('wishlist-search-input');
   const menu = document.getElementById('wishlist-search-menu');
@@ -92,7 +103,7 @@ function initNftCombobox() {
     const matches = allNfts.filter(nft => {
       return nft.name.toLowerCase().includes(query) || 
              nft.boost.toLowerCase().includes(query);
-    }).slice(0, 25);
+    }).slice(0, 20);
 
     if (matches.length === 0) {
       menu.innerHTML = '<li class="p-3 text-sfl-woodLight italic text-xs">No matching NFTs found</li>';
@@ -109,7 +120,7 @@ function initNftCombobox() {
             </div>
           </div>
           <span class="text-sfl-green font-mono font-bold whitespace-nowrap flex items-center gap-1">
-            ${nft.price.toFixed(2)} ${FLOWER_ICON}
+            ${nft.price.toFixed(2)} ${typeof FLOWER_ICON !== 'undefined' ? FLOWER_ICON : 'Flowers'}
           </span>
         `;
         li.addEventListener('click', () => {
@@ -160,7 +171,7 @@ function renderWishlist() {
   if (!tbody) return;
 
   if (wishlistItems.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-sfl-woodLight italic">Your wishlist is empty! Search above to add NFTs.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-sfl-woodLight italic">Your wishlist is empty! Search above to add items.</td></tr>`;
     return;
   }
 
@@ -174,7 +185,7 @@ function renderWishlist() {
         <span>${nft.name}</span>
       </td>
       <td class="px-3 py-2.5 text-xs text-sfl-woodLight">${nft.boost}</td>
-      <td class="px-3 py-2.5 font-bold text-sfl-green font-mono">${nft.price.toFixed(2)} ${FLOWER_ICON}</td>
+      <td class="px-3 py-2.5 font-bold text-sfl-green font-mono">${nft.price.toFixed(2)} ${typeof FLOWER_ICON !== 'undefined' ? FLOWER_ICON : 'Flowers'}</td>
       <td class="px-2 py-2.5 text-center">
         <button onclick="removeFromWishlist(${index})" class="bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 shadow-sm">🗑️ Remove</button>
       </td>
