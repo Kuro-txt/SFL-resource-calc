@@ -4,6 +4,7 @@ if (typeof window.editingSnapshotDate === 'undefined') {
   window.editingSnapshotDate = null;
 }
 
+// Helper to normalize item keys consistently
 function normalizeItemKey(rawName) {
   if (!rawName) return '';
   return String(rawName)
@@ -20,6 +21,7 @@ function roundUpToThreeDecimals(val) {
   return Math.ceil((parseFloat(val) || 0) * 1000) / 1000;
 }
 
+// Render small badges for pre-harvest stock items
 function renderStockBadges(stockObj, targetElId) {
   const container = document.getElementById(targetElId);
   if (!container || !stockObj) return;
@@ -96,18 +98,12 @@ async function updatePreHarvestUI() {
   }
 }
 
-// 1. SAVE PRE-HARVEST BASELINE
+// 1. SAVE PRE-HARVEST BASELINE (MERGES FULL FARM INVENTORY WITH BASKET)
 document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async () => {
   let baselineStock = {};
-  
-  if (typeof basket !== 'undefined' && basket.length > 0) {
-    basket.forEach(entry => {
-      let cleanName = normalizeItemKey(entry.item);
-      if (typeof isSnapshotEligible !== 'function' || isSnapshotEligible(cleanName)) {
-        baselineStock[cleanName] = (baselineStock[cleanName] || 0) + (parseFloat(entry.qty) || 0);
-      }
-    });
-  } else if (typeof farmInventoryData !== 'undefined' && Object.keys(farmInventoryData).length > 0) {
+
+  // Step A: Load full synced farm inventory first so no items are lost
+  if (typeof farmInventoryData !== 'undefined' && Object.keys(farmInventoryData).length > 0) {
     for (let key in farmInventoryData) {
       let cleanName = normalizeItemKey(key);
       if (typeof isSnapshotEligible !== 'function' || isSnapshotEligible(cleanName)) {
@@ -119,6 +115,17 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
         }
       }
     }
+  }
+
+  // Step B: Merge items from the Farm Basket into the baseline
+  if (typeof basket !== 'undefined' && basket.length > 0) {
+    basket.forEach(entry => {
+      let cleanName = normalizeItemKey(entry.item);
+      if (typeof isSnapshotEligible !== 'function' || isSnapshotEligible(cleanName)) {
+        let qtyToAdd = parseFloat(entry.qty) || 0;
+        baselineStock[cleanName] = (baselineStock[cleanName] || 0) + qtyToAdd;
+      }
+    });
   }
 
   if (Object.keys(baselineStock).length === 0) {
@@ -141,7 +148,7 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   updatePreHarvestUI();
 });
 
-// 2. CALCULATE HARVEST YIELD
+// 2. CALCULATE HARVEST YIELD (MERGES FARM INVENTORY WITH BASKET POST-HARVEST)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let preHarvestData = null;
   const todayDate = new Date().toISOString().split('T')[0];
@@ -177,14 +184,8 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
   let postHarvestStock = {};
 
-  if (typeof basket !== 'undefined' && basket.length > 0) {
-    basket.forEach(entry => {
-      let cleanName = normalizeItemKey(entry.item);
-      if (typeof isSnapshotEligible !== 'function' || isSnapshotEligible(cleanName)) {
-        postHarvestStock[cleanName] = (postHarvestStock[cleanName] || 0) + (parseFloat(entry.qty) || 0);
-      }
-    });
-  } else if (typeof farmInventoryData !== 'undefined' && Object.keys(farmInventoryData).length > 0) {
+  // Step A: Load full synced farm inventory
+  if (typeof farmInventoryData !== 'undefined' && Object.keys(farmInventoryData).length > 0) {
     for (let key in farmInventoryData) {
       let cleanName = normalizeItemKey(key);
       if (typeof isSnapshotEligible !== 'function' || isSnapshotEligible(cleanName)) {
@@ -194,6 +195,17 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
         postHarvestStock[cleanName] = val;
       }
     }
+  }
+
+  // Step B: Merge Farm Basket items into post-harvest stock
+  if (typeof basket !== 'undefined' && basket.length > 0) {
+    basket.forEach(entry => {
+      let cleanName = normalizeItemKey(entry.item);
+      if (typeof isSnapshotEligible !== 'function' || isSnapshotEligible(cleanName)) {
+        let qtyToAdd = parseFloat(entry.qty) || 0;
+        postHarvestStock[cleanName] = (postHarvestStock[cleanName] || 0) + qtyToAdd;
+      }
+    });
   }
 
   let newYieldsMap = {};
@@ -207,6 +219,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     let endQty = parseFloat(postHarvestStock[itemName]) || 0;
     let diff = endQty - startQty;
 
+    // Detect items whose total count actually increased
     if (diff > 0.0001) {
       let harvestedQty = roundUpToOneDecimal(diff);
       let matchedKey = (typeof allPrices !== 'undefined' && allPrices) 
