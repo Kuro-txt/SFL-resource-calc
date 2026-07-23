@@ -114,9 +114,7 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
       let cleanName = normalizeItemKey(entry);
       let qty = typeof entry === 'object' ? (parseFloat(entry.qty || entry.amount) || 0) : 0;
       if (cleanName && qty > 0) {
-        if (baselineStock[cleanName] === undefined) {
-          baselineStock[cleanName] = roundUpToOneDecimal(qty);
-        }
+        baselineStock[cleanName] = roundUpToOneDecimal(qty);
       }
     });
   }
@@ -133,7 +131,7 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
 
   localStorage.setItem('sfl_pre_harvest_stock', JSON.stringify(preHarvestPayload));
   updatePreHarvestUI();
-  alert("🚩 Baseline saved!");
+  alert("🚩 Pre-Harvest baseline saved!");
 });
 
 document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () => {
@@ -143,12 +141,12 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (PROPERLY READS LOCAL/CLOUD BASELINE & FINDS DIFFERENCE)
+// 2. CALCULATE HARVEST YIELD (STRICT FORMULA: BASKET - BASELINE)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
 
-  // A: Try reading local manual baseline first
+  // Load local manual baseline
   const preHarvestRaw = localStorage.getItem('sfl_pre_harvest_stock');
   if (preHarvestRaw) {
     try {
@@ -160,7 +158,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     } catch (e) {}
   }
 
-  // B: If local is empty, fetch Cloud Baseline from Supabase
+  // Fallback to Cloud Baseline if local is empty
   if (Object.keys(preHarvestData).length === 0 && typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
     const { data, error } = await supabaseClient
       .from('preharvest_baselines')
@@ -178,46 +176,43 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   }
 
   if (Object.keys(preHarvestData).length === 0) {
-    alert("⚠️ Click '1. Save Pre-Harvest Stock' FIRST or wait for the 00:00 UTC automatic snapshot before calculating harvest yield!");
+    alert("⚠️ Click '1. Save Pre-Harvest Stock' FIRST before calculating harvest yield!");
     return;
   }
 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
-  let postHarvestStock = {};
+  let basketStock = {};
 
-  // Copy baseline as starting point
-  for (let k in preHarvestData) {
-    postHarvestStock[k] = preHarvestData[k];
-  }
-
-  // Overlay current Basket items as harvested additions
+  // Build current inventory map from Basket (or Synced Farm Inventory)
   let hasBasketItems = typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0;
   if (hasBasketItems) {
     basket.forEach(entry => {
       let cleanName = normalizeItemKey(entry);
-      let harvestedQty = typeof entry === 'object' ? (parseFloat(entry.qty || entry.amount) || 0) : 0;
-      if (cleanName && harvestedQty > 0) {
-        let baseQty = postHarvestStock[cleanName] || 0;
-        postHarvestStock[cleanName] = baseQty + harvestedQty;
+      let qty = typeof entry === 'object' ? (parseFloat(entry.qty || entry.amount) || 0) : 0;
+      if (cleanName && qty > 0) {
+        basketStock[cleanName] = qty;
       }
     });
-  } 
-  // Or overlay full synced inventory if farm was synced
-  else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
+  } else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
     for (let key in farmInventoryData) {
       let cleanName = normalizeItemKey(key);
       let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
-      postHarvestStock[cleanName] = val;
+      basketStock[cleanName] = val;
     }
   }
 
-  let newYieldsMap = {};
-  let allItemKeys = new Set([...Object.keys(preHarvestData), ...Object.keys(postHarvestStock)]);
+  if (Object.keys(basketStock).length === 0) {
+    alert("⚠️ Your Farm Basket or Farm Inventory is empty! Add your post-harvest items to the basket before calculating yield.");
+    return;
+  }
 
-  allItemKeys.forEach(itemName => {
-    let startQty = preHarvestData[itemName] || 0;
-    let endQty = postHarvestStock[itemName] || 0;
-    let diff = endQty - startQty; // <--- TRUE YIELD CALCULATION
+  let newYieldsMap = {};
+  
+  // STRICT FORMULA: BASKET - BASELINE
+  Object.keys(basketStock).forEach(itemName => {
+    let currentQty = basketStock[itemName] || 0;
+    let baselineQty = preHarvestData[itemName] || 0;
+    let diff = currentQty - baselineQty; // <--- BASKET MINUS BASELINE
 
     if (diff > 0.0001) {
       let harvestedQty = roundUpToOneDecimal(diff);
@@ -234,7 +229,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No item stock increase detected. Did you harvest in-game, or update your Farm Basket / Sync with higher quantities?");
+    alert("⚠️ No positive difference found (Basket amounts must be greater than your saved baseline amounts).");
     return;
   }
 
