@@ -140,14 +140,10 @@ document.getElementById('log-yield-btn').addEventListener('click', async () => {
   const taxRate = parseFloat(document.getElementById('tax-select').value) || 0;
   let postHarvestStock = {};
 
-  if (basket.length > 0) {
-    basket.forEach(entry => {
-      let cleanName = entry.item.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
-      if (isSnapshotEligible(cleanName)) {
-        postHarvestStock[cleanName] = (postHarvestStock[cleanName] || 0) + entry.qty;
-      }
-    });
-  } else {
+  // FIX: Prioritize full farm inventory if synced; fallback to Basket only if farm inventory is completely empty
+  const hasFarmInventory = Object.keys(farmInventoryData).length > 0;
+
+  if (hasFarmInventory) {
     for (let key in farmInventoryData) {
       let cleanName = key.toLowerCase().replace(/[^a-z0-9]/g, '');
       if (isSnapshotEligible(cleanName)) {
@@ -155,6 +151,13 @@ document.getElementById('log-yield-btn').addEventListener('click', async () => {
         postHarvestStock[cleanName] = roundUpToOneDecimal(val);
       }
     }
+  } else if (basket.length > 0) {
+    basket.forEach(entry => {
+      let cleanName = entry.item.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
+      if (isSnapshotEligible(cleanName)) {
+        postHarvestStock[cleanName] = (postHarvestStock[cleanName] || 0) + entry.qty;
+      }
+    });
   }
 
   let newYieldsMap = {};
