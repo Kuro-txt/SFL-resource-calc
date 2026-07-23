@@ -54,14 +54,14 @@ async function loadNftCatalog() {
       throw new Error("API returned empty list");
     }
 
-    // Sync saved items with live floor prices while preserving custom offer prices
+    // Sync saved items with live prices while maintaining user's custom offers
     wishlistItems.forEach(savedItem => {
       let match = allNfts.find(n => n.name.toLowerCase() === savedItem.name.toLowerCase());
       if (match) {
         savedItem.price = match.price;
         savedItem.boost = match.boost;
         if (savedItem.offerPrice === undefined) {
-          savedItem.offerPrice = match.price; // Default offer price matches floor price initially
+          savedItem.offerPrice = match.price;
         }
       }
     });
@@ -156,13 +156,11 @@ function addToWishlist(nft) {
     return;
   }
 
-  // Clone object and add default offerPrice equal to floor price
-  const newItem = {
+  wishlistItems.push({
     ...nft,
     offerPrice: nft.price
-  };
+  });
 
-  wishlistItems.push(newItem);
   saveWishlist();
   renderWishlist();
 }
@@ -171,8 +169,6 @@ function updateOfferPrice(index, value) {
   const parsed = parseFloat(value);
   wishlistItems[index].offerPrice = isNaN(parsed) ? 0 : parsed;
   saveWishlist();
-  
-  // Update totals instantly without full table re-render to keep inputs focused
   updateWishlistTotals();
 }
 
