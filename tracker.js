@@ -141,12 +141,11 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (STRICT FORMULA: BASKET - BASELINE)
+// 2. CALCULATE HARVEST YIELD (DEDUPLICATES ITEMS IF CALCULATED MULTIPLE TIMES)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
 
-  // Load local manual baseline
   const preHarvestRaw = localStorage.getItem('sfl_pre_harvest_stock');
   if (preHarvestRaw) {
     try {
@@ -158,7 +157,6 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     } catch (e) {}
   }
 
-  // Fallback to Cloud Baseline if local is empty
   if (Object.keys(preHarvestData).length === 0 && typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
     const { data, error } = await supabaseClient
       .from('preharvest_baselines')
@@ -183,7 +181,6 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
   let basketStock = {};
 
-  // Build current inventory map from Basket (or Synced Farm Inventory)
   let hasBasketItems = typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0;
   if (hasBasketItems) {
     basket.forEach(entry => {
@@ -208,11 +205,10 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
   let newYieldsMap = {};
   
-  // STRICT FORMULA: BASKET - BASELINE
   Object.keys(basketStock).forEach(itemName => {
     let currentQty = basketStock[itemName] || 0;
     let baselineQty = preHarvestData[itemName] || 0;
-    let diff = currentQty - baselineQty; // <--- BASKET MINUS BASELINE
+    let diff = currentQty - baselineQty;
 
     if (diff > 0.0001) {
       let harvestedQty = roundUpToOneDecimal(diff);
@@ -241,9 +237,8 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   let existingDayIndex = history.findIndex(entry => entry.date === todayDate);
 
   let cropsMap = {};
-  let grandCount = 0;
-  let grandFlowers = 0;
 
+  // If today's entry already exists, load existing crops into map
   if (existingDayIndex >= 0 && Array.isArray(history[existingDayIndex].crops)) {
     history[existingDayIndex].crops.forEach(c => {
       let name = c.name || c.item;
@@ -254,19 +249,18 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     });
   }
 
+  // OVERWRITE/UPDATE (instead of adding duplicate instances) for items calculated again
   Object.keys(newYieldsMap).forEach(itemName => {
-    if (cropsMap[itemName]) {
-      cropsMap[itemName].qty += newYieldsMap[itemName].qty;
-      cropsMap[itemName].flowers += newYieldsMap[itemName].flowers;
-    } else {
-      cropsMap[itemName] = {
-        qty: newYieldsMap[itemName].qty,
-        flowers: newYieldsMap[itemName].flowers
-      };
-    }
+    cropsMap[itemName] = {
+      qty: newYieldsMap[itemName].qty,
+      flowers: newYieldsMap[itemName].flowers
+    };
   });
 
   let mergedCropsArray = [];
+  let grandCount = 0;
+  let grandFlowers = 0;
+
   Object.keys(cropsMap).forEach(itemName => {
     mergedCropsArray.push({
       name: itemName,
