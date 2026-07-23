@@ -144,7 +144,6 @@ app.get('/api/nfts', async (req, res) => {
     const rawData = response.data;
     let itemsList = [];
 
-    // Recursive extractor to flatten nested categories
     function extractItems(node) {
       if (!node) return;
       if (Array.isArray(node)) {
@@ -234,7 +233,8 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
             let val = typeof itemVal === 'number' ? itemVal : parseFloat(itemVal?.amount || itemVal || 0);
             
             if (val > 0) {
-              cleanBaseline[key.toLowerCase().trim()] = Math.ceil(val * 10) / 10;
+              // Standardize key storing format and exact float value
+              cleanBaseline[key.toLowerCase().trim()] = val;
             }
           }
         }
