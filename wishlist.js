@@ -1,5 +1,5 @@
 // --- WISHLIST MODULE ---
-const EXPANDED_SFL_CATALOG = [
+const BUILTIN_SFL_CATALOG = [
   { name: "Nancy", price: 12.5, boost: "+20% Crop Growth Speed", image: "https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/collectibles/nancy.png" },
   { name: "Scarecrow", price: 24.0, boost: "+15% Crop Yield", image: "https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/collectibles/scarecrow.png" },
   { name: "Kuebiko", price: 110.0, boost: "Free Seeds & +5% Yield", image: "https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/collectibles/kuebiko.png" },
@@ -24,98 +24,114 @@ const EXPANDED_SFL_CATALOG = [
   { name: "Hoot", price: 140.0, boost: "+1 Radish & Wheat Drop", image: "" },
   { name: "Grub Statue", price: 50.0, boost: "+5% Fishing Worm Drop Rate", image: "" },
   { name: "Sir Goldensnout", price: 450.0, boost: "+1 Gold Ore Yield", image: "" },
-  { name: "Kernel Secret", price: 75.0, boost: "+1 Corn Drop", image: "" },
-  { name: "Solar Flare Ticket Statue", price: 15.0, boost: "Seasonal Boost", image: "" },
-  { name: "Dawn Breaker Statue", price: 20.0, boost: "Seasonal Boost", image: "" }
+  { name: "Kernel Secret", price: 75.0, boost: "+1 Corn Drop", image: "" }
 ];
 
-let allNfts = [...EXPANDED_SFL_CATALOG];
+let allNfts = [...BUILTIN_SFL_CATALOG];
 let wishlistItems = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]');
 
 document.addEventListener('DOMContentLoaded', () => {
+  setupTabs();
   initNftCombobox();
   loadNftCatalog();
   renderWishlist();
+
+  const clearBtn = document.getElementById('clear-wishlist-btn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', clearWishlist);
+  }
 });
 
-// Global Tab Switcher
-window.switchTab = function(tabName) {
-  const calcSection = document.getElementById('calculator-section');
-  const wishlistSection = document.getElementById('wishlist-section');
+// Clean DOM Tab Switcher
+function setupTabs() {
   const tabCalcBtn = document.getElementById('tab-calc-btn');
   const tabWishlistBtn = document.getElementById('tab-wishlist-btn');
+  const calcSection = document.getElementById('calculator-section');
+  const wishlistSection = document.getElementById('wishlist-section');
 
-  if (!calcSection || !wishlistSection) return;
+  if (!tabCalcBtn || !tabWishlistBtn || !calcSection || !wishlistSection) return;
 
-  if (tabName === 'calc') {
+  tabCalcBtn.addEventListener('click', () => {
     calcSection.classList.remove('hidden');
     wishlistSection.classList.add('hidden');
     tabCalcBtn.className = "bg-sfl-wood text-amber-200 px-5 py-2 rounded-xl font-bold text-xs border-2 border-sfl-dirt shadow-md flex items-center gap-2 cursor-pointer";
     tabWishlistBtn.className = "bg-amber-100/60 text-sfl-woodLight px-5 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-2 cursor-pointer";
-  } else if (tabName === 'wishlist') {
+  });
+
+  tabWishlistBtn.addEventListener('click', () => {
     wishlistSection.classList.remove('hidden');
     calcSection.classList.add('hidden');
     tabWishlistBtn.className = "bg-sfl-wood text-amber-200 px-5 py-2 rounded-xl font-bold text-xs border-2 border-sfl-dirt shadow-md flex items-center gap-2 cursor-pointer";
     tabCalcBtn.className = "bg-amber-100/60 text-sfl-woodLight px-5 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-2 cursor-pointer";
     renderWishlist();
-  }
-};
+  });
+}
 
-// Robust NFT & Collectible Price Normalizer
+// Case-Insensitive Catalog Parser (Integrates Live API Prices)
 function parseLiveCatalog(apiData) {
-  if (!apiData) return EXPANDED_SFL_CATALOG;
+  if (!apiData) return BUILTIN_SFL_CATALOG;
 
-  let parsedList = [];
+  let liveMap = {};
 
-  function extractItems(obj) {
-    if (Array.isArray(obj)) {
-      obj.forEach(item => {
-        if (typeof item === 'object' && item !== null) {
-          const name = item.name || item.title || item.itemName;
-          const price = item.price ?? item.floorPrice ?? item.sflPrice ?? item.sfl ?? item.cost;
-          if (name) {
-            parsedList.push({
-              name: String(name).trim(),
-              price: parseFloat(price) || 0,
-              boost: item.boost || item.boostInfo || item.buff || item.description || "Collectible / Boost Item",
-              image: item.image || item.image_url || item.icon || ""
-            });
-          }
+  // Extract from sfl.world API format (handles object map or arrays)
+  if (typeof apiData === 'object' && apiData !== null) {
+    let source = apiData.data || apiData.nfts || apiData.items || apiData;
+    
+    if (Array.isArray(source)) {
+      source.forEach(item => {
+        if (item && (item.name || item.title)) {
+          let name = String(item.name || item.title).toLowerCase().trim();
+          let price = parseFloat(item.price ?? item.floorPrice ?? item.sflPrice ?? item.sfl ?? 0) || 0;
+          liveMap[name] = {
+            name: item.name || item.title,
+            price: price,
+            boost: item.boost || item.boostInfo || item.description || "Collectible / Boost Item",
+            image: item.image || item.image_url || ""
+          };
         }
       });
-    } else if (typeof obj === 'object' && obj !== null) {
-      Object.entries(obj).forEach(([key, val]) => {
+    } else {
+      Object.entries(source).forEach(([key, val]) => {
+        let cleanKey = key.toLowerCase().trim();
         if (typeof val === 'number') {
-          parsedList.push({ name: key, price: val, boost: "Collectible / Item", image: "" });
+          liveMap[cleanKey] = { name: key, price: val, boost: "Collectible / Boost Item", image: "" };
         } else if (typeof val === 'object' && val !== null) {
-          const name = val.name || val.title || key;
-          const price = val.price ?? val.floorPrice ?? val.sflPrice ?? val.sfl ?? val.cost ?? 0;
-          parsedList.push({
-            name: String(name).trim(),
-            price: parseFloat(price) || 0,
-            boost: val.boost || val.boostInfo || val.buff || val.description || "Collectible / Boost Item",
-            image: val.image || val.image_url || val.icon || ""
-          });
+          let price = parseFloat(val.price ?? val.floorPrice ?? val.sflPrice ?? val.sfl ?? 0) || 0;
+          liveMap[cleanKey] = {
+            name: val.name || key,
+            price: price,
+            boost: val.boost || val.boostInfo || val.description || "Collectible / Boost Item",
+            image: val.image || val.image_url || ""
+          };
         }
       });
     }
   }
 
-  extractItems(apiData.data || apiData.nfts || apiData.items || apiData);
+  // Merge Built-in Catalog with Live Prices
+  let finalCatalog = [];
 
-  // Merge backend data with local expanded defaults to guarantee no item is missing
-  EXPANDED_SFL_CATALOG.forEach(fallbackItem => {
-    let match = parsedList.find(p => p.name.toLowerCase() === fallbackItem.name.toLowerCase());
-    if (match) {
-      if (match.price <= 0 && fallbackItem.price > 0) match.price = fallbackItem.price;
-      if (!match.boost || match.boost === "Collectible / Item") match.boost = fallbackItem.boost;
-      if (!match.image) match.image = fallbackItem.image;
+  BUILTIN_SFL_CATALOG.forEach(baseItem => {
+    let key = baseItem.name.toLowerCase().trim();
+    if (liveMap[key]) {
+      finalCatalog.push({
+        name: baseItem.name,
+        price: liveMap[key].price > 0 ? liveMap[key].price : baseItem.price,
+        boost: baseItem.boost,
+        image: liveMap[key].image || baseItem.image
+      });
+      delete liveMap[key];
     } else {
-      parsedList.push(fallbackItem);
+      finalCatalog.push(baseItem);
     }
   });
 
-  return parsedList.length > 0 ? parsedList : EXPANDED_SFL_CATALOG;
+  // Append remaining live items from sfl.world API
+  Object.values(liveMap).forEach(extraItem => {
+    finalCatalog.push(extraItem);
+  });
+
+  return finalCatalog;
 }
 
 // Fetch NFT list from Backend
@@ -126,13 +142,23 @@ async function loadNftCatalog() {
     const data = await res.json();
     
     allNfts = parseLiveCatalog(data);
+    
+    // Update live prices for already saved wishlist items
+    wishlistItems.forEach(savedItem => {
+      let liveMatch = allNfts.find(n => n.name.toLowerCase() === savedItem.name.toLowerCase());
+      if (liveMatch && liveMatch.price > 0) {
+        savedItem.price = liveMatch.price;
+      }
+    });
+
+    saveWishlist();
     renderWishlist();
   } catch (err) {
-    console.warn("Using offline expanded catalog:", err.message);
+    console.warn("Using default catalog with built-in prices:", err.message);
   }
 }
 
-// NFT Combobox / Dropdown Selector
+// Search Combobox Dropdown
 function initNftCombobox() {
   const input = document.getElementById('wishlist-search-input');
   const menu = document.getElementById('wishlist-search-menu');
@@ -146,7 +172,7 @@ function initNftCombobox() {
     const matches = allNfts.filter(nft => {
       return nft.name.toLowerCase().includes(query) || 
              nft.boost.toLowerCase().includes(query);
-    }).slice(0, 30);
+    }).slice(0, 25);
 
     if (matches.length === 0) {
       menu.innerHTML = '<li class="p-3 text-sfl-woodLight italic text-xs">No matching items found</li>';
