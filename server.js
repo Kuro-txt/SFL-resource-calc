@@ -157,7 +157,6 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
   }
 
   try {
-    // 1. Fetch all registered user profiles from Supabase
     const { data: profiles, error: profileErr } = await supabaseAdmin
       .from('profiles')
       .select('id, farm_id')
@@ -172,7 +171,6 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
     let successCount = 0;
     let errors = [];
 
-    // 2. Loop through each registered user farm and record baseline
     for (const profile of profiles) {
       try {
         if (!profile.farm_id) continue;
@@ -210,7 +208,6 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
 
         console.log(`[SNAPSHOT DEBUG] Farm #${profile.farm_id} extracted ${Object.keys(cleanBaseline).length} items.`);
 
-        // Save baseline record directly into Supabase
         const { error: insertErr } = await supabaseAdmin
           .from('preharvest_baselines')
           .upsert({
@@ -227,7 +224,6 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
         errors.push({ farm_id: profile.farm_id, error: err.message });
       }
 
-      // Pause 1.2 seconds between requests to avoid hitting SFL API 429 rate limits
       await sleep(1200);
     }
 
