@@ -154,9 +154,13 @@ app.get('/api/nfts', async (req, res) => {
       itemsArray = rawData.data || rawData.nfts || rawData.items || Object.values(rawData);
     }
 
-    // Standardize to clean structure: name, price (floor), boost (boost_text)
+    // Standardize structure: name, price (floor), boost (boost_text)
     const cleanedList = itemsArray.map(item => {
-      const name = item.name || item.title || 'Unknown NFT';
+      if (!item || typeof item !== 'object') return null;
+
+      const name = item.name || item.title || null;
+      if (!name) return null;
+
       const price = parseFloat(item.floor ?? item.price ?? item.lastSalePrice ?? 0) || 0;
       const boost = item.boost_text || item.boost || (item.have_boost ? "Boost Active" : "No Boost");
 
@@ -165,7 +169,7 @@ app.get('/api/nfts', async (req, res) => {
         price: price,
         boost: String(boost).trim()
       };
-    }).filter(item => item.name !== 'Unknown NFT');
+    }).filter(item => item !== null && item.name !== 'Unknown NFT');
 
     return res.json(cleanedList);
   } catch (err) {
