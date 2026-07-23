@@ -95,11 +95,11 @@ async function updatePreHarvestUI() {
   }
 }
 
-// 1. SAVE MANUAL BASELINE (STRICTLY BASKET ITEMS ONLY, ACCUMULATIVE)
+// 1. SAVE MANUAL BASELINE (NEVER OVERWRITES EXISTING BASELINE COUNTS)
 document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async () => {
   let baselineStock = {};
 
-  // Preserve existing local manual snapshot items
+  // Step A: Load existing manual baseline items
   const existingRaw = localStorage.getItem('sfl_pre_harvest_stock');
   if (existingRaw) {
     try {
@@ -108,19 +108,23 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
       for (let k in rawStock) {
         let cleanK = normalizeItemKey(k);
         let val = typeof rawStock[k] === 'number' ? rawStock[k] : parseFloat(rawStock[k]?.amount || rawStock[k] || 0);
-        if (cleanK && val > 0) baselineStock[cleanK] = val;
+        if (cleanK && val > 0) {
+          baselineStock[cleanK] = val; // Retain original starting stock
+        }
       }
     } catch (e) {}
   }
 
-  // INTENTIONAL DESIGN: Add/Update strictly from Basket
+  // Step B: Append NEW items from Basket (Skip items that already have a baseline)
   if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
     basket.forEach(entry => {
       let cleanName = normalizeItemKey(entry);
       let qty = typeof entry === 'object' ? (parseFloat(entry.qty || entry.amount) || 0) : 0;
 
       if (cleanName && qty > 0) {
-        baselineStock[cleanName] = roundUpToOneDecimal(qty);
+        if (baselineStock[cleanName] === undefined) {
+          baselineStock[cleanName] = roundUpToOneDecimal(qty);
+        }
       }
     });
   }
@@ -137,7 +141,7 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
 
   localStorage.setItem('sfl_pre_harvest_stock', JSON.stringify(preHarvestPayload));
   updatePreHarvestUI();
-  alert("🚩 Manual Pre-Harvest baseline saved! Basket items recorded.");
+  alert("🚩 Baseline updated! Starting counts were kept intact.");
 });
 
 document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () => {
@@ -153,7 +157,6 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   const todayDate = new Date().toISOString().split('T')[0];
   let isManualBaseline = false;
 
-  // Load Manual Baseline first if active
   const preHarvestRaw = localStorage.getItem('sfl_pre_harvest_stock');
   if (preHarvestRaw) {
     try {
@@ -168,7 +171,6 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     } catch (e) {}
   }
 
-  // Fallback to Supabase Cloud Baseline if local manual baseline is not found
   if (!isManualBaseline && typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
     const { data } = await supabaseClient
       .from('preharvest_baselines')
@@ -198,7 +200,6 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
   let hasBasketItems = typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0;
 
-  // If calculating using Basket items: treat Basket Qty as harvested additions over starting baseline floor
   if (hasBasketItems) {
     basket.forEach(entry => {
       let cleanName = normalizeItemKey(entry);
@@ -208,9 +209,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
         postHarvestStock[cleanName] = baseQty + harvestedQty;
       }
     });
-  } 
-  // Otherwise use Synced Farm Inventory total balances if farm is synced
-  else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
+  } else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
     for (let key in farmInventoryData) {
       let cleanName = normalizeItemKey(key);
       let val = typeof farmInventoryData[key] === 'number' 
