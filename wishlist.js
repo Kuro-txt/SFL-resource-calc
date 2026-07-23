@@ -173,10 +173,13 @@ function renderWishlist() {
   const tbody = document.getElementById('wishlist-body');
   if (!tbody) return;
 
+  const countEl = document.getElementById('wishlist-item-count');
+  const flowersEl = document.getElementById('wishlist-total-flowers');
+
   if (wishlistItems.length === 0) {
     tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-sfl-woodLight italic">Your wishlist is empty! Search above to add items.</td></tr>`;
-    document.getElementById('wishlist-item-count').textContent = '0 Items';
-    document.getElementById('wishlist-total-flowers').textContent = '0.00';
+    if (countEl) countEl.textContent = '0 Items';
+    if (flowersEl) flowersEl.textContent = '0.00';
     return;
   }
 
@@ -197,12 +200,12 @@ function renderWishlist() {
       <td class="px-3 py-2.5 text-xs text-sfl-woodLight">${nft.boost}</td>
       <td class="px-3 py-2.5 font-bold text-sfl-green font-mono">${nft.price.toFixed(2)} ${typeof FLOWER_ICON !== 'undefined' ? FLOWER_ICON : 'Flowers'}</td>
       <td class="px-2 py-2.5 text-center">
-        <button onclick="removeFromWishlist(${index})" class="bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 shadow-sm">🗑️ Remove</button>
+        <button onclick="removeFromWishlist(${index})" class="bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 shadow-sm cursor-pointer">🗑️ Remove</button>
       </td>
     `;
     tbody.appendChild(tr);
   });
 
-  document.getElementById('wishlist-item-count').textContent = `${wishlistItems.length} Item${wishlistItems.length === 1 ? '' : 's'}`;
-  document.getElementById('wishlist-total-flowers').textContent = grandTotalFlowers.toFixed(2);
+  if (countEl) countEl.textContent = `${wishlistItems.length} Item${wishlistItems.length === 1 ? '' : 's'}`;
+  if (flowersEl) flowersEl.textContent = grandTotalFlowers.toFixed(2);
 }
