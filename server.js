@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Initialize Supabase Admin Client (Uses service_role key to bypass RLS for background cron jobs)
+// Initialize Supabase Admin Client using service_role key to bypass RLS for cron jobs
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAdmin = (supabaseUrl && supabaseServiceKey) 
@@ -29,7 +29,7 @@ function isExcludedItem(itemName) {
   return EXCLUDED_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-// Utility: Helper function to pause execution (prevents HTTP 429 Rate Limits)
+// Helper function to pause execution between requests to prevent HTTP 429 Rate Limits
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Health Check
@@ -133,7 +133,7 @@ app.get('/api/get-data', async (req, res) => {
 // CRON ENDPOINT: Triggered at 00:00 UTC to save Pre-Harvest Baseline for all registered users
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   if (!supabaseAdmin) {
-    return res.status(500).json({ error: 'Supabase admin client not initialized on server.' });
+    return res.status(500).json({ error: 'Supabase admin client not initialized on server. Check SUPABASE_SERVICE_ROLE_KEY environment variable.' });
   }
 
   try {
@@ -168,7 +168,7 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
           timeout: 8000
         });
 
-        // Robust multi-path extraction to handle any API response format variations
+        // Robust multi-path inventory extraction to support all SFL API response formats
         const data = response.data;
         const rawInventory = 
           data?.inventory || 
@@ -180,12 +180,16 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
         let cleanBaseline = {};
         for (let key in rawInventory) {
           if (!isExcludedItem(key)) {
-            let val = typeof rawInventory[key] === 'number' ? rawInventory[key] : parseFloat(rawInventory[key]?.amount || 0);
+            let itemVal = rawInventory[key];
+            let val = typeof itemVal === 'number' ? itemVal : parseFloat(itemVal?.amount || itemVal || 0);
+            
             if (val > 0) {
               cleanBaseline[key.toLowerCase().trim()] = Math.ceil(val * 10) / 10;
             }
           }
         }
+
+        console.log(`[SNAPSHOT DEBUG] Farm #${profile.farm_id} extracted ${Object.keys(cleanBaseline).length} items.`);
 
         // Save baseline record directly into Supabase
         const { error: insertErr } = await supabaseAdmin
@@ -204,8 +208,8 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
         errors.push({ farm_id: profile.farm_id, error: err.message });
       }
 
-      // Pause 1 second between requests to prevent hitting SFL API 429 rate limits
-      await sleep(1000);
+      // Pause 1.2 seconds between requests to avoid hitting SFL API 429 rate limits
+      await sleep(1200);
     }
 
     return res.json({
