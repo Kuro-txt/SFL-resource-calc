@@ -182,6 +182,8 @@ document.getElementById('import-farm-btn')?.addEventListener('click', async () =
 const input = document.getElementById('combobox-input');
 const menu = document.getElementById('combobox-menu');
 
+const SEARCH_EXCLUDED_KEYS = ['updated text', 'updated_at', 'created_at', 'id'];
+
 if (input && menu) {
   input.addEventListener('input', () => {
     const query = input.value.toLowerCase().trim();
@@ -189,9 +191,11 @@ if (input && menu) {
 
     const matches = Object.keys(allPrices)
       .filter(key => {
+        let lowerKey = key.toLowerCase();
+        if (SEARCH_EXCLUDED_KEYS.includes(lowerKey)) return false;
         if (typeof isExcludedItem === 'function' && isExcludedItem(key)) return false;
         let cleanKey = key.replace(/^\[.*?\]\s*/, '');
-        return cleanKey.toLowerCase().includes(query) || key.toLowerCase().includes(query);
+        return cleanKey.toLowerCase().includes(query) || lowerKey.includes(query);
       })
       .sort((a, b) => a.replace(/^\[.*?\]\s*/, '').localeCompare(b.replace(/^\[.*?\]\s*/, '')));
 
