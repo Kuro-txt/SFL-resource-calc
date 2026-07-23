@@ -16,17 +16,26 @@ const supabaseAdmin = (supabaseUrl && supabaseServiceKey)
   ? createClient(supabaseUrl, supabaseServiceKey) 
   : null;
 
-// Excluded Keywords Filter
+// Excluded Keywords Filter (Only exclude raw seeds and non-sellable tools)
 const EXCLUDED_KEYWORDS = [
   'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
   'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 
-  'bait', 'potion', 'feed', 'box', 'chest'
+  'bait', 'potion', 'feed'
 ];
 
 function isExcludedItem(itemName) {
   if (!itemName) return true;
-  const lower = itemName.toLowerCase();
+  const lower = itemName.toLowerCase().trim();
   return EXCLUDED_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+// Standard key normalizer matching frontend
+function normalizeKey(rawKey) {
+  if (!rawKey) return '';
+  return rawKey
+    .replace(/^\[.*?\]\s*/, '')
+    .toLowerCase()
+    .trim();
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -129,7 +138,7 @@ app.get('/api/get-data', async (req, res) => {
   return res.json(fallbackCatalog);
 });
 
-// Proxy Endpoint 3: Live NFT Catalog (Flattens all nested categories)
+// Proxy Endpoint 3: Live NFT Catalog
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
@@ -182,7 +191,7 @@ app.get('/api/nfts', async (req, res) => {
   }
 });
 
-// CRON ENDPOINT: Daily Snapshot Trigger
+// CRON ENDPOINT: Daily Snapshot Trigger (FIXED SNAPSHOT KEYING)
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   if (!supabaseAdmin) {
     return res.status(500).json({ error: 'Supabase admin client not initialized on server.' });
@@ -227,14 +236,14 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
           {};
 
         let cleanBaseline = {};
-        for (let key in rawInventory) {
-          if (!isExcludedItem(key)) {
-            let itemVal = rawInventory[key];
+        for (let rawKey in rawInventory) {
+          if (!isExcludedItem(rawKey)) {
+            let itemVal = rawInventory[rawKey];
             let val = typeof itemVal === 'number' ? itemVal : parseFloat(itemVal?.amount || itemVal || 0);
             
             if (val > 0) {
-              // Standardize key storing format and exact float value
-              cleanBaseline[key.toLowerCase().trim()] = val;
+              const cleanKey = normalizeKey(rawKey);
+              cleanBaseline[cleanKey] = val; // Store exact float value with standardized key
             }
           }
         }
