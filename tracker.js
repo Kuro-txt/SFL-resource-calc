@@ -7,7 +7,7 @@ if (typeof window.editingSnapshotDate === 'undefined') {
 function normalizeItemKey(rawName) {
   if (!rawName) return '';
   return String(rawName)
-    .replace(/^\[.*?\]\s*/, '')
+    .replace(/^\[.*?\]\s*/, '') // Strip prefixes like [Crop]
     .toLowerCase()
     .trim();
 }
@@ -96,11 +96,11 @@ async function updatePreHarvestUI() {
   }
 }
 
-// 1. ABSOLUTE SAFE MERGE PRE-HARVEST BASELINE
+// 1. CUMULATIVE PRE-HARVEST SAVE (PERSISTS ALL OLD ITEMS)
 document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async () => {
   let baselineStock = {};
 
-  // Always retrieve and preserve previous items from localStorage
+  // Step A: Load ALL existing items from localStorage first
   const existingRaw = localStorage.getItem('sfl_pre_harvest_stock');
   if (existingRaw) {
     try {
@@ -110,7 +110,7 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
         let cleanK = normalizeItemKey(k);
         let val = typeof rawStock[k] === 'number' ? rawStock[k] : parseFloat(rawStock[k]?.amount || rawStock[k] || 0);
         if (cleanK && val > 0) {
-          baselineStock[cleanK] = val; // Retain existing items
+          baselineStock[cleanK] = val; // RETAIN EXSITING ITEMS
         }
       }
     } catch (e) {
@@ -118,22 +118,22 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
     }
   }
 
-  let itemsChanged = false;
+  let itemsAdded = false;
 
-  // Add/Update items from current Basket without wiping previous keys
+  // Step B: Merge items currently in the Basket
   if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
     basket.forEach(entry => {
       let cleanName = normalizeItemKey(entry.item);
       let qty = parseFloat(entry.qty) || 0;
       if (cleanName && qty > 0) {
-        baselineStock[cleanName] = qty;
-        itemsChanged = true;
+        baselineStock[cleanName] = qty; // Update or add basket items
+        itemsAdded = true;
       }
     });
   }
 
-  // Add/Update items from Farm Inventory Sync if Basket was empty
-  if (!itemsChanged && typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
+  // Step C: Merge items from Synced Farm Inventory (if Basket is empty)
+  if (!itemsAdded && typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
     for (let key in farmInventoryData) {
       let cleanName = normalizeItemKey(key);
       let val = typeof farmInventoryData[key] === 'number' 
@@ -142,7 +142,7 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
       
       if (cleanName && val > 0) {
         baselineStock[cleanName] = val;
-        itemsChanged = true;
+        itemsAdded = true;
       }
     }
   }
@@ -159,7 +159,7 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
 
   localStorage.setItem('sfl_pre_harvest_stock', JSON.stringify(preHarvestPayload));
   updatePreHarvestUI();
-  alert("🚩 Pre-Harvest baseline saved! All previously saved items were kept intact.");
+  alert("🚩 Pre-Harvest baseline saved! All previously saved items were preserved.");
 });
 
 document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () => {
@@ -205,13 +205,13 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
   let postHarvestStock = {};
 
-  // Step A: Fill post-harvest stock with baseline values so omitted items don't reset to 0
+  // Copy baseline values as default floor so omitted items don't drop to 0
   for (let key in preHarvestData) {
     let cleanKey = normalizeItemKey(key);
     postHarvestStock[cleanKey] = parseFloat(preHarvestData[key]) || 0;
   }
 
-  // Step B: Overlay current Synced Farm Inventory if available
+  // Update with current Synced Inventory if available
   if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
     for (let key in farmInventoryData) {
       let cleanName = normalizeItemKey(key);
@@ -222,7 +222,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     }
   }
 
-  // Step C: Overlay current Basket items if available
+  // Update with current Basket entries if available
   if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
     basket.forEach(entry => {
       let cleanName = normalizeItemKey(entry.item);
