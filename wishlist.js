@@ -73,7 +73,6 @@ function parseLiveCatalog(apiData) {
 
   let liveMap = {};
 
-  // Extract from sfl.world API format (handles object map or arrays)
   if (typeof apiData === 'object' && apiData !== null) {
     let source = apiData.data || apiData.nfts || apiData.items || apiData;
     
@@ -108,7 +107,6 @@ function parseLiveCatalog(apiData) {
     }
   }
 
-  // Merge Built-in Catalog with Live Prices
   let finalCatalog = [];
 
   BUILTIN_SFL_CATALOG.forEach(baseItem => {
@@ -126,7 +124,6 @@ function parseLiveCatalog(apiData) {
     }
   });
 
-  // Append remaining live items from sfl.world API
   Object.values(liveMap).forEach(extraItem => {
     finalCatalog.push(extraItem);
   });
@@ -143,7 +140,6 @@ async function loadNftCatalog() {
     
     allNfts = parseLiveCatalog(data);
     
-    // Update live prices for already saved wishlist items
     wishlistItems.forEach(savedItem => {
       let liveMatch = allNfts.find(n => n.name.toLowerCase() === savedItem.name.toLowerCase());
       if (liveMatch && liveMatch.price > 0) {
@@ -288,7 +284,6 @@ function renderWishlist() {
 
   const grandTotalCoins = grandTotalFlowers * coinRatio;
 
-  // Update Summary Totals Box
   document.getElementById('wishlist-item-count').textContent = `${wishlistItems.length} Item${wishlistItems.length === 1 ? '' : 's'}`;
   document.getElementById('wishlist-total-flowers').textContent = grandTotalFlowers.toFixed(2);
   document.getElementById('wishlist-total-coins').textContent = grandTotalCoins.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
