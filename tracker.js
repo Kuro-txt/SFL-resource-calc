@@ -1,11 +1,12 @@
 // --- PRE-HARVEST BASELINES & DAILY HARVEST YIELD TRACKER ---
 
-let editingSnapshotDate = null;
+if (typeof window.editingSnapshotDate === 'undefined') {
+  window.editingSnapshotDate = null;
+}
 
-// Standard helper to ensure baseline & current inventory keys match 100%
 function normalizeItemKey(rawName) {
   if (!rawName) return '';
-  return rawName
+  return String(rawName)
     .replace(/^\[.*?\]\s*/, '')
     .toLowerCase()
     .trim();
@@ -75,11 +76,15 @@ async function updatePreHarvestUI() {
   const baseline = localStorage.getItem('sfl_pre_harvest_stock');
   if (baseline) {
     hasManual = true;
-    const data = JSON.parse(baseline);
-    const timeEl = document.getElementById('pre-harvest-time');
-    if (timeEl) timeEl.textContent = data.timestamp;
-    manualStatus.classList.remove('hidden');
-    renderStockBadges(data.stock, 'manual-baseline-items');
+    try {
+      const data = JSON.parse(baseline);
+      const timeEl = document.getElementById('pre-harvest-time');
+      if (timeEl) timeEl.textContent = data.timestamp || 'Active';
+      manualStatus.classList.remove('hidden');
+      renderStockBadges(data.stock || data, 'manual-baseline-items');
+    } catch (e) {
+      console.warn("Error parsing pre-harvest baseline", e);
+    }
   } else {
     manualStatus.classList.add('hidden');
   }
@@ -143,7 +148,12 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
   const preHarvestRaw = localStorage.getItem('sfl_pre_harvest_stock');
   if (preHarvestRaw) {
-    preHarvestData = JSON.parse(preHarvestRaw).stock;
+    try {
+      const parsed = JSON.parse(preHarvestRaw);
+      preHarvestData = parsed.stock || parsed;
+    } catch (e) {
+      console.warn("Invalid pre-harvest data");
+    }
   }
 
   if (!preHarvestData && typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
@@ -216,7 +226,11 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     return;
   }
 
-  let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+  let history = [];
+  try {
+    history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+  } catch(e) { history = []; }
+
   let existingDayIndex = history.findIndex(entry => entry.date === todayDate);
 
   let cropsArray = [];
@@ -264,19 +278,22 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 });
 
 function editSnapshotRow(date) {
-  editingSnapshotDate = date;
+  window.editingSnapshotDate = date;
   renderSnapshotHistory();
 }
 
 function cancelEditSnapshot() {
-  editingSnapshotDate = null;
+  window.editingSnapshotDate = null;
   renderSnapshotHistory();
 }
 
 async function saveEditedSnapshot(date) {
-  let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
-  let entryIndex = history.findIndex(item => item.date === date);
+  let history = [];
+  try {
+    history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+  } catch(e) { return; }
 
+  let entryIndex = history.findIndex(item => item.date === date);
   if (entryIndex === -1) return;
 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
@@ -289,18 +306,18 @@ async function saveEditedSnapshot(date) {
     entry.crops.forEach((crop, cropIdx) => {
       let cleanDateId = date.replace(/[^a-zA-Z0-9]/g, '');
       let inputEl = document.getElementById(`edit-qty-${cleanDateId}-${cropIdx}`);
-      let newQty = inputEl ? roundUpToOneDecimal(parseFloat(inputEl.value) || 0) : crop.qty;
+      let newQty = inputEl ? roundUpToOneDecimal(parseFloat(inputEl.value) || 0) : (parseFloat(crop.qty) || 0);
 
       if (newQty > 0) {
         let matchedKey = (typeof allPrices !== 'undefined' && allPrices)
-          ? Object.keys(allPrices).find(k => normalizeItemKey(k) === crop.name.toLowerCase())
+          ? Object.keys(allPrices).find(k => normalizeItemKey(k) === (crop.name || '').toLowerCase())
           : null;
 
-        let unitPrice = matchedKey ? allPrices[matchedKey] : (crop.flowers / (crop.qty || 1));
+        let unitPrice = matchedKey ? allPrices[matchedKey] : ((parseFloat(crop.flowers) || 0) / (parseFloat(crop.qty) || 1));
         let itemNetFlowers = roundUpToThreeDecimals((unitPrice * newQty) * (1 - taxRate));
 
         updatedCrops.push({
-          name: crop.name,
+          name: crop.name || 'Crop',
           qty: newQty,
           flowers: itemNetFlowers
         });
@@ -334,21 +351,25 @@ async function saveEditedSnapshot(date) {
   }
 
   localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
-  editingSnapshotDate = null;
+  window.editingSnapshotDate = null;
   renderSnapshotHistory();
   alert(`✅ Harvest record for ${date} updated!`);
 }
 
 async function deleteSnapshotRow(date) {
   if (!confirm(`Delete snapshot record for ${date}?`)) return;
-  let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+  let history = [];
+  try {
+    history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+  } catch(e) { history = []; }
+
   localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history.filter(i => i.date !== date)));
 
   if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
     await supabaseClient.from('daily_yields').delete().eq('user_id', currentUser.id).eq('yield_date', date);
   }
 
-  if (editingSnapshotDate === date) editingSnapshotDate = null;
+  if (window.editingSnapshotDate === date) window.editingSnapshotDate = null;
   renderSnapshotHistory();
 }
 
@@ -363,10 +384,10 @@ async function loadCloudYieldHistory() {
 
       if (!error && Array.isArray(data) && data.length > 0) {
         const cloudHistory = data.map(item => ({
-          date: item.yield_date,
-          totalCount: parseFloat(item.total_count || 0),
+          date: item.yield_date || item.date,
+          totalCount: parseFloat(item.total_count || item.totalCount || 0),
           crops: item.crops || [],
-          netFlowers: parseFloat(item.net_flowers || 0).toFixed(3)
+          netFlowers: parseFloat(item.net_flowers || item.netFlowers || 0).toFixed(3)
         }));
         localStorage.setItem('sfl_daily_snapshots', JSON.stringify(cloudHistory));
         renderSnapshotHistory();
@@ -381,70 +402,82 @@ function renderSnapshotHistory() {
   const tbody = document.getElementById('snapshot-history-body');
   if (!tbody) return;
 
-  let history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+  let rawHistory = localStorage.getItem('sfl_daily_snapshots');
+  let history = [];
+
+  try {
+    history = JSON.parse(rawHistory || '[]');
+  } catch (err) {
+    console.error("Failed to parse history JSON:", err);
+  }
+
   const flowerIconSymbol = typeof FLOWER_ICON !== 'undefined' ? FLOWER_ICON : '🌸';
 
-  if (history.length === 0) {
+  if (!Array.isArray(history) || history.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">No harvest sessions logged yet!</td></tr>`;
     return;
   }
 
   tbody.innerHTML = '';
   history.forEach(entry => {
-    let isEditing = editingSnapshotDate === entry.date;
+    if (!entry) return;
+
+    let entryDate = entry.date || entry.yield_date || 'Unknown Date';
+    let isEditing = window.editingSnapshotDate === entryDate;
     let cropBadges = '';
-    let cleanDateId = entry.date.replace(/[^a-zA-Z0-9]/g, '');
+    let cleanDateId = entryDate.replace(/[^a-zA-Z0-9]/g, '');
 
-    if (Array.isArray(entry.crops)) {
-      cropBadges = entry.crops
-        .map((crop, idx) => {
-          const cropQty = parseFloat(crop.qty) || 0;
-          const cropFlowers = parseFloat(crop.flowers) || 0;
+    let cropsList = Array.isArray(entry.crops) ? entry.crops : [];
 
-          if (isEditing) {
-            return `
-              <span class="inline-flex items-center gap-1 bg-amber-200 text-amber-900 border-2 border-sfl-green text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
-                <span>${crop.name}:</span>
-                <input type="number" id="edit-qty-${cleanDateId}-${idx}" value="${cropQty.toFixed(1)}" step="0.1" min="0" 
-                  class="w-12 sfl-input text-xs font-mono font-bold rounded px-1 text-sfl-dirt text-center">
-              </span>
-            `;
-          } else {
-            return `
-              <span class="inline-flex items-center gap-1 bg-green-100 text-sfl-green border border-sfl-green/40 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
-                <span>+${cropQty.toFixed(1)} ${crop.name}</span>
-                <span class="text-sfl-green font-normal">(${cropFlowers.toFixed(3)} ${flowerIconSymbol})</span>
-              </span>
-            `;
-          }
-        })
-        .join('');
-    }
+    cropBadges = cropsList
+      .map((crop, idx) => {
+        const cropQty = parseFloat(crop.qty) || 0;
+        const cropFlowers = parseFloat(crop.flowers) || 0;
+        const cropName = crop.name || crop.item || 'Item';
+
+        if (isEditing) {
+          return `
+            <span class="inline-flex items-center gap-1 bg-amber-200 text-amber-900 border-2 border-sfl-green text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
+              <span>${cropName}:</span>
+              <input type="number" id="edit-qty-${cleanDateId}-${idx}" value="${cropQty.toFixed(1)}" step="0.1" min="0" 
+                class="w-12 sfl-input text-xs font-mono font-bold rounded px-1 text-sfl-dirt text-center">
+            </span>
+          `;
+        } else {
+          return `
+            <span class="inline-flex items-center gap-1 bg-green-100 text-sfl-green border border-sfl-green/40 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
+              <span>+${cropQty.toFixed(1)} ${cropName}</span>
+              <span class="text-sfl-green font-normal">(${cropFlowers.toFixed(3)} ${flowerIconSymbol})</span>
+            </span>
+          `;
+        }
+      })
+      .join('');
 
     let actionButtons = isEditing 
       ? `
-        <button onclick="saveEditedSnapshot('${entry.date}')" class="bg-sfl-green text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-green-700 mr-1 shadow-sm cursor-pointer">💾 Save</button>
+        <button onclick="saveEditedSnapshot('${entryDate}')" class="bg-sfl-green text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-green-700 mr-1 shadow-sm cursor-pointer">💾 Save</button>
         <button onclick="cancelEditSnapshot()" class="bg-sfl-wood text-amber-200 px-2 py-1 rounded text-[10px] font-bold hover:bg-sfl-woodLight shadow-sm cursor-pointer">✕</button>
       `
       : `
-        <button onclick="editSnapshotRow('${entry.date}')" class="bg-amber-600 text-amber-100 px-2 py-1 rounded text-[10px] font-bold hover:bg-amber-700 mr-1 shadow-sm cursor-pointer">✏️ Edit</button>
-        <button onclick="deleteSnapshotRow('${entry.date}')" class="bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 shadow-sm cursor-pointer">🗑️</button>
+        <button onclick="editSnapshotRow('${entryDate}')" class="bg-amber-600 text-amber-100 px-2 py-1 rounded text-[10px] font-bold hover:bg-amber-700 mr-1 shadow-sm cursor-pointer">✏️ Edit</button>
+        <button onclick="deleteSnapshotRow('${entryDate}')" class="bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 shadow-sm cursor-pointer">🗑️</button>
       `;
 
-    // Safe numerical conversion preventing crash on old snapshots
-    let rawTotalCount = parseFloat(entry.totalCount);
+    let rawTotalCount = parseFloat(entry.totalCount || entry.total_count);
     let totalYieldCount = !isNaN(rawTotalCount) 
       ? rawTotalCount 
-      : (Array.isArray(entry.crops) ? entry.crops.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0) : 0);
+      : cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0);
 
-    let netFlowersVal = parseFloat(entry.netFlowers) || 0;
+    let rawNetFlowers = parseFloat(entry.netFlowers || entry.net_flowers);
+    let netFlowersVal = !isNaN(rawNetFlowers) ? rawNetFlowers : 0;
 
     let tr = document.createElement('tr');
     tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
     tr.innerHTML = `
-      <td class="px-3 py-2.5 font-bold whitespace-nowrap">${entry.date}</td>
+      <td class="px-3 py-2.5 font-bold whitespace-nowrap">${entryDate}</td>
       <td class="px-3 py-2.5 font-bold font-mono text-sfl-wood">${totalYieldCount.toFixed(1)} Items</td>
-      <td class="px-3 py-2.5">${cropBadges}</td>
+      <td class="px-3 py-2.5">${cropBadges || '<span class="italic text-gray-400">No details</span>'}</td>
       <td class="px-3 py-2.5 font-bold text-sfl-green font-mono">${netFlowersVal.toFixed(3)} ${flowerIconSymbol}</td>
       <td class="px-2 py-2.5 text-center whitespace-nowrap">${actionButtons}</td>
     `;
