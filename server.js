@@ -16,7 +16,7 @@ const supabaseAdmin = (supabaseUrl && supabaseServiceKey)
   ? createClient(supabaseUrl, supabaseServiceKey) 
   : null;
 
-// Excluded Keywords Filter (Only exclude raw seeds and non-sellable tools)
+// Excluded Keywords Filter
 const EXCLUDED_KEYWORDS = [
   'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
   'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 
@@ -153,10 +153,11 @@ app.get('/api/nfts', async (req, res) => {
     const rawData = response.data;
     let itemsList = [];
 
-    function extractItems(node) {
-      if (!node) return;
+    // Safely parse deeply nested object nodes with recursion depth limit
+    function extractItems(node, depth = 0) {
+      if (!node || depth > 8) return;
       if (Array.isArray(node)) {
-        node.forEach(extractItems);
+        node.forEach(child => extractItems(child, depth + 1));
       } else if (typeof node === 'object') {
         if (node.name || node.title) {
           const name = node.name || node.title;
@@ -169,7 +170,7 @@ app.get('/api/nfts', async (req, res) => {
             boost: String(boost).trim()
           });
         } else {
-          Object.values(node).forEach(extractItems);
+          Object.values(node).forEach(child => extractItems(child, depth + 1));
         }
       }
     }
@@ -191,8 +192,14 @@ app.get('/api/nfts', async (req, res) => {
   }
 });
 
-// CRON ENDPOINT: Daily Snapshot Trigger (FIXED SNAPSHOT KEYING)
+// CRON ENDPOINT: Daily Snapshot Trigger (Protected with Secret Key check)
 app.get('/api/trigger-daily-baseline', async (req, res) => {
+  // Optional security key check (e.g. ?key=YOUR_CRON_SECRET)
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && req.query.key !== cronSecret) {
+    return res.status(403).json({ error: 'Unauthorized cron trigger.' });
+  }
+
   if (!supabaseAdmin) {
     return res.status(500).json({ error: 'Supabase admin client not initialized on server.' });
   }
@@ -243,7 +250,7 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
             
             if (val > 0) {
               const cleanKey = normalizeKey(rawKey);
-              cleanBaseline[cleanKey] = val; // Store exact float value with standardized key
+              cleanBaseline[cleanKey] = val;
             }
           }
         }
