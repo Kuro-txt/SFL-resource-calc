@@ -3,56 +3,40 @@ const axios = require('axios');
 const router = express.Router();
 
 // GET /api/nfts
-// Fetches and normalizes live NFT catalog and floor prices from sfl.world
+// Maps sfl.world API JSON structure (name, floor, boost_text)
 router.get('/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
       headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 
         'Accept': 'application/json' 
       },
       timeout: 10000
     });
 
     const rawData = response.data;
-    let normalizedList = [];
+    let itemsArray = [];
 
-    // Handle different possible JSON structures returned by sfl.world
-    let sourceArray = [];
     if (Array.isArray(rawData)) {
-      sourceArray = rawData;
+      itemsArray = rawData;
     } else if (rawData && typeof rawData === 'object') {
-      sourceArray = rawData.data || rawData.nfts || rawData.items || Object.entries(rawData).map(([key, val]) => {
-        if (typeof val === 'object' && val !== null) {
-          return { name: key, ...val };
-        }
-        return { name: key, price: val };
-      });
+      itemsArray = rawData.data || rawData.nfts || rawData.items || Object.values(rawData);
     }
 
-    // Clean and format items for the frontend search bar
-    normalizedList = sourceArray.map(item => {
-      const rawName = item.name || item.title || item.itemName || "Unknown Item";
-      const formattedName = String(rawName)
-        .replace(/_/g, ' ')
-        .replace(/-/g, ' ')
-        .split(' ')
-        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-        .join(' ');
-
-      const price = parseFloat(item.price ?? item.floorPrice ?? item.sflPrice ?? item.sfl ?? item.cost ?? 0) || 0;
-      const boost = item.boost || item.boostInfo || item.buff || item.description || "Collectible / Boost Item";
-      const image = item.image || item.image_url || item.icon || "";
+    // Clean and normalize fields: name, price (floor), boost (boost_text)
+    const cleanedList = itemsArray.map(item => {
+      const name = item.name || item.title || 'Unknown NFT';
+      const price = parseFloat(item.floor ?? item.price ?? item.lastSalePrice ?? 0) || 0;
+      const boost = item.boost_text || item.boost || (item.have_boost ? "Boost Active" : "No Boost");
 
       return {
-        name: formattedName,
+        name: String(name).trim(),
         price: price,
-        boost: boost,
-        image: image
+        boost: String(boost).trim()
       };
-    }).filter(item => item.name !== "Unknown Item");
+    }).filter(item => item.name !== 'Unknown NFT');
 
-    return res.json(normalizedList);
+    return res.json(cleanedList);
   } catch (err) {
     console.error('[NFT API ERROR]:', err.message);
     return res.status(500).json({ 
