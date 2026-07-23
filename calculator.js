@@ -66,6 +66,13 @@ function loadPrices() {
   fetch(`${backend}/api/get-data`)
     .then(res => res.json())
     .then(rawData => {
+      // Hard delete any accidental metadata fields if they exist at the root
+      if (rawData && typeof rawData === 'object') {
+        delete rawData.updated_text;
+        delete rawData.updatedText;
+        delete rawData.updated_at;
+        delete rawData.updatedAt;
+      }
       allPrices = extractPrices(rawData);
     })
     .catch(() => console.warn("Using default fallback prices."));
@@ -75,12 +82,18 @@ function extractPrices(data) {
   let pricesMap = {};
   if (!data || typeof data !== 'object') return pricesMap;
 
+  const GLOBAL_EXCLUDES = ['updated_text', 'updatedtext', 'updatedat', 'updated_at', 'created_at', 'id'];
+
   function searchObj(obj, prefix = '') {
     for (let key in obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
-      let val = obj[key];
       
+      let lowerKey = key.toLowerCase().trim();
+      if (GLOBAL_EXCLUDES.includes(lowerKey)) continue;
+      if (lowerKey.includes('updated')) continue; // Blocks any key containing 'updated'
       if (typeof isExcludedItem === 'function' && isExcludedItem(key)) continue;
+
+      let val = obj[key];
 
       if (typeof val === 'number') {
         pricesMap[prefix + key] = val;
@@ -182,6 +195,8 @@ document.getElementById('import-farm-btn')?.addEventListener('click', async () =
 const input = document.getElementById('combobox-input');
 const menu = document.getElementById('combobox-menu');
 
+const SEARCH_EXCLUDED_KEYS = ['updated_text', 'updatedtext', 'updatedat', 'updated_at', 'created_at', 'id'];
+
 if (input && menu) {
   input.addEventListener('input', () => {
     const query = input.value.toLowerCase().trim();
@@ -189,9 +204,11 @@ if (input && menu) {
 
     const matches = Object.keys(allPrices)
       .filter(key => {
+        let lowerKey = key.toLowerCase().trim();
+        if (SEARCH_EXCLUDED_KEYS.includes(lowerKey) || lowerKey.includes('updated')) return false;
         if (typeof isExcludedItem === 'function' && isExcludedItem(key)) return false;
         let cleanKey = key.replace(/^\[.*?\]\s*/, '');
-        return cleanKey.toLowerCase().includes(query) || key.toLowerCase().includes(query);
+        return cleanKey.toLowerCase().includes(query) || lowerKey.includes(query);
       })
       .sort((a, b) => a.replace(/^\[.*?\]\s*/, '').localeCompare(b.replace(/^\[.*?\]\s*/, '')));
 
@@ -430,11 +447,11 @@ document.getElementById('donate-btn')?.addEventListener('click', async () => {
     // Visual text feedback
     const originalText = donateBtn.textContent;
     donateBtn.textContent = "Copied!";
-    donateBtn.classList.add('text-green-600');
+    donateBtn.classList.add('text-green-400');
 
     setTimeout(() => {
       donateBtn.textContent = originalText;
-      donateBtn.classList.remove('text-green-600');
+      donateBtn.classList.remove('text-green-400');
     }, 2000);
 
   } catch (err) {
