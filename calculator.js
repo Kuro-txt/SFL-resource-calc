@@ -75,14 +75,15 @@ function extractPrices(data) {
   let pricesMap = {};
   if (!data || typeof data !== 'object') return pricesMap;
 
-  const GLOBAL_EXCLUDES = ['updated_at', 'updatedat', 'updated_text', 'created_at', 'id'];
+  // Strict blacklist to wipe out metadata fields at extraction
+  const GLOBAL_EXCLUDES = ['updated_text', 'updatedtext', 'updatedat', 'updated_at', 'created_at', 'id'];
 
   function searchObj(obj, prefix = '') {
     for (let key in obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
       
-      let lowerKey = key.toLowerCase().trim();
-      if (GLOBAL_EXCLUDES.includes(lowerKey)) continue;
+      let lowerKey = key.toLowerCase().replace(/[^a-z]/g, ''); // strip underscores & spaces for deep matching
+      if (GLOBAL_EXCLUDES.some(ex => lowerKey.includes(ex))) continue;
       if (typeof isExcludedItem === 'function' && isExcludedItem(key)) continue;
 
       let val = obj[key];
