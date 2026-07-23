@@ -6,7 +6,6 @@
   <title>SFL Resource Calculator</title>
   <link href="https://fonts.googleapis.com/css2?family=VT323&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
   <script>
@@ -34,7 +33,6 @@
     }
   </script>
 
-  <!-- External Design Stylesheet -->
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="font-game text-sfl-dirt min-h-screen p-4 sm:p-8 flex items-center justify-center">
@@ -71,10 +69,6 @@
         </h1>
       </div>
       <p class="text-xs font-semibold text-sfl-woodLight">Live SFL market prices & farm inventory tool</p>
-
-      <div class="inline-flex items-center gap-1.5 bg-amber-100/90 border border-sfl-cardBorder/80 px-3 py-1 rounded-lg text-[11px] font-bold text-sfl-wood mt-1 shadow-sm">
-        <span>🖥️</span> <span>Tip: Use <strong>Desktop Mode</strong> on mobile browsers for the best view & layout experience!</span>
-      </div>
     </div>
 
     <!-- Farm Sync Panel -->
@@ -91,14 +85,14 @@
         </div>
         <div>
           <label class="block text-xs font-bold text-sfl-wood mb-1">
-            API Key / Token <span class="text-sfl-woodLight font-normal">(Optional - Uses Server Key by default)</span>
+            API Key / Token <span class="text-sfl-woodLight font-normal">(Optional)</span>
           </label>
-          <input type="password" id="api-key" placeholder="Paste custom Key/Token (Optional)" 
+          <input type="password" id="api-key" placeholder="Paste custom Key/Token" 
             class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm">
         </div>
       </div>
 
-      <button id="import-farm-btn" class="w-full bg-sfl-wood text-amber-200 font-bold py-2.5 px-3 rounded-lg border-2 border-sfl-dirt text-sm hover:bg-sfl-woodLight transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+      <button id="import-farm-btn" class="w-full bg-sfl-wood text-amber-200 font-bold py-2.5 px-3 rounded-lg border-2 border-sfl-dirt text-sm hover:bg-sfl-woodLight transition flex items-center justify-center gap-2">
         🔄 Sync Farm Quantities Now
       </button>
 
@@ -152,7 +146,7 @@
               <label class="text-xs font-bold text-sfl-wood uppercase mb-1 flex items-center gap-1">
                 <span>🏷️</span> Market Tax Rate
               </label>
-              <select id="tax-select" class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold cursor-pointer">
+              <select id="tax-select" class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt cursor-pointer">
                 <option value="0">0% (No Tax)</option>
                 <option value="0.05">5% Tax</option>
                 <option value="0.075">7.5% Tax</option>
@@ -164,10 +158,10 @@
 
             <div class="flex flex-col">
               <label class="text-xs font-bold text-sfl-wood uppercase mb-1 flex items-center gap-1">
-                <img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-4 h-4 sfl-icon" alt="Coins"> Coins per 1 Flower
+                <img src="./assets/coins.webp" class="w-4 h-4 sfl-icon" alt="Coins"> Coins per 1 Flower
               </label>
               <input type="number" id="coin-ratio" value="1000" min="1" step="1" 
-                class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
+                class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt">
             </div>
           </div>
         </div>
@@ -216,21 +210,21 @@
               <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Net Flowers</span>
               <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green mt-0.5 flex items-center justify-center gap-1">
                 <span id="total-flowers">0.000</span>
-                <img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-5 h-5 sfl-icon" alt="Flower">
+                <img src="./assets/flower.webp" class="w-5 h-5 sfl-icon" alt="Flower">
               </h2>
             </div>
             <div class="border-l border-sfl-cardBorder/40 px-1">
               <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Betty Coins</span>
               <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-gold mt-0.5 flex items-center justify-center gap-1">
                 <span id="total-betty-coins">0.00</span>
-                <img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-5 h-5 sfl-icon" alt="Coins">
+                <img src="./assets/coins.webp" class="w-5 h-5 sfl-icon" alt="Coins">
               </h2>
             </div>
             <div class="border-l border-sfl-cardBorder/40 pl-1">
               <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Ratio Coins (Net)</span>
               <h2 class="text-xl sm:text-2xl font-pixel font-bold text-amber-600 mt-0.5 flex items-center justify-center gap-1">
                 <span id="total-ratio-coins">0.00</span>
-                <img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-5 h-5 sfl-icon" alt="Coins">
+                <img src="./assets/coins.webp" class="w-5 h-5 sfl-icon" alt="Coins">
               </h2>
             </div>
           </div>
@@ -240,95 +234,128 @@
 
     </div>
 
-    <!-- HARVEST TRACKER -->
-    <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder shadow-sm space-y-3">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+    <!-- TABBED BOTTOM SECTION -->
+    <div class="space-y-0">
+      <!-- Tab Headers -->
+      <div class="flex items-center gap-1 pl-2 border-b-2 border-sfl-wood">
+        <button id="tab-tracker-btn" class="bg-sfl-wood text-amber-200 px-4 py-2 rounded-t-lg font-bold text-xs border-t-2 border-x-2 border-sfl-dirt shadow-md">
+          🌾 Daily Harvest Tracker
+        </button>
+        <button id="tab-wishlist-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-t-lg font-bold text-xs border-t-2 border-x-2 border-transparent hover:bg-amber-200/50 transition">
+          ⭐ NFT Wishlist
+        </button>
+      </div>
+
+      <!-- TAB 1: HARVEST TRACKER SECTION -->
+      <div id="tracker-section" class="bg-sfl-card/90 p-4 rounded-b-xl rounded-tr-xl border-2 border-sfl-cardBorder shadow-sm space-y-3">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
+              <span>🌾</span> Daily Yield & Resource Tracker
+            </h3>
+            <p class="text-[11px] text-sfl-woodLight font-semibold">Track crop, fruit, & resource yields harvested between sessions (Kept for 30 days).</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="save-pre-harvest-btn" class="bg-amber-600 text-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-700 transition">
+              🚩 1. Save Pre-Harvest Stock
+            </button>
+            <button id="log-yield-btn" class="bg-sfl-green text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-green-700 transition">
+              🏁 2. Calculate Harvest Yield
+            </button>
+            <input type="file" id="import-file-input" accept=".json" class="hidden">
+            <button id="import-json-btn" class="bg-sfl-wood text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition">📤 Import</button>
+            <button id="export-json-btn" class="bg-sfl-wood text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition">📥 Export</button>
+          </div>
+        </div>
+
+        <!-- BASELINE STATUS DISPLAY -->
+        <div id="pre-harvest-status" class="hidden bg-amber-100/90 border-2 border-amber-400 p-3 rounded-lg text-xs font-bold text-amber-900 space-y-2 shadow-sm">
+          <div id="cloud-baseline-status" class="hidden flex justify-between items-center text-green-800 border-b border-amber-300/60 pb-1">
+            <span>☁️ 00:00 UTC Cloud Baseline: <span class="font-extrabold">Active</span></span>
+            <span class="text-[10px] bg-green-200 text-green-900 px-2 py-0.5 rounded-full font-bold">Automatic</span>
+          </div>
+
+          <div id="manual-baseline-status" class="hidden">
+            <div class="flex justify-between items-center text-amber-900">
+              <span>🚩 Manual Baseline: <span class="font-extrabold text-amber-800">Active</span> (<span id="pre-harvest-time">Today</span>)</span>
+              <button id="clear-pre-harvest-btn" class="text-[10px] bg-sfl-accent text-white px-2 py-0.5 rounded font-bold hover:bg-red-700 transition">Clear Manual Baseline</button>
+            </div>
+            <div id="manual-baseline-items" class="mt-1 flex flex-wrap gap-1 text-[10px]"></div>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto bg-white/70 border-2 border-sfl-cardBorder rounded-lg">
+          <table class="w-full text-left text-xs text-sfl-dirt">
+            <thead class="bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood uppercase text-[11px]">
+              <tr>
+                <th class="px-3 py-2">Date</th>
+                <th class="px-3 py-2">Harvested Breakdown</th>
+                <th class="px-3 py-2">Harvest Net Flowers</th>
+                <th class="px-2 py-2 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="snapshot-history-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
+              <tr>
+                <td colspan="4" class="px-4 py-6 text-center text-sfl-woodLight italic">
+                  No harvest sessions logged yet!
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 2: NFT WISHLIST SECTION -->
+      <div id="wishlist-section" class="hidden bg-sfl-card/90 p-4 rounded-b-xl rounded-tr-xl border-2 border-sfl-cardBorder shadow-sm space-y-4">
         <div>
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
-            <span>🌾</span> Daily Yield & Resource Tracker
+            <span>⭐</span> NFT Wishlist
           </h3>
-          <p class="text-[11px] text-sfl-woodLight font-semibold">Track crop, fruit, & resource yields harvested between sessions (Kept for 30 days).</p>
+          <p class="text-[11px] text-sfl-woodLight font-semibold">Track floor prices, names, and boosts for SFL items and SFTs.</p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button id="save-pre-harvest-btn" class="bg-amber-600 text-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-700 transition">
-            🚩 1. Save Pre-Harvest Stock
-          </button>
-          <button id="log-yield-btn" class="bg-sfl-green text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-green-700 transition">
-            🏁 2. Calculate Harvest Yield
-          </button>
+
+        <!-- NFT Search / Combobox -->
+        <div class="relative max-w-md">
+          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood mb-1">🔍 Search & Add SFL NFTs</label>
+          <input type="text" id="wishlist-search-input" placeholder="Type NFT or Item name..." autocomplete="off"
+            class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
           
-          <input type="file" id="import-file-input" accept=".json" class="hidden">
-          <button id="import-json-btn" class="bg-sfl-wood text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition">
-            📤 Import
-          </button>
-          <button id="export-json-btn" class="bg-sfl-wood text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition">
-            📥 Export
-          </button>
+          <ul id="wishlist-search-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border-2 border-sfl-woodLight rounded-lg shadow-xl z-20 divide-y divide-sfl-cardBorder/30 text-sm">
+            <li class="p-2 text-sfl-woodLight italic">Loading NFT catalog...</li>
+          </ul>
+        </div>
+
+        <div class="overflow-x-auto bg-white/70 border-2 border-sfl-cardBorder rounded-lg">
+          <table class="w-full text-left text-xs text-sfl-dirt">
+            <thead class="bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood uppercase text-[11px]">
+              <tr>
+                <th class="px-3 py-2">NFT / Item Name</th>
+                <th class="px-3 py-2">Boost / Info</th>
+                <th class="px-3 py-2">Floor Price</th>
+                <th class="px-2 py-2 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="wishlist-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
+              <tr>
+                <td colspan="4" class="px-4 py-6 text-center text-sfl-woodLight italic">
+                  Your wishlist is empty! Search above to add NFTs.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- Guide Box -->
-      <div class="bg-amber-50/80 border border-sfl-cardBorder rounded-lg p-3 text-xs text-sfl-wood space-y-1.5">
-        <p class="font-bold flex items-center gap-1.5 text-sfl-wood">
-          <span>📖</span> How to Save Snapshots & Log Daily Yields:
-        </p>
-        <ul class="list-disc list-inside space-y-1 text-[11px] text-sfl-woodLight font-medium pl-1">
-          <li>
-            <strong>Automatic 00:00 UTC Snapshot:</strong> When signed in, our server automatically records your farm stock at 00:00 UTC every night!
-          </li>
-          <li>
-            <strong>Manual Baseline:</strong> You can also manually click <span class="text-amber-800 font-bold">"🚩 1. Save Pre-Harvest Stock"</span> anytime before harvesting.
-          </li>
-          <li>
-            <strong>Daily Calculation:</strong> After playing in-game, sync your farm and click <span class="text-sfl-green font-bold">"🏁 2. Calculate Harvest Yield"</span> to log your net earnings.
-          </li>
-        </ul>
-      </div>
-
-      <!-- BASELINE STATUS DISPLAY -->
-      <div id="pre-harvest-status" class="hidden bg-amber-100/90 border-2 border-amber-400 p-3 rounded-lg text-xs font-bold text-amber-900 space-y-2 shadow-sm">
-        <div id="cloud-baseline-status" class="hidden flex justify-between items-center text-green-800 border-b border-amber-300/60 pb-1">
-          <span>☁️ 00:00 UTC Cloud Baseline: <span class="font-extrabold">Active</span></span>
-          <span class="text-[10px] bg-green-200 text-green-900 px-2 py-0.5 rounded-full font-bold">Automatic</span>
-        </div>
-
-        <div id="manual-baseline-status" class="hidden">
-          <div class="flex justify-between items-center text-amber-900">
-            <span>🚩 Manual Baseline: <span class="font-extrabold text-amber-800">Active</span> (<span id="pre-harvest-time">Today</span>)</span>
-            <button id="clear-pre-harvest-btn" class="text-[10px] bg-sfl-accent text-white px-2 py-0.5 rounded font-bold hover:bg-red-700 transition">Clear Manual Baseline</button>
-          </div>
-          <div id="manual-baseline-items" class="mt-1 flex flex-wrap gap-1 text-[10px]"></div>
-        </div>
-      </div>
-
-      <div class="overflow-x-auto bg-white/70 border-2 border-sfl-cardBorder rounded-lg">
-        <table class="w-full text-left text-xs text-sfl-dirt">
-          <thead class="bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood uppercase text-[11px]">
-            <tr>
-              <th class="px-3 py-2">Date</th>
-              <th class="px-3 py-2">Harvested Breakdown</th>
-              <th class="px-3 py-2">Harvest Net Flowers</th>
-              <th class="px-2 py-2 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="snapshot-history-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
-            <tr>
-              <td colspan="4" class="px-4 py-6 text-center text-sfl-woodLight italic">
-                No harvest sessions logged yet!
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
     </div>
 
   </div>
 
-  <!-- Modular JavaScript Files -->
+  <!-- Modular Scripts -->
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="calculator.js"></script>
   <script src="tracker.js"></script>
+  <script src="wishlist.js"></script>
 
 </body>
 </html>
