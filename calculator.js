@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadPrices();
   initTrackingModal();
+  initActionButtons();
 });
 
 document.getElementById('tax-select')?.addEventListener('change', (e) => {
@@ -448,6 +449,31 @@ function updateBasketTable() {
 function removeItem(index) {
   basket.splice(index, 1);
   updateBasketTable();
+}
+
+// --- ACTION BUTTONS INITIALIZATION ---
+function initActionButtons() {
+  const calcYieldBtn = document.getElementById('calc-live-yield-btn');
+  const viewHistoryBtn = document.getElementById('view-harvest-history-btn');
+
+  // 1. Calculate Live Yield Progress
+  calcYieldBtn?.addEventListener('click', () => {
+    // Triggers the existing tracker.js harvest yield log logic
+    const logYieldBtn = document.getElementById('log-yield-btn');
+    if (logYieldBtn) {
+      logYieldBtn.click();
+    } else {
+      alert("⚠️ Sync your farm quantities or add items to your basket to calculate live yield.");
+    }
+  });
+
+  // 2. View Daily Harvests History (Scrolls down to history table)
+  viewHistoryBtn?.addEventListener('click', () => {
+    const historyTable = document.getElementById('snapshot-history-body');
+    if (historyTable) {
+      historyTable.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
 }
 
 // --- PERSISTENT TRACKING TARGETS MODAL LOGIC ---
