@@ -20,7 +20,8 @@ const supabaseAdmin = (supabaseUrl && supabaseServiceKey)
 const EXCLUDED_KEYWORDS = [
   'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
   'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 
-  'bait', 'potion', 'feed', 'box', 'chest'
+  'bait', 'potion', 'feed', 'box', 'chest',
+  'updated', 'created', 'id'
 ];
 
 function isExcludedItem(itemName) {
@@ -69,12 +70,16 @@ app.get('/api/get-farm', async (req, res) => {
 
     const response = await axios.get(`https://api.sunflower-land.com/community/farms/${farmId}`, {
       headers,
-      timeout: 8000
+      timeout: 15000 // Increased timeout to 15s
     });
 
     return res.json(response.data);
   } catch (err) {
     console.error(`[SFL API ERROR] Farm #${farmId}:`, err.response?.status, err.message);
+
+    if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
+      return res.status(504).json({ error: '⌛ Request timed out while connecting to Sunflower Land API. Please try again.' });
+    }
 
     if (err.response?.status === 429) {
       return res.status(429).json({ 
@@ -116,7 +121,7 @@ app.get('/api/get-data', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/prices', {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Accept': 'application/json' },
-      timeout: 8000
+      timeout: 12000
     });
 
     let livePrices = response.data || {};
@@ -147,13 +152,12 @@ app.get('/api/nfts', async (req, res) => {
         'Accept': 'application/json, text/plain, */*',
         'Referer': 'https://sfl.world/'
       },
-      timeout: 12000
+      timeout: 15000
     });
 
     const rawData = response.data;
     let itemsList = [];
 
-    // Safely parse deeply nested object nodes without infinite recursion
     function extractItems(node, depth = 0) {
       if (!node || depth > 8) return;
       if (Array.isArray(node)) {
@@ -177,7 +181,6 @@ app.get('/api/nfts', async (req, res) => {
 
     extractItems(rawData);
 
-    // Deduplicate by item name
     const uniqueMap = new Map();
     itemsList.forEach(item => {
       if (!uniqueMap.has(item.name.toLowerCase())) {
@@ -192,7 +195,7 @@ app.get('/api/nfts', async (req, res) => {
   }
 });
 
-// CRON ENDPOINT: Daily Snapshot Trigger (Protected with key check)
+// CRON ENDPOINT: Dual Snapshot Trigger (Supports type=baseline [00:00 UTC] or type=yield [22:00 UTC])
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && req.query.key !== cronSecret) {
@@ -203,10 +206,12 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
     return res.status(500).json({ error: 'Supabase admin client not initialized on server.' });
   }
 
+  const snapshotType = req.query.type || 'baseline'; // 'baseline' (00:00 UTC) or 'yield' (22:00 UTC)
+
   try {
     const { data: profiles, error: profileErr } = await supabaseAdmin
       .from('profiles')
-      .select('id, farm_id')
+      .select('id, farm_id, tracked_items')
       .not('farm_id', 'is', null);
 
     if (profileErr) throw profileErr;
@@ -219,20 +224,39 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
     let errors = [];
 
     for (const profile of profiles) {
-      try {
-        if (!profile.farm_id) continue;
+      if (!profile.farm_id) continue;
 
-        const headers = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' };
-        if (process.env.SFL_API_KEY) {
-          headers['x-api-key'] = process.env.SFL_API_KEY;
-          headers['Authorization'] = `Bearer ${process.env.SFL_API_KEY}`;
+      let response = null;
+      let attempts = 0;
+      const headers = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' };
+      if (process.env.SFL_API_KEY) {
+        headers['x-api-key'] = process.env.SFL_API_KEY;
+        headers['Authorization'] = `Bearer ${process.env.SFL_API_KEY}`;
+      }
+
+      // Retry mechanism for 429 rate limits & network timeouts
+      while (attempts < 2) {
+        try {
+          response = await axios.get(`https://api.sunflower-land.com/community/farms/${profile.farm_id}`, {
+            headers,
+            timeout: 15000
+          });
+          break;
+        } catch (fetchErr) {
+          attempts++;
+          const isTimeout = fetchErr.code === 'ECONNABORTED' || fetchErr.message.includes('timeout');
+          const isRateLimited = fetchErr.response?.status === 429;
+
+          if ((isRateLimited || isTimeout) && attempts < 2) {
+            console.warn(`[CRON RETRY] Farm #${profile.farm_id} encountered ${isTimeout ? 'Timeout' : '429 Rate Limit'}. Retrying in 6s...`);
+            await sleep(6000);
+          } else {
+            throw fetchErr;
+          }
         }
+      }
 
-        const response = await axios.get(`https://api.sunflower-land.com/community/farms/${profile.farm_id}`, {
-          headers,
-          timeout: 8000
-        });
-
+      try {
         const data = response.data;
         const rawInventory = 
           data?.inventory || 
@@ -241,40 +265,90 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
           data?.data?.inventory || 
           {};
 
-        let cleanBaseline = {};
+        let currentInventory = {};
         for (let key in rawInventory) {
           if (!isExcludedItem(key)) {
             let itemVal = rawInventory[key];
             let val = typeof itemVal === 'number' ? itemVal : parseFloat(itemVal?.amount || itemVal || 0);
-            
             if (val > 0) {
               const cleanKey = normalizeKey(key);
-              cleanBaseline[cleanKey] = Math.ceil(val * 10) / 10;
+              currentInventory[cleanKey] = Math.ceil(val * 10) / 10;
             }
           }
         }
 
-        const { error: insertErr } = await supabaseAdmin
-          .from('preharvest_baselines')
-          .upsert({
-            user_id: profile.id,
-            farm_id: profile.farm_id,
-            snapshot_date: todayDate,
-            stock: cleanBaseline
-          }, { onConflict: 'user_id,snapshot_date' });
+        if (snapshotType === 'yield') {
+          // --- 22:00 UTC AUTOMATED YIELD CALCULATION ---
+          const { data: baselineRow } = await supabaseAdmin
+            .from('preharvest_baselines')
+            .select('stock')
+            .eq('user_id', profile.id)
+            .eq('snapshot_date', todayDate)
+            .maybeSingle();
 
-        if (insertErr) throw insertErr;
+          const baselineStock = baselineRow?.stock || {};
+          const trackedItems = Array.isArray(profile.tracked_items) ? profile.tracked_items.map(t => normalizeKey(t)) : null;
+
+          let yieldsArray = [];
+          let grandCount = 0;
+
+          // Iterate over current inventory or tracked items
+          const keysToProcess = trackedItems && trackedItems.length > 0 
+            ? trackedItems 
+            : Object.keys(currentInventory);
+
+          for (const key of keysToProcess) {
+            const startVal = parseFloat(baselineStock[key]) || 0;
+            const endVal = parseFloat(currentInventory[key]) || 0;
+            const diff = Math.ceil((endVal - startVal) * 10) / 10;
+
+            if (diff > 0) {
+              const formattedName = key.charAt(0).toUpperCase() + key.slice(1);
+              yieldsArray.push({ name: formattedName, qty: diff, flowers: 0 });
+              grandCount += diff;
+            }
+          }
+
+          if (yieldsArray.length > 0) {
+            const { error: yieldErr } = await supabaseAdmin
+              .from('daily_yields')
+              .upsert({
+                user_id: profile.id,
+                yield_date: todayDate,
+                total_count: grandCount,
+                net_flowers: 0,
+                crops: yieldsArray
+              }, { onConflict: 'user_id,yield_date' });
+
+            if (yieldErr) throw yieldErr;
+          }
+
+        } else {
+          // --- 00:00 UTC MASTER BASELINE SNAPSHOT ---
+          const { error: insertErr } = await supabaseAdmin
+            .from('preharvest_baselines')
+            .upsert({
+              user_id: profile.id,
+              farm_id: profile.farm_id,
+              snapshot_date: todayDate,
+              stock: currentInventory
+            }, { onConflict: 'user_id,snapshot_date' });
+
+          if (insertErr) throw insertErr;
+        }
+
         successCount++;
       } catch (err) {
-        console.error(`Baseline snapshot failed for Farm #${profile.farm_id}:`, err.message);
+        console.error(`Snapshot failed for Farm #${profile.farm_id}:`, err.message);
         errors.push({ farm_id: profile.farm_id, error: err.message });
       }
 
-      await sleep(1200);
+      // Stagger requests by 4.5 seconds to respect Sunflower Land API limits
+      await sleep(4500);
     }
 
     return res.json({
-      message: `00:00 UTC Snapshot Complete! Saved ${successCount}/${profiles.length} baselines.`,
+      message: `${snapshotType === 'yield' ? '22:00' : '00:00'} UTC Snapshot Complete! Processed ${successCount}/${profiles.length} profiles.`,
       errors
     });
   } catch (err) {
