@@ -85,6 +85,7 @@ function loadPrices() {
         delete rawData.updatedText;
         delete rawData.updated_at;
         delete rawData.updatedAt;
+        delete rawData.updatedat;
       }
       allPrices = extractPrices(rawData);
     })
@@ -102,8 +103,7 @@ function extractPrices(data) {
       if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
       
       let lowerKey = key.toLowerCase().trim();
-      if (GLOBAL_EXCLUDES.includes(lowerKey)) continue;
-      if (lowerKey.includes('updated')) continue;
+      if (lowerKey.includes('updated') || lowerKey.includes('created') || lowerKey === 'id') continue;
       if (typeof isExcludedItem === 'function' && isExcludedItem(key)) continue;
 
       let val = obj[key];
@@ -218,10 +218,14 @@ if (input && menu) {
     const matches = Object.keys(allPrices)
       .filter(key => {
         let lowerKey = key.toLowerCase().trim();
-        if (SEARCH_EXCLUDED_KEYS.includes(lowerKey) || lowerKey.includes('updated')) return false;
+        let displayName = key.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
+        
+        // Strict blocking for any metadata fields containing 'updated' or 'created'
+        if (lowerKey.includes('updated') || displayName.includes('updated')) return false;
+        if (lowerKey.includes('created') || displayName.includes('created')) return false;
         if (typeof isExcludedItem === 'function' && isExcludedItem(key)) return false;
-        let cleanKey = key.replace(/^\[.*?\]\s*/, '');
-        return cleanKey.toLowerCase().includes(query) || lowerKey.includes(query);
+
+        return displayName.includes(query) || lowerKey.includes(query);
       })
       .sort((a, b) => a.replace(/^\[.*?\]\s*/, '').localeCompare(b.replace(/^\[.*?\]\s*/, '')));
 

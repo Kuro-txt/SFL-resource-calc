@@ -70,7 +70,7 @@ app.get('/api/get-farm', async (req, res) => {
 
     const response = await axios.get(`https://api.sunflower-land.com/community/farms/${farmId}`, {
       headers,
-      timeout: 15000 // Increased timeout to 15s
+      timeout: 15000 // ⏱️ Increased timeout to 15s
     });
 
     return res.json(response.data);
@@ -78,7 +78,7 @@ app.get('/api/get-farm', async (req, res) => {
     console.error(`[SFL API ERROR] Farm #${farmId}:`, err.response?.status, err.message);
 
     if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
-      return res.status(504).json({ error: '⌛ Request timed out while connecting to Sunflower Land API. Please try again.' });
+      return res.status(504).json({ error: '⏳ Request timed out while connecting to Sunflower Land API. Please try again.' });
     }
 
     if (err.response?.status === 429) {
@@ -229,19 +229,20 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
       let response = null;
       let attempts = 0;
       const headers = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' };
+      
       if (process.env.SFL_API_KEY) {
         headers['x-api-key'] = process.env.SFL_API_KEY;
         headers['Authorization'] = `Bearer ${process.env.SFL_API_KEY}`;
       }
 
-      // Retry mechanism for 429 rate limits & network timeouts
+      // Retry mechanism for rate limits (429) & network timeouts
       while (attempts < 2) {
         try {
           response = await axios.get(`https://api.sunflower-land.com/community/farms/${profile.farm_id}`, {
             headers,
-            timeout: 15000
+            timeout: 15000 // ⏱️ 15-second timeout for SFL API
           });
-          break;
+          break; // Success! Exit retry loop
         } catch (fetchErr) {
           attempts++;
           const isTimeout = fetchErr.code === 'ECONNABORTED' || fetchErr.message.includes('timeout');
@@ -249,7 +250,7 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
 
           if ((isRateLimited || isTimeout) && attempts < 2) {
             console.warn(`[CRON RETRY] Farm #${profile.farm_id} encountered ${isTimeout ? 'Timeout' : '429 Rate Limit'}. Retrying in 6s...`);
-            await sleep(6000);
+            await sleep(6000); // Wait 6 seconds before trying again
           } else {
             throw fetchErr;
           }
@@ -343,8 +344,8 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
         errors.push({ farm_id: profile.farm_id, error: err.message });
       }
 
-      // Stagger requests by 4.5 seconds to respect Sunflower Land API limits
-      await sleep(4500);
+      // Stagger requests by 4 seconds to prevent rate limits
+      await sleep(4000);
     }
 
     return res.json({
