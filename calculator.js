@@ -452,21 +452,13 @@ function removeItem(index) {
 
 // --- ACTION BUTTONS INITIALIZATION ---
 function initActionButtons() {
-  console.log("⚙️ Initializing Action Buttons...");
-
-  const calcYieldBtn = document.getElementById('calc-live-yield-btn');
-  const viewHistoryBtn = document.getElementById('view-harvest-history-btn');
-
-  // 1. Calculate Live Yield Progress
-  calcYieldBtn?.addEventListener('click', () => {
-    console.log("📈 Calculate Live Yield Clicked");
-    const logYieldBtn = document.getElementById('log-yield-btn');
-    if (logYieldBtn) {
-      logYieldBtn.click();
-    } else {
-      alert("⚠️ Sync your farm quantities or add items to your basket to calculate live yield.");
+  const openBtn = document.getElementById('open-tracking-modal-btn');
+  openBtn?.addEventListener('click', () => {
+    if (typeof openTrackingModal === 'function') {
+      openTrackingModal();
     }
   });
+}
 
   // 2. View Daily Harvests History
   viewHistoryBtn?.addEventListener('click', () => {
