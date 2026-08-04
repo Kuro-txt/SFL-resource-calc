@@ -41,6 +41,8 @@ function getBettyUnitPrice(cleanName) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  console.log("🚀 Calculator JS Loaded!");
+
   const savedTaxRate = localStorage.getItem('sfl_tax_rate');
   const savedCoinRatio = localStorage.getItem('sfl_coin_ratio');
 
@@ -81,7 +83,6 @@ function loadPrices() {
   fetch(`${backend}/api/get-data`)
     .then(res => res.json())
     .then(rawData => {
-      // Hard delete any accidental metadata fields if they exist at the root
       if (rawData && typeof rawData === 'object') {
         delete rawData.updated_text;
         delete rawData.updatedText;
@@ -105,7 +106,7 @@ function extractPrices(data) {
       
       let lowerKey = key.toLowerCase().trim();
       if (GLOBAL_EXCLUDES.includes(lowerKey)) continue;
-      if (lowerKey.includes('updated')) continue; // Blocks any key containing 'updated'
+      if (lowerKey.includes('updated')) continue;
       if (typeof isExcludedItem === 'function' && isExcludedItem(key)) continue;
 
       let val = obj[key];
@@ -299,7 +300,7 @@ function selectItem(itemKey, displayName) {
   }
 }
 
-// ADD TO BASKET (Merges quantities if item already in basket)
+// ADD TO BASKET
 document.getElementById('add-btn')?.addEventListener('click', () => {
   const rawQty = parseFloat(document.getElementById('quantity')?.value) || 0;
   const qty = roundUpToOneDecimal(rawQty);
@@ -307,8 +308,6 @@ document.getElementById('add-btn')?.addEventListener('click', () => {
   if (!selectedItemKey || qty <= 0) return;
 
   const unitPrice = allPrices[selectedItemKey] || 0;
-
-  // Check if item is already in basket
   const existingIdx = basket.findIndex(entry => entry.item === selectedItemKey);
 
   if (existingIdx > -1) {
@@ -453,12 +452,14 @@ function removeItem(index) {
 
 // --- ACTION BUTTONS INITIALIZATION ---
 function initActionButtons() {
+  console.log("⚙️ Initializing Action Buttons...");
+
   const calcYieldBtn = document.getElementById('calc-live-yield-btn');
   const viewHistoryBtn = document.getElementById('view-harvest-history-btn');
 
   // 1. Calculate Live Yield Progress
   calcYieldBtn?.addEventListener('click', () => {
-    // Triggers the existing tracker.js harvest yield log logic
+    console.log("📈 Calculate Live Yield Clicked");
     const logYieldBtn = document.getElementById('log-yield-btn');
     if (logYieldBtn) {
       logYieldBtn.click();
@@ -467,8 +468,9 @@ function initActionButtons() {
     }
   });
 
-  // 2. View Daily Harvests History (Scrolls down to history table)
+  // 2. View Daily Harvests History
   viewHistoryBtn?.addEventListener('click', () => {
+    console.log("📜 View History Clicked");
     const historyTable = document.getElementById('snapshot-history-body');
     if (historyTable) {
       historyTable.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -478,6 +480,8 @@ function initActionButtons() {
 
 // --- PERSISTENT TRACKING TARGETS MODAL LOGIC ---
 function initTrackingModal() {
+  console.log("⚙️ Initializing Tracking Modal...");
+
   const openBtn = document.getElementById('open-tracking-modal-btn');
   const closeBtn = document.getElementById('close-tracking-modal-btn');
   const cancelBtn = document.getElementById('cancel-tracking-btn');
@@ -487,24 +491,34 @@ function initTrackingModal() {
   const targetInput = document.getElementById('target-search-input');
   const targetMenu = document.getElementById('target-search-menu');
 
-  if (!modal) return;
+  if (!modal) {
+    console.error("❌ Error: #tracking-modal element missing in HTML!");
+    return;
+  }
 
   const showModal = () => {
+    console.log("Opening Modal");
     renderTrackedBadges();
     modal.classList.remove('hidden');
   };
 
   const hideModal = () => {
+    console.log("Closing Modal");
     modal.classList.add('hidden');
     if (targetMenu) targetMenu.classList.add('hidden');
     if (targetInput) targetInput.value = '';
   };
 
-  openBtn?.addEventListener('click', showModal);
+  if (openBtn) {
+    openBtn.addEventListener('click', showModal);
+  } else {
+    console.error("❌ Error: #open-tracking-modal-btn button missing in HTML!");
+  }
+
   closeBtn?.addEventListener('click', hideModal);
   cancelBtn?.addEventListener('click', hideModal);
 
-  // Target Item Combobox Search
+  // Target Item Search Input
   if (targetInput && targetMenu) {
     targetInput.addEventListener('input', () => {
       const query = targetInput.value.toLowerCase().trim();
@@ -532,7 +546,6 @@ function initTrackingModal() {
           let displayName = itemKey.replace(/^\[.*?\]\s*/, '');
           let cleanName = displayName.toLowerCase().trim();
 
-          // Skip if already in tracked targets
           if (window.trackedTargets.includes(cleanName)) return;
 
           const li = document.createElement('li');
@@ -561,11 +574,10 @@ function initTrackingModal() {
     });
   }
 
-  // Save targets button action
+  // Save Targets Button
   saveBtn?.addEventListener('click', async () => {
     localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
 
-    // Save to Supabase profile if signed in
     if (typeof supabaseClient !== 'undefined' && supabaseClient && window.currentUser) {
       try {
         const { error } = await supabaseClient
@@ -615,6 +627,15 @@ function removeTrackedTarget(index) {
   }
 }
 
+// Global fallback helper if modal button is clicked directly
+window.openTrackingModal = function() {
+  const modal = document.getElementById('tracking-modal');
+  if (modal) {
+    renderTrackedBadges();
+    modal.classList.remove('hidden');
+  }
+};
+
 // --- CRYPTO DONATION CLIPBOARD COPY ---
 document.getElementById('donate-btn')?.addEventListener('click', async () => {
   const donationAddress = "0xE32d234D63998F5078de9A7E2303233699276642";
@@ -623,7 +644,6 @@ document.getElementById('donate-btn')?.addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(donationAddress);
     
-    // Visual text feedback
     const originalText = donateBtn.textContent;
     donateBtn.textContent = "Copied!";
     donateBtn.classList.add('text-green-400');
