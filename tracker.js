@@ -148,7 +148,7 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (CALCULATES NET FLOWERS ACCURATELY)
+// 2. CALCULATE HARVEST YIELD
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
@@ -211,14 +211,16 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   }
 
   let newYieldsMap = {};
-  let activeTargets = (window.trackedTargets && window.trackedTargets.length > 0)
+  
+  // Only filter if trackedTargets is explicitly set and has items
+  let activeTargets = (window.trackedTargets && Array.isArray(window.trackedTargets) && window.trackedTargets.length > 0)
     ? window.trackedTargets.map(t => normalizeItemKey(t))
     : null;
 
   Object.keys(basketStock).forEach(itemName => {
     let cleanItemKey = normalizeItemKey(itemName);
 
-    // Filter by tracked targets if configured
+    // If persistent tracked targets are configured, ignore items not in that list
     if (activeTargets && !activeTargets.includes(cleanItemKey)) {
       return;
     }
@@ -238,7 +240,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No positive difference found for your tracked items (Post-harvest amounts must be greater than saved baseline amounts).");
+    alert("⚠️ No positive difference found (Post-harvest amounts must be greater than saved baseline amounts).");
     return;
   }
 
@@ -276,7 +278,6 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     let qty = cropsMap[itemName].qty;
     let flowers = cropsMap[itemName].flowers;
 
-    // Recalculate flower price if zero or missing
     if (flowers <= 0) {
       let unitPrice = getItemUnitPrice(cleanK);
       flowers = roundUpToThreeDecimals((unitPrice * qty) * (1 - taxRate));
@@ -482,7 +483,6 @@ function renderSnapshotHistory() {
         const cropName = crop.name || crop.item || 'Item';
         const cleanK = normalizeItemKey(cropName);
 
-        // Recalculate item flowers live if missing or zero
         if (cropFlowers <= 0 && cropQty > 0) {
           let unitPrice = getItemUnitPrice(cleanK);
           cropFlowers = roundUpToThreeDecimals((unitPrice * cropQty) * (1 - taxRate));
