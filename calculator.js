@@ -8,6 +8,9 @@ window.selectedItemKey = window.selectedItemKey || null;
 window.syncCount = window.syncCount || 0;
 window.syncCooldownTimer = window.syncCooldownTimer || null;
 
+// Persistent Tracking Targets State
+window.trackedTargets = window.trackedTargets || [];
+
 // Rounding & Formatting Helper Functions
 function roundUpToOneDecimal(val) {
   return Math.ceil((parseFloat(val) || 0) * 10) / 10;
@@ -47,7 +50,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (savedTaxRate !== null && taxEl) taxEl.value = savedTaxRate;
   if (savedCoinRatio !== null && coinEl) coinEl.value = savedCoinRatio;
 
+  // Load saved tracking targets fallback from localStorage
+  const localSavedTargets = localStorage.getItem('sfl_tracked_targets');
+  if (localSavedTargets) {
+    try {
+      window.trackedTargets = JSON.parse(localSavedTargets) || [];
+    } catch (e) {
+      window.trackedTargets = [];
+    }
+  }
+
   loadPrices();
+  initTrackingModal();
 });
 
 document.getElementById('tax-select')?.addEventListener('change', (e) => {
@@ -434,6 +448,145 @@ function updateBasketTable() {
 function removeItem(index) {
   basket.splice(index, 1);
   updateBasketTable();
+}
+
+// --- PERSISTENT TRACKING TARGETS MODAL LOGIC ---
+function initTrackingModal() {
+  const openBtn = document.getElementById('open-tracking-modal-btn');
+  const closeBtn = document.getElementById('close-tracking-modal-btn');
+  const cancelBtn = document.getElementById('cancel-tracking-btn');
+  const saveBtn = document.getElementById('save-tracking-targets-btn');
+  const modal = document.getElementById('tracking-modal');
+
+  const targetInput = document.getElementById('target-search-input');
+  const targetMenu = document.getElementById('target-search-menu');
+
+  if (!modal) return;
+
+  const showModal = () => {
+    renderTrackedBadges();
+    modal.classList.remove('hidden');
+  };
+
+  const hideModal = () => {
+    modal.classList.add('hidden');
+    if (targetMenu) targetMenu.classList.add('hidden');
+    if (targetInput) targetInput.value = '';
+  };
+
+  openBtn?.addEventListener('click', showModal);
+  closeBtn?.addEventListener('click', hideModal);
+  cancelBtn?.addEventListener('click', hideModal);
+
+  // Target Item Combobox Search
+  if (targetInput && targetMenu) {
+    targetInput.addEventListener('input', () => {
+      const query = targetInput.value.toLowerCase().trim();
+      targetMenu.innerHTML = '';
+
+      if (!query) {
+        targetMenu.classList.add('hidden');
+        return;
+      }
+
+      const matches = Object.keys(allPrices)
+        .filter(key => {
+          let lowerKey = key.toLowerCase().trim();
+          if (SEARCH_EXCLUDED_KEYS.includes(lowerKey) || lowerKey.includes('updated')) return false;
+          if (typeof isExcludedItem === 'function' && isExcludedItem(key)) return false;
+          let cleanKey = key.replace(/^\[.*?\]\s*/, '');
+          return cleanKey.toLowerCase().includes(query) || lowerKey.includes(query);
+        })
+        .sort((a, b) => a.replace(/^\[.*?\]\s*/, '').localeCompare(b.replace(/^\[.*?\]\s*/, '')));
+
+      if (matches.length === 0) {
+        targetMenu.innerHTML = '<li class="p-2 text-sfl-woodLight italic">No matching items found</li>';
+      } else {
+        matches.forEach(itemKey => {
+          let displayName = itemKey.replace(/^\[.*?\]\s*/, '');
+          let cleanName = displayName.toLowerCase().trim();
+
+          // Skip if already in tracked targets
+          if (window.trackedTargets.includes(cleanName)) return;
+
+          const li = document.createElement('li');
+          li.className = 'p-2.5 hover:bg-amber-100 cursor-pointer transition flex justify-between items-center';
+          li.innerHTML = `<span class="font-bold text-sfl-dirt">${displayName}</span>`;
+          
+          li.addEventListener('click', () => {
+            if (!window.trackedTargets.includes(cleanName)) {
+              window.trackedTargets.push(cleanName);
+              renderTrackedBadges();
+            }
+            targetInput.value = '';
+            targetMenu.classList.add('hidden');
+          });
+          targetMenu.appendChild(li);
+        });
+      }
+
+      targetMenu.classList.remove('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!targetInput.contains(e.target) && !targetMenu.contains(e.target)) {
+        targetMenu.classList.add('hidden');
+      }
+    });
+  }
+
+  // Save targets button action
+  saveBtn?.addEventListener('click', async () => {
+    localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
+
+    // Save to Supabase profile if signed in
+    if (typeof supabaseClient !== 'undefined' && supabaseClient && window.currentUser) {
+      try {
+        const { error } = await supabaseClient
+          .from('profiles')
+          .update({ tracked_items: window.trackedTargets })
+          .eq('id', window.currentUser.id);
+
+        if (error) throw error;
+      } catch (err) {
+        console.error("Failed to save tracked targets to Supabase:", err.message);
+      }
+    }
+
+    alert('✅ Persistent tracking targets saved successfully!');
+    hideModal();
+  });
+}
+
+function renderTrackedBadges() {
+  const container = document.getElementById('tracked-targets-container');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (!window.trackedTargets || window.trackedTargets.length === 0) {
+    container.innerHTML = '<span class="text-xs text-sfl-woodLight italic">No items added to persistent tracking list yet.</span>';
+    return;
+  }
+
+  window.trackedTargets.forEach((itemName, index) => {
+    let displayName = itemName.charAt(0).toUpperCase() + itemName.slice(1);
+    
+    const badge = document.createElement('span');
+    badge.className = 'inline-flex items-center gap-1.5 bg-sfl-gold/20 border border-sfl-gold text-sfl-dirt px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm';
+    badge.innerHTML = `
+      <span>${displayName}</span>
+      <button type="button" class="text-sfl-accent hover:text-red-700 font-extrabold cursor-pointer ml-1" onclick="removeTrackedTarget(${index})">✕</button>
+    `;
+    container.appendChild(badge);
+  });
+}
+
+function removeTrackedTarget(index) {
+  if (window.trackedTargets && window.trackedTargets[index] !== undefined) {
+    window.trackedTargets.splice(index, 1);
+    renderTrackedBadges();
+  }
 }
 
 // --- CRYPTO DONATION CLIPBOARD COPY ---
