@@ -148,7 +148,7 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD
+// 2. CALCULATE HARVEST YIELD (INCLUDES ITEMS IN BASELINE OR TRACKED TARGETS)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
@@ -212,15 +212,19 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
   let newYieldsMap = {};
   
-  // Only filter if trackedTargets is explicitly set and has items
-  let activeTargets = (window.trackedTargets && Array.isArray(window.trackedTargets) && window.trackedTargets.length > 0)
-    ? window.trackedTargets.map(t => normalizeItemKey(t))
-    : null;
+  // Build a set of allowed items: combines explicit trackedTargets + any item saved in the baseline snapshot
+  let activeTargets = null;
+  if (window.trackedTargets && Array.isArray(window.trackedTargets) && window.trackedTargets.length > 0) {
+    let targetSet = new Set(window.trackedTargets.map(t => normalizeItemKey(t)));
+    // Add baseline items so baseline items are never filtered out
+    Object.keys(preHarvestData).forEach(k => targetSet.add(normalizeItemKey(k)));
+    activeTargets = Array.from(targetSet);
+  }
 
   Object.keys(basketStock).forEach(itemName => {
     let cleanItemKey = normalizeItemKey(itemName);
 
-    // If persistent tracked targets are configured, ignore items not in that list
+    // Filter out item only if automated targets exist AND it's neither in targets nor in baseline
     if (activeTargets && !activeTargets.includes(cleanItemKey)) {
       return;
     }
