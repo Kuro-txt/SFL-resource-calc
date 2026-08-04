@@ -41,8 +41,6 @@ function getBettyUnitPrice(cleanName) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log("🚀 Calculator JS Loaded!");
-
   const savedTaxRate = localStorage.getItem('sfl_tax_rate');
   const savedCoinRatio = localStorage.getItem('sfl_coin_ratio');
 
@@ -64,7 +62,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   loadPrices();
   initTrackingModal();
-  initActionButtons();
 });
 
 document.getElementById('tax-select')?.addEventListener('change', (e) => {
@@ -450,30 +447,8 @@ function removeItem(index) {
   updateBasketTable();
 }
 
-// --- ACTION BUTTONS INITIALIZATION ---
-function initActionButtons() {
-  const openBtn = document.getElementById('open-tracking-modal-btn');
-  openBtn?.addEventListener('click', () => {
-    if (typeof openTrackingModal === 'function') {
-      openTrackingModal();
-    }
-  });
-}
-
-  // 2. View Daily Harvests History
-  viewHistoryBtn?.addEventListener('click', () => {
-    console.log("📜 View History Clicked");
-    const historyTable = document.getElementById('snapshot-history-body');
-    if (historyTable) {
-      historyTable.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  });
-}
-
 // --- PERSISTENT TRACKING TARGETS MODAL LOGIC ---
 function initTrackingModal() {
-  console.log("⚙️ Initializing Tracking Modal...");
-
   const openBtn = document.getElementById('open-tracking-modal-btn');
   const closeBtn = document.getElementById('close-tracking-modal-btn');
   const cancelBtn = document.getElementById('cancel-tracking-btn');
@@ -483,34 +458,24 @@ function initTrackingModal() {
   const targetInput = document.getElementById('target-search-input');
   const targetMenu = document.getElementById('target-search-menu');
 
-  if (!modal) {
-    console.error("❌ Error: #tracking-modal element missing in HTML!");
-    return;
-  }
+  if (!modal) return;
 
   const showModal = () => {
-    console.log("Opening Modal");
     renderTrackedBadges();
     modal.classList.remove('hidden');
   };
 
   const hideModal = () => {
-    console.log("Closing Modal");
     modal.classList.add('hidden');
     if (targetMenu) targetMenu.classList.add('hidden');
     if (targetInput) targetInput.value = '';
   };
 
-  if (openBtn) {
-    openBtn.addEventListener('click', showModal);
-  } else {
-    console.error("❌ Error: #open-tracking-modal-btn button missing in HTML!");
-  }
-
+  openBtn?.addEventListener('click', showModal);
   closeBtn?.addEventListener('click', hideModal);
   cancelBtn?.addEventListener('click', hideModal);
 
-  // Target Item Search Input
+  // Target Item Combobox Search
   if (targetInput && targetMenu) {
     targetInput.addEventListener('input', () => {
       const query = targetInput.value.toLowerCase().trim();
@@ -566,7 +531,6 @@ function initTrackingModal() {
     });
   }
 
-  // Save Targets Button
   saveBtn?.addEventListener('click', async () => {
     localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
 
@@ -619,7 +583,6 @@ function removeTrackedTarget(index) {
   }
 }
 
-// Global fallback helper if modal button is clicked directly
 window.openTrackingModal = function() {
   const modal = document.getElementById('tracking-modal');
   if (modal) {
