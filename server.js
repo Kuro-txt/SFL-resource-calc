@@ -195,7 +195,7 @@ app.get('/api/nfts', async (req, res) => {
   }
 });
 
-// CRON ENDPOINT: Daily Snapshot Trigger (Protected with key check)
+// CRON ENDPOINT: Dual Snapshot Trigger (Supports type=baseline [00:00 UTC] or type=yield [22:00 UTC])
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && req.query.key !== cronSecret) {
@@ -206,10 +206,12 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
     return res.status(500).json({ error: 'Supabase admin client not initialized on server.' });
   }
 
+  const snapshotType = req.query.type || 'baseline'; // 'baseline' (00:00 UTC) or 'yield' (22:00 UTC)
+
   try {
     const { data: profiles, error: profileErr } = await supabaseAdmin
       .from('profiles')
-      .select('id, farm_id')
+      .select('id, farm_id, tracked_items')
       .not('farm_id', 'is', null);
 
     if (profileErr) throw profileErr;
@@ -264,32 +266,81 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
           data?.data?.inventory || 
           {};
 
-        let cleanBaseline = {};
+        let currentInventory = {};
         for (let key in rawInventory) {
           if (!isExcludedItem(key)) {
             let itemVal = rawInventory[key];
             let val = typeof itemVal === 'number' ? itemVal : parseFloat(itemVal?.amount || itemVal || 0);
-            
             if (val > 0) {
               const cleanKey = normalizeKey(key);
-              cleanBaseline[cleanKey] = Math.ceil(val * 10) / 10;
+              currentInventory[cleanKey] = Math.ceil(val * 10) / 10;
             }
           }
         }
 
-        const { error: insertErr } = await supabaseAdmin
-          .from('preharvest_baselines')
-          .upsert({
-            user_id: profile.id,
-            farm_id: profile.farm_id,
-            snapshot_date: todayDate,
-            stock: cleanBaseline
-          }, { onConflict: 'user_id,snapshot_date' });
+        if (snapshotType === 'yield') {
+          // --- 22:00 UTC AUTOMATED YIELD CALCULATION ---
+          const { data: baselineRow } = await supabaseAdmin
+            .from('preharvest_baselines')
+            .select('stock')
+            .eq('user_id', profile.id)
+            .eq('snapshot_date', todayDate)
+            .maybeSingle();
 
-        if (insertErr) throw insertErr;
+          const baselineStock = baselineRow?.stock || {};
+          const trackedItems = Array.isArray(profile.tracked_items) ? profile.tracked_items.map(t => normalizeKey(t)) : null;
+
+          let yieldsArray = [];
+          let grandCount = 0;
+
+          // Iterate over current inventory or tracked items
+          const keysToProcess = trackedItems && trackedItems.length > 0 
+            ? trackedItems 
+            : Object.keys(currentInventory);
+
+          for (const key of keysToProcess) {
+            const startVal = parseFloat(baselineStock[key]) || 0;
+            const endVal = parseFloat(currentInventory[key]) || 0;
+            const diff = Math.ceil((endVal - startVal) * 10) / 10;
+
+            if (diff > 0) {
+              const formattedName = key.charAt(0).toUpperCase() + key.slice(1);
+              yieldsArray.push({ name: formattedName, qty: diff, flowers: 0 });
+              grandCount += diff;
+            }
+          }
+
+          if (yieldsArray.length > 0) {
+            const { error: yieldErr } = await supabaseAdmin
+              .from('daily_yields')
+              .upsert({
+                user_id: profile.id,
+                yield_date: todayDate,
+                total_count: grandCount,
+                net_flowers: 0,
+                crops: yieldsArray
+              }, { onConflict: 'user_id,yield_date' });
+
+            if (yieldErr) throw yieldErr;
+          }
+
+        } else {
+          // --- 00:00 UTC MASTER BASELINE SNAPSHOT ---
+          const { error: insertErr } = await supabaseAdmin
+            .from('preharvest_baselines')
+            .upsert({
+              user_id: profile.id,
+              farm_id: profile.farm_id,
+              snapshot_date: todayDate,
+              stock: currentInventory
+            }, { onConflict: 'user_id,snapshot_date' });
+
+          if (insertErr) throw insertErr;
+        }
+
         successCount++;
       } catch (err) {
-        console.error(`Baseline snapshot failed for Farm #${profile.farm_id}:`, err.message);
+        console.error(`Snapshot failed for Farm #${profile.farm_id}:`, err.message);
         errors.push({ farm_id: profile.farm_id, error: err.message });
       }
 
@@ -298,7 +349,7 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
     }
 
     return res.json({
-      message: `00:00 UTC Snapshot Complete! Saved ${successCount}/${profiles.length} baselines.`,
+      message: `${snapshotType === 'yield' ? '22:00' : '00:00'} UTC Snapshot Complete! Processed ${successCount}/${profiles.length} profiles.`,
       errors
     });
   } catch (err) {

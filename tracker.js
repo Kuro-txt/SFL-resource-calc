@@ -141,7 +141,7 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (DEDUPLICATES ITEMS IF CALCULATED MULTIPLE TIMES)
+// 2. CALCULATE HARVEST YIELD (STRICTLY FILTERS BY TRACKED TARGETS IF SET)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
@@ -204,8 +204,18 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   }
 
   let newYieldsMap = {};
-  
+  let activeTargets = (window.trackedTargets && window.trackedTargets.length > 0)
+    ? window.trackedTargets.map(t => normalizeItemKey(t))
+    : null;
+
   Object.keys(basketStock).forEach(itemName => {
+    let cleanItemKey = normalizeItemKey(itemName);
+
+    // If persistent tracked targets exist, filter out non-target items
+    if (activeTargets && !activeTargets.includes(cleanItemKey)) {
+      return;
+    }
+
     let currentQty = basketStock[itemName] || 0;
     let baselineQty = preHarvestData[itemName] || 0;
     let diff = currentQty - baselineQty;
@@ -213,7 +223,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     if (diff > 0.0001) {
       let harvestedQty = roundUpToOneDecimal(diff);
       let matchedKey = (typeof allPrices !== 'undefined' && allPrices) 
-        ? Object.keys(allPrices).find(k => normalizeItemKey(k) === itemName)
+        ? Object.keys(allPrices).find(k => normalizeItemKey(k) === cleanItemKey)
         : null;
       
       let unitPrice = matchedKey ? allPrices[matchedKey] : 0;
@@ -225,7 +235,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No positive difference found (Basket amounts must be greater than your saved baseline amounts).");
+    alert("⚠️ No positive difference found for your tracked items (Post-harvest amounts must be greater than saved baseline amounts).");
     return;
   }
 
@@ -235,10 +245,8 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   } catch(e) { history = []; }
 
   let existingDayIndex = history.findIndex(entry => entry.date === todayDate);
-
   let cropsMap = {};
 
-  // If today's entry already exists, load existing crops into map
   if (existingDayIndex >= 0 && Array.isArray(history[existingDayIndex].crops)) {
     history[existingDayIndex].crops.forEach(c => {
       let name = c.name || c.item;
@@ -249,7 +257,6 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     });
   }
 
-  // OVERWRITE/UPDATE (instead of adding duplicate instances) for items calculated again
   Object.keys(newYieldsMap).forEach(itemName => {
     cropsMap[itemName] = {
       qty: newYieldsMap[itemName].qty,
