@@ -159,7 +159,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     }
   }
 
-  // STOP EXECUTION if no items are added to the automated tracker list
+  // ABSOLUTE GUARD CLAUSE: STOP EXECUTION IMMEDIATELY IF NO TARGETS ARE CONFIGURED
   if (!targets || !Array.isArray(targets) || targets.length === 0) {
     alert("⚠️ No tracked targets selected! Please add items to '⚙️ Manage Automated Tracking Targets' first.");
     return;
