@@ -52,12 +52,15 @@ async function updatePreHarvestUI() {
   let hasCloud = false;
   let hasManual = false;
 
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  if (activeUser && client) {
     const todayDate = new Date().toISOString().split('T')[0];
-    const { data } = await supabaseClient
+    const { data } = await client
       .from('preharvest_baselines')
       .select('stock, created_at')
-      .eq('user_id', currentUser.id)
+      .eq('user_id', activeUser.id)
       .eq('snapshot_date', todayDate)
       .maybeSingle();
 
@@ -148,10 +151,11 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (STRICTLY ENFORCES TRACKED TARGETS)
+// 2. CALCULATE HARVEST YIELD (STRICTLY FILTERS BY TRACKED TARGETS ONLY)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
-  // Load tracked targets from global state or localStorage
   let targets = window.trackedTargets;
+
+  // Fallback 1: Try localStorage
   if (!targets || !Array.isArray(targets) || targets.length === 0) {
     const rawLocal = localStorage.getItem('sfl_tracked_targets');
     if (rawLocal) {
@@ -159,7 +163,25 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     }
   }
 
-  // ABSOLUTE GUARD CLAUSE: STOP EXECUTION IMMEDIATELY IF NO TARGETS ARE CONFIGURED
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  // Fallback 2: Direct query to Supabase profiles.tracked_items
+  if ((!targets || !Array.isArray(targets) || targets.length === 0) && activeUser && client) {
+    const { data } = await client
+      .from('profiles')
+      .select('tracked_items')
+      .eq('id', activeUser.id)
+      .maybeSingle();
+
+    if (data && Array.isArray(data.tracked_items)) {
+      targets = data.tracked_items;
+      window.trackedTargets = targets;
+      localStorage.setItem('sfl_tracked_targets', JSON.stringify(targets));
+    }
+  }
+
+  // HARD GUARD: IF TRACKED ITEMS ARE EMPTY, DO NOT FETCH OR PROCESS ANYTHING
   if (!targets || !Array.isArray(targets) || targets.length === 0) {
     alert("⚠️ No tracked targets selected! Please add items to '⚙️ Manage Automated Tracking Targets' first.");
     return;
@@ -181,11 +203,11 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     } catch (e) {}
   }
 
-  if (Object.keys(preHarvestData).length === 0 && typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
-    const { data, error } = await supabaseClient
+  if (Object.keys(preHarvestData).length === 0 && activeUser && client) {
+    const { data, error } = await client
       .from('preharvest_baselines')
       .select('stock')
-      .eq('user_id', currentUser.id)
+      .eq('user_id', activeUser.id)
       .eq('snapshot_date', todayDate)
       .maybeSingle();
 
@@ -232,7 +254,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   Object.keys(basketStock).forEach(itemName => {
     let cleanItemKey = normalizeItemKey(itemName);
 
-    // STRICT FILTER: Ignore any item that is NOT explicitly inside activeTargets
+    // STRICT FILTER: If the item is NOT in the target list, SKIP IT COMPLETELY
     if (!activeTargets.includes(cleanItemKey)) {
       return;
     }
@@ -317,9 +339,9 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     history.unshift(updatedDailyEntry);
   }
 
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
-    await supabaseClient.from('daily_yields').upsert({
-      user_id: currentUser.id,
+  if (activeUser && client) {
+    await client.from('daily_yields').upsert({
+      user_id: activeUser.id,
       yield_date: todayDate,
       total_count: roundUpToOneDecimal(grandCount),
       net_flowers: roundUpToThreeDecimals(grandFlowers),
@@ -398,9 +420,12 @@ async function saveEditedSnapshot(date) {
     netFlowers: roundUpToThreeDecimals(grandNetFlowers).toFixed(3)
   };
 
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
-    await supabaseClient.from('daily_yields').upsert({
-      user_id: currentUser.id,
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  if (activeUser && client) {
+    await client.from('daily_yields').upsert({
+      user_id: activeUser.id,
       yield_date: date,
       total_count: roundUpToOneDecimal(grandTotalCount),
       net_flowers: roundUpToThreeDecimals(grandNetFlowers),
@@ -423,8 +448,11 @@ async function deleteSnapshotRow(date) {
 
   localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history.filter(i => i.date !== date)));
 
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
-    await supabaseClient.from('daily_yields').delete().eq('user_id', currentUser.id).eq('yield_date', date);
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  if (activeUser && client) {
+    await client.from('daily_yields').delete().eq('user_id', activeUser.id).eq('yield_date', date);
   }
 
   if (window.editingSnapshotDate === date) window.editingSnapshotDate = null;
@@ -432,12 +460,15 @@ async function deleteSnapshotRow(date) {
 }
 
 async function loadCloudYieldHistory() {
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  if (activeUser && client) {
     try {
-      const { data, error } = await supabaseClient
+      const { data, error } = await client
         .from('daily_yields')
         .select('*')
-        .eq('user_id', currentUser.id)
+        .eq('user_id', activeUser.id)
         .order('yield_date', { ascending: false });
 
       if (!error && Array.isArray(data) && data.length > 0) {
