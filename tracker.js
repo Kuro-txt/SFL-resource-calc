@@ -181,9 +181,11 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
   let activeTargets = (targets && Array.isArray(targets)) ? targets.map(t => normalizeItemKey(t)).filter(Boolean) : [];
 
+  console.log("🔍 [Yield Tracker] Active Targets:", activeTargets);
+
   // ABSOLUTE STRICT GUARD: If trackedTargets is empty, STOP IMMEDIATELY
   if (activeTargets.length === 0) {
-    alert("⚠️ No items selected in Automated Tracking Targets! Please add target items in '⚙️ Manage Automated Tracking Targets' first.");
+    alert("🛑 Auto-tracking is disabled because NO items are selected in '⚙️ Manage Automated Tracking Targets'.\n\nPlease add target items first!");
     return;
   }
 
@@ -450,7 +452,7 @@ async function deleteSnapshotRow(date) {
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
 
   if (activeUser && client) {
-    await client.from('daily_yields').delete().eq('user_id', activeUser.id).eq('yield_date', date);
+    await client.from('daily_yields').delete().eq('user_id', activeUser.id).eq('yield_date', activeUser.id);
   }
 
   if (window.editingSnapshotDate === date) window.editingSnapshotDate = null;
