@@ -70,7 +70,7 @@ app.get('/api/get-farm', async (req, res) => {
 
     const response = await axios.get(`https://api.sunflower-land.com/community/farms/${farmId}`, {
       headers,
-      timeout: 15000 // ⏱️ 15s timeout
+      timeout: 15000
     });
 
     return res.json(response.data);
@@ -195,7 +195,7 @@ app.get('/api/nfts', async (req, res) => {
   }
 });
 
-// CRON ENDPOINT: Dual Snapshot Trigger (Supports type=baseline [00:00 UTC] or type=yield [22:00 UTC])
+// CRON ENDPOINT: Dual Snapshot Trigger
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && req.query.key !== cronSecret) {
@@ -235,8 +235,8 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
         headers['Authorization'] = `Bearer ${process.env.SFL_API_KEY}`;
       }
 
-      // Retry mechanism for rate limits (429) & network timeouts
-      while (attempts < 2) {
+      // Retry mechanism with exponential backoff for rate limits (429) & network timeouts
+      while (attempts < 3) {
         try {
           response = await axios.get(`https://api.sunflower-land.com/community/farms/${profile.farm_id}`, {
             headers,
@@ -248,9 +248,10 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
           const isTimeout = fetchErr.code === 'ECONNABORTED' || fetchErr.message.includes('timeout');
           const isRateLimited = fetchErr.response?.status === 429;
 
-          if ((isRateLimited || isTimeout) && attempts < 2) {
-            console.warn(`[CRON RETRY] Farm #${profile.farm_id} encountered ${isTimeout ? 'Timeout' : '429 Rate Limit'}. Retrying in 6s...`);
-            await sleep(6000);
+          if ((isRateLimited || isTimeout) && attempts < 3) {
+            const waitMs = isRateLimited ? 15000 : 6000;
+            console.warn(`[CRON RETRY] Farm #${profile.farm_id} hit ${isRateLimited ? '429 Rate Limit' : 'Timeout'} (Attempt ${attempts}/3). Waiting ${waitMs / 1000}s...`);
+            await sleep(waitMs);
           } else {
             throw fetchErr;
           }
@@ -349,7 +350,8 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
         errors.push({ farm_id: profile.farm_id, error: err.message });
       }
 
-      await sleep(4000);
+      // Stagger profile execution by 8s to prevent triggering Sunflower Land's rate limit
+      await sleep(8000);
     }
 
     return res.json({
