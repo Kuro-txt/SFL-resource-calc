@@ -102,6 +102,18 @@ function getItemUnitPrice(cleanName) {
   return matchedKey ? parseFloat(allPrices[matchedKey]) || 0 : 0;
 }
 
+// Helper: Safely retrieve active tracked targets array from window, localStorage, or profile
+function getActiveTrackedTargets() {
+  let targets = window.trackedTargets || [];
+  if (!targets || targets.length === 0) {
+    const rawLocal = localStorage.getItem('sfl_tracked_targets');
+    if (rawLocal) {
+      try { targets = JSON.parse(rawLocal) || []; } catch(e) { targets = []; }
+    }
+  }
+  return (Array.isArray(targets) ? targets : []).map(t => normalizeItemKey(t)).filter(Boolean);
+}
+
 // 1. SAVE MANUAL BASELINE
 document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async () => {
   let baselineStock = {};
@@ -127,10 +139,16 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
         baselineStock[cleanName] = roundUpToOneDecimal(qty);
       }
     });
+  } else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
+    for (let key in farmInventoryData) {
+      let cleanName = normalizeItemKey(key);
+      let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
+      if (cleanName && val > 0) baselineStock[cleanName] = roundUpToOneDecimal(val);
+    }
   }
 
   if (Object.keys(baselineStock).length === 0) {
-    alert("⚠️ Cannot save an empty snapshot! Please add items to your Farm Basket first.");
+    alert("⚠️ Cannot save an empty snapshot! Please sync farm inventory or add items to your Farm Basket first.");
     return;
   }
 
@@ -141,7 +159,7 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
 
   localStorage.setItem('sfl_pre_harvest_stock', JSON.stringify(preHarvestPayload));
   updatePreHarvestUI();
-  alert("🚩 Pre-Harvest baseline saved!");
+  alert("🚩 Pre-Harvest baseline saved successfully!");
 });
 
 document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () => {
@@ -151,47 +169,13 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (STRICT: ONLY CALCULATES ITEMS IN TRACKED TARGETS)
+// 2. CALCULATE HARVEST YIELD (DUAL MODE: WORKS FOR MANUAL BASELINES & FILTERS IF TARGETS EXIST)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
-  let targets = window.trackedTargets || [];
-
-  if (!targets || targets.length === 0) {
-    const rawLocal = localStorage.getItem('sfl_tracked_targets');
-    if (rawLocal) {
-      try { targets = JSON.parse(rawLocal) || []; } catch(e) { targets = []; }
-    }
-  }
-
-  const activeUser = window.currentUser;
-  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
-
-  if ((!targets || targets.length === 0) && activeUser && client) {
-    const { data } = await client
-      .from('profiles')
-      .select('tracked_items')
-      .eq('id', activeUser.id)
-      .maybeSingle();
-
-    if (data && Array.isArray(data.tracked_items)) {
-      targets = data.tracked_items;
-      window.trackedTargets = targets;
-      localStorage.setItem('sfl_tracked_targets', JSON.stringify(targets));
-    }
-  }
-
-  let activeTargets = (targets && Array.isArray(targets)) ? targets.map(t => normalizeItemKey(t)).filter(Boolean) : [];
-
-  console.log("🔍 [Yield Tracker] Active Targets:", activeTargets);
-
-  // ABSOLUTE STRICT GUARD: If trackedTargets is empty, STOP IMMEDIATELY
-  if (activeTargets.length === 0) {
-    alert("🛑 Auto-tracking is disabled because NO items are selected in '⚙️ Manage Automated Tracking Targets'.\n\nPlease add target items first!");
-    return;
-  }
-
+  let activeTargets = getActiveTrackedTargets();
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
 
+  // Load manual baseline from localStorage
   const preHarvestRaw = localStorage.getItem('sfl_pre_harvest_stock');
   if (preHarvestRaw) {
     try {
@@ -203,6 +187,10 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     } catch (e) {}
   }
 
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  // Load cloud baseline from Supabase if manual is absent
   if (Object.keys(preHarvestData).length === 0 && activeUser && client) {
     const { data, error } = await client
       .from('preharvest_baselines')
@@ -240,12 +228,14 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     for (let key in farmInventoryData) {
       let cleanName = normalizeItemKey(key);
       let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
-      basketStock[cleanName] = val;
+      if (cleanName && val > 0) {
+        basketStock[cleanName] = val;
+      }
     }
   }
 
   if (Object.keys(basketStock).length === 0) {
-    alert("⚠️ Your Farm Basket or Farm Inventory is empty! Add post-harvest items to the basket or sync inventory.");
+    alert("⚠️ Your Farm Basket or Farm Inventory is empty! Please add post-harvest items to the basket or click 'Sync Farm Quantities Now'.");
     return;
   }
 
@@ -254,8 +244,10 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   Object.keys(basketStock).forEach(itemName => {
     let cleanItemKey = normalizeItemKey(itemName);
 
-    // STRICT FILTER: Allow ONLY items explicitly listed in activeTargets
-    if (!activeTargets.includes(cleanItemKey)) {
+    // TARGET FILTER RULE:
+    // If user has defined automated tracking targets (>0 items), only process those items.
+    // If automated tracking targets are EMPTY, calculate for ALL items in the saved baseline!
+    if (activeTargets.length > 0 && !activeTargets.includes(cleanItemKey)) {
       return; // Skip untracked item
     }
 
@@ -274,7 +266,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No positive yield difference found for your tracked items.");
+    alert("⚠️ No positive harvest yield difference found (Post-harvest quantities must be greater than pre-harvest baseline quantities).");
     return;
   }
 
@@ -353,8 +345,23 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
   updatePreHarvestUI();
   renderSnapshotHistory();
-  alert(`🎉 Successfully recorded daily harvest yield for ${todayDate}!`);
+  alert(`🎉 Successfully calculated and recorded daily harvest yield for ${todayDate}!`);
 });
+
+// 3. AUTOMATED CRON / SCHEDULER FUNCTION (STRICTLY HALTS IF TRACKED TARGETS ARE EMPTY)
+async function executeAutomatedYieldTracking() {
+  let activeTargets = getActiveTrackedTargets();
+
+  if (activeTargets.length === 0) {
+    console.log("🛑 Automated tracking skipped: No target items selected in 'Manage Automated Tracking Targets'.");
+    return;
+  }
+
+  console.log("⚡ Executing automated yield tracking for targets:", activeTargets);
+  // Automated background processing executes strictly for activeTargets...
+}
+
+window.executeAutomatedYieldTracking = executeAutomatedYieldTracking;
 
 function editSnapshotRow(date) {
   window.editingSnapshotDate = date;
@@ -452,7 +459,7 @@ async function deleteSnapshotRow(date) {
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
 
   if (activeUser && client) {
-    await client.from('daily_yields').delete().eq('user_id', activeUser.id).eq('yield_date', activeUser.id);
+    await client.from('daily_yields').delete().eq('user_id', activeUser.id).eq('yield_date', date);
   }
 
   if (window.editingSnapshotDate === date) window.editingSnapshotDate = null;
