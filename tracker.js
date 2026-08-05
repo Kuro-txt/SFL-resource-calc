@@ -151,7 +151,7 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (FLEXIBLE: WORKS FOR ANY ITEM MANUAL OR AUTOMATED)
+// 2. CALCULATE HARVEST YIELD (STRICT: ONLY WORKS IF TARGETS ARE SELECTED OR A BASELINE IS SAVED)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let targets = window.trackedTargets || [];
 
@@ -195,8 +195,13 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     }
   }
 
-  if (Object.keys(preHarvestData).length === 0) {
-    alert("⚠️ Click '1. Save Pre-Harvest Stock' FIRST before calculating harvest yield!");
+  // --- ABSOLUTE STRICT GUARD ---
+  // If NO automated targets are selected AND NO pre-harvest baseline exists, STOP completely.
+  let activeTargets = (targets && targets.length > 0) ? targets.map(t => normalizeItemKey(t)) : [];
+  let baselineKeys = Object.keys(preHarvestData).map(k => normalizeItemKey(k));
+
+  if (activeTargets.length === 0 && baselineKeys.length === 0) {
+    alert("⚠️ No items selected! Please add target items in '⚙️ Manage Automated Tracking Targets' or click '1. Save Pre-Harvest Stock' first.");
     return;
   }
 
@@ -225,17 +230,23 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     return;
   }
 
-  let activeTargets = (targets && targets.length > 0) ? targets.map(t => normalizeItemKey(t)) : null;
-  let baselineKeys = Object.keys(preHarvestData).map(k => normalizeItemKey(k));
-
   let newYieldsMap = {};
 
   Object.keys(basketStock).forEach(itemName => {
     let cleanItemKey = normalizeItemKey(itemName);
 
-    // Filter rule: If active targets are configured, only process items that are in activeTargets OR were explicitly saved in the pre-harvest baseline
-    if (activeTargets && !activeTargets.includes(cleanItemKey) && !baselineKeys.includes(cleanItemKey)) {
-      return;
+    // STRICT FILTER:
+    // 1. If activeTargets are defined (>0 items), ONLY allow items present in activeTargets or baselineKeys.
+    // 2. If activeTargets is empty, ONLY allow items that were explicitly saved in baselineKeys.
+    let isAllowed = false;
+    if (activeTargets.length > 0) {
+      isAllowed = activeTargets.includes(cleanItemKey) || baselineKeys.includes(cleanItemKey);
+    } else {
+      isAllowed = baselineKeys.includes(cleanItemKey);
+    }
+
+    if (!isAllowed) {
+      return; // Skip untracked item
     }
 
     let currentQty = basketStock[itemName] || 0;
@@ -253,7 +264,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No positive yield difference found (Post-harvest amounts must be greater than saved baseline amounts).");
+    alert("⚠️ No positive yield difference found for your tracked items (Post-harvest amounts must be greater than saved baseline amounts).");
     return;
   }
 
