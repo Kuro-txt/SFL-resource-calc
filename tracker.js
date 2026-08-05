@@ -148,7 +148,7 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (INCLUDES ITEMS IN BASELINE OR TRACKED TARGETS)
+// 2. CALCULATE HARVEST YIELD (STRICTLY FILTERS BY TRACKED TARGETS IF CONFIGURED)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
@@ -212,19 +212,15 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
   let newYieldsMap = {};
   
-  // Build a set of allowed items: combines explicit trackedTargets + any item saved in the baseline snapshot
-  let activeTargets = null;
-  if (window.trackedTargets && Array.isArray(window.trackedTargets) && window.trackedTargets.length > 0) {
-    let targetSet = new Set(window.trackedTargets.map(t => normalizeItemKey(t)));
-    // Add baseline items so baseline items are never filtered out
-    Object.keys(preHarvestData).forEach(k => targetSet.add(normalizeItemKey(k)));
-    activeTargets = Array.from(targetSet);
-  }
+  // Strictly filter by window.trackedTargets if targets are set
+  let activeTargets = (window.trackedTargets && Array.isArray(window.trackedTargets) && window.trackedTargets.length > 0)
+    ? window.trackedTargets.map(t => normalizeItemKey(t))
+    : null;
 
   Object.keys(basketStock).forEach(itemName => {
     let cleanItemKey = normalizeItemKey(itemName);
 
-    // Filter out item only if automated targets exist AND it's neither in targets nor in baseline
+    // If tracked targets are configured, ignore any item that is NOT in the target list
     if (activeTargets && !activeTargets.includes(cleanItemKey)) {
       return;
     }
@@ -244,7 +240,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No positive difference found (Post-harvest amounts must be greater than saved baseline amounts).");
+    alert("⚠️ No positive difference found for your tracked items (Post-harvest amounts must be greater than saved baseline amounts).");
     return;
   }
 
