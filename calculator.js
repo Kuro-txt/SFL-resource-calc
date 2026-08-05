@@ -40,7 +40,7 @@ function getBettyUnitPrice(cleanName) {
   return bettyCatalog[key] !== undefined ? bettyCatalog[key] : null;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const savedTaxRate = localStorage.getItem('sfl_tax_rate');
   const savedCoinRatio = localStorage.getItem('sfl_coin_ratio');
 
@@ -57,6 +57,24 @@ document.addEventListener('DOMContentLoaded', () => {
       window.trackedTargets = JSON.parse(localSavedTargets) || [];
     } catch (e) {
       window.trackedTargets = [];
+    }
+  }
+
+  // Sync tracked targets from Supabase if user is logged in
+  if (typeof supabaseClient !== 'undefined' && supabaseClient && window.currentUser) {
+    try {
+      const { data } = await supabaseClient
+        .from('profiles')
+        .select('tracked_items')
+        .eq('id', window.currentUser.id)
+        .maybeSingle();
+
+      if (data && Array.isArray(data.tracked_items)) {
+        window.trackedTargets = data.tracked_items;
+        localStorage.setItem('sfl_tracked_targets', JSON.stringify(data.tracked_items));
+      }
+    } catch (err) {
+      console.warn("Could not sync tracked items from Supabase:", err.message);
     }
   }
 
@@ -85,7 +103,6 @@ function loadPrices() {
         delete rawData.updatedText;
         delete rawData.updated_at;
         delete rawData.updatedAt;
-        delete rawData.updatedat;
       }
       allPrices = extractPrices(rawData);
     })
@@ -103,7 +120,8 @@ function extractPrices(data) {
       if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
       
       let lowerKey = key.toLowerCase().trim();
-      if (lowerKey.includes('updated') || lowerKey.includes('created') || lowerKey === 'id') continue;
+      if (GLOBAL_EXCLUDES.includes(lowerKey)) continue;
+      if (lowerKey.includes('updated')) continue;
       if (typeof isExcludedItem === 'function' && isExcludedItem(key)) continue;
 
       let val = obj[key];
@@ -218,14 +236,10 @@ if (input && menu) {
     const matches = Object.keys(allPrices)
       .filter(key => {
         let lowerKey = key.toLowerCase().trim();
-        let displayName = key.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
-        
-        // Strict blocking for any metadata fields containing 'updated' or 'created'
-        if (lowerKey.includes('updated') || displayName.includes('updated')) return false;
-        if (lowerKey.includes('created') || displayName.includes('created')) return false;
+        if (SEARCH_EXCLUDED_KEYS.includes(lowerKey) || lowerKey.includes('updated')) return false;
         if (typeof isExcludedItem === 'function' && isExcludedItem(key)) return false;
-
-        return displayName.includes(query) || lowerKey.includes(query);
+        let cleanKey = key.replace(/^\[.*?\]\s*/, '');
+        return cleanKey.toLowerCase().includes(query) || lowerKey.includes(query);
       })
       .sort((a, b) => a.replace(/^\[.*?\]\s*/, '').localeCompare(b.replace(/^\[.*?\]\s*/, '')));
 
