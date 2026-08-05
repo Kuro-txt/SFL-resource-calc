@@ -148,8 +148,25 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (STRICTLY FILTERS BY TRACKED TARGETS IF CONFIGURED)
+// 2. CALCULATE HARVEST YIELD (STRICTLY ENFORCES TRACKED TARGETS)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
+  // Load tracked targets from global state or localStorage
+  let targets = window.trackedTargets;
+  if (!targets || !Array.isArray(targets) || targets.length === 0) {
+    const rawLocal = localStorage.getItem('sfl_tracked_targets');
+    if (rawLocal) {
+      try { targets = JSON.parse(rawLocal); } catch(e) { targets = []; }
+    }
+  }
+
+  // STOP EXECUTION if no items are added to the automated tracker list
+  if (!targets || !Array.isArray(targets) || targets.length === 0) {
+    alert("⚠️ No tracked targets selected! Please add items to '⚙️ Manage Automated Tracking Targets' first.");
+    return;
+  }
+
+  let activeTargets = targets.map(t => normalizeItemKey(t));
+
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
 
@@ -211,22 +228,17 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   }
 
   let newYieldsMap = {};
-  
-  // Strictly filter by window.trackedTargets if targets are set
-  let activeTargets = (window.trackedTargets && Array.isArray(window.trackedTargets) && window.trackedTargets.length > 0)
-    ? window.trackedTargets.map(t => normalizeItemKey(t))
-    : null;
 
   Object.keys(basketStock).forEach(itemName => {
     let cleanItemKey = normalizeItemKey(itemName);
 
-    // If tracked targets are configured, ignore any item that is NOT in the target list
-    if (activeTargets && !activeTargets.includes(cleanItemKey)) {
+    // STRICT FILTER: Ignore any item that is NOT explicitly inside activeTargets
+    if (!activeTargets.includes(cleanItemKey)) {
       return;
     }
 
     let currentQty = basketStock[itemName] || 0;
-    let baselineQty = preHarvestData[itemName] || 0;
+    let baselineQty = preHarvestData[cleanItemKey] || 0;
     let diff = currentQty - baselineQty;
 
     if (diff > 0.0001) {
