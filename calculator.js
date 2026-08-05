@@ -40,7 +40,7 @@ function getBettyUnitPrice(cleanName) {
   return bettyCatalog[key] !== undefined ? bettyCatalog[key] : null;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const savedTaxRate = localStorage.getItem('sfl_tax_rate');
   const savedCoinRatio = localStorage.getItem('sfl_coin_ratio');
 
@@ -59,6 +59,32 @@ document.addEventListener('DOMContentLoaded', () => {
       window.trackedTargets = [];
     }
   }
+
+  // Sync tracked targets from Supabase if user is logged in
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+    try {
+      const activeUser = window.currentUser || (await supabaseClient.auth.getUser())?.data?.user;
+
+      if (activeUser) {
+        window.currentUser = activeUser;
+        const { data, error } = await supabaseClient
+          .from('profiles')
+          .select('tracked_items')
+          .eq('id', activeUser.id)
+          .maybeSingle();
+
+        if (!error && data && Array.isArray(data.tracked_items) && data.tracked_items.length > 0) {
+          window.trackedTargets = data.tracked_items;
+          localStorage.setItem('sfl_tracked_targets', JSON.stringify(data.tracked_items));
+        }
+      }
+    } catch (err) {
+      console.warn("Could not sync tracked items from Supabase:", err.message);
+    }
+  }
+
+  // Render badges on page initialization
+  renderTrackedBadges();
 
   loadPrices();
   initTrackingModal();
@@ -85,7 +111,6 @@ function loadPrices() {
         delete rawData.updatedText;
         delete rawData.updated_at;
         delete rawData.updatedAt;
-        delete rawData.updatedat;
       }
       allPrices = extractPrices(rawData);
     })
@@ -103,7 +128,8 @@ function extractPrices(data) {
       if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
       
       let lowerKey = key.toLowerCase().trim();
-      if (lowerKey.includes('updated') || lowerKey.includes('created') || lowerKey === 'id') continue;
+      if (GLOBAL_EXCLUDES.includes(lowerKey)) continue;
+      if (lowerKey.includes('updated')) continue;
       if (typeof isExcludedItem === 'function' && isExcludedItem(key)) continue;
 
       let val = obj[key];
@@ -218,14 +244,10 @@ if (input && menu) {
     const matches = Object.keys(allPrices)
       .filter(key => {
         let lowerKey = key.toLowerCase().trim();
-        let displayName = key.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
-        
-        // Strict blocking for any metadata fields containing 'updated' or 'created'
-        if (lowerKey.includes('updated') || displayName.includes('updated')) return false;
-        if (lowerKey.includes('created') || displayName.includes('created')) return false;
+        if (SEARCH_EXCLUDED_KEYS.includes(lowerKey) || lowerKey.includes('updated')) return false;
         if (typeof isExcludedItem === 'function' && isExcludedItem(key)) return false;
-
-        return displayName.includes(query) || lowerKey.includes(query);
+        let cleanKey = key.replace(/^\[.*?\]\s*/, '');
+        return cleanKey.toLowerCase().includes(query) || lowerKey.includes(query);
       })
       .sort((a, b) => a.replace(/^\[.*?\]\s*/, '').localeCompare(b.replace(/^\[.*?\]\s*/, '')));
 
@@ -538,19 +560,35 @@ function initTrackingModal() {
   saveBtn?.addEventListener('click', async () => {
     localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
 
-    if (typeof supabaseClient !== 'undefined' && supabaseClient && window.currentUser) {
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
       try {
-        const { error } = await supabaseClient
-          .from('profiles')
-          .update({ tracked_items: window.trackedTargets })
-          .eq('id', window.currentUser.id);
+        const activeUser = window.currentUser || (await supabaseClient.auth.getUser())?.data?.user;
 
-        if (error) throw error;
+        if (activeUser) {
+          window.currentUser = activeUser;
+          const { error } = await supabaseClient
+            .from('profiles')
+            .upsert({ 
+              id: activeUser.id,
+              tracked_items: window.trackedTargets 
+            }, { onConflict: 'id' });
+
+          if (error) {
+            console.error("Supabase Error saving targets:", error);
+            alert(`⚠️ Saved locally, but Supabase error: ${error.message}`);
+            return;
+          }
+        } else {
+          console.warn("User session missing. Saved to localStorage only.");
+        }
       } catch (err) {
         console.error("Failed to save tracked targets to Supabase:", err.message);
+        alert(`⚠️ Saved locally, but failed to reach Supabase: ${err.message}`);
+        return;
       }
     }
 
+    renderTrackedBadges();
     alert('✅ Persistent tracking targets saved successfully!');
     hideModal();
   });
@@ -562,13 +600,22 @@ function renderTrackedBadges() {
 
   container.innerHTML = '';
 
+  // Hydrate from localStorage if window.trackedTargets is empty
+  if (!window.trackedTargets || window.trackedTargets.length === 0) {
+    const rawLocal = localStorage.getItem('sfl_tracked_targets');
+    if (rawLocal) {
+      try { window.trackedTargets = JSON.parse(rawLocal) || []; } catch (e) {}
+    }
+  }
+
   if (!window.trackedTargets || window.trackedTargets.length === 0) {
     container.innerHTML = '<span class="text-xs text-sfl-woodLight italic">No items added to persistent tracking list yet.</span>';
     return;
   }
 
   window.trackedTargets.forEach((itemName, index) => {
-    let displayName = itemName.charAt(0).toUpperCase() + itemName.slice(1);
+    let cleanStr = String(itemName).replace(/^\[.*?\]\s*/, '').trim();
+    let displayName = cleanStr.charAt(0).toUpperCase() + cleanStr.slice(1);
     
     const badge = document.createElement('span');
     badge.className = 'inline-flex items-center gap-1.5 bg-sfl-gold/20 border border-sfl-gold text-sfl-dirt px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm';
@@ -583,9 +630,12 @@ function renderTrackedBadges() {
 function removeTrackedTarget(index) {
   if (window.trackedTargets && window.trackedTargets[index] !== undefined) {
     window.trackedTargets.splice(index, 1);
+    localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
     renderTrackedBadges();
   }
 }
+
+window.renderTrackedBadges = renderTrackedBadges;
 
 window.openTrackingModal = function() {
   const modal = document.getElementById('tracking-modal');

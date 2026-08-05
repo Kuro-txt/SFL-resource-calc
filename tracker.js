@@ -52,12 +52,15 @@ async function updatePreHarvestUI() {
   let hasCloud = false;
   let hasManual = false;
 
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  if (activeUser && client) {
     const todayDate = new Date().toISOString().split('T')[0];
-    const { data } = await supabaseClient
+    const { data } = await client
       .from('preharvest_baselines')
       .select('stock, created_at')
-      .eq('user_id', currentUser.id)
+      .eq('user_id', activeUser.id)
       .eq('snapshot_date', todayDate)
       .maybeSingle();
 
@@ -92,6 +95,25 @@ async function updatePreHarvestUI() {
   }
 }
 
+// Helper to look up current live unit price for an item
+function getItemUnitPrice(cleanName) {
+  if (typeof allPrices === 'undefined' || !allPrices) return 0;
+  let matchedKey = Object.keys(allPrices).find(k => normalizeItemKey(k) === cleanName);
+  return matchedKey ? parseFloat(allPrices[matchedKey]) || 0 : 0;
+}
+
+// Helper: Safely retrieve active tracked targets array
+function getActiveTrackedTargets() {
+  let targets = window.trackedTargets || [];
+  if (!targets || targets.length === 0) {
+    const rawLocal = localStorage.getItem('sfl_tracked_targets');
+    if (rawLocal) {
+      try { targets = JSON.parse(rawLocal) || []; } catch(e) { targets = []; }
+    }
+  }
+  return (Array.isArray(targets) ? targets : []).map(t => normalizeItemKey(t)).filter(Boolean);
+}
+
 // 1. SAVE MANUAL BASELINE
 document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async () => {
   let baselineStock = {};
@@ -117,10 +139,16 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
         baselineStock[cleanName] = roundUpToOneDecimal(qty);
       }
     });
+  } else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
+    for (let key in farmInventoryData) {
+      let cleanName = normalizeItemKey(key);
+      let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
+      if (cleanName && val > 0) baselineStock[cleanName] = roundUpToOneDecimal(val);
+    }
   }
 
   if (Object.keys(baselineStock).length === 0) {
-    alert("⚠️ Cannot save an empty snapshot! Please add items to your Farm Basket first.");
+    alert("⚠️ Cannot save an empty snapshot! Please sync farm inventory or add items to your Farm Basket first.");
     return;
   }
 
@@ -131,7 +159,7 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
 
   localStorage.setItem('sfl_pre_harvest_stock', JSON.stringify(preHarvestPayload));
   updatePreHarvestUI();
-  alert("🚩 Pre-Harvest baseline saved!");
+  alert("🚩 Pre-Harvest baseline saved successfully!");
 });
 
 document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () => {
@@ -141,11 +169,13 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (STRICTLY FILTERS BY TRACKED TARGETS IF SET)
+// 2. CALCULATE MANUAL HARVEST YIELD
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
+  let activeTargets = getActiveTrackedTargets();
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
 
+  // Load manual baseline from localStorage
   const preHarvestRaw = localStorage.getItem('sfl_pre_harvest_stock');
   if (preHarvestRaw) {
     try {
@@ -157,11 +187,15 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     } catch (e) {}
   }
 
-  if (Object.keys(preHarvestData).length === 0 && typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
-    const { data, error } = await supabaseClient
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  // Load cloud baseline from Supabase if manual baseline is absent
+  if (Object.keys(preHarvestData).length === 0 && activeUser && client) {
+    const { data, error } = await client
       .from('preharvest_baselines')
       .select('stock')
-      .eq('user_id', currentUser.id)
+      .eq('user_id', activeUser.id)
       .eq('snapshot_date', todayDate)
       .maybeSingle();
 
@@ -194,39 +228,34 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     for (let key in farmInventoryData) {
       let cleanName = normalizeItemKey(key);
       let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
-      basketStock[cleanName] = val;
+      if (cleanName && val > 0) basketStock[cleanName] = val;
     }
   }
 
   if (Object.keys(basketStock).length === 0) {
-    alert("⚠️ Your Farm Basket or Farm Inventory is empty! Add your post-harvest items to the basket before calculating yield.");
+    alert("⚠️ Your Farm Basket or Farm Inventory is empty! Add post-harvest items to the basket or click 'Sync Farm Quantities Now'.");
     return;
   }
 
   let newYieldsMap = {};
-  let activeTargets = (window.trackedTargets && window.trackedTargets.length > 0)
-    ? window.trackedTargets.map(t => normalizeItemKey(t))
-    : null;
 
   Object.keys(basketStock).forEach(itemName => {
     let cleanItemKey = normalizeItemKey(itemName);
 
-    // If persistent tracked targets exist, filter out non-target items
-    if (activeTargets && !activeTargets.includes(cleanItemKey)) {
-      return;
+    // DYNAMIC FILTER RULE:
+    // If targets are set in Auto Tracking, calculate only for those targets.
+    // If NO targets are set in Auto Tracking, allow ALL items present in preHarvestData.
+    if (activeTargets.length > 0 && !activeTargets.includes(cleanItemKey)) {
+      return; 
     }
 
     let currentQty = basketStock[itemName] || 0;
-    let baselineQty = preHarvestData[itemName] || 0;
+    let baselineQty = preHarvestData[cleanItemKey] || 0;
     let diff = currentQty - baselineQty;
 
     if (diff > 0.0001) {
       let harvestedQty = roundUpToOneDecimal(diff);
-      let matchedKey = (typeof allPrices !== 'undefined' && allPrices) 
-        ? Object.keys(allPrices).find(k => normalizeItemKey(k) === cleanItemKey)
-        : null;
-      
-      let unitPrice = matchedKey ? allPrices[matchedKey] : 0;
+      let unitPrice = getItemUnitPrice(cleanItemKey);
       let itemFlowers = roundUpToThreeDecimals((unitPrice * harvestedQty) * (1 - taxRate));
 
       let formattedName = itemName.charAt(0).toUpperCase() + itemName.slice(1);
@@ -235,7 +264,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No positive difference found for your tracked items (Post-harvest amounts must be greater than saved baseline amounts).");
+    alert("⚠️ No positive harvest yield difference found (Post-harvest quantities must be greater than pre-harvest baseline quantities).");
     return;
   }
 
@@ -269,13 +298,22 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   let grandFlowers = 0;
 
   Object.keys(cropsMap).forEach(itemName => {
+    let cleanK = normalizeItemKey(itemName);
+    let qty = cropsMap[itemName].qty;
+    let flowers = cropsMap[itemName].flowers;
+
+    if (flowers <= 0) {
+      let unitPrice = getItemUnitPrice(cleanK);
+      flowers = roundUpToThreeDecimals((unitPrice * qty) * (1 - taxRate));
+    }
+
     mergedCropsArray.push({
       name: itemName,
-      qty: cropsMap[itemName].qty,
-      flowers: cropsMap[itemName].flowers
+      qty: qty,
+      flowers: flowers
     });
-    grandCount += cropsMap[itemName].qty;
-    grandFlowers += cropsMap[itemName].flowers;
+    grandCount += qty;
+    grandFlowers += flowers;
   });
 
   const updatedDailyEntry = {
@@ -291,9 +329,9 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     history.unshift(updatedDailyEntry);
   }
 
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
-    await supabaseClient.from('daily_yields').upsert({
-      user_id: currentUser.id,
+  if (activeUser && client) {
+    await client.from('daily_yields').upsert({
+      user_id: activeUser.id,
       yield_date: todayDate,
       total_count: roundUpToOneDecimal(grandCount),
       net_flowers: roundUpToThreeDecimals(grandFlowers),
@@ -305,8 +343,22 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
   updatePreHarvestUI();
   renderSnapshotHistory();
-  alert(`🎉 Successfully recorded daily harvest yield for ${todayDate}!`);
+  alert(`🎉 Successfully recorded harvest yield for ${todayDate}!`);
 });
+
+// 3. BACKEND/BACKGROUND AUTOMATED SCHEDULER
+async function executeAutomatedYieldTracking() {
+  let activeTargets = getActiveTrackedTargets();
+
+  if (!activeTargets || activeTargets.length === 0) {
+    console.log("🛑 Automated tracking halted: No target items selected.");
+    return;
+  }
+
+  console.log("⚡ Running automated tracking strictly for:", activeTargets);
+}
+
+window.executeAutomatedYieldTracking = executeAutomatedYieldTracking;
 
 function editSnapshotRow(date) {
   window.editingSnapshotDate = date;
@@ -340,15 +392,16 @@ async function saveEditedSnapshot(date) {
       let newQty = inputEl ? roundUpToOneDecimal(parseFloat(inputEl.value) || 0) : (parseFloat(crop.qty) || 0);
 
       if (newQty > 0) {
-        let matchedKey = (typeof allPrices !== 'undefined' && allPrices)
-          ? Object.keys(allPrices).find(k => normalizeItemKey(k) === (crop.name || '').toLowerCase())
-          : null;
+        let cleanK = normalizeItemKey(crop.name || crop.item || '');
+        let unitPrice = getItemUnitPrice(cleanK);
+        if (unitPrice <= 0 && crop.qty > 0) {
+          unitPrice = (parseFloat(crop.flowers) || 0) / parseFloat(crop.qty);
+        }
 
-        let unitPrice = matchedKey ? allPrices[matchedKey] : ((parseFloat(crop.flowers) || 0) / (parseFloat(crop.qty) || 1));
         let itemNetFlowers = roundUpToThreeDecimals((unitPrice * newQty) * (1 - taxRate));
 
         updatedCrops.push({
-          name: crop.name || 'Crop',
+          name: crop.name || crop.item || 'Crop',
           qty: newQty,
           flowers: itemNetFlowers
         });
@@ -371,9 +424,12 @@ async function saveEditedSnapshot(date) {
     netFlowers: roundUpToThreeDecimals(grandNetFlowers).toFixed(3)
   };
 
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
-    await supabaseClient.from('daily_yields').upsert({
-      user_id: currentUser.id,
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  if (activeUser && client) {
+    await client.from('daily_yields').upsert({
+      user_id: activeUser.id,
       yield_date: date,
       total_count: roundUpToOneDecimal(grandTotalCount),
       net_flowers: roundUpToThreeDecimals(grandNetFlowers),
@@ -396,8 +452,11 @@ async function deleteSnapshotRow(date) {
 
   localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history.filter(i => i.date !== date)));
 
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
-    await supabaseClient.from('daily_yields').delete().eq('user_id', currentUser.id).eq('yield_date', date);
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  if (activeUser && client) {
+    await client.from('daily_yields').delete().eq('user_id', activeUser.id).eq('yield_date', date);
   }
 
   if (window.editingSnapshotDate === date) window.editingSnapshotDate = null;
@@ -405,12 +464,15 @@ async function deleteSnapshotRow(date) {
 }
 
 async function loadCloudYieldHistory() {
-  if (typeof currentUser !== 'undefined' && currentUser && typeof supabaseClient !== 'undefined' && supabaseClient) {
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  if (activeUser && client) {
     try {
-      const { data, error } = await supabaseClient
+      const { data, error } = await client
         .from('daily_yields')
         .select('*')
-        .eq('user_id', currentUser.id)
+        .eq('user_id', activeUser.id)
         .order('yield_date', { ascending: false });
 
       if (!error && Array.isArray(data) && data.length > 0) {
@@ -443,6 +505,7 @@ function renderSnapshotHistory() {
   }
 
   const flowerIconSymbol = typeof FLOWER_ICON !== 'undefined' ? FLOWER_ICON : '🌸';
+  const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
 
   if (!Array.isArray(history) || history.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">No harvest sessions logged yet!</td></tr>`;
@@ -455,16 +518,24 @@ function renderSnapshotHistory() {
 
     let entryDate = entry.date || entry.yield_date || 'Unknown Date';
     let isEditing = window.editingSnapshotDate === entryDate;
-    let cropBadges = '';
     let cleanDateId = entryDate.replace(/[^a-zA-Z0-9]/g, '');
 
     let cropsList = Array.isArray(entry.crops) ? entry.crops : [];
+    let calculatedRowNetFlowers = 0;
 
-    cropBadges = cropsList
+    let cropBadges = cropsList
       .map((crop, idx) => {
         const cropQty = parseFloat(crop.qty) || 0;
-        const cropFlowers = parseFloat(crop.flowers) || 0;
+        let cropFlowers = parseFloat(crop.flowers) || 0;
         const cropName = crop.name || crop.item || 'Item';
+        const cleanK = normalizeItemKey(cropName);
+
+        if (cropFlowers <= 0 && cropQty > 0) {
+          let unitPrice = getItemUnitPrice(cleanK);
+          cropFlowers = roundUpToThreeDecimals((unitPrice * cropQty) * (1 - taxRate));
+        }
+
+        calculatedRowNetFlowers += cropFlowers;
 
         if (isEditing) {
           return `
@@ -500,8 +571,8 @@ function renderSnapshotHistory() {
       ? rawTotalCount 
       : cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0);
 
-    let rawNetFlowers = parseFloat(entry.netFlowers || entry.net_flowers);
-    let netFlowersVal = !isNaN(rawNetFlowers) ? rawNetFlowers : 0;
+    let rawNetFlowers = parseFloat(entry.netFlowers || entry.net_flowers || 0);
+    let finalNetFlowers = rawNetFlowers > 0 ? rawNetFlowers : calculatedRowNetFlowers;
 
     let tr = document.createElement('tr');
     tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
@@ -509,7 +580,7 @@ function renderSnapshotHistory() {
       <td class="px-3 py-2.5 font-bold whitespace-nowrap">${entryDate}</td>
       <td class="px-3 py-2.5 font-bold font-mono text-sfl-wood">${totalYieldCount.toFixed(1)} Items</td>
       <td class="px-3 py-2.5">${cropBadges || '<span class="italic text-gray-400">No details</span>'}</td>
-      <td class="px-3 py-2.5 font-bold text-sfl-green font-mono">${netFlowersVal.toFixed(3)} ${flowerIconSymbol}</td>
+      <td class="px-3 py-2.5 font-bold text-sfl-green font-mono">${finalNetFlowers.toFixed(3)} ${flowerIconSymbol}</td>
       <td class="px-2 py-2.5 text-center whitespace-nowrap">${actionButtons}</td>
     `;
     tbody.appendChild(tr);
