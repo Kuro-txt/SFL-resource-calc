@@ -54,8 +54,13 @@ async function setLoggedInUser(user) {
 
 function setLoggedOutUser() {
   window.currentUser = null;
+  window.trackedTargets = [];
+  localStorage.setItem('sfl_tracked_targets', '[]');
+  
   document.getElementById('auth-logged-out')?.classList.remove('hidden');
   document.getElementById('auth-logged-in')?.classList.add('hidden');
+  
+  if (typeof renderTrackedBadges === 'function') renderTrackedBadges();
   if (typeof renderSnapshotHistory === 'function') renderSnapshotHistory();
 }
 
@@ -126,23 +131,34 @@ async function loadCloudUserData() {
 
   if (profile) {
     if (profile.farm_id) {
-      document.getElementById('farm-id').value = profile.farm_id;
+      const farmIdEl = document.getElementById('farm-id');
+      if (farmIdEl) farmIdEl.value = profile.farm_id;
       localStorage.setItem('sfl_farm_id', profile.farm_id);
     }
 
-    // Hydrate tracked items into memory state and local storage
-    if (Array.isArray(profile.tracked_items) && profile.tracked_items.length > 0) {
+    // STRICT SYNC: Force window.trackedTargets to match Supabase exactly (even if empty [])
+    if (Array.isArray(profile.tracked_items)) {
       window.trackedTargets = profile.tracked_items;
       localStorage.setItem('sfl_tracked_targets', JSON.stringify(profile.tracked_items));
-      if (typeof renderTrackedBadges === 'function') renderTrackedBadges();
+    } else {
+      window.trackedTargets = [];
+      localStorage.setItem('sfl_tracked_targets', '[]');
     }
+
+    if (typeof renderTrackedBadges === 'function') renderTrackedBadges();
   }
 
-  // Prune history past 30 days
+  // Prune cloud records older than 30 days
   await window.supabaseClient.from('daily_yields').delete().eq('user_id', window.currentUser.id).lt('yield_date', cutoffDateStr);
   await window.supabaseClient.from('preharvest_baselines').delete().eq('user_id', window.currentUser.id).lt('snapshot_date', cutoffDateStr);
 
-  const { data: yields } = await window.supabaseClient.from('daily_yields').select('*').eq('user_id', window.currentUser.id).order('yield_date', { ascending: false });
+  // Fetch yield history from Supabase
+  const { data: yields } = await window.supabaseClient
+    .from('daily_yields')
+    .select('*')
+    .eq('user_id', window.currentUser.id)
+    .order('yield_date', { ascending: false });
+
   if (yields && yields.length > 0) {
     let history = yields.map(y => ({
       date: y.yield_date,
@@ -154,10 +170,6 @@ async function loadCloudUserData() {
   } else {
     localStorage.setItem('sfl_daily_snapshots', JSON.stringify([]));
   }
-
-  let localHistory = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
-  let filteredLocal = localHistory.filter(item => item.date >= cutoffDateStr);
-  localStorage.setItem('sfl_daily_snapshots', JSON.stringify(filteredLocal));
 
   if (typeof renderSnapshotHistory === 'function') renderSnapshotHistory();
   if (typeof updatePreHarvestUI === 'function') updatePreHarvestUI();
