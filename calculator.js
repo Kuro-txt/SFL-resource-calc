@@ -61,22 +61,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Sync tracked targets from Supabase if user is logged in
-  if (typeof supabaseClient !== 'undefined' && supabaseClient && window.currentUser) {
+  if (typeof supabaseClient !== 'undefined' && supabaseClient) {
     try {
-      const { data, error } = await supabaseClient
-        .from('profiles')
-        .select('tracked_items')
-        .eq('id', window.currentUser.id)
-        .maybeSingle();
+      const activeUser = window.currentUser || (await supabaseClient.auth.getUser())?.data?.user;
 
-      if (!error && data && Array.isArray(data.tracked_items)) {
-        window.trackedTargets = data.tracked_items;
-        localStorage.setItem('sfl_tracked_targets', JSON.stringify(data.tracked_items));
+      if (activeUser) {
+        window.currentUser = activeUser;
+        const { data, error } = await supabaseClient
+          .from('profiles')
+          .select('tracked_items')
+          .eq('id', activeUser.id)
+          .maybeSingle();
+
+        if (!error && data && Array.isArray(data.tracked_items) && data.tracked_items.length > 0) {
+          window.trackedTargets = data.tracked_items;
+          localStorage.setItem('sfl_tracked_targets', JSON.stringify(data.tracked_items));
+        }
       }
     } catch (err) {
       console.warn("Could not sync tracked items from Supabase:", err.message);
     }
   }
+
+  // Render badges on page initialization
+  renderTrackedBadges();
 
   loadPrices();
   initTrackingModal();
@@ -552,29 +560,35 @@ function initTrackingModal() {
   saveBtn?.addEventListener('click', async () => {
     localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
 
-    if (typeof supabaseClient !== 'undefined' && supabaseClient && window.currentUser) {
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
       try {
-        const { error } = await supabaseClient
-          .from('profiles')
-          .upsert({ 
-            id: window.currentUser.id,
-            tracked_items: window.trackedTargets 
-          }, { onConflict: 'id' });
+        const activeUser = window.currentUser || (await supabaseClient.auth.getUser())?.data?.user;
 
-        if (error) {
-          console.error("Supabase Error saving targets:", error);
-          alert(`⚠️ Saved locally, but Supabase error: ${error.message}`);
-          return;
+        if (activeUser) {
+          window.currentUser = activeUser;
+          const { error } = await supabaseClient
+            .from('profiles')
+            .upsert({ 
+              id: activeUser.id,
+              tracked_items: window.trackedTargets 
+            }, { onConflict: 'id' });
+
+          if (error) {
+            console.error("Supabase Error saving targets:", error);
+            alert(`⚠️ Saved locally, but Supabase error: ${error.message}`);
+            return;
+          }
+        } else {
+          console.warn("User session missing. Saved to localStorage only.");
         }
       } catch (err) {
         console.error("Failed to save tracked targets to Supabase:", err.message);
         alert(`⚠️ Saved locally, but failed to reach Supabase: ${err.message}`);
         return;
       }
-    } else {
-      console.warn("User not logged in or supabaseClient not initialized. Saved to localStorage only.");
     }
 
+    renderTrackedBadges();
     alert('✅ Persistent tracking targets saved successfully!');
     hideModal();
   });
@@ -586,13 +600,22 @@ function renderTrackedBadges() {
 
   container.innerHTML = '';
 
+  // Hydrate from localStorage if window.trackedTargets is empty
+  if (!window.trackedTargets || window.trackedTargets.length === 0) {
+    const rawLocal = localStorage.getItem('sfl_tracked_targets');
+    if (rawLocal) {
+      try { window.trackedTargets = JSON.parse(rawLocal) || []; } catch (e) {}
+    }
+  }
+
   if (!window.trackedTargets || window.trackedTargets.length === 0) {
     container.innerHTML = '<span class="text-xs text-sfl-woodLight italic">No items added to persistent tracking list yet.</span>';
     return;
   }
 
   window.trackedTargets.forEach((itemName, index) => {
-    let displayName = itemName.charAt(0).toUpperCase() + itemName.slice(1);
+    let cleanStr = String(itemName).replace(/^\[.*?\]\s*/, '').trim();
+    let displayName = cleanStr.charAt(0).toUpperCase() + cleanStr.slice(1);
     
     const badge = document.createElement('span');
     badge.className = 'inline-flex items-center gap-1.5 bg-sfl-gold/20 border border-sfl-gold text-sfl-dirt px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm';
@@ -607,9 +630,12 @@ function renderTrackedBadges() {
 function removeTrackedTarget(index) {
   if (window.trackedTargets && window.trackedTargets[index] !== undefined) {
     window.trackedTargets.splice(index, 1);
+    localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
     renderTrackedBadges();
   }
 }
+
+window.renderTrackedBadges = renderTrackedBadges;
 
 window.openTrackingModal = function() {
   const modal = document.getElementById('tracking-modal');
