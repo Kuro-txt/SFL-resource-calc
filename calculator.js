@@ -63,13 +63,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Sync tracked targets from Supabase if user is logged in
   if (typeof supabaseClient !== 'undefined' && supabaseClient && window.currentUser) {
     try {
-      const { data } = await supabaseClient
+      const { data, error } = await supabaseClient
         .from('profiles')
         .select('tracked_items')
         .eq('id', window.currentUser.id)
         .maybeSingle();
 
-      if (data && Array.isArray(data.tracked_items)) {
+      if (!error && data && Array.isArray(data.tracked_items)) {
         window.trackedTargets = data.tracked_items;
         localStorage.setItem('sfl_tracked_targets', JSON.stringify(data.tracked_items));
       }
@@ -556,13 +556,23 @@ function initTrackingModal() {
       try {
         const { error } = await supabaseClient
           .from('profiles')
-          .update({ tracked_items: window.trackedTargets })
-          .eq('id', window.currentUser.id);
+          .upsert({ 
+            id: window.currentUser.id,
+            tracked_items: window.trackedTargets 
+          }, { onConflict: 'id' });
 
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase Error saving targets:", error);
+          alert(`⚠️ Saved locally, but Supabase error: ${error.message}`);
+          return;
+        }
       } catch (err) {
         console.error("Failed to save tracked targets to Supabase:", err.message);
+        alert(`⚠️ Saved locally, but failed to reach Supabase: ${err.message}`);
+        return;
       }
+    } else {
+      console.warn("User not logged in or supabaseClient not initialized. Saved to localStorage only.");
     }
 
     alert('✅ Persistent tracking targets saved successfully!');
