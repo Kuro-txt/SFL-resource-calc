@@ -70,7 +70,7 @@ app.get('/api/get-farm', async (req, res) => {
 
     const response = await axios.get(`https://api.sunflower-land.com/community/farms/${farmId}`, {
       headers,
-      timeout: 15000 // ⏱️ Increased timeout to 15s
+      timeout: 15000 // ⏱️ 15s timeout
     });
 
     return res.json(response.data);
@@ -143,7 +143,7 @@ app.get('/api/get-data', async (req, res) => {
   return res.json(fallbackCatalog);
 });
 
-// Proxy Endpoint 3: Live NFT Catalog (Safe depth-capped extraction)
+// Proxy Endpoint 3: Live NFT Catalog
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
@@ -240,9 +240,9 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
         try {
           response = await axios.get(`https://api.sunflower-land.com/community/farms/${profile.farm_id}`, {
             headers,
-            timeout: 15000 // ⏱️ 15-second timeout for SFL API
+            timeout: 15000
           });
-          break; // Success! Exit retry loop
+          break;
         } catch (fetchErr) {
           attempts++;
           const isTimeout = fetchErr.code === 'ECONNABORTED' || fetchErr.message.includes('timeout');
@@ -250,7 +250,7 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
 
           if ((isRateLimited || isTimeout) && attempts < 2) {
             console.warn(`[CRON RETRY] Farm #${profile.farm_id} encountered ${isTimeout ? 'Timeout' : '429 Rate Limit'}. Retrying in 6s...`);
-            await sleep(6000); // Wait 6 seconds before trying again
+            await sleep(6000);
           } else {
             throw fetchErr;
           }
@@ -280,6 +280,17 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
 
         if (snapshotType === 'yield') {
           // --- 22:00 UTC AUTOMATED YIELD CALCULATION ---
+          const trackedItems = Array.isArray(profile.tracked_items) 
+            ? profile.tracked_items.map(t => normalizeKey(t)).filter(Boolean) 
+            : [];
+
+          // STRICT GUARD: If tracked_items is empty, SKIP yield calculation completely for this user
+          if (trackedItems.length === 0) {
+            console.log(`[22:00 UTC CRON] Farm #${profile.farm_id} skipped: tracked_items array is empty.`);
+            successCount++;
+            continue;
+          }
+
           const { data: baselineRow } = await supabaseAdmin
             .from('preharvest_baselines')
             .select('stock')
@@ -288,17 +299,11 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
             .maybeSingle();
 
           const baselineStock = baselineRow?.stock || {};
-          const trackedItems = Array.isArray(profile.tracked_items) ? profile.tracked_items.map(t => normalizeKey(t)) : null;
-
           let yieldsArray = [];
           let grandCount = 0;
 
-          // Iterate over current inventory or tracked items
-          const keysToProcess = trackedItems && trackedItems.length > 0 
-            ? trackedItems 
-            : Object.keys(currentInventory);
-
-          for (const key of keysToProcess) {
+          // Process ONLY items in trackedItems
+          for (const key of trackedItems) {
             const startVal = parseFloat(baselineStock[key]) || 0;
             const endVal = parseFloat(currentInventory[key]) || 0;
             const diff = Math.ceil((endVal - startVal) * 10) / 10;
@@ -344,7 +349,6 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
         errors.push({ farm_id: profile.farm_id, error: err.message });
       }
 
-      // Stagger requests by 4 seconds to prevent rate limits
       await sleep(4000);
     }
 
