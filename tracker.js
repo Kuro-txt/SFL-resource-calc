@@ -151,7 +151,7 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (STRICT: ONLY WORKS IF TARGETS ARE SELECTED OR A BASELINE IS SAVED)
+// 2. CALCULATE HARVEST YIELD (STRICT: ONLY CALCULATES ITEMS IN TRACKED TARGETS)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let targets = window.trackedTargets || [];
 
@@ -160,6 +160,31 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     if (rawLocal) {
       try { targets = JSON.parse(rawLocal) || []; } catch(e) { targets = []; }
     }
+  }
+
+  const activeUser = window.currentUser;
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+
+  if ((!targets || targets.length === 0) && activeUser && client) {
+    const { data } = await client
+      .from('profiles')
+      .select('tracked_items')
+      .eq('id', activeUser.id)
+      .maybeSingle();
+
+    if (data && Array.isArray(data.tracked_items)) {
+      targets = data.tracked_items;
+      window.trackedTargets = targets;
+      localStorage.setItem('sfl_tracked_targets', JSON.stringify(targets));
+    }
+  }
+
+  let activeTargets = (targets && Array.isArray(targets)) ? targets.map(t => normalizeItemKey(t)).filter(Boolean) : [];
+
+  // ABSOLUTE STRICT GUARD: If trackedTargets is empty, STOP IMMEDIATELY
+  if (activeTargets.length === 0) {
+    alert("⚠️ No items selected in Automated Tracking Targets! Please add target items in '⚙️ Manage Automated Tracking Targets' first.");
+    return;
   }
 
   let preHarvestData = {};
@@ -175,9 +200,6 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
       }
     } catch (e) {}
   }
-
-  const activeUser = window.currentUser;
-  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
 
   if (Object.keys(preHarvestData).length === 0 && activeUser && client) {
     const { data, error } = await client
@@ -195,13 +217,8 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     }
   }
 
-  // --- ABSOLUTE STRICT GUARD ---
-  // If NO automated targets are selected AND NO pre-harvest baseline exists, STOP completely.
-  let activeTargets = (targets && targets.length > 0) ? targets.map(t => normalizeItemKey(t)) : [];
-  let baselineKeys = Object.keys(preHarvestData).map(k => normalizeItemKey(k));
-
-  if (activeTargets.length === 0 && baselineKeys.length === 0) {
-    alert("⚠️ No items selected! Please add target items in '⚙️ Manage Automated Tracking Targets' or click '1. Save Pre-Harvest Stock' first.");
+  if (Object.keys(preHarvestData).length === 0) {
+    alert("⚠️ Click '1. Save Pre-Harvest Stock' FIRST before calculating harvest yield!");
     return;
   }
 
@@ -235,17 +252,8 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   Object.keys(basketStock).forEach(itemName => {
     let cleanItemKey = normalizeItemKey(itemName);
 
-    // STRICT FILTER:
-    // 1. If activeTargets are defined (>0 items), ONLY allow items present in activeTargets or baselineKeys.
-    // 2. If activeTargets is empty, ONLY allow items that were explicitly saved in baselineKeys.
-    let isAllowed = false;
-    if (activeTargets.length > 0) {
-      isAllowed = activeTargets.includes(cleanItemKey) || baselineKeys.includes(cleanItemKey);
-    } else {
-      isAllowed = baselineKeys.includes(cleanItemKey);
-    }
-
-    if (!isAllowed) {
+    // STRICT FILTER: Allow ONLY items explicitly listed in activeTargets
+    if (!activeTargets.includes(cleanItemKey)) {
       return; // Skip untracked item
     }
 
@@ -264,7 +272,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No positive yield difference found for your tracked items (Post-harvest amounts must be greater than saved baseline amounts).");
+    alert("⚠️ No positive yield difference found for your tracked items.");
     return;
   }
 
