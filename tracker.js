@@ -169,18 +169,9 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (STRICT: STOPS IF NO TRACKED TARGETS ARE SELECTED)
+// 2. CALCULATE MANUAL HARVEST YIELD
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let activeTargets = getActiveTrackedTargets();
-
-  // =========================================================================
-  // ABSOLUTE HARD GUARD: NO TRACKED TARGETS = DO NOT FETCH OR CALCULATE ANYTHING
-  // =========================================================================
-  if (!activeTargets || activeTargets.length === 0) {
-    alert("🛑 Auto-Tracker is empty! No items are selected in '⚙️ Manage Automated Tracking Targets'.\n\nPlease select at least one item to track before calculating harvest yield.");
-    return; // HARD STOP HERE
-  }
-
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
 
@@ -234,18 +225,15 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
       }
     });
   } else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
-    // Only pick items from inventory IF they are in activeTargets
     for (let key in farmInventoryData) {
       let cleanName = normalizeItemKey(key);
-      if (activeTargets.includes(cleanName)) {
-        let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
-        if (val > 0) basketStock[cleanName] = val;
-      }
+      let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
+      if (cleanName && val > 0) basketStock[cleanName] = val;
     }
   }
 
   if (Object.keys(basketStock).length === 0) {
-    alert("⚠️ No post-harvest amounts found for your tracked targets!");
+    alert("⚠️ Your Farm Basket or Farm Inventory is empty! Add post-harvest items to the basket or click 'Sync Farm Quantities Now'.");
     return;
   }
 
@@ -254,8 +242,10 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   Object.keys(basketStock).forEach(itemName => {
     let cleanItemKey = normalizeItemKey(itemName);
 
-    // DOUBLE FILTER: MUST BE IN TARGETS
-    if (!activeTargets.includes(cleanItemKey)) {
+    // DYNAMIC FILTER RULE:
+    // If targets are set in Auto Tracking, calculate only for those targets.
+    // If NO targets are set in Auto Tracking, allow ALL items present in preHarvestData.
+    if (activeTargets.length > 0 && !activeTargets.includes(cleanItemKey)) {
       return; 
     }
 
@@ -274,7 +264,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No positive harvest yield difference found for your tracked items.");
+    alert("⚠️ No positive harvest yield difference found (Post-harvest quantities must be greater than pre-harvest baseline quantities).");
     return;
   }
 
@@ -356,7 +346,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   alert(`🎉 Successfully recorded harvest yield for ${todayDate}!`);
 });
 
-// 3. BACKEND/BACKGROUND SCHEDULER (HALTS IMMEDIATELY IF NO TARGETS)
+// 3. BACKEND/BACKGROUND AUTOMATED SCHEDULER
 async function executeAutomatedYieldTracking() {
   let activeTargets = getActiveTrackedTargets();
 
