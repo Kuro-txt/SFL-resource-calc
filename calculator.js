@@ -14,9 +14,9 @@ window.trackedTargets = window.trackedTargets || [];
 // Weekly Popup State (0 = Current Week, -1 = Last Week, etc.)
 let currentWeekOffset = 0;
 
-// Standard Flower Image HTML Tag
-const FLOWER_IMG_HTML = `<img src="https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/flower.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-4 h-4 sfl-icon inline-block" alt="Flower">`;
-const FLOWER_IMG_SMALL_HTML = `<img src="https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/flower.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-3.5 h-3.5 sfl-icon inline-block" alt="Flower">`;
+// Standard Flower Image HTML Tag (Local assets with GitHub URL fallback)
+const FLOWER_IMG_HTML = `<img src="assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/flower.png';" class="w-4 h-4 sfl-icon inline-block align-middle" alt="Flower">`;
+const FLOWER_IMG_SMALL_HTML = `<img src="assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/flower.png';" class="w-3.5 h-3.5 sfl-icon inline-block align-middle" alt="Flower">`;
 
 // Helper: Format local date to YYYY-MM-DD without UTC timezone shifts
 function formatDateYYYYMMDD(d) {
@@ -24,6 +24,13 @@ function formatDateYYYYMMDD(d) {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+// Unified Key Normalizer
+function normalizeItemKey(rawInput) {
+  if (!rawInput) return '';
+  let str = typeof rawInput === 'object' ? (rawInput.item || rawInput.name || '') : String(rawInput);
+  return str.replace(/^\[.*?\]\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
 }
 
 // Rounding & Formatting Helper Functions
@@ -51,7 +58,7 @@ function getBettyUnitPrice(cleanName) {
     "eggplant": 8.00, "corn": 9.00, "onion": 10.00, "radish": 9.50,
     "wheat": 7.00, "turnip": 8.00, "kale": 10.00, "artichoke": 12.00, "barley": 12.00
   };
-  let key = (cleanName || '').toLowerCase().trim();
+  let key = normalizeItemKey(cleanName);
   return bettyCatalog[key] !== undefined ? bettyCatalog[key] : null;
 }
 
@@ -171,9 +178,9 @@ function extractPrices(data) {
 }
 
 function getItemStock(displayName) {
-  let cleanSelected = displayName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  let cleanSelected = normalizeItemKey(displayName);
   for (let invKey in farmInventoryData) {
-    let cleanInvKey = invKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+    let cleanInvKey = normalizeItemKey(invKey);
     if (cleanInvKey === cleanSelected) {
       let val = farmInventoryData[invKey];
       let rawVal = typeof val === 'number' ? val : parseFloat(val?.amount || val || 0);
@@ -717,9 +724,7 @@ function calculateWeeklySummary(weekOffset = 0) {
       if (Array.isArray(entry.crops) && entry.crops.length > 0) {
         entry.crops.forEach(crop => {
           const rawName = crop.name || crop.item || 'Crop';
-          const cleanKey = (typeof normalizeItemKey === 'function') 
-            ? normalizeItemKey(rawName) 
-            : rawName.toLowerCase().replace(/^\[.*?\]\s*/, '').trim();
+          const cleanKey = normalizeItemKey(rawName);
           const cleanName = cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
           const qty = parseFloat(crop.qty) || 0;
           let flowers = parseFloat(crop.flowers) || 0;
