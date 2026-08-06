@@ -130,8 +130,8 @@ function initNftCombobox() {
         `;
         li.addEventListener('click', () => {
           addToWishlist(nft);
-          input.value = '';
-          menu.classList.add('hidden');
+          // Kept user query in input box; re-render menu so the added item updates
+          renderMenu();
         });
         menu.appendChild(li);
       });
