@@ -32,9 +32,13 @@ body {
 
 .sfl-icon {
   image-rendering: pixelated;
+  image-rendering: crisp-edges;
   display: inline-block;
   vertical-align: middle;
   flex-shrink: 0;
+  object-fit: contain;
+  min-width: 14px;
+  min-height: 14px;
 }
 
 input[type=number]::-webkit-inner-spin-button, 
