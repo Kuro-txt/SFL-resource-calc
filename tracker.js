@@ -116,20 +116,11 @@ function getActiveTrackedTargets() {
   return (Array.isArray(targets) ? targets : []).map(t => normalizeItemKey(t)).filter(Boolean);
 }
 
-// 1. SAVE MANUAL BASELINE
+// 1. SAVE MANUAL BASELINE (Prioritizes Basket items)
 document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async () => {
   let baselineStock = {};
 
-  // First, read from current farm inventory data if synced
-  if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
-    for (let key in farmInventoryData) {
-      let cleanK = normalizeItemKey(key);
-      let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
-      if (cleanK && val > 0) baselineStock[cleanK] = roundUpToOneDecimal(val);
-    }
-  }
-
-  // Also include/override items in the farm basket
+  // PRIORITY 1: Check if there are items in the Farm Basket
   if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
     basket.forEach(entry => {
       let cleanK = normalizeItemKey(entry.item || entry);
@@ -138,10 +129,18 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
         baselineStock[cleanK] = roundUpToOneDecimal(qty);
       }
     });
+  } 
+  // PRIORITY 2: Fallback to synced farm inventory if basket is empty
+  else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
+    for (let key in farmInventoryData) {
+      let cleanK = normalizeItemKey(key);
+      let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
+      if (cleanK && val > 0) baselineStock[cleanK] = roundUpToOneDecimal(val);
+    }
   }
 
   if (Object.keys(baselineStock).length === 0) {
-    alert("⚠️ Cannot save an empty baseline! Please sync farm inventory or add items to your Farm Basket first.");
+    alert("⚠️ Cannot save an empty baseline! Please add items to your Farm Basket or click 'Sync Farm Quantities Now' first.");
     return;
   }
 
@@ -207,15 +206,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
   let basketStock = {};
 
-  // Build current post-harvest stock map
-  if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
-    for (let key in farmInventoryData) {
-      let cleanK = normalizeItemKey(key);
-      let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
-      if (cleanK && val > 0) basketStock[cleanK] = val;
-    }
-  }
-
+  // Build current post-harvest stock map (Basket items override/supplement farmInventory)
   if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
     basket.forEach(entry => {
       let cleanK = normalizeItemKey(entry.item || entry);
@@ -224,6 +215,16 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
         basketStock[cleanK] = qty;
       }
     });
+  }
+
+  if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
+    for (let key in farmInventoryData) {
+      let cleanK = normalizeItemKey(key);
+      let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
+      if (cleanK && val > 0 && !basketStock[cleanK]) {
+        basketStock[cleanK] = val;
+      }
+    }
   }
 
   if (Object.keys(basketStock).length === 0) {
@@ -250,7 +251,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No positive harvest yield difference found!\n\nMake sure post-harvest item quantities are higher than your saved baseline.");
+    alert("⚠️ No positive harvest yield difference found!\n\nMake sure post-harvest item quantities in your basket or inventory are higher than your saved baseline.");
     return;
   }
 
