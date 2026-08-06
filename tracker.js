@@ -4,10 +4,11 @@ if (typeof window.editingSnapshotDate === 'undefined') {
   window.editingSnapshotDate = null;
 }
 
+// UNIFIED KEY NORMALIZER: Strips [Crop], [Resource], punctuation, and lowercase
 function normalizeItemKey(rawInput) {
   if (!rawInput) return '';
   let str = typeof rawInput === 'object' ? (rawInput.item || rawInput.name || '') : String(rawInput);
-  return str.replace(/^\[.*?\]\s*/, '').toLowerCase().trim();
+  return str.replace(/^\[.*?\]\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
 }
 
 function roundUpToOneDecimal(val) {
@@ -98,7 +99,8 @@ async function updatePreHarvestUI() {
 // Helper to look up current live unit price for an item
 function getItemUnitPrice(cleanName) {
   if (typeof allPrices === 'undefined' || !allPrices) return 0;
-  let matchedKey = Object.keys(allPrices).find(k => normalizeItemKey(k) === cleanName);
+  let cleanTarget = normalizeItemKey(cleanName);
+  let matchedKey = Object.keys(allPrices).find(k => normalizeItemKey(k) === cleanTarget);
   return matchedKey ? parseFloat(allPrices[matchedKey]) || 0 : 0;
 }
 
@@ -118,37 +120,28 @@ function getActiveTrackedTargets() {
 document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async () => {
   let baselineStock = {};
 
-  const existingRaw = localStorage.getItem('sfl_pre_harvest_stock');
-  if (existingRaw) {
-    try {
-      const existingParsed = JSON.parse(existingRaw);
-      let rawStock = existingParsed.stock || existingParsed || {};
-      for (let k in rawStock) {
-        let cleanK = normalizeItemKey(k);
-        let val = parseFloat(rawStock[k]) || 0;
-        if (cleanK && val > 0) baselineStock[cleanK] = val;
-      }
-    } catch (e) {}
-  }
-
-  if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
-    basket.forEach(entry => {
-      let cleanName = normalizeItemKey(entry);
-      let qty = typeof entry === 'object' ? (parseFloat(entry.qty || entry.amount) || 0) : 0;
-      if (cleanName && qty > 0) {
-        baselineStock[cleanName] = roundUpToOneDecimal(qty);
-      }
-    });
-  } else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
+  // First, read from current farm inventory data if synced
+  if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
     for (let key in farmInventoryData) {
-      let cleanName = normalizeItemKey(key);
+      let cleanK = normalizeItemKey(key);
       let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
-      if (cleanName && val > 0) baselineStock[cleanName] = roundUpToOneDecimal(val);
+      if (cleanK && val > 0) baselineStock[cleanK] = roundUpToOneDecimal(val);
     }
   }
 
+  // Also include/override items in the farm basket
+  if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
+    basket.forEach(entry => {
+      let cleanK = normalizeItemKey(entry.item || entry);
+      let qty = parseFloat(entry.qty || entry.amount || 0);
+      if (cleanK && qty > 0) {
+        baselineStock[cleanK] = roundUpToOneDecimal(qty);
+      }
+    });
+  }
+
   if (Object.keys(baselineStock).length === 0) {
-    alert("⚠️ Cannot save an empty snapshot! Please sync farm inventory or add items to your Farm Basket first.");
+    alert("⚠️ Cannot save an empty baseline! Please sync farm inventory or add items to your Farm Basket first.");
     return;
   }
 
@@ -169,9 +162,8 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE MANUAL HARVEST YIELD
+// 2. CALCULATE HARVEST YIELD (MANUAL TRACKING - CALCULATES FOR ALL ITEMS)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
-  let activeTargets = getActiveTrackedTargets();
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
 
@@ -215,21 +207,23 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
   let basketStock = {};
 
-  let hasBasketItems = typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0;
-  if (hasBasketItems) {
+  // Build current post-harvest stock map
+  if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
+    for (let key in farmInventoryData) {
+      let cleanK = normalizeItemKey(key);
+      let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
+      if (cleanK && val > 0) basketStock[cleanK] = val;
+    }
+  }
+
+  if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
     basket.forEach(entry => {
-      let cleanName = normalizeItemKey(entry);
-      let qty = typeof entry === 'object' ? (parseFloat(entry.qty || entry.amount) || 0) : 0;
-      if (cleanName && qty > 0) {
-        basketStock[cleanName] = qty;
+      let cleanK = normalizeItemKey(entry.item || entry);
+      let qty = parseFloat(entry.qty || entry.amount || 0);
+      if (cleanK && qty > 0) {
+        basketStock[cleanK] = qty;
       }
     });
-  } else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
-    for (let key in farmInventoryData) {
-      let cleanName = normalizeItemKey(key);
-      let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
-      if (cleanName && val > 0) basketStock[cleanName] = val;
-    }
   }
 
   if (Object.keys(basketStock).length === 0) {
@@ -239,17 +233,9 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
   let newYieldsMap = {};
 
-  Object.keys(basketStock).forEach(itemName => {
-    let cleanItemKey = normalizeItemKey(itemName);
-
-    // DYNAMIC FILTER RULE:
-    // If targets are set in Auto Tracking, calculate only for those targets.
-    // If NO targets are set in Auto Tracking, allow ALL items present in preHarvestData.
-    if (activeTargets.length > 0 && !activeTargets.includes(cleanItemKey)) {
-      return; 
-    }
-
-    let currentQty = basketStock[itemName] || 0;
+  // Evaluate yield difference against baseline for ALL items
+  Object.keys(basketStock).forEach(cleanItemKey => {
+    let currentQty = basketStock[cleanItemKey] || 0;
     let baselineQty = preHarvestData[cleanItemKey] || 0;
     let diff = currentQty - baselineQty;
 
@@ -258,13 +244,13 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
       let unitPrice = getItemUnitPrice(cleanItemKey);
       let itemFlowers = roundUpToThreeDecimals((unitPrice * harvestedQty) * (1 - taxRate));
 
-      let formattedName = itemName.charAt(0).toUpperCase() + itemName.slice(1);
+      let formattedName = cleanItemKey.charAt(0).toUpperCase() + cleanItemKey.slice(1);
       newYieldsMap[formattedName] = { qty: harvestedQty, flowers: itemFlowers };
     }
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No positive harvest yield difference found (Post-harvest quantities must be greater than pre-harvest baseline quantities).");
+    alert("⚠️ No positive harvest yield difference found!\n\nMake sure post-harvest item quantities are higher than your saved baseline.");
     return;
   }
 
@@ -504,7 +490,7 @@ function renderSnapshotHistory() {
     console.error("Failed to parse history JSON:", err);
   }
 
-  const flowerIconSymbol = typeof FLOWER_ICON !== 'undefined' ? FLOWER_ICON : '🌸';
+  const flowerIconSymbol = typeof FLOWER_IMG_SMALL_HTML !== 'undefined' ? FLOWER_IMG_SMALL_HTML : '🌸';
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
 
   if (!Array.isArray(history) || history.length === 0) {

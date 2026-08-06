@@ -1,4 +1,4 @@
-//// --- LIVE PRICES, FARM SYNC, COMBOBOX & BASKET LOGIC ---
+//// --- LIVE PRICES, FARM SYNC, COMBOBOX, BASKET & WEEKLY POPUP LOGIC ---
 
 // Global Application State Initialization
 window.basket = window.basket || [];
@@ -10,6 +10,21 @@ window.syncCooldownTimer = window.syncCooldownTimer || null;
 
 // Persistent Tracking Targets State
 window.trackedTargets = window.trackedTargets || [];
+
+// Weekly Popup State (0 = Current Week, -1 = Last Week, etc.)
+let currentWeekOffset = 0;
+
+// Standard Flower Image HTML Tag
+const FLOWER_IMG_HTML = `<img src="https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/flower.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-4 h-4 sfl-icon inline-block" alt="Flower">`;
+const FLOWER_IMG_SMALL_HTML = `<img src="https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/flower.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-3.5 h-3.5 sfl-icon inline-block" alt="Flower">`;
+
+// Helper: Format local date to YYYY-MM-DD without UTC timezone shifts
+function formatDateYYYYMMDD(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 // Rounding & Formatting Helper Functions
 function roundUpToOneDecimal(val) {
@@ -88,6 +103,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   loadPrices();
   initTrackingModal();
+  initWeeklySummaryModal();
 });
 
 document.getElementById('tax-select')?.addEventListener('change', (e) => {
@@ -251,8 +267,6 @@ if (input && menu) {
       })
       .sort((a, b) => a.replace(/^\[.*?\]\s*/, '').localeCompare(b.replace(/^\[.*?\]\s*/, '')));
 
-    const flowerSymbol = typeof FLOWER_ICON !== 'undefined' ? FLOWER_ICON : '🌸';
-
     if (matches.length === 0) {
       menu.innerHTML = '<li class="p-2 text-sfl-woodLight italic">No matching items found</li>';
     } else {
@@ -273,7 +287,7 @@ if (input && menu) {
             <span class="font-bold text-sfl-dirt">${displayName}</span>
             ${stockBadge}
           </div>
-          <span class="text-sfl-green font-mono text-xs font-bold flex items-center gap-1">${formattedPrice} ${flowerSymbol}</span>
+          <span class="text-sfl-green font-mono text-xs font-bold flex items-center gap-1">${formattedPrice} ${FLOWER_IMG_SMALL_HTML}</span>
         `;
         li.addEventListener('click', () => selectItem(item, displayName));
         menu.appendChild(li);
@@ -302,11 +316,10 @@ function selectItem(itemKey, displayName) {
   const badgeEl = document.getElementById('selected-item-badge');
   const nameEl = document.getElementById('selected-item-name');
   const priceEl = document.getElementById('selected-item-price');
-  const flowerSymbol = typeof FLOWER_ICON !== 'undefined' ? FLOWER_ICON : '🌸';
 
   if (badgeEl) badgeEl.classList.remove('hidden');
   if (nameEl) nameEl.textContent = cleanName;
-  if (priceEl) priceEl.innerHTML = `${formatFourDecimals(allPrices[itemKey])} ${flowerSymbol}`;
+  if (priceEl) priceEl.innerHTML = `${formatFourDecimals(allPrices[itemKey])} ${FLOWER_IMG_SMALL_HTML}`;
 
   let foundStock = getItemStock(cleanName);
   const qtyInput = document.getElementById('quantity');
@@ -388,7 +401,6 @@ function updateBasketTable() {
   const taxRate = taxEl ? (parseFloat(taxEl.value) || 0) : 0;
   const coinMultiplier = coinEl ? (parseFloat(coinEl.value) || 1000) : 1000;
 
-  const flowerSymbol = typeof FLOWER_ICON !== 'undefined' ? FLOWER_ICON : '🌸';
   const coinSymbol = typeof COIN_ICON !== 'undefined' ? COIN_ICON : '🪙';
 
   if (basket.length === 0) {
@@ -425,7 +437,7 @@ function updateBasketTable() {
       tr.className = "hover:bg-amber-50/50 transition";
       
       let subtotalDisplay = entry.unitPrice > 0 
-        ? `<span class="inline-flex items-center gap-1">${roundUpToThreeDecimals(entry.subtotal).toFixed(3)} ${flowerSymbol}</span>` 
+        ? `<span class="inline-flex items-center gap-1">${roundUpToThreeDecimals(entry.subtotal).toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>` 
         : `<span class="text-sfl-woodLight font-normal">Untradeable</span>`;
 
       tr.innerHTML = `
@@ -644,6 +656,210 @@ window.openTrackingModal = function() {
     modal.classList.remove('hidden');
   }
 };
+
+// =========================================================================
+// MONDAY - SUNDAY WEEKLY SUMMARY POPUP LOGIC
+// =========================================================================
+
+/**
+ * Calculates Monday 00:00:00 to Sunday 23:59:59 dates for a given week offset using local time.
+ */
+function getCalendarWeekRange(weekOffset = 0) {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  
+  // Distance back to Monday (If Sunday [0], Monday was 6 days ago)
+  const distanceToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+  
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - distanceToMonday + (weekOffset * 7));
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  return {
+    mondayDate: monday,
+    sundayDate: sunday,
+    mondayStr: formatDateYYYYMMDD(monday),
+    sundayStr: formatDateYYYYMMDD(sunday)
+  };
+}
+
+/**
+ * Summarizes snapshots between Monday and Sunday for the active week offset.
+ */
+function calculateWeeklySummary(weekOffset = 0) {
+  const { mondayStr, sundayStr, mondayDate, sundayDate } = getCalendarWeekRange(weekOffset);
+  
+  let history = [];
+  try {
+    history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+  } catch (e) {
+    history = [];
+  }
+
+  let totalItems = 0;
+  let totalFlowers = 0;
+  let cropBreakdown = {};
+
+  const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
+
+  history.forEach(entry => {
+    const entryDateStr = entry.date || entry.yield_date;
+    if (entryDateStr && entryDateStr >= mondayStr && entryDateStr <= sundayStr) {
+      
+      let dayNetFlowers = parseFloat(entry.netFlowers || entry.net_flowers || 0);
+      let dayTotalCount = parseFloat(entry.totalCount || entry.total_count || 0);
+      let calculatedDayFlowers = 0;
+
+      if (Array.isArray(entry.crops) && entry.crops.length > 0) {
+        entry.crops.forEach(crop => {
+          const rawName = crop.name || crop.item || 'Crop';
+          const cleanKey = (typeof normalizeItemKey === 'function') 
+            ? normalizeItemKey(rawName) 
+            : rawName.toLowerCase().replace(/^\[.*?\]\s*/, '').trim();
+          const cleanName = cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
+          const qty = parseFloat(crop.qty) || 0;
+          let flowers = parseFloat(crop.flowers) || 0;
+
+          // If flowers is 0 or uncalculated, calculate using unit price
+          if (flowers <= 0 && qty > 0) {
+            let unitPrice = 0;
+            if (typeof getItemUnitPrice === 'function') {
+              unitPrice = getItemUnitPrice(cleanKey);
+            } else if (window.allPrices) {
+              let matchedKey = Object.keys(window.allPrices).find(k => k.toLowerCase().includes(cleanKey));
+              if (matchedKey) unitPrice = parseFloat(window.allPrices[matchedKey]) || 0;
+            }
+            flowers = (unitPrice * qty) * (1 - taxRate);
+          }
+
+          calculatedDayFlowers += flowers;
+
+          if (!cropBreakdown[cleanName]) {
+            cropBreakdown[cleanName] = { qty: 0, flowers: 0 };
+          }
+          cropBreakdown[cleanName].qty += qty;
+          cropBreakdown[cleanName].flowers += flowers;
+        });
+      }
+
+      // Use dayNetFlowers if valid (> 0), otherwise use sum of calculated crop flowers
+      let finalDayFlowers = dayNetFlowers > 0 ? dayNetFlowers : calculatedDayFlowers;
+
+      totalItems += dayTotalCount;
+      totalFlowers += finalDayFlowers;
+    }
+  });
+
+  return {
+    mondayStr,
+    sundayStr,
+    mondayFormatted: mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    sundayFormatted: sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+    totalItems: Math.ceil(totalItems * 10) / 10,
+    totalFlowers: Math.ceil(totalFlowers * 1000) / 1000,
+    cropBreakdown
+  };
+}
+
+/**
+ * Renders the Weekly Summary Modal UI.
+ */
+function renderWeeklySummaryModal() {
+  const summary = calculateWeeklySummary(currentWeekOffset);
+
+  // Date Range Display
+  const dateRangeEl = document.getElementById('weekly-date-range');
+  if (dateRangeEl) {
+    dateRangeEl.textContent = `${summary.mondayFormatted} – ${summary.sundayFormatted}`;
+  }
+
+  // Week Badge Label
+  const weekLabelEl = document.getElementById('week-label-badge');
+  if (weekLabelEl) {
+    if (currentWeekOffset === 0) weekLabelEl.textContent = 'Current Week';
+    else if (currentWeekOffset === -1) weekLabelEl.textContent = 'Last Week';
+    else weekLabelEl.textContent = `${Math.abs(currentWeekOffset)} Weeks Ago`;
+  }
+
+  // Next Week Button state (Cannot navigate into the future)
+  const nextBtn = document.getElementById('next-week-btn');
+  if (nextBtn) {
+    nextBtn.disabled = currentWeekOffset >= 0;
+  }
+
+  // Totals
+  const itemsEl = document.getElementById('weekly-total-items');
+  const flowersEl = document.getElementById('weekly-total-flowers');
+  if (itemsEl) itemsEl.textContent = `${summary.totalItems.toFixed(1)} Items`;
+  if (flowersEl) {
+    flowersEl.innerHTML = `${summary.totalFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
+  }
+
+  // Item Breakdown List
+  const breakdownContainer = document.getElementById('weekly-item-breakdown');
+  if (breakdownContainer) {
+    const entries = Object.entries(summary.cropBreakdown);
+    if (entries.length === 0) {
+      breakdownContainer.innerHTML = '<div class="text-center italic text-sfl-woodLight py-3">No harvests recorded for this calendar week.</div>';
+    } else {
+      let html = '';
+      entries.sort((a, b) => b[1].qty - a[1].qty).forEach(([cropName, data]) => {
+        html += `
+          <div class="flex justify-between items-center p-1.5 bg-amber-50 rounded border border-amber-200/60">
+            <span class="font-bold text-sfl-dirt">${cropName}</span>
+            <div class="flex items-center gap-2 font-mono">
+              <span class="font-bold text-sfl-wood">+${data.qty.toFixed(1)}</span>
+              <span class="text-[10px] text-sfl-green font-semibold flex items-center gap-1">(${data.flowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML})</span>
+            </div>
+          </div>
+        `;
+      });
+      breakdownContainer.innerHTML = html;
+    }
+  }
+}
+
+/**
+ * Binds events for the Weekly Report Popup.
+ */
+function initWeeklySummaryModal() {
+  const modal = document.getElementById('weekly-modal');
+  const openBtns = document.querySelectorAll('#open-weekly-modal-btn');
+  const closeBtn = document.getElementById('close-weekly-modal-btn');
+  const closeFooterBtn = document.getElementById('close-weekly-modal-footer-btn');
+  const prevBtn = document.getElementById('prev-week-btn');
+  const nextBtn = document.getElementById('next-week-btn');
+
+  const openModal = () => {
+    currentWeekOffset = 0; // Reset to current week on open
+    renderWeeklySummaryModal();
+    modal?.classList.remove('hidden');
+  };
+
+  const closeModal = () => {
+    modal?.classList.add('hidden');
+  };
+
+  openBtns.forEach(btn => btn?.addEventListener('click', openModal));
+  closeBtn?.addEventListener('click', closeModal);
+  closeFooterBtn?.addEventListener('click', closeModal);
+
+  prevBtn?.addEventListener('click', () => {
+    currentWeekOffset--;
+    renderWeeklySummaryModal();
+  });
+
+  nextBtn?.addEventListener('click', () => {
+    if (currentWeekOffset < 0) {
+      currentWeekOffset++;
+      renderWeeklySummaryModal();
+    }
+  });
+}
 
 // --- CRYPTO DONATION CLIPBOARD COPY ---
 document.getElementById('donate-btn')?.addEventListener('click', async () => {
