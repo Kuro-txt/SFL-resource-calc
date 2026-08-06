@@ -161,7 +161,7 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD (MANUAL TRACKING - CALCULATES FOR ALL ITEMS)
+// 2. CALCULATE HARVEST YIELD (MANUAL TRACKING - STRICTLY EVALUATES BASKET ITEMS)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
@@ -206,7 +206,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
   let basketStock = {};
 
-  // Build current post-harvest stock map (Basket items override/supplement farmInventory)
+  // Build post-harvest stock map STRICTLY from items currently in the Farm Basket
   if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
     basket.forEach(entry => {
       let cleanK = normalizeItemKey(entry.item || entry);
@@ -217,24 +217,14 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     });
   }
 
-  if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
-    for (let key in farmInventoryData) {
-      let cleanK = normalizeItemKey(key);
-      let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
-      if (cleanK && val > 0 && !basketStock[cleanK]) {
-        basketStock[cleanK] = val;
-      }
-    }
-  }
-
   if (Object.keys(basketStock).length === 0) {
-    alert("⚠️ Your Farm Basket or Farm Inventory is empty! Add post-harvest items to the basket or click 'Sync Farm Quantities Now'.");
+    alert("⚠️ Your Farm Basket is empty!\n\nPlease add your post-harvest items to the Farm Basket before clicking 'Calculate Harvest Yield'.");
     return;
   }
 
   let newYieldsMap = {};
 
-  // Evaluate yield difference against baseline for ALL items
+  // Evaluate yield difference against baseline ONLY for items in the Farm Basket
   Object.keys(basketStock).forEach(cleanItemKey => {
     let currentQty = basketStock[cleanItemKey] || 0;
     let baselineQty = preHarvestData[cleanItemKey] || 0;
@@ -251,7 +241,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   });
 
   if (Object.keys(newYieldsMap).length === 0) {
-    alert("⚠️ No positive harvest yield difference found!\n\nMake sure post-harvest item quantities in your basket or inventory are higher than your saved baseline.");
+    alert("⚠️ No positive harvest yield difference found!\n\nMake sure post-harvest item quantities in your basket are higher than your saved baseline.");
     return;
   }
 
