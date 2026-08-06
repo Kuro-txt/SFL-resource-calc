@@ -162,9 +162,8 @@ document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () =
   }
 });
 
-// 2. CALCULATE HARVEST YIELD
+// 2. CALCULATE HARVEST YIELD (MANUAL TRACKING - CALCULATES FOR ALL ITEMS)
 document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
-  let activeTargets = getActiveTrackedTargets();
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
 
@@ -234,14 +233,8 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
   let newYieldsMap = {};
 
-  // Evaluate yield difference against baseline
+  // Evaluate yield difference against baseline for ALL items
   Object.keys(basketStock).forEach(cleanItemKey => {
-
-    // Filter rule: If automated tracking targets exist, calculate only for those targets
-    if (activeTargets.length > 0 && !activeTargets.includes(cleanItemKey)) {
-      return; 
-    }
-
     let currentQty = basketStock[cleanItemKey] || 0;
     let baselineQty = preHarvestData[cleanItemKey] || 0;
     let diff = currentQty - baselineQty;
