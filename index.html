@@ -86,13 +86,20 @@
         </div>
       </div>
 
-      <!-- TAB NAVIGATION BUTTONS -->
-      <div class="flex items-center gap-2 border-b-2 border-sfl-cardBorder pb-2">
-        <button id="tab-calc-btn" class="bg-sfl-wood text-amber-200 px-5 py-2 rounded-xl font-bold text-xs border-2 border-sfl-dirt shadow-md flex items-center gap-2 cursor-pointer">
-          <span>🧺</span> Calculator & Daily Tracker
-        </button>
-        <button id="tab-wishlist-btn" class="bg-amber-100/60 text-sfl-woodLight px-5 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-2 cursor-pointer">
-          <span>⭐</span> NFT Wishlist
+      <!-- TAB NAVIGATION BUTTONS & WEEKLY REPORT TRIGGER -->
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-sfl-cardBorder pb-2">
+        <div class="flex items-center gap-2">
+          <button id="tab-calc-btn" class="bg-sfl-wood text-amber-200 px-5 py-2 rounded-xl font-bold text-xs border-2 border-sfl-dirt shadow-md flex items-center gap-2 cursor-pointer">
+            <span>🧺</span> Calculator & Daily Tracker
+          </button>
+          <button id="tab-wishlist-btn" class="bg-amber-100/60 text-sfl-woodLight px-5 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-2 cursor-pointer">
+            <span>⭐</span> NFT Wishlist
+          </button>
+        </div>
+
+        <!-- WEEKLY SUMMARY POPUP BUTTON -->
+        <button id="open-weekly-modal-btn" class="bg-sfl-gold text-sfl-dirt font-bold px-3.5 py-2 rounded-xl border-2 border-sfl-dirt hover:bg-amber-400 transition shadow-sm cursor-pointer flex items-center gap-1.5 text-xs">
+          <span>📊</span> Weekly Summary
         </button>
       </div>
 
@@ -285,13 +292,14 @@
             </div>
           </div>
 
-    <!-- AUTOMATED TRACKING ACTION BAR -->
+          <!-- AUTOMATED TRACKING ACTION BAR -->
           <div class="flex justify-center border-t-2 border-b-2 border-sfl-cardBorder/60 py-3">
             <button id="open-tracking-modal-btn" onclick="openTrackingModal()" class="w-full sm:w-auto bg-amber-600 text-amber-100 font-bold py-2.5 px-6 rounded-xl border-2 border-sfl-dirt text-xs sm:text-sm hover:bg-amber-700 transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
               <span>⚙️</span> Manage Automated Tracking Targets
             </button>
           </div>
-       <!-- Guide Box -->
+
+          <!-- Guide Box -->
           <div class="bg-amber-50/80 border border-sfl-cardBorder rounded-lg p-3 text-xs text-sfl-wood space-y-1.5">
             <p class="font-bold flex items-center gap-1.5 text-sfl-wood">
               <span>📖</span> How to Save Snapshots & Log Daily Yields:
@@ -472,6 +480,75 @@
         </button>
         <button id="save-tracking-targets-btn" class="bg-sfl-green text-white font-bold px-5 py-2 rounded-xl text-xs hover:bg-green-700 transition shadow-md cursor-pointer">
           💾 Save Targets
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MONDAY - SUNDAY WEEKLY SUMMARY MODAL (POPUP) -->
+  <div id="weekly-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-sfl-card border-4 border-sfl-wood rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col space-y-4">
+      
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center border-b-2 border-sfl-cardBorder pb-3">
+        <div>
+          <h3 class="text-lg font-black text-sfl-dirt flex items-center gap-2">
+            <span>🗓️</span> Weekly Harvest Report
+          </h3>
+          <p id="weekly-date-range" class="text-xs font-bold text-sfl-woodLight font-mono mt-0.5">
+            Mon – Sun
+          </p>
+        </div>
+        <button id="close-weekly-modal-btn" class="text-sfl-accent hover:text-red-700 font-black text-lg p-1 cursor-pointer">✕</button>
+      </div>
+
+      <!-- Week Navigation Controls -->
+      <div class="flex justify-between items-center bg-amber-100/80 p-2 rounded-lg border border-amber-300 text-xs font-bold">
+        <button id="prev-week-btn" class="bg-sfl-wood text-amber-100 px-2.5 py-1 rounded hover:bg-sfl-dirt transition cursor-pointer">
+          ◀ Previous Week
+        </button>
+        <span id="week-label-badge" class="text-sfl-dirt font-black">Current Week</span>
+        <button id="next-week-btn" class="bg-sfl-wood text-amber-100 px-2.5 py-1 rounded hover:bg-sfl-dirt transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+          Next Week ▶
+        </button>
+      </div>
+
+      <!-- Modal Scrollable Content -->
+      <div class="overflow-y-auto flex-1 pr-1 space-y-4">
+        
+        <!-- Top Metric Cards -->
+        <div class="grid grid-cols-2 gap-3">
+          <!-- Total Items Card -->
+          <div class="bg-amber-100/90 border-2 border-sfl-gold/60 p-3 rounded-xl text-center shadow-sm">
+            <span class="text-[11px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">Total Items</span>
+            <span id="weekly-total-items" class="text-xl font-extrabold text-sfl-wood font-mono">0.0 Items</span>
+          </div>
+
+          <!-- Total Flowers Card -->
+          <div class="bg-green-100/90 border-2 border-sfl-green/50 p-3 rounded-xl text-center shadow-sm">
+            <span class="text-[11px] font-bold text-sfl-green uppercase tracking-wider block mb-1">Net Flowers</span>
+            <span id="weekly-total-flowers" class="text-xl font-extrabold text-sfl-green font-mono">0.000 🌸</span>
+          </div>
+        </div>
+
+        <!-- Itemized Crop Breakdown -->
+        <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl p-3 shadow-inner">
+          <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider mb-2 border-b border-amber-200/60 pb-1 flex justify-between">
+            <span>Resource / Crop</span>
+            <span>Harvested Qty</span>
+          </h4>
+          <div id="weekly-item-breakdown" class="space-y-1.5 max-h-48 overflow-y-auto text-xs">
+            <!-- Item rows inserted dynamically -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="pt-3 border-t border-sfl-cardBorder flex justify-end">
+        <button id="close-weekly-modal-footer-btn" class="bg-sfl-wood text-amber-100 font-bold px-4 py-1.5 rounded-lg hover:bg-sfl-dirt transition text-xs cursor-pointer">
+          Close Report
         </button>
       </div>
 
