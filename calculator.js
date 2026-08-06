@@ -18,6 +18,14 @@ let currentWeekOffset = 0;
 const FLOWER_IMG_HTML = `<img src="https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/flower.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-4 h-4 sfl-icon inline-block" alt="Flower">`;
 const FLOWER_IMG_SMALL_HTML = `<img src="https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/flower.png" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-3.5 h-3.5 sfl-icon inline-block" alt="Flower">`;
 
+// Helper: Format local date to YYYY-MM-DD without UTC timezone shifts
+function formatDateYYYYMMDD(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Rounding & Formatting Helper Functions
 function roundUpToOneDecimal(val) {
   return Math.ceil((parseFloat(val) || 0) * 10) / 10;
@@ -654,7 +662,7 @@ window.openTrackingModal = function() {
 // =========================================================================
 
 /**
- * Calculates Monday 00:00:00 to Sunday 23:59:59 dates for a given week offset.
+ * Calculates Monday 00:00:00 to Sunday 23:59:59 dates for a given week offset using local time.
  */
 function getCalendarWeekRange(weekOffset = 0) {
   const now = new Date();
@@ -674,8 +682,8 @@ function getCalendarWeekRange(weekOffset = 0) {
   return {
     mondayDate: monday,
     sundayDate: sunday,
-    mondayStr: monday.toISOString().split('T')[0],
-    sundayStr: sunday.toISOString().split('T')[0]
+    mondayStr: formatDateYYYYMMDD(monday),
+    sundayStr: formatDateYYYYMMDD(sunday)
   };
 }
 
@@ -704,21 +712,31 @@ function calculateWeeklySummary(weekOffset = 0) {
       
       let dayNetFlowers = parseFloat(entry.netFlowers || entry.net_flowers || 0);
       let dayTotalCount = parseFloat(entry.totalCount || entry.total_count || 0);
+      let calculatedDayFlowers = 0;
 
-      totalItems += dayTotalCount;
-      totalFlowers += dayNetFlowers;
-
-      if (Array.isArray(entry.crops)) {
+      if (Array.isArray(entry.crops) && entry.crops.length > 0) {
         entry.crops.forEach(crop => {
           const rawName = crop.name || crop.item || 'Crop';
-          const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+          const cleanKey = (typeof normalizeItemKey === 'function') 
+            ? normalizeItemKey(rawName) 
+            : rawName.toLowerCase().replace(/^\[.*?\]\s*/, '').trim();
+          const cleanName = cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
           const qty = parseFloat(crop.qty) || 0;
           let flowers = parseFloat(crop.flowers) || 0;
 
-          if (flowers <= 0 && qty > 0 && typeof getItemUnitPrice === 'function') {
-            let unitPrice = getItemUnitPrice(rawName.toLowerCase());
+          // If flowers is 0 or uncalculated, calculate using unit price
+          if (flowers <= 0 && qty > 0) {
+            let unitPrice = 0;
+            if (typeof getItemUnitPrice === 'function') {
+              unitPrice = getItemUnitPrice(cleanKey);
+            } else if (window.allPrices) {
+              let matchedKey = Object.keys(window.allPrices).find(k => k.toLowerCase().includes(cleanKey));
+              if (matchedKey) unitPrice = parseFloat(window.allPrices[matchedKey]) || 0;
+            }
             flowers = (unitPrice * qty) * (1 - taxRate);
           }
+
+          calculatedDayFlowers += flowers;
 
           if (!cropBreakdown[cleanName]) {
             cropBreakdown[cleanName] = { qty: 0, flowers: 0 };
@@ -727,6 +745,12 @@ function calculateWeeklySummary(weekOffset = 0) {
           cropBreakdown[cleanName].flowers += flowers;
         });
       }
+
+      // Use dayNetFlowers if valid (> 0), otherwise use sum of calculated crop flowers
+      let finalDayFlowers = dayNetFlowers > 0 ? dayNetFlowers : calculatedDayFlowers;
+
+      totalItems += dayTotalCount;
+      totalFlowers += finalDayFlowers;
     }
   });
 
