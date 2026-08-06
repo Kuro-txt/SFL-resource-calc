@@ -86,20 +86,13 @@
         </div>
       </div>
 
-      <!-- TAB NAVIGATION BUTTONS & WEEKLY REPORT TRIGGER -->
-      <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-sfl-cardBorder pb-2">
-        <div class="flex items-center gap-2">
-          <button id="tab-calc-btn" class="bg-sfl-wood text-amber-200 px-5 py-2 rounded-xl font-bold text-xs border-2 border-sfl-dirt shadow-md flex items-center gap-2 cursor-pointer">
-            <span>🧺</span> Calculator & Daily Tracker
-          </button>
-          <button id="tab-wishlist-btn" class="bg-amber-100/60 text-sfl-woodLight px-5 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-2 cursor-pointer">
-            <span>⭐</span> NFT Wishlist
-          </button>
-        </div>
-
-        <!-- WEEKLY SUMMARY POPUP BUTTON -->
-        <button id="open-weekly-modal-btn" class="bg-sfl-gold text-sfl-dirt font-bold px-3.5 py-2 rounded-xl border-2 border-sfl-dirt hover:bg-amber-400 transition shadow-sm cursor-pointer flex items-center gap-1.5 text-xs">
-          <span>📊</span> Weekly Summary
+      <!-- TAB NAVIGATION BUTTONS -->
+      <div class="flex items-center gap-2 border-b-2 border-sfl-cardBorder pb-2">
+        <button id="tab-calc-btn" class="bg-sfl-wood text-amber-200 px-5 py-2 rounded-xl font-bold text-xs border-2 border-sfl-dirt shadow-md flex items-center gap-2 cursor-pointer">
+          <span>🧺</span> Calculator & Daily Tracker
+        </button>
+        <button id="tab-wishlist-btn" class="bg-amber-100/60 text-sfl-woodLight px-5 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-2 cursor-pointer">
+          <span>⭐</span> NFT Wishlist
         </button>
       </div>
 
@@ -292,10 +285,14 @@
             </div>
           </div>
 
-          <!-- AUTOMATED TRACKING ACTION BAR -->
-          <div class="flex justify-center border-t-2 border-b-2 border-sfl-cardBorder/60 py-3">
-            <button id="open-tracking-modal-btn" onclick="openTrackingModal()" class="w-full sm:w-auto bg-amber-600 text-amber-100 font-bold py-2.5 px-6 rounded-xl border-2 border-sfl-dirt text-xs sm:text-sm hover:bg-amber-700 transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+          <!-- AUTOMATED TRACKING & WEEKLY SUMMARY ACTION BAR -->
+          <div class="flex flex-col sm:flex-row justify-center items-center gap-2 border-t-2 border-b-2 border-sfl-cardBorder/60 py-3">
+            <button id="open-tracking-modal-btn" onclick="openTrackingModal()" class="w-full sm:w-auto bg-amber-600 text-amber-100 font-bold py-2.5 px-5 rounded-xl border-2 border-sfl-dirt text-xs sm:text-sm hover:bg-amber-700 transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
               <span>⚙️</span> Manage Automated Tracking Targets
+            </button>
+            
+            <button id="open-weekly-modal-btn" class="w-full sm:w-auto bg-sfl-gold text-sfl-dirt font-bold py-2.5 px-5 rounded-xl border-2 border-sfl-dirt hover:bg-amber-400 transition shadow-md cursor-pointer flex items-center justify-center gap-2 text-xs sm:text-sm">
+              <span>📊</span> Weekly Summary
             </button>
           </div>
 
