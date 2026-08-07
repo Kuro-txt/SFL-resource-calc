@@ -166,7 +166,6 @@ export function renderCalculatorTemplate() {
         </div>
       </div>
 
-      <!-- HARVEST TRACKER SUB-SECTION -->
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder shadow-sm space-y-4">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div>
