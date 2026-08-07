@@ -94,39 +94,46 @@ export function calculateWeeklySummary(weekOffset = 0) {
     history = [];
   }
 
-  let totalItems = 0;
-  let totalFlowers = 0;
+  let grandTotalItems = 0;
+  let grandTotalFlowers = 0;
   let cropBreakdown = {};
 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
 
   history.forEach(entry => {
-    const entryDateStr = entry.date || entry.yield_date;
-    if (entryDateStr && entryDateStr >= mondayStr && entryDateStr <= sundayStr) {
+    if (!entry) return;
+
+    // Clean up raw date strings (e.g. "2026-08-07T14:30:00.000Z" -> "2026-08-07")
+    let rawDate = entry.date || entry.yield_date || '';
+    let cleanDateStr = rawDate.split('T')[0].trim();
+
+    if (cleanDateStr && cleanDateStr >= mondayStr && cleanDateStr <= sundayStr) {
       let dayNetFlowers = parseFloat(entry.netFlowers || entry.net_flowers || 0);
-      let dayTotalCount = parseFloat(entry.totalCount || entry.total_count || 0);
       let calculatedDayFlowers = 0;
+      let dayTotalCount = 0;
 
       if (Array.isArray(entry.crops) && entry.crops.length > 0) {
         entry.crops.forEach(crop => {
-          const rawName = crop.name || crop.item || 'Crop';
+          const rawName = crop.name || crop.item || 'Item';
           const cleanKey = normalizeItemKey(rawName);
+          if (!cleanKey) return;
+
+          // Format clean display name (Capitalize first letter)
           const cleanName = cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
           const qty = parseFloat(crop.qty) || 0;
           let flowers = parseFloat(crop.flowers) || 0;
 
+          // Recalculate flower yields if stored as zero
           if (flowers <= 0 && qty > 0) {
-            let unitPrice = 0;
-            if (typeof getBettyUnitPrice === 'function') {
-              unitPrice = getBettyUnitPrice(cleanKey) || 0;
-            }
+            let unitPrice = getBettyUnitPrice(cleanKey) || 0;
             if (unitPrice === 0 && window.allPrices) {
-              let matchedKey = Object.keys(window.allPrices).find(k => k.toLowerCase().includes(cleanKey));
+              let matchedKey = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanKey);
               if (matchedKey) unitPrice = parseFloat(window.allPrices[matchedKey]) || 0;
             }
             flowers = (unitPrice * qty) * (1 - taxRate);
           }
 
+          dayTotalCount += qty;
           calculatedDayFlowers += flowers;
 
           if (!cropBreakdown[cleanName]) {
@@ -137,10 +144,11 @@ export function calculateWeeklySummary(weekOffset = 0) {
         });
       }
 
+      let finalDayTotalCount = parseFloat(entry.totalCount || entry.total_count) || dayTotalCount;
       let finalDayFlowers = dayNetFlowers > 0 ? dayNetFlowers : calculatedDayFlowers;
 
-      totalItems += dayTotalCount;
-      totalFlowers += finalDayFlowers;
+      grandTotalItems += finalDayTotalCount;
+      grandTotalFlowers += finalDayFlowers;
     }
   });
 
@@ -149,8 +157,8 @@ export function calculateWeeklySummary(weekOffset = 0) {
     sundayStr,
     mondayFormatted: mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
     sundayFormatted: sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
-    totalItems: Math.ceil(totalItems * 10) / 10,
-    totalFlowers: Math.ceil(totalFlowers * 1000) / 1000,
+    totalItems: Math.ceil(grandTotalItems * 10) / 10,
+    totalFlowers: Math.ceil(grandTotalFlowers * 1000) / 1000,
     cropBreakdown
   };
 }
