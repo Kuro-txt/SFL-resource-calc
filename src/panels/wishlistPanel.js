@@ -1,7 +1,85 @@
 let allNfts = [];
 let wishlistItems = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]');
 
+export function renderWishlistTemplate() {
+  const container = document.getElementById('wishlist-section');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="space-y-4">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+          <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
+            <span>⭐</span> NFT & Collectibles Wishlist
+          </h3>
+          <p class="text-[11px] text-sfl-woodLight font-semibold">Track live floor prices, custom offers, boosts, and total cost of target items from sfl.world.</p>
+        </div>
+        <button id="clear-wishlist-btn" class="bg-sfl-accent text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-red-700 transition cursor-pointer">
+          🗑️ Clear Wishlist
+        </button>
+      </div>
+
+      <div class="bg-sfl-card/80 p-4 rounded-xl border-2 border-sfl-cardBorder space-y-2">
+        <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood">🔍 Search & Add SFL NFTs or Collectibles</label>
+        <div class="relative max-w-lg">
+          <input type="text" id="wishlist-search-input" placeholder="Type or click to search NFT name or boost..." autocomplete="off" class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
+          <ul id="wishlist-search-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto bg-white border-2 border-sfl-woodLight rounded-lg shadow-xl z-30 divide-y divide-sfl-cardBorder/30 text-sm">
+            <li class="p-2 text-sfl-woodLight italic">Loading NFT catalog...</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto bg-white/80 border-2 border-sfl-cardBorder rounded-xl shadow-sm">
+        <table class="w-full text-left text-xs text-sfl-dirt">
+          <thead class="bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood uppercase text-[11px]">
+            <tr>
+              <th class="px-3 py-2.5">NFT / Item Name</th>
+              <th class="px-3 py-2.5">Boost / Description</th>
+              <th class="px-3 py-2.5">Floor Price</th>
+              <th class="px-3 py-2.5">Offer Price</th>
+              <th class="px-2 py-2.5 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="wishlist-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
+            <tr>
+              <td colspan="5" class="px-4 py-8 text-center text-sfl-woodLight italic">
+                Your wishlist is empty! Search above to add items.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 text-center shadow-inner space-y-2">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center items-center">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Saved Items</span>
+            <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-wood mt-0.5">
+              <span id="wishlist-item-count">0 Items</span>
+            </h2>
+          </div>
+          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Total Floor Price</span>
+            <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green mt-0.5 flex items-center justify-center gap-1">
+              <span id="wishlist-total-flowers">0.00</span>
+              <img src="./assets/flower.webp" class="w-5 h-5 sfl-icon" alt="Flower">
+            </h2>
+          </div>
+          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Total Offer Price</span>
+            <h2 class="text-xl sm:text-2xl font-pixel font-bold text-amber-700 mt-0.5 flex items-center justify-center gap-1">
+              <span id="wishlist-total-offer">0.00</span>
+              <img src="./assets/flower.webp" class="w-5 h-5 sfl-icon" alt="Flower">
+            </h2>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 export function initWishlistPanel() {
+  renderWishlistTemplate();
   initNftCombobox();
   loadNftCatalog();
   renderWishlist();
