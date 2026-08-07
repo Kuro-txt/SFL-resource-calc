@@ -1,34 +1,21 @@
-// --- DYNAMIC PANEL ROUTER & TAB MANAGER ---
-
 const panels = {};
 let activePanelId = null;
 
 export const PanelManager = {
-  /**
-   * Register a new panel module.
-   * @param {string} id - Unique identifier (e.g., 'calc', 'wishlist')
-   * @param {Object} options - Lifecycle hooks { onMount, onUnmount }
-   */
   register(id, { onMount, onUnmount } = {}) {
     panels[id] = { onMount, onUnmount };
   },
 
-  /**
-   * Switch active view tab.
-   * @param {string} targetId - ID of panel to activate
-   */
   switch(targetId) {
     if (!panels[targetId] && !document.getElementById(`${targetId}-section`)) {
       console.warn(`Panel '${targetId}' is not registered.`);
       return;
     }
 
-    // Run unmount lifecycle on previous panel
     if (activePanelId && panels[activePanelId]?.onUnmount) {
       panels[activePanelId].onUnmount();
     }
 
-    // Toggle DOM section visibility and tab styling
     Object.keys(panels).forEach(id => {
       const sectionEl = document.getElementById(`${id}-section`);
       const btnEl = document.getElementById(`tab-${id}-btn`);
@@ -48,15 +35,11 @@ export const PanelManager = {
 
     activePanelId = targetId;
 
-    // Run mount lifecycle on active panel
     if (panels[targetId]?.onMount) {
       panels[targetId].onMount();
     }
   },
 
-  /**
-   * Initialize tab button event listeners.
-   */
   initTabs() {
     const tabCalcBtn = document.getElementById('tab-calc-btn');
     const tabWishlistBtn = document.getElementById('tab-wishlist-btn');
