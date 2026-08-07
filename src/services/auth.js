@@ -1,19 +1,15 @@
-// --- USER AUTHENTICATION & SUPABASE PROFILE MANAGEMENT ---
-
-// Initialize tracked targets memory from localStorage on module load
-try {
-  const localSaved = localStorage.getItem('sfl_tracked_targets');
-  window.trackedTargets = localSaved ? (JSON.parse(localSaved) || []) : [];
-} catch (e) {
-  window.trackedTargets = [];
-}
-
 export async function initAuth() {
   if (!window.supabaseClient && typeof supabaseClient !== 'undefined') {
     window.supabaseClient = supabaseClient;
   }
 
-  // Restore saved input credentials
+  try {
+    const localSaved = localStorage.getItem('sfl_tracked_targets');
+    window.trackedTargets = localSaved ? (JSON.parse(localSaved) || []) : [];
+  } catch (e) {
+    window.trackedTargets = [];
+  }
+
   const savedFarmId = localStorage.getItem('sfl_farm_id');
   const savedApiKey = localStorage.getItem('sfl_api_key');
 
@@ -50,7 +46,6 @@ export async function setLoggedInUser(user) {
   const emailDisplay = document.getElementById('user-email-display');
   if (emailDisplay) emailDisplay.textContent = user.email;
 
-  // Load cloud profile first to prevent overwriting existing tracked_items
   await loadCloudUserData();
 
   const currentFarmId = document.getElementById('farm-id')?.value.trim();
@@ -84,7 +79,6 @@ export async function loadCloudUserData() {
   cutoff.setDate(cutoff.getDate() - 30);
   const cutoffDateStr = cutoff.toISOString().split('T')[0];
 
-  // Fetch full profile from Supabase
   const { data: profile } = await window.supabaseClient
     .from('profiles')
     .select('farm_id, tracked_items')
@@ -98,7 +92,6 @@ export async function loadCloudUserData() {
       localStorage.setItem('sfl_farm_id', profile.farm_id);
     }
 
-    // Hydrate targets from database if present, otherwise fall back to local storage
     if (Array.isArray(profile.tracked_items) && profile.tracked_items.length > 0) {
       window.trackedTargets = profile.tracked_items;
       localStorage.setItem('sfl_tracked_targets', JSON.stringify(profile.tracked_items));
@@ -114,11 +107,9 @@ export async function loadCloudUserData() {
     if (typeof window.renderTrackedBadges === 'function') window.renderTrackedBadges();
   }
 
-  // Prune history older than 30 days
   await window.supabaseClient.from('daily_yields').delete().eq('user_id', window.currentUser.id).lt('yield_date', cutoffDateStr);
   await window.supabaseClient.from('preharvest_baselines').delete().eq('user_id', window.currentUser.id).lt('snapshot_date', cutoffDateStr);
 
-  // Load yield history
   const { data: yields } = await window.supabaseClient
     .from('daily_yields')
     .select('*')
