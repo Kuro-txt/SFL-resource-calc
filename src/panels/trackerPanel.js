@@ -1,25 +1,43 @@
-// --- PRE-HARVEST BASELINES & DAILY HARVEST YIELD TRACKER ---
+import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals } from '../utils/formatters.js';
+import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
 
-if (typeof window.editingSnapshotDate === 'undefined') {
-  window.editingSnapshotDate = null;
+window.editingSnapshotDate = window.editingSnapshotDate || null;
+
+export function initTrackerPanel() {
+  bindTrackerEvents();
+  updatePreHarvestUI();
+  renderSnapshotHistory();
+  loadCloudYieldHistory();
 }
 
-// UNIFIED KEY NORMALIZER: Strips [Crop], [Resource], punctuation, and lowercase
-function normalizeItemKey(rawInput) {
-  if (!rawInput) return '';
-  let str = typeof rawInput === 'object' ? (rawInput.item || rawInput.name || '') : String(rawInput);
-  return str.replace(/^\[.*?\]\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+function bindTrackerEvents() {
+  document.getElementById('save-pre-harvest-btn')?.addEventListener('click', handleSavePreHarvest);
+  document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', handleClearPreHarvest);
+  document.getElementById('log-yield-btn')?.addEventListener('click', handleCalculateYield);
+
+  document.getElementById('export-json-btn')?.addEventListener('click', exportYieldJSON);
+  
+  const importInput = document.getElementById('import-file-input');
+  document.getElementById('import-json-btn')?.addEventListener('click', () => importInput?.click());
+  importInput?.addEventListener('change', importYieldJSON);
 }
 
-function roundUpToOneDecimal(val) {
-  return Math.ceil((parseFloat(val) || 0) * 10) / 10;
+function getItemUnitPriceInFlowers(cleanName) {
+  if (!window.allPrices) return 0;
+  let cleanTarget = normalizeItemKey(cleanName);
+  let matchedKey = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanTarget);
+  if (!matchedKey) return 0;
+
+  let price = parseFloat(window.allPrices[matchedKey]) || 0;
+  // If price is suspiciously high (>100), it's in coins/ratio - convert back to Flowers
+  if (price > 100) {
+    const coinRatio = parseFloat(document.getElementById('coin-ratio')?.value) || 1000;
+    return price / coinRatio;
+  }
+  return price;
 }
 
-function roundUpToThreeDecimals(val) {
-  return Math.ceil((parseFloat(val) || 0) * 1000) / 1000;
-}
-
-function renderStockBadges(stockObj, targetElId) {
+export function renderStockBadges(stockObj, targetElId) {
   const container = document.getElementById(targetElId);
   if (!container || !stockObj) return;
 
@@ -43,7 +61,7 @@ function renderStockBadges(stockObj, targetElId) {
   container.innerHTML = html;
 }
 
-async function updatePreHarvestUI() {
+export async function updatePreHarvestUI() {
   const mainContainer = document.getElementById('pre-harvest-status');
   const cloudStatus = document.getElementById('cloud-baseline-status');
   const manualStatus = document.getElementById('manual-baseline-status');
@@ -53,8 +71,8 @@ async function updatePreHarvestUI() {
   let hasCloud = false;
   let hasManual = false;
 
-  const activeUser = window.currentUser;
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+  const activeUser = window.currentUser;
 
   if (activeUser && client) {
     const todayDate = new Date().toISOString().split('T')[0];
@@ -96,45 +114,21 @@ async function updatePreHarvestUI() {
   }
 }
 
-// Helper to look up current live unit price for an item
-function getItemUnitPrice(cleanName) {
-  if (typeof allPrices === 'undefined' || !allPrices) return 0;
-  let cleanTarget = normalizeItemKey(cleanName);
-  let matchedKey = Object.keys(allPrices).find(k => normalizeItemKey(k) === cleanTarget);
-  return matchedKey ? parseFloat(allPrices[matchedKey]) || 0 : 0;
-}
-
-// Helper: Safely retrieve active tracked targets array
-function getActiveTrackedTargets() {
-  let targets = window.trackedTargets || [];
-  if (!targets || targets.length === 0) {
-    const rawLocal = localStorage.getItem('sfl_tracked_targets');
-    if (rawLocal) {
-      try { targets = JSON.parse(rawLocal) || []; } catch(e) { targets = []; }
-    }
-  }
-  return (Array.isArray(targets) ? targets : []).map(t => normalizeItemKey(t)).filter(Boolean);
-}
-
-// 1. SAVE MANUAL BASELINE (Prioritizes Basket items)
-document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async () => {
+async function handleSavePreHarvest() {
   let baselineStock = {};
 
-  // PRIORITY 1: Check if there are items in the Farm Basket
-  if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
-    basket.forEach(entry => {
+  if (Array.isArray(window.basket) && window.basket.length > 0) {
+    window.basket.forEach(entry => {
       let cleanK = normalizeItemKey(entry.item || entry);
       let qty = parseFloat(entry.qty || entry.amount || 0);
       if (cleanK && qty > 0) {
         baselineStock[cleanK] = roundUpToOneDecimal(qty);
       }
     });
-  } 
-  // PRIORITY 2: Fallback to synced farm inventory if basket is empty
-  else if (typeof farmInventoryData !== 'undefined' && farmInventoryData && Object.keys(farmInventoryData).length > 0) {
-    for (let key in farmInventoryData) {
+  } else if (window.farmInventoryData && Object.keys(window.farmInventoryData).length > 0) {
+    for (let key in window.farmInventoryData) {
       let cleanK = normalizeItemKey(key);
-      let val = parseFloat(farmInventoryData[key]?.amount || farmInventoryData[key] || 0);
+      let val = parseFloat(window.farmInventoryData[key]?.amount || window.farmInventoryData[key] || 0);
       if (cleanK && val > 0) baselineStock[cleanK] = roundUpToOneDecimal(val);
     }
   }
@@ -152,21 +146,19 @@ document.getElementById('save-pre-harvest-btn')?.addEventListener('click', async
   localStorage.setItem('sfl_pre_harvest_stock', JSON.stringify(preHarvestPayload));
   updatePreHarvestUI();
   alert("🚩 Pre-Harvest baseline saved successfully!");
-});
+}
 
-document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', () => {
+function handleClearPreHarvest() {
   if (confirm("Are you sure you want to clear your active pre-harvest baseline?")) {
     localStorage.removeItem('sfl_pre_harvest_stock');
     updatePreHarvestUI();
   }
-});
+}
 
-// 2. CALCULATE HARVEST YIELD (MANUAL TRACKING - STRICTLY EVALUATES BASKET ITEMS)
-document.getElementById('log-yield-btn')?.addEventListener('click', async () => {
+async function handleCalculateYield() {
   let preHarvestData = {};
   const todayDate = new Date().toISOString().split('T')[0];
 
-  // Load manual baseline from localStorage
   const preHarvestRaw = localStorage.getItem('sfl_pre_harvest_stock');
   if (preHarvestRaw) {
     try {
@@ -178,10 +170,9 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     } catch (e) {}
   }
 
-  const activeUser = window.currentUser;
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+  const activeUser = window.currentUser;
 
-  // Load cloud baseline from Supabase if manual baseline is absent
   if (Object.keys(preHarvestData).length === 0 && activeUser && client) {
     const { data, error } = await client
       .from('preharvest_baselines')
@@ -206,9 +197,8 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
   let basketStock = {};
 
-  // Build post-harvest stock map STRICTLY from items currently in the Farm Basket
-  if (typeof basket !== 'undefined' && Array.isArray(basket) && basket.length > 0) {
-    basket.forEach(entry => {
+  if (Array.isArray(window.basket) && window.basket.length > 0) {
+    window.basket.forEach(entry => {
       let cleanK = normalizeItemKey(entry.item || entry);
       let qty = parseFloat(entry.qty || entry.amount || 0);
       if (cleanK && qty > 0) {
@@ -224,7 +214,6 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
   let newYieldsMap = {};
 
-  // Evaluate yield difference against baseline ONLY for items in the Farm Basket
   Object.keys(basketStock).forEach(cleanItemKey => {
     let currentQty = basketStock[cleanItemKey] || 0;
     let baselineQty = preHarvestData[cleanItemKey] || 0;
@@ -232,7 +221,7 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
 
     if (diff > 0.0001) {
       let harvestedQty = roundUpToOneDecimal(diff);
-      let unitPrice = getItemUnitPrice(cleanItemKey);
+      let unitPrice = getItemUnitPriceInFlowers(cleanItemKey);
       let itemFlowers = roundUpToThreeDecimals((unitPrice * harvestedQty) * (1 - taxRate));
 
       let formattedName = cleanItemKey.charAt(0).toUpperCase() + cleanItemKey.slice(1);
@@ -279,16 +268,12 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
     let qty = cropsMap[itemName].qty;
     let flowers = cropsMap[itemName].flowers;
 
-    if (flowers <= 0) {
-      let unitPrice = getItemUnitPrice(cleanK);
+    if (flowers <= 0 || flowers > 500) {
+      let unitPrice = getItemUnitPriceInFlowers(cleanK);
       flowers = roundUpToThreeDecimals((unitPrice * qty) * (1 - taxRate));
     }
 
-    mergedCropsArray.push({
-      name: itemName,
-      qty: qty,
-      flowers: flowers
-    });
+    mergedCropsArray.push({ name: itemName, qty, flowers });
     grandCount += qty;
     grandFlowers += flowers;
   });
@@ -321,33 +306,109 @@ document.getElementById('log-yield-btn')?.addEventListener('click', async () => 
   updatePreHarvestUI();
   renderSnapshotHistory();
   alert(`🎉 Successfully recorded harvest yield for ${todayDate}!`);
-});
+}
 
-// 3. BACKEND/BACKGROUND AUTOMATED SCHEDULER
-async function executeAutomatedYieldTracking() {
-  let activeTargets = getActiveTrackedTargets();
+export function renderSnapshotHistory() {
+  const tbody = document.getElementById('snapshot-history-body');
+  if (!tbody) return;
 
-  if (!activeTargets || activeTargets.length === 0) {
-    console.log("🛑 Automated tracking halted: No target items selected.");
+  let history = [];
+  try {
+    history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+  } catch (err) {}
+
+  const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
+
+  if (!Array.isArray(history) || history.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">No harvest sessions logged yet!</td></tr>`;
     return;
   }
 
-  console.log("⚡ Running automated tracking strictly for:", activeTargets);
+  tbody.innerHTML = '';
+  history.forEach(entry => {
+    if (!entry) return;
+
+    let entryDate = entry.date || entry.yield_date || 'Unknown Date';
+    let isEditing = window.editingSnapshotDate === entryDate;
+    let cleanDateId = entryDate.replace(/[^a-zA-Z0-9]/g, '');
+
+    let cropsList = Array.isArray(entry.crops) ? entry.crops : [];
+    let calculatedRowNetFlowers = 0;
+
+    let cropBadges = cropsList
+      .map((crop, idx) => {
+        const cropQty = parseFloat(crop.qty) || 0;
+        let cropFlowers = parseFloat(crop.flowers) || 0;
+        const cropName = crop.name || crop.item || 'Item';
+        const cleanK = normalizeItemKey(cropName);
+
+        if ((cropFlowers <= 0 || cropFlowers > 500) && cropQty > 0) {
+          let unitPrice = getItemUnitPriceInFlowers(cleanK);
+          cropFlowers = roundUpToThreeDecimals((unitPrice * cropQty) * (1 - taxRate));
+        }
+
+        calculatedRowNetFlowers += cropFlowers;
+
+        if (isEditing) {
+          return `
+            <span class="inline-flex items-center gap-1 bg-amber-200 text-amber-900 border-2 border-sfl-green text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
+              <span>${cropName}:</span>
+              <input type="number" id="edit-qty-${cleanDateId}-${idx}" value="${cropQty.toFixed(1)}" step="0.1" min="0" 
+                class="w-12 sfl-input text-xs font-mono font-bold rounded px-1 text-sfl-dirt text-center">
+            </span>
+          `;
+        } else {
+          return `
+            <span class="inline-flex items-center gap-1 bg-green-100 text-sfl-green border border-sfl-green/40 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
+              <span>+${cropQty.toFixed(1)} ${cropName}</span>
+              <span class="text-sfl-green font-normal">(${cropFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML})</span>
+            </span>
+          `;
+        }
+      })
+      .join('');
+
+    let actionButtons = isEditing 
+      ? `
+        <button onclick="saveEditedSnapshot('${entryDate}')" class="bg-sfl-green text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-green-700 mr-1 shadow-sm cursor-pointer">💾 Save</button>
+        <button onclick="cancelEditSnapshot()" class="bg-sfl-wood text-amber-200 px-2 py-1 rounded text-[10px] font-bold hover:bg-sfl-woodLight shadow-sm cursor-pointer">✕</button>
+      `
+      : `
+        <button onclick="editSnapshotRow('${entryDate}')" class="bg-amber-600 text-amber-100 px-2 py-1 rounded text-[10px] font-bold hover:bg-amber-700 mr-1 shadow-sm cursor-pointer">✏️ Edit</button>
+        <button onclick="deleteSnapshotRow('${entryDate}')" class="bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 shadow-sm cursor-pointer">🗑️</button>
+      `;
+
+    let rawTotalCount = parseFloat(entry.totalCount || entry.total_count);
+    let totalYieldCount = !isNaN(rawTotalCount) 
+      ? rawTotalCount 
+      : cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0);
+
+    let finalNetFlowers = calculatedRowNetFlowers;
+
+    let tr = document.createElement('tr');
+    tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
+    tr.innerHTML = `
+      <td class="px-3 py-2.5 font-bold whitespace-nowrap">${entryDate}</td>
+      <td class="px-3 py-2.5 font-bold font-mono text-sfl-wood">${totalYieldCount.toFixed(1)} Items</td>
+      <td class="px-3 py-2.5">${cropBadges || '<span class="italic text-gray-400">No details</span>'}</td>
+      <td class="px-3 py-2.5 font-bold text-sfl-green font-mono">${finalNetFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</td>
+      <td class="px-2 py-2.5 text-center whitespace-nowrap">${actionButtons}</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
-window.executeAutomatedYieldTracking = executeAutomatedYieldTracking;
-
-function editSnapshotRow(date) {
+export function editSnapshotRow(date) {
   window.editingSnapshotDate = date;
   renderSnapshotHistory();
 }
 
-function cancelEditSnapshot() {
+export function cancelEditSnapshot() {
   window.editingSnapshotDate = null;
   renderSnapshotHistory();
 }
 
-async function saveEditedSnapshot(date) {
+export async function saveEditedSnapshot(date) {
   let history = [];
   try {
     history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
@@ -370,11 +431,7 @@ async function saveEditedSnapshot(date) {
 
       if (newQty > 0) {
         let cleanK = normalizeItemKey(crop.name || crop.item || '');
-        let unitPrice = getItemUnitPrice(cleanK);
-        if (unitPrice <= 0 && crop.qty > 0) {
-          unitPrice = (parseFloat(crop.flowers) || 0) / parseFloat(crop.qty);
-        }
-
+        let unitPrice = getItemUnitPriceInFlowers(cleanK);
         let itemNetFlowers = roundUpToThreeDecimals((unitPrice * newQty) * (1 - taxRate));
 
         updatedCrops.push({
@@ -401,8 +458,8 @@ async function saveEditedSnapshot(date) {
     netFlowers: roundUpToThreeDecimals(grandNetFlowers).toFixed(3)
   };
 
-  const activeUser = window.currentUser;
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+  const activeUser = window.currentUser;
 
   if (activeUser && client) {
     await client.from('daily_yields').upsert({
@@ -420,7 +477,7 @@ async function saveEditedSnapshot(date) {
   alert(`✅ Harvest record for ${date} updated!`);
 }
 
-async function deleteSnapshotRow(date) {
+export async function deleteSnapshotRow(date) {
   if (!confirm(`Delete snapshot record for ${date}?`)) return;
   let history = [];
   try {
@@ -429,8 +486,8 @@ async function deleteSnapshotRow(date) {
 
   localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history.filter(i => i.date !== date)));
 
-  const activeUser = window.currentUser;
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+  const activeUser = window.currentUser;
 
   if (activeUser && client) {
     await client.from('daily_yields').delete().eq('user_id', activeUser.id).eq('yield_date', date);
@@ -440,9 +497,9 @@ async function deleteSnapshotRow(date) {
   renderSnapshotHistory();
 }
 
-async function loadCloudYieldHistory() {
-  const activeUser = window.currentUser;
+export async function loadCloudYieldHistory() {
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+  const activeUser = window.currentUser;
 
   if (activeUser && client) {
     try {
@@ -468,142 +525,39 @@ async function loadCloudYieldHistory() {
   }
 }
 
-function renderSnapshotHistory() {
-  const tbody = document.getElementById('snapshot-history-body');
-  if (!tbody) return;
-
-  let rawHistory = localStorage.getItem('sfl_daily_snapshots');
-  let history = [];
-
-  try {
-    history = JSON.parse(rawHistory || '[]');
-  } catch (err) {
-    console.error("Failed to parse history JSON:", err);
-  }
-
-  const flowerIconSymbol = typeof FLOWER_IMG_SMALL_HTML !== 'undefined' ? FLOWER_IMG_SMALL_HTML : '🌸';
-  const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
-
-  if (!Array.isArray(history) || history.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">No harvest sessions logged yet!</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = '';
-  history.forEach(entry => {
-    if (!entry) return;
-
-    let entryDate = entry.date || entry.yield_date || 'Unknown Date';
-    let isEditing = window.editingSnapshotDate === entryDate;
-    let cleanDateId = entryDate.replace(/[^a-zA-Z0-9]/g, '');
-
-    let cropsList = Array.isArray(entry.crops) ? entry.crops : [];
-    let calculatedRowNetFlowers = 0;
-
-    let cropBadges = cropsList
-      .map((crop, idx) => {
-        const cropQty = parseFloat(crop.qty) || 0;
-        let cropFlowers = parseFloat(crop.flowers) || 0;
-        const cropName = crop.name || crop.item || 'Item';
-        const cleanK = normalizeItemKey(cropName);
-
-        if (cropFlowers <= 0 && cropQty > 0) {
-          let unitPrice = getItemUnitPrice(cleanK);
-          cropFlowers = roundUpToThreeDecimals((unitPrice * cropQty) * (1 - taxRate));
-        }
-
-        calculatedRowNetFlowers += cropFlowers;
-
-        if (isEditing) {
-          return `
-            <span class="inline-flex items-center gap-1 bg-amber-200 text-amber-900 border-2 border-sfl-green text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
-              <span>${cropName}:</span>
-              <input type="number" id="edit-qty-${cleanDateId}-${idx}" value="${cropQty.toFixed(1)}" step="0.1" min="0" 
-                class="w-12 sfl-input text-xs font-mono font-bold rounded px-1 text-sfl-dirt text-center">
-            </span>
-          `;
-        } else {
-          return `
-            <span class="inline-flex items-center gap-1 bg-green-100 text-sfl-green border border-sfl-green/40 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
-              <span>+${cropQty.toFixed(1)} ${cropName}</span>
-              <span class="text-sfl-green font-normal">(${cropFlowers.toFixed(3)} ${flowerIconSymbol})</span>
-            </span>
-          `;
-        }
-      })
-      .join('');
-
-    let actionButtons = isEditing 
-      ? `
-        <button onclick="saveEditedSnapshot('${entryDate}')" class="bg-sfl-green text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-green-700 mr-1 shadow-sm cursor-pointer">💾 Save</button>
-        <button onclick="cancelEditSnapshot()" class="bg-sfl-wood text-amber-200 px-2 py-1 rounded text-[10px] font-bold hover:bg-sfl-woodLight shadow-sm cursor-pointer">✕</button>
-      `
-      : `
-        <button onclick="editSnapshotRow('${entryDate}')" class="bg-amber-600 text-amber-100 px-2 py-1 rounded text-[10px] font-bold hover:bg-amber-700 mr-1 shadow-sm cursor-pointer">✏️ Edit</button>
-        <button onclick="deleteSnapshotRow('${entryDate}')" class="bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 shadow-sm cursor-pointer">🗑️</button>
-      `;
-
-    let rawTotalCount = parseFloat(entry.totalCount || entry.total_count);
-    let totalYieldCount = !isNaN(rawTotalCount) 
-      ? rawTotalCount 
-      : cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0);
-
-    let rawNetFlowers = parseFloat(entry.netFlowers || entry.net_flowers || 0);
-    let finalNetFlowers = rawNetFlowers > 0 ? rawNetFlowers : calculatedRowNetFlowers;
-
-    let tr = document.createElement('tr');
-    tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
-    tr.innerHTML = `
-      <td class="px-3 py-2.5 font-bold whitespace-nowrap">${entryDate}</td>
-      <td class="px-3 py-2.5 font-bold font-mono text-sfl-wood">${totalYieldCount.toFixed(1)} Items</td>
-      <td class="px-3 py-2.5">${cropBadges || '<span class="italic text-gray-400">No details</span>'}</td>
-      <td class="px-3 py-2.5 font-bold text-sfl-green font-mono">${finalNetFlowers.toFixed(3)} ${flowerIconSymbol}</td>
-      <td class="px-2 py-2.5 text-center whitespace-nowrap">${actionButtons}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// Export JSON
-document.getElementById('export-json-btn')?.addEventListener('click', () => {
+function exportYieldJSON() {
   let history = localStorage.getItem('sfl_daily_snapshots') || '[]';
   let blob = new Blob([history], { type: 'application/json' });
   let a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `sfl_harvest_yields_${new Date().toISOString().split('T')[0]}.json`;
   a.click();
-});
-
-// Import JSON
-const importFileInput = document.getElementById('import-file-input');
-document.getElementById('import-json-btn')?.addEventListener('click', () => importFileInput?.click());
-
-if (importFileInput) {
-  importFileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const imported = JSON.parse(evt.target.result);
-        if (Array.isArray(imported)) {
-          localStorage.setItem('sfl_daily_snapshots', JSON.stringify(imported));
-          renderSnapshotHistory();
-          alert('✅ Imported harvest history successfully!');
-        }
-      } catch (err) {
-        alert('❌ Failed to parse imported JSON file.');
-      }
-    };
-    reader.readAsText(file);
-    importFileInput.value = '';
-  });
 }
 
-// Initial UI Render
-document.addEventListener('DOMContentLoaded', () => {
-  updatePreHarvestUI();
-  renderSnapshotHistory();
-  loadCloudYieldHistory();
-});
+function importYieldJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const imported = JSON.parse(evt.target.result);
+      if (Array.isArray(imported)) {
+        localStorage.setItem('sfl_daily_snapshots', JSON.stringify(imported));
+        renderSnapshotHistory();
+        alert('✅ Imported harvest history successfully!');
+      }
+    } catch (err) {
+      alert('❌ Failed to parse imported JSON file.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+window.editSnapshotRow = editSnapshotRow;
+window.cancelEditSnapshot = cancelEditSnapshot;
+window.saveEditedSnapshot = saveEditedSnapshot;
+window.deleteSnapshotRow = deleteSnapshotRow;
+window.renderSnapshotHistory = renderSnapshotHistory;
+window.updatePreHarvestUI = updatePreHarvestUI;
