@@ -1,6 +1,5 @@
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals } from '../utils/formatters.js';
 import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
-
 window.editingSnapshotDate = window.editingSnapshotDate || null;
 
 export function initTrackerPanel() {
