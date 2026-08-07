@@ -172,7 +172,25 @@ export function renderCalculatorTemplate() {
       <!-- HARVEST TRACKER SUB-SECTION -->
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder shadow-sm space-y-4">
         
-        <!-- TRACKER HEADER & ACTIONS -->
+        <!-- 1. GUIDE BOX AT THE VERY TOP -->
+        <div class="bg-amber-50/90 border-2 border-sfl-cardBorder rounded-xl p-3.5 text-xs text-sfl-wood space-y-2 shadow-sm">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 border-b border-sfl-cardBorder/50 pb-2">
+            <p class="font-bold flex items-center gap-1.5 text-sfl-wood">
+              <span>📖</span> How to Save Snapshots & Log Daily Yields:
+            </p>
+            <span class="bg-amber-200/90 text-amber-900 border border-amber-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              <span>🖥️</span> <strong>Tip:</strong> Enable Desktop Mode on mobile browsers for optimal experience!
+            </span>
+          </div>
+
+          <ul class="list-disc list-inside space-y-1 text-[11px] text-sfl-woodLight font-medium pl-1">
+            <li><strong>Automatic 00:00 UTC Snapshot:</strong> When signed in, our server automatically records your complete farm inventory at 00:00 UTC every night!</li>
+            <li><strong>Automated 22:00 UTC Calculation:</strong> Our server automatically calculates daily earnings at 22:00 UTC for items selected under <span class="text-amber-800 font-bold">"⚙️ Manage Automated Tracking Targets"</span>.</li>
+            <li><strong>Manual Calculation Anytime:</strong> Sync your farm inventory, add items to your basket, save a baseline, and click <span class="text-sfl-green font-bold">"🏁 2. Calculate Harvest Yield"</span>.</li>
+          </ul>
+        </div>
+
+        <!-- 2. TRACKER TITLE & ACTION BUTTONS -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div>
             <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
@@ -197,25 +215,7 @@ export function renderCalculatorTemplate() {
           </div>
         </div>
 
-        <!-- MOVED GUIDE BOX (TOP OF TRACKER SECTION) WITH DESKTOP MODE TIP -->
-        <div class="bg-amber-50/90 border-2 border-sfl-cardBorder rounded-xl p-3.5 text-xs text-sfl-wood space-y-2 shadow-sm">
-          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 border-b border-sfl-cardBorder/50 pb-2">
-            <p class="font-bold flex items-center gap-1.5 text-sfl-wood">
-              <span>📖</span> How to Save Snapshots & Log Daily Yields:
-            </p>
-            <span class="bg-amber-200/90 text-amber-900 border border-amber-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <span>🖥️</span> <strong>Tip:</strong> Enable Desktop Mode on mobile browsers for optimal experience!
-            </span>
-          </div>
-
-          <ul class="list-disc list-inside space-y-1 text-[11px] text-sfl-woodLight font-medium pl-1">
-            <li><strong>Automatic 00:00 UTC Snapshot:</strong> When signed in, our server automatically records your complete farm inventory at 00:00 UTC every night!</li>
-            <li><strong>Automated 22:00 UTC Calculation:</strong> Our server automatically calculates daily earnings at 22:00 UTC for items selected under <span class="text-amber-800 font-bold">"⚙️ Manage Automated Tracking Targets"</span>.</li>
-            <li><strong>Manual Calculation Anytime:</strong> Sync your farm inventory, add items to your basket, save a baseline, and click <span class="text-sfl-green font-bold">"🏁 2. Calculate Harvest Yield"</span>.</li>
-          </ul>
-        </div>
-
-        <!-- AUTOMATED TRACKING & WEEKLY SUMMARY ACTION BAR -->
+        <!-- 3. AUTOMATED TRACKING & WEEKLY SUMMARY ACTION BAR -->
         <div class="flex flex-col sm:flex-row justify-center items-center gap-2 border-t-2 border-b-2 border-sfl-cardBorder/60 py-3">
           <button id="open-tracking-modal-btn" onclick="openTrackingModal()" class="w-full sm:w-auto bg-amber-600 text-amber-100 font-bold py-2.5 px-5 rounded-xl border-2 border-sfl-dirt text-xs sm:text-sm hover:bg-amber-700 transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
             <span>⚙️</span> Manage Automated Tracking Targets
@@ -225,7 +225,7 @@ export function renderCalculatorTemplate() {
           </button>
         </div>
 
-        <!-- BASELINE STATUS DISPLAY -->
+        <!-- 4. BASELINE STATUS DISPLAY -->
         <div id="pre-harvest-status" class="hidden bg-amber-100/90 border-2 border-amber-400 p-3 rounded-lg text-xs font-bold text-amber-900 space-y-2 shadow-sm">
           <div id="cloud-baseline-status" class="hidden flex justify-between items-center text-green-800 border-b border-amber-300/60 pb-1">
             <span>☁️ 00:00 UTC Cloud Baseline: <span class="font-extrabold">Active</span></span>
@@ -240,7 +240,7 @@ export function renderCalculatorTemplate() {
           </div>
         </div>
 
-        <!-- SNAPSHOT HISTORY TABLE -->
+        <!-- 5. SNAPSHOT HISTORY TABLE -->
         <div class="overflow-x-auto bg-white/70 border-2 border-sfl-cardBorder rounded-lg">
           <table class="w-full text-left text-xs text-sfl-dirt">
             <thead class="bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood uppercase text-[11px]">
