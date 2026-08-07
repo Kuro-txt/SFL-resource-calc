@@ -1,5 +1,6 @@
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals } from '../utils/formatters.js';
 import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
+
 window.editingSnapshotDate = window.editingSnapshotDate || null;
 
 export function initTrackerPanel() {
@@ -21,11 +22,19 @@ function bindTrackerEvents() {
   importInput?.addEventListener('change', importYieldJSON);
 }
 
-function getItemUnitPrice(cleanName) {
+function getItemUnitPriceInFlowers(cleanName) {
   if (!window.allPrices) return 0;
   let cleanTarget = normalizeItemKey(cleanName);
   let matchedKey = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanTarget);
-  return matchedKey ? parseFloat(window.allPrices[matchedKey]) || 0 : 0;
+  if (!matchedKey) return 0;
+
+  let price = parseFloat(window.allPrices[matchedKey]) || 0;
+  // If price is suspiciously high (>100), it's in coins/ratio - convert back to Flowers
+  if (price > 100) {
+    const coinRatio = parseFloat(document.getElementById('coin-ratio')?.value) || 1000;
+    return price / coinRatio;
+  }
+  return price;
 }
 
 export function renderStockBadges(stockObj, targetElId) {
@@ -212,7 +221,7 @@ async function handleCalculateYield() {
 
     if (diff > 0.0001) {
       let harvestedQty = roundUpToOneDecimal(diff);
-      let unitPrice = getItemUnitPrice(cleanItemKey);
+      let unitPrice = getItemUnitPriceInFlowers(cleanItemKey);
       let itemFlowers = roundUpToThreeDecimals((unitPrice * harvestedQty) * (1 - taxRate));
 
       let formattedName = cleanItemKey.charAt(0).toUpperCase() + cleanItemKey.slice(1);
@@ -259,8 +268,8 @@ async function handleCalculateYield() {
     let qty = cropsMap[itemName].qty;
     let flowers = cropsMap[itemName].flowers;
 
-    if (flowers <= 0) {
-      let unitPrice = getItemUnitPrice(cleanK);
+    if (flowers <= 0 || flowers > 500) {
+      let unitPrice = getItemUnitPriceInFlowers(cleanK);
       flowers = roundUpToThreeDecimals((unitPrice * qty) * (1 - taxRate));
     }
 
@@ -333,8 +342,8 @@ export function renderSnapshotHistory() {
         const cropName = crop.name || crop.item || 'Item';
         const cleanK = normalizeItemKey(cropName);
 
-        if (cropFlowers <= 0 && cropQty > 0) {
-          let unitPrice = getItemUnitPrice(cleanK);
+        if ((cropFlowers <= 0 || cropFlowers > 500) && cropQty > 0) {
+          let unitPrice = getItemUnitPriceInFlowers(cleanK);
           cropFlowers = roundUpToThreeDecimals((unitPrice * cropQty) * (1 - taxRate));
         }
 
@@ -374,8 +383,7 @@ export function renderSnapshotHistory() {
       ? rawTotalCount 
       : cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0);
 
-    let rawNetFlowers = parseFloat(entry.netFlowers || entry.net_flowers || 0);
-    let finalNetFlowers = rawNetFlowers > 0 ? rawNetFlowers : calculatedRowNetFlowers;
+    let finalNetFlowers = calculatedRowNetFlowers;
 
     let tr = document.createElement('tr');
     tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
@@ -423,11 +431,7 @@ export async function saveEditedSnapshot(date) {
 
       if (newQty > 0) {
         let cleanK = normalizeItemKey(crop.name || crop.item || '');
-        let unitPrice = getItemUnitPrice(cleanK);
-        if (unitPrice <= 0 && crop.qty > 0) {
-          unitPrice = (parseFloat(crop.flowers) || 0) / parseFloat(crop.qty);
-        }
-
+        let unitPrice = getItemUnitPriceInFlowers(cleanK);
         let itemNetFlowers = roundUpToThreeDecimals((unitPrice * newQty) * (1 - taxRate));
 
         updatedCrops.push({
