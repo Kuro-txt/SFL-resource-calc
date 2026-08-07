@@ -40,14 +40,14 @@ export function renderWeeklyModalTemplate() {
             </div>
             <div class="bg-green-100/90 border-2 border-sfl-green/50 p-3 rounded-xl text-center shadow-sm">
               <span class="text-[11px] font-bold text-sfl-green uppercase tracking-wider block mb-1">Net Flowers</span>
-              <span id="weekly-total-flowers" class="text-xl font-extrabold text-sfl-green font-mono">0.000 🌸</span>
+              <span id="weekly-total-flowers" class="text-xl font-extrabold text-sfl-green font-mono">0.000 ${FLOWER_IMG_HTML}</span>
             </div>
           </div>
 
           <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl p-3 shadow-inner">
             <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider mb-2 border-b border-amber-200/60 pb-1 flex justify-between">
               <span>Resource / Crop</span>
-              <span>Harvested Qty</span>
+              <span>Harvested Qty & Value</span>
             </h4>
             <div id="weekly-item-breakdown" class="space-y-1.5 max-h-48 overflow-y-auto text-xs"></div>
           </div>
@@ -121,6 +121,7 @@ export function calculateWeeklySummary(weekOffset = 0) {
           const qty = parseFloat(crop.qty) || 0;
           let flowers = parseFloat(crop.flowers) || 0;
 
+          // If flowers missing/zero in snapshot, recalculate directly
           if (flowers <= 0 && qty > 0) {
             let unitPrice = getBettyUnitPrice(cleanKey) || 0;
             if (unitPrice === 0 && window.allPrices) {
@@ -136,9 +137,9 @@ export function calculateWeeklySummary(weekOffset = 0) {
           if (!cropBreakdown[cleanName]) {
             cropBreakdown[cleanName] = { qty: 0, flowers: 0 };
           }
-          // Precision round sums during accumulation
-          cropBreakdown[cleanName].qty = Math.round((cropBreakdown[cleanName].qty + qty) * 10) / 10;
-          cropBreakdown[cleanName].flowers = Math.round((cropBreakdown[cleanName].flowers + flowers) * 1000) / 1000;
+
+          cropBreakdown[cleanName].qty += qty;
+          cropBreakdown[cleanName].flowers += flowers;
         });
       }
 
@@ -150,13 +151,17 @@ export function calculateWeeklySummary(weekOffset = 0) {
     }
   });
 
+  // Apply floating point rounding to exact decimals
+  let roundedTotalItems = Math.round(grandTotalItems * 10) / 10;
+  let roundedTotalFlowers = Math.round(grandTotalFlowers * 1000) / 1000;
+
   return {
     mondayStr,
     sundayStr,
     mondayFormatted: mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
     sundayFormatted: sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
-    totalItems: Math.round(grandTotalItems * 10) / 10,
-    totalFlowers: Math.round(grandTotalFlowers * 1000) / 1000,
+    totalItems: roundedTotalItems,
+    totalFlowers: roundedTotalFlowers,
     cropBreakdown
   };
 }
@@ -196,12 +201,15 @@ export function renderWeeklySummaryModal() {
     } else {
       let html = '';
       entries.sort((a, b) => b[1].qty - a[1].qty).forEach(([cropName, data]) => {
+        let cleanQty = (Math.round(data.qty * 10) / 10).toFixed(1);
+        let cleanFlowers = (Math.round(data.flowers * 1000) / 1000).toFixed(3);
+
         html += `
           <div class="flex justify-between items-center p-1.5 bg-amber-50 rounded border border-amber-200/60">
             <span class="font-bold text-sfl-dirt">${cropName}</span>
             <div class="flex items-center gap-2 font-mono">
-              <span class="font-bold text-sfl-wood">+${data.qty.toFixed(1)}</span>
-              <span class="text-[10px] text-sfl-green font-semibold flex items-center gap-1">(${data.flowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML})</span>
+              <span class="font-bold text-sfl-wood">+${cleanQty}</span>
+              <span class="text-[10px] text-sfl-green font-semibold flex items-center gap-1">(${cleanFlowers} ${FLOWER_IMG_SMALL_HTML})</span>
             </div>
           </div>
         `;
