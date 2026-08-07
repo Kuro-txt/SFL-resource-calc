@@ -94,10 +94,7 @@ export function calculateWeeklySummary(weekOffset = 0) {
     history = [];
   }
 
-  let grandTotalItems = 0;
-  let grandTotalFlowers = 0;
   let cropBreakdown = {};
-
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
 
   history.forEach(entry => {
@@ -107,10 +104,6 @@ export function calculateWeeklySummary(weekOffset = 0) {
     let cleanDateStr = rawDate.split('T')[0].trim();
 
     if (cleanDateStr && cleanDateStr >= mondayStr && cleanDateStr <= sundayStr) {
-      let dayNetFlowers = parseFloat(entry.netFlowers || entry.net_flowers || 0);
-      let calculatedDayFlowers = 0;
-      let dayTotalCount = 0;
-
       if (Array.isArray(entry.crops) && entry.crops.length > 0) {
         entry.crops.forEach(crop => {
           const rawName = crop.name || crop.item || 'Item';
@@ -121,7 +114,7 @@ export function calculateWeeklySummary(weekOffset = 0) {
           const qty = parseFloat(crop.qty) || 0;
           let flowers = parseFloat(crop.flowers) || 0;
 
-          // If flowers missing/zero in snapshot, recalculate directly
+          // If crop flowers is zero or missing in older entries, recalculate using market/Betty prices
           if (flowers <= 0 && qty > 0) {
             let unitPrice = getBettyUnitPrice(cleanKey) || 0;
             if (unitPrice === 0 && window.allPrices) {
@@ -131,9 +124,6 @@ export function calculateWeeklySummary(weekOffset = 0) {
             flowers = (unitPrice * qty) * (1 - taxRate);
           }
 
-          dayTotalCount += qty;
-          calculatedDayFlowers += flowers;
-
           if (!cropBreakdown[cleanName]) {
             cropBreakdown[cleanName] = { qty: 0, flowers: 0 };
           }
@@ -142,16 +132,19 @@ export function calculateWeeklySummary(weekOffset = 0) {
           cropBreakdown[cleanName].flowers += flowers;
         });
       }
-
-      let finalDayTotalCount = parseFloat(entry.totalCount || entry.total_count) || dayTotalCount;
-      let finalDayFlowers = dayNetFlowers > 0 ? dayNetFlowers : calculatedDayFlowers;
-
-      grandTotalItems += finalDayTotalCount;
-      grandTotalFlowers += finalDayFlowers;
     }
   });
 
-  // Apply floating point rounding to exact decimals
+  // Calculate grand totals directly from the itemized crop breakdown
+  let grandTotalItems = 0;
+  let grandTotalFlowers = 0;
+
+  Object.values(cropBreakdown).forEach(item => {
+    grandTotalItems += item.qty;
+    grandTotalFlowers += item.flowers;
+  });
+
+  // Precision decimal rounding
   let roundedTotalItems = Math.round(grandTotalItems * 10) / 10;
   let roundedTotalFlowers = Math.round(grandTotalFlowers * 1000) / 1000;
 
