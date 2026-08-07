@@ -103,7 +103,6 @@ export function calculateWeeklySummary(weekOffset = 0) {
   history.forEach(entry => {
     if (!entry) return;
 
-    // Clean up raw date strings (e.g. "2026-08-07T14:30:00.000Z" -> "2026-08-07")
     let rawDate = entry.date || entry.yield_date || '';
     let cleanDateStr = rawDate.split('T')[0].trim();
 
@@ -118,12 +117,10 @@ export function calculateWeeklySummary(weekOffset = 0) {
           const cleanKey = normalizeItemKey(rawName);
           if (!cleanKey) return;
 
-          // Format clean display name (Capitalize first letter)
           const cleanName = cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
           const qty = parseFloat(crop.qty) || 0;
           let flowers = parseFloat(crop.flowers) || 0;
 
-          // Recalculate flower yields if stored as zero
           if (flowers <= 0 && qty > 0) {
             let unitPrice = getBettyUnitPrice(cleanKey) || 0;
             if (unitPrice === 0 && window.allPrices) {
@@ -139,8 +136,9 @@ export function calculateWeeklySummary(weekOffset = 0) {
           if (!cropBreakdown[cleanName]) {
             cropBreakdown[cleanName] = { qty: 0, flowers: 0 };
           }
-          cropBreakdown[cleanName].qty += qty;
-          cropBreakdown[cleanName].flowers += flowers;
+          // Precision round sums during accumulation
+          cropBreakdown[cleanName].qty = Math.round((cropBreakdown[cleanName].qty + qty) * 10) / 10;
+          cropBreakdown[cleanName].flowers = Math.round((cropBreakdown[cleanName].flowers + flowers) * 1000) / 1000;
         });
       }
 
@@ -157,8 +155,8 @@ export function calculateWeeklySummary(weekOffset = 0) {
     sundayStr,
     mondayFormatted: mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
     sundayFormatted: sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
-    totalItems: Math.ceil(grandTotalItems * 10) / 10,
-    totalFlowers: Math.ceil(grandTotalFlowers * 1000) / 1000,
+    totalItems: Math.round(grandTotalItems * 10) / 10,
+    totalFlowers: Math.round(grandTotalFlowers * 1000) / 1000,
     cropBreakdown
   };
 }
