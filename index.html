@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SFL Resource Calculator</title>
+  <link rel="icon" type="image/x-icon" href="./assets/flower.webp">
   <link href="https://fonts.googleapis.com/css2?family=VT323&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -38,24 +39,24 @@
 <body class="font-game text-sfl-dirt min-h-screen p-4 sm:p-8 flex items-center justify-center">
 
   <div class="w-full max-w-5xl space-y-4">
-    <!-- Component Containers -->
+    <!-- Component Mount Containers -->
     <div id="header-mount"></div>
 
     <div class="sfl-panel rounded-2xl p-5 sm:p-7 relative space-y-5">
       <div id="auth-mount"></div>
       <div id="tabs-mount"></div>
 
-      <!-- View Containers -->
+      <!-- Views Containers -->
       <div id="calc-section"></div>
       <div id="wishlist-section" class="hidden"></div>
     </div>
   </div>
 
-  <!-- Modal Containers -->
+  <!-- Modal Mount Containers -->
   <div id="tracking-modal-mount"></div>
   <div id="weekly-modal-mount"></div>
 
-  <!-- Single ES Module Entry Point -->
+  <!-- Main ES Module Entry Point -->
   <script type="module" src="./src/app.js"></script>
 
 </body>
