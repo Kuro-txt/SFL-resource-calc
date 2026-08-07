@@ -10,10 +10,12 @@ export function renderWeeklyModalTemplate() {
   container.innerHTML = `
     <div id="weekly-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div class="bg-sfl-card border-4 border-sfl-wood rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col space-y-4">
+        
+        <!-- MODAL HEADER -->
         <div class="flex justify-between items-center border-b-2 border-sfl-cardBorder pb-3">
           <div>
             <h3 class="text-lg font-black text-sfl-dirt flex items-center gap-2">
-              <span>🗓️</span> Weekly Harvest Report
+              <span>🗓️</span> Weekly Harvest & Snapshot Report
             </h3>
             <p id="weekly-date-range" class="text-xs font-bold text-sfl-woodLight font-mono mt-0.5">
               Mon – Sun
@@ -22,6 +24,7 @@ export function renderWeeklyModalTemplate() {
           <button id="close-weekly-modal-btn" class="text-sfl-accent hover:text-red-700 font-black text-lg p-1 cursor-pointer">✕</button>
         </div>
 
+        <!-- WEEK NAVIGATION -->
         <div class="flex justify-between items-center bg-amber-100/80 p-2 rounded-lg border border-amber-300 text-xs font-bold">
           <button id="prev-week-btn" class="bg-sfl-wood text-amber-100 px-2.5 py-1 rounded hover:bg-sfl-dirt transition cursor-pointer">
             ◀ Previous Week
@@ -32,18 +35,24 @@ export function renderWeeklyModalTemplate() {
           </button>
         </div>
 
+        <!-- MAIN STATS CARDS -->
         <div class="overflow-y-auto flex-1 pr-1 space-y-4">
-          <div class="grid grid-cols-2 gap-3">
-            <div class="bg-amber-100/90 border-2 border-sfl-gold/60 p-3 rounded-xl text-center shadow-sm">
-              <span class="text-[11px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">Total Items</span>
-              <span id="weekly-total-items" class="text-xl font-extrabold text-sfl-wood font-mono">0.0 Items</span>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="bg-amber-100/90 border-2 border-sfl-gold/60 p-2.5 rounded-xl text-center shadow-sm">
+              <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">Snapshots</span>
+              <span id="weekly-total-snapshots" class="text-lg font-extrabold text-sfl-wood font-mono">0 Logs</span>
             </div>
-            <div class="bg-green-100/90 border-2 border-sfl-green/50 p-3 rounded-xl text-center shadow-sm">
-              <span class="text-[11px] font-bold text-sfl-green uppercase tracking-wider block mb-1">Net Flowers</span>
-              <span id="weekly-total-flowers" class="text-xl font-extrabold text-sfl-green font-mono">0.000 ${FLOWER_IMG_HTML}</span>
+            <div class="bg-amber-100/90 border-2 border-sfl-gold/60 p-2.5 rounded-xl text-center shadow-sm">
+              <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">Total Items</span>
+              <span id="weekly-total-items" class="text-lg font-extrabold text-sfl-wood font-mono">0.0 Items</span>
+            </div>
+            <div class="bg-green-100/90 border-2 border-sfl-green/50 p-2.5 rounded-xl text-center shadow-sm">
+              <span class="text-[10px] font-bold text-sfl-green uppercase tracking-wider block mb-0.5">Net Flowers</span>
+              <span id="weekly-total-flowers" class="text-lg font-extrabold text-sfl-green font-mono">0.000 ${FLOWER_IMG_HTML}</span>
             </div>
           </div>
 
+          <!-- ITEMIZED CROP & RESOURCE BREAKDOWN -->
           <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl p-3 shadow-inner">
             <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider mb-2 border-b border-amber-200/60 pb-1 flex justify-between">
               <span>Resource / Crop</span>
@@ -53,6 +62,7 @@ export function renderWeeklyModalTemplate() {
           </div>
         </div>
 
+        <!-- FOOTER -->
         <div class="pt-3 border-t border-sfl-cardBorder flex justify-end">
           <button id="close-weekly-modal-footer-btn" class="bg-sfl-wood text-amber-100 font-bold px-4 py-1.5 rounded-lg hover:bg-sfl-dirt transition text-xs cursor-pointer">
             Close Report
@@ -94,6 +104,7 @@ export function calculateWeeklySummary(weekOffset = 0) {
     history = [];
   }
 
+  let snapshotCount = 0;
   let cropBreakdown = {};
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0;
 
@@ -104,6 +115,9 @@ export function calculateWeeklySummary(weekOffset = 0) {
     let cleanDateStr = rawDate.split('T')[0].trim();
 
     if (cleanDateStr && cleanDateStr >= mondayStr && cleanDateStr <= sundayStr) {
+      // Increment the snapshot log count for this calendar week
+      snapshotCount++;
+
       if (Array.isArray(entry.crops) && entry.crops.length > 0) {
         entry.crops.forEach(crop => {
           const rawName = crop.name || crop.item || 'Item';
@@ -114,7 +128,7 @@ export function calculateWeeklySummary(weekOffset = 0) {
           const qty = parseFloat(crop.qty) || 0;
           let flowers = parseFloat(crop.flowers) || 0;
 
-          // Re-calculate unit price if snapshot flowers was stored corrupted (> 1000x multiplier or 0)
+          // Re-calculate unit price if snapshot flowers was stored corrupted or missing
           if ((flowers <= 0 || flowers > 1000) && qty > 0) {
             let unitPrice = getBettyUnitPrice(cleanKey) || 0;
             if (unitPrice === 0 && window.allPrices) {
@@ -135,6 +149,7 @@ export function calculateWeeklySummary(weekOffset = 0) {
     }
   });
 
+  // Calculate grand totals directly from the aggregated itemized crop breakdown
   let grandTotalItems = 0;
   let grandTotalFlowers = 0;
 
@@ -148,6 +163,7 @@ export function calculateWeeklySummary(weekOffset = 0) {
     sundayStr,
     mondayFormatted: mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
     sundayFormatted: sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+    snapshotCount,
     totalItems: Math.round(grandTotalItems * 10) / 10,
     totalFlowers: Math.round(grandTotalFlowers * 1000) / 1000,
     cropBreakdown
@@ -174,8 +190,11 @@ export function renderWeeklySummaryModal() {
     nextBtn.disabled = currentWeekOffset >= 0;
   }
 
+  const snapshotsEl = document.getElementById('weekly-total-snapshots');
   const itemsEl = document.getElementById('weekly-total-items');
   const flowersEl = document.getElementById('weekly-total-flowers');
+
+  if (snapshotsEl) snapshotsEl.textContent = `${summary.snapshotCount} Log${summary.snapshotCount === 1 ? '' : 's'}`;
   if (itemsEl) itemsEl.textContent = `${summary.totalItems.toFixed(1)} Items`;
   if (flowersEl) {
     flowersEl.innerHTML = `${summary.totalFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
@@ -185,7 +204,7 @@ export function renderWeeklySummaryModal() {
   if (breakdownContainer) {
     const entries = Object.entries(summary.cropBreakdown);
     if (entries.length === 0) {
-      breakdownContainer.innerHTML = '<div class="text-center italic text-sfl-woodLight py-3">No harvests recorded for this calendar week.</div>';
+      breakdownContainer.innerHTML = '<div class="text-center italic text-sfl-woodLight py-3">No snapshots logged for this calendar week.</div>';
     } else {
       let html = '';
       entries.sort((a, b) => b[1].qty - a[1].qty).forEach(([cropName, data]) => {
