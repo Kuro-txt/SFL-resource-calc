@@ -114,8 +114,8 @@ export function calculateWeeklySummary(weekOffset = 0) {
           const qty = parseFloat(crop.qty) || 0;
           let flowers = parseFloat(crop.flowers) || 0;
 
-          // If crop flowers is zero or missing in older entries, recalculate using market/Betty prices
-          if (flowers <= 0 && qty > 0) {
+          // Re-calculate unit price if snapshot flowers was stored corrupted (> 1000x multiplier or 0)
+          if ((flowers <= 0 || flowers > 1000) && qty > 0) {
             let unitPrice = getBettyUnitPrice(cleanKey) || 0;
             if (unitPrice === 0 && window.allPrices) {
               let matchedKey = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanKey);
@@ -135,7 +135,6 @@ export function calculateWeeklySummary(weekOffset = 0) {
     }
   });
 
-  // Calculate grand totals directly from the itemized crop breakdown
   let grandTotalItems = 0;
   let grandTotalFlowers = 0;
 
@@ -144,17 +143,13 @@ export function calculateWeeklySummary(weekOffset = 0) {
     grandTotalFlowers += item.flowers;
   });
 
-  // Precision decimal rounding
-  let roundedTotalItems = Math.round(grandTotalItems * 10) / 10;
-  let roundedTotalFlowers = Math.round(grandTotalFlowers * 1000) / 1000;
-
   return {
     mondayStr,
     sundayStr,
     mondayFormatted: mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
     sundayFormatted: sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
-    totalItems: roundedTotalItems,
-    totalFlowers: roundedTotalFlowers,
+    totalItems: Math.round(grandTotalItems * 10) / 10,
+    totalFlowers: Math.round(grandTotalFlowers * 1000) / 1000,
     cropBreakdown
   };
 }
