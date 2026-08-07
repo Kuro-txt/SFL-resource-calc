@@ -1,3 +1,5 @@
+import { BACKEND_URL } from '../config/constants.js';
+
 let allNfts = [];
 let wishlistItems = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]');
 
