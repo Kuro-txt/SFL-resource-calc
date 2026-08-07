@@ -1,4 +1,6 @@
-// --- MAIN APPLICATION ENTRY POINT ---
+import { renderHeader } from './components/header.js';
+import { renderAuthBar } from './components/authBar.js';
+import { renderNavTabs } from './components/navTabs.js';
 
 import { initAuth } from './services/auth.js';
 import { PanelManager } from './services/panelManager.js';
@@ -11,10 +13,19 @@ import { initWeeklySummaryModal } from './modals/weeklyModal.js';
 document.addEventListener('DOMContentLoaded', async () => {
   console.log("🚀 Bootstrapping SFL Resource Calculator...");
 
-  // 1. Initialize Authentication & User Session
-  await initAuth();
+  // 1. Render UI Shell Layout
+  renderHeader();
+  renderAuthBar();
+  renderNavTabs();
 
-  // 2. Register UI Panels in Manager
+  // 2. Initialize Self-Rendering Panels & Modals
+  initCalculatorPanel();
+  initTrackerPanel();
+  initWishlistPanel();
+  initTrackingModal();
+  initWeeklySummaryModal();
+
+  // 3. Register Panels & Bind Tabs
   PanelManager.register('calc', {
     onMount: () => console.log("Calculator Panel Active")
   });
@@ -23,17 +34,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     onMount: () => renderWishlist()
   });
 
-  // 3. Initialize Panel Managers & Tabs
   PanelManager.initTabs();
 
-  // 4. Initialize Core Modules
-  initCalculatorPanel();
-  initTrackerPanel();
-  initWishlistPanel();
+  // 4. Initialize User Authentication & Cloud Sync
+  await initAuth();
 
-  // 5. Initialize Modals
-  initTrackingModal();
-  initWeeklySummaryModal();
-
-  console.log("✅ App initialization complete!");
+  console.log("✅ Component rendering & app initialization complete!");
 });
