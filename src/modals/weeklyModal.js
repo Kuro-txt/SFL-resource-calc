@@ -3,10 +3,69 @@ import { formatDateYYYYMMDD, normalizeItemKey, getBettyUnitPrice } from '../util
 
 let currentWeekOffset = 0;
 
+export function renderWeeklyModalTemplate() {
+  const container = document.getElementById('weekly-modal-mount');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div id="weekly-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-sfl-card border-4 border-sfl-wood rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col space-y-4">
+        <div class="flex justify-between items-center border-b-2 border-sfl-cardBorder pb-3">
+          <div>
+            <h3 class="text-lg font-black text-sfl-dirt flex items-center gap-2">
+              <span>🗓️</span> Weekly Harvest Report
+            </h3>
+            <p id="weekly-date-range" class="text-xs font-bold text-sfl-woodLight font-mono mt-0.5">
+              Mon – Sun
+            </p>
+          </div>
+          <button id="close-weekly-modal-btn" class="text-sfl-accent hover:text-red-700 font-black text-lg p-1 cursor-pointer">✕</button>
+        </div>
+
+        <div class="flex justify-between items-center bg-amber-100/80 p-2 rounded-lg border border-amber-300 text-xs font-bold">
+          <button id="prev-week-btn" class="bg-sfl-wood text-amber-100 px-2.5 py-1 rounded hover:bg-sfl-dirt transition cursor-pointer">
+            ◀ Previous Week
+          </button>
+          <span id="week-label-badge" class="text-sfl-dirt font-black">Current Week</span>
+          <button id="next-week-btn" class="bg-sfl-wood text-amber-100 px-2.5 py-1 rounded hover:bg-sfl-dirt transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+            Next Week ▶
+          </button>
+        </div>
+
+        <div class="overflow-y-auto flex-1 pr-1 space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-amber-100/90 border-2 border-sfl-gold/60 p-3 rounded-xl text-center shadow-sm">
+              <span class="text-[11px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">Total Items</span>
+              <span id="weekly-total-items" class="text-xl font-extrabold text-sfl-wood font-mono">0.0 Items</span>
+            </div>
+            <div class="bg-green-100/90 border-2 border-sfl-green/50 p-3 rounded-xl text-center shadow-sm">
+              <span class="text-[11px] font-bold text-sfl-green uppercase tracking-wider block mb-1">Net Flowers</span>
+              <span id="weekly-total-flowers" class="text-xl font-extrabold text-sfl-green font-mono">0.000 🌸</span>
+            </div>
+          </div>
+
+          <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl p-3 shadow-inner">
+            <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider mb-2 border-b border-amber-200/60 pb-1 flex justify-between">
+              <span>Resource / Crop</span>
+              <span>Harvested Qty</span>
+            </h4>
+            <div id="weekly-item-breakdown" class="space-y-1.5 max-h-48 overflow-y-auto text-xs"></div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-sfl-cardBorder flex justify-end">
+          <button id="close-weekly-modal-footer-btn" class="bg-sfl-wood text-amber-100 font-bold px-4 py-1.5 rounded-lg hover:bg-sfl-dirt transition text-xs cursor-pointer">
+            Close Report
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 export function getCalendarWeekRange(weekOffset = 0) {
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
-  
+  const dayOfWeek = now.getDay();
   const distanceToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
   
   const monday = new Date(now);
@@ -44,7 +103,6 @@ export function calculateWeeklySummary(weekOffset = 0) {
   history.forEach(entry => {
     const entryDateStr = entry.date || entry.yield_date;
     if (entryDateStr && entryDateStr >= mondayStr && entryDateStr <= sundayStr) {
-      
       let dayNetFlowers = parseFloat(entry.netFlowers || entry.net_flowers || 0);
       let dayTotalCount = parseFloat(entry.totalCount || entry.total_count || 0);
       let calculatedDayFlowers = 0;
@@ -148,6 +206,8 @@ export function renderWeeklySummaryModal() {
 }
 
 export function initWeeklySummaryModal() {
+  renderWeeklyModalTemplate();
+
   const modal = document.getElementById('weekly-modal');
   const openBtns = document.querySelectorAll('#open-weekly-modal-btn');
   const closeBtn = document.getElementById('close-weekly-modal-btn');
