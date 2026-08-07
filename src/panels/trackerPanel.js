@@ -1,8 +1,4 @@
-import { 
-  normalizeItemKey, 
-  roundUpToOneDecimal, 
-  roundUpToThreeDecimals 
-} from '../utils/formatters.js';
+import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals } from '../utils/formatters.js';
 import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
 
 window.editingSnapshotDate = window.editingSnapshotDate || null;
@@ -19,7 +15,6 @@ function bindTrackerEvents() {
   document.getElementById('clear-pre-harvest-btn')?.addEventListener('click', handleClearPreHarvest);
   document.getElementById('log-yield-btn')?.addEventListener('click', handleCalculateYield);
 
-  // JSON Export / Import
   document.getElementById('export-json-btn')?.addEventListener('click', exportYieldJSON);
   
   const importInput = document.getElementById('import-file-input');
