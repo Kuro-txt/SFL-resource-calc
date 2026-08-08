@@ -37,16 +37,16 @@ export function renderHeader() {
 
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-medium text-sfl-woodLight">
           <div class="bg-white/60 p-2.5 rounded-lg border border-sfl-cardBorder/40 space-y-1">
-            <span class="font-bold text-sfl-dirt block">Step 1: Sign In (Required)</span>
+            <span class="font-bold text-sfl-dirt block">1. Sign In (Required)</span>
             <p><strong>Signing in is a must</strong> for automatic tracking and cloud backups. Enter your email & password at the top.</p>
           </div>
           <div class="bg-white/60 p-2.5 rounded-lg border border-sfl-cardBorder/40 space-y-1">
-            <span class="font-bold text-sfl-dirt block">Step 2: Farm ID & Targets</span>
+            <span class="font-bold text-sfl-dirt block">2. Farm ID & Targets</span>
             <p>Enter your <strong>Farm ID</strong>, click <strong>Sync Inventory Now</strong>, and select items under <strong class="text-amber-800">"⚙️ Manage Tracking Targets"</strong>.</p>
           </div>
           <div class="bg-white/60 p-2.5 rounded-lg border border-sfl-cardBorder/40 space-y-1">
-            <span class="font-bold text-sfl-dirt block">Step 3: Manual Calculation</span>
-            <p>To calculate yourself, click <strong class="text-sfl-dirt">"🚩 1. Save Pre-Harvest Stock"</strong> before harvesting, then <strong class="text-sfl-green">"🏁 2. Calculate Harvest Yield"</strong> after!</p>
+            <span class="font-bold text-sfl-dirt block">3. Manual Calculation</span>
+            <p>Add items to your basket and click <strong class="text-sfl-dirt">"🚩 1. Save Pre-Harvest Stock"</strong> first. When done harvesting, add them to your basket again and click <strong class="text-sfl-green">"🏁 2. Calculate Harvest Yield"</strong>.</p>
           </div>
         </div>
       </div>
