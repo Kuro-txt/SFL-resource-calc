@@ -23,12 +23,19 @@ const SFL_API_KEY = process.env.SFL_API_KEY || "";
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Full browser headers required to bypass Cloudflare bot detection
 const SFL_WORLD_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
   'Referer': 'https://sfl.world/',
-  'Origin': 'https://sfl.world'
+  'Origin': 'https://sfl.world',
+  'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"Windows"',
+  'sec-fetch-dest': 'empty',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-site': 'same-origin'
 };
 
 function getSflHeaders() {
@@ -140,9 +147,10 @@ app.get('/api/get-farm', async (req, res) => {
   }
 });
 
-// 3. Live NFT Catalog API Endpoint (Fixes Top-Level Flat Array [...] Parsing)
+// 3. Live NFT Catalog API Endpoint (Strict Parsing, No Fallbacks)
 app.get('/api/nfts', async (req, res) => {
   try {
+    console.log("🔍 [NFT API] Fetching live dataset from sfl.world...");
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
       headers: SFL_WORLD_HEADERS,
       timeout: 12000
@@ -150,33 +158,53 @@ app.get('/api/nfts', async (req, res) => {
 
     let rawData = response.data;
 
+    // Reject HTML response sent by Cloudflare challenges
     if (typeof rawData === 'string') {
+      if (rawData.includes('<!DOCTYPE html>') || rawData.includes('Cloudflare')) {
+        throw new Error("Cloudflare blocked Node.js IP and returned an HTML challenge");
+      }
       try {
         rawData = JSON.parse(rawData);
       } catch (e) {
-        throw new Error("Received non-JSON response from sfl.world");
+        throw new Error("Received non-JSON response string from sfl.world");
       }
     }
 
     let itemsList = [];
 
-    if (Array.isArray(rawData)) {
-      itemsList = rawData.map(formatNftItem).filter(Boolean);
-    } else if (rawData && typeof rawData === 'object') {
-      const targetArray = rawData.data || rawData.nfts || rawData.items || Object.values(rawData);
-      if (Array.isArray(targetArray)) {
-        itemsList = targetArray.map(formatNftItem).filter(Boolean);
+    // Helper to traverse arrays, category objects, or nested lists
+    function extractItems(node) {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) {
+        node.forEach(item => {
+          const formatted = formatNftItem(item);
+          if (formatted) itemsList.push(formatted);
+        });
+      } else {
+        Object.values(node).forEach(child => extractItems(child));
       }
     }
 
-    if (itemsList.length > 0) {
-      console.log(`✅ [NFT API] Successfully parsed ${itemsList.length} items from sfl.world`);
-      return res.json(itemsList);
+    extractItems(rawData);
+
+    // Deduplicate by item name
+    const uniqueMap = new Map();
+    itemsList.forEach(item => {
+      if (item.name && !uniqueMap.has(item.name.toLowerCase())) {
+        uniqueMap.set(item.name.toLowerCase(), item);
+      }
+    });
+
+    const finalNFTs = Array.from(uniqueMap.values());
+
+    if (finalNFTs.length === 0) {
+      throw new Error("sfl.world returned 200 OK but 0 items could be parsed");
     }
 
-    throw new Error("Parsed items list is empty");
+    console.log(`✅ [NFT API SUCCESS] Transmitted ${finalNFTs.length} live NFT records to client.`);
+    return res.json(finalNFTs);
   } catch (err) {
-    console.error(`❌ [NFT API Error]: ${err.message}`);
+    console.error(`❌ [NFT API ERROR]: ${err.message}`);
     return res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });
   }
 });
