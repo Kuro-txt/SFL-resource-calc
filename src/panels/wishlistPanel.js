@@ -97,17 +97,17 @@ export async function loadNftCatalog() {
     const rawUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : '';
     const cleanBaseUrl = rawUrl.replace(/\/+$/, '');
     
-    // Fetch directly from your backend on Render (which has cors enabled)
+    // STRICT: ONLY fetch from Render backend proxy which handles CORS
     const res = await fetch(`${cleanBaseUrl}/api/nfts`);
-    if (!res.ok) throw new Error(`Backend returned HTTP status ${res.status}`);
+    if (!res.ok) throw new Error(`Backend returned HTTP ${res.status}`);
     
     const data = await res.json();
     
     if (Array.isArray(data) && data.length > 0) {
       allNfts = data;
-      console.log(`✅ Successfully loaded ${allNfts.length} live NFTs into catalog from backend.`);
+      console.log(`✅ Loaded ${allNfts.length} live NFTs into catalog from backend.`);
     } else {
-      throw new Error("API response payload is invalid or empty");
+      throw new Error("Backend returned empty or invalid dataset");
     }
 
     wishlistItems.forEach(savedItem => {
@@ -124,7 +124,7 @@ export async function loadNftCatalog() {
     saveWishlist();
     renderWishlist();
   } catch (err) {
-    console.error("❌ Failed to fetch NFT catalog via backend:", err.message);
+    console.error("❌ Failed to fetch NFT catalog from backend proxy:", err.message);
   }
 }
 
