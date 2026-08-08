@@ -26,7 +26,7 @@ export function renderWishlistTemplate() {
         <div class="relative max-w-lg">
           <input type="text" id="wishlist-search-input" placeholder="Type or click to search NFT name or boost..." autocomplete="off" class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
           <ul id="wishlist-search-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto bg-white border-2 border-sfl-woodLight rounded-lg shadow-xl z-30 divide-y divide-sfl-cardBorder/30 text-sm">
-            <li class="p-2 text-sfl-woodLight italic">Loading NFT catalog...</li>
+            <li class="p-2 text-sfl-woodLight italic text-xs">Loading NFT catalog...</li>
           </ul>
         </div>
       </div>
@@ -94,16 +94,18 @@ export function initWishlistPanel() {
 
 export async function loadNftCatalog() {
   try {
-    const backendUrl = typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : '';
-    const res = await fetch(`${backendUrl}/api/nfts`);
+    const rawUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : '';
+    const cleanBaseUrl = rawUrl.replace(/\/+$/, '');
     
-    if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+    const res = await fetch(`${cleanBaseUrl}/api/nfts`);
     const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     
     if (Array.isArray(data) && data.length > 0) {
       allNfts = data;
     } else {
-      throw new Error("API returned empty list");
+      throw new Error("Empty dataset");
     }
 
     wishlistItems.forEach(savedItem => {
@@ -119,29 +121,10 @@ export async function loadNftCatalog() {
 
     saveWishlist();
     renderWishlist();
-  } catch (err) {
-    console.warn("Could not fetch live catalog, using fallback catalog:", err.message);
-    
-    allNfts = [
-      { name: "Lunar Temple", price: 169, boost: "+1 help progress to player's monuments" },
-      { name: "Scarecrow", price: 24, boost: "+15% Crop Yield" },
-      { name: "Nancy", price: 12.5, boost: "+20% Crop Growth Speed" },
-      { name: "Kuebiko", price: 110, boost: "Free Seeds & +5% Yield" },
-      { name: "Golden Cauliflower", price: 78, boost: "+100% Cauliflower Yield" },
-      { name: "Cinder", price: 310, boost: "+50% Coal Mining Yield" },
-      { name: "Rock Golem", price: 95, boost: "+1 Stone Yield" },
-      { name: "Rooster", price: 65, boost: "2x Egg Drop Speed" }
-    ];
-
-    wishlistItems.forEach(savedItem => {
-      if (savedItem.offerPrice === undefined) {
-        savedItem.offerPrice = savedItem.price;
-      }
-    });
-    saveWishlist();
-    renderWishlist();
-  }
+  } catch (err) {}
 }
+
+let isComboboxBound = false;
 
 function initNftCombobox() {
   const input = document.getElementById('wishlist-search-input');
@@ -156,7 +139,7 @@ function initNftCombobox() {
     const matches = allNfts.filter(nft => {
       if (!query) return true;
       return nft.name.toLowerCase().includes(query) || 
-             nft.boost.toLowerCase().includes(query);
+             (nft.boost && nft.boost.toLowerCase().includes(query));
     }).slice(0, 30);
 
     if (matches.length === 0) {
@@ -166,21 +149,24 @@ function initNftCombobox() {
         const li = document.createElement('li');
         li.className = 'p-2.5 hover:bg-amber-100 cursor-pointer transition flex justify-between items-center text-xs border-b border-sfl-cardBorder/30 last:border-b-0';
 
+        const priceNum = typeof nft.price === 'number' ? nft.price : parseFloat(nft.price) || 0;
+
         li.innerHTML = `
           <div class="flex items-center gap-2 overflow-hidden mr-2">
             <span>⭐</span>
             <div class="truncate">
               <div class="font-bold text-sfl-dirt truncate">${nft.name}</div>
-              <div class="text-[10px] text-sfl-woodLight truncate">${nft.boost}</div>
+              <div class="text-[10px] text-sfl-woodLight truncate">${nft.boost || 'No Boost'}</div>
             </div>
           </div>
           <span class="text-sfl-green font-mono font-bold whitespace-nowrap flex items-center gap-1">
-            ${nft.price.toFixed(2)} Flowers
+            ${priceNum.toFixed(2)} Flowers
           </span>
         `;
         li.addEventListener('click', () => {
           addToWishlist(nft);
-          renderMenu();
+          input.value = '';
+          menu.classList.add('hidden');
         });
         menu.appendChild(li);
       });
@@ -192,11 +178,16 @@ function initNftCombobox() {
   input.addEventListener('input', renderMenu);
   input.addEventListener('focus', renderMenu);
 
-  document.addEventListener('click', (e) => {
-    if (!input.contains(e.target) && !menu.contains(e.target)) {
-      menu.classList.add('hidden');
-    }
-  });
+  if (!isComboboxBound) {
+    document.addEventListener('click', (e) => {
+      const activeInput = document.getElementById('wishlist-search-input');
+      const activeMenu = document.getElementById('wishlist-search-menu');
+      if (activeInput && activeMenu && !activeInput.contains(e.target) && !activeMenu.contains(e.target)) {
+        activeMenu.classList.add('hidden');
+      }
+    });
+    isComboboxBound = true;
+  }
 }
 
 export function addToWishlist(nft) {
@@ -205,9 +196,13 @@ export function addToWishlist(nft) {
     return;
   }
 
+  const priceNum = typeof nft.price === 'number' ? nft.price : parseFloat(nft.price) || 0;
+
   wishlistItems.push({
-    ...nft,
-    offerPrice: nft.price
+    name: nft.name,
+    boost: nft.boost || 'No Boost',
+    price: priceNum,
+    offerPrice: priceNum
   });
 
   saveWishlist();
@@ -216,9 +211,11 @@ export function addToWishlist(nft) {
 
 export function updateOfferPrice(index, value) {
   const parsed = parseFloat(value);
-  wishlistItems[index].offerPrice = isNaN(parsed) ? 0 : parsed;
-  saveWishlist();
-  updateWishlistTotals();
+  if (wishlistItems[index]) {
+    wishlistItems[index].offerPrice = isNaN(parsed) ? 0 : parsed;
+    saveWishlist();
+    updateWishlistTotals();
+  }
 }
 
 export function removeFromWishlist(index) {
@@ -249,8 +246,10 @@ export function updateWishlistTotals() {
   let grandTotalOffer = 0;
 
   wishlistItems.forEach(item => {
-    grandTotalFloor += item.price;
-    grandTotalOffer += (typeof item.offerPrice === 'number' ? item.offerPrice : item.price);
+    const floor = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
+    const offer = typeof item.offerPrice === 'number' ? item.offerPrice : parseFloat(item.offerPrice) || floor;
+    grandTotalFloor += floor;
+    grandTotalOffer += offer;
   });
 
   if (countEl) countEl.textContent = `${wishlistItems.length} Item${wishlistItems.length === 1 ? '' : 's'}`;
@@ -271,35 +270,59 @@ export function renderWishlist() {
   tbody.innerHTML = '';
 
   wishlistItems.forEach((nft, index) => {
+    const priceNum = typeof nft.price === 'number' ? nft.price : parseFloat(nft.price) || 0;
     if (nft.offerPrice === undefined) {
-      nft.offerPrice = nft.price;
+      nft.offerPrice = priceNum;
     }
 
     const tr = document.createElement('tr');
     tr.className = "hover:bg-amber-50/50 transition align-middle";
 
-    tr.innerHTML = `
-      <td class="px-3 py-2.5 font-bold flex items-center gap-2">
-        <span>⭐</span>
-        <span>${nft.name}</span>
-      </td>
-      <td class="px-3 py-2.5 text-xs text-sfl-woodLight">${nft.boost}</td>
-      <td class="px-3 py-2.5 font-bold text-sfl-green font-mono">${nft.price.toFixed(2)} Flowers</td>
-      <td class="px-3 py-2.5">
-        <input type="number" min="0" step="0.01" value="${nft.offerPrice}" 
-          oninput="updateOfferPrice(${index}, this.value)"
-          class="w-24 sfl-input px-2 py-1 text-xs font-mono font-bold text-amber-900 rounded border-2 border-sfl-cardBorder focus:outline-none focus:border-amber-600 bg-amber-50">
-      </td>
-      <td class="px-2 py-2.5 text-center">
-        <button onclick="removeFromWishlist(${index})" class="bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 shadow-sm cursor-pointer">🗑️ Remove</button>
-      </td>
-    `;
+    const tdName = document.createElement('td');
+    tdName.className = "px-3 py-2.5 font-bold flex items-center gap-2";
+    tdName.innerHTML = `<span>⭐</span><span>${nft.name}</span>`;
+
+    const tdBoost = document.createElement('td');
+    tdBoost.className = "px-3 py-2.5 text-xs text-sfl-woodLight";
+    tdBoost.textContent = nft.boost || 'No Boost';
+
+    const tdFloor = document.createElement('td');
+    tdFloor.className = "px-3 py-2.5 font-bold text-sfl-green font-mono";
+    tdFloor.textContent = `${priceNum.toFixed(2)} Flowers`;
+
+    const tdOffer = document.createElement('td');
+    tdOffer.className = "px-3 py-2.5";
+    const offerInput = document.createElement('input');
+    offerInput.type = 'number';
+    offerInput.min = '0';
+    offerInput.step = '0.01';
+    offerInput.value = nft.offerPrice;
+    offerInput.className = "w-24 sfl-input px-2 py-1 text-xs font-mono font-bold text-amber-900 rounded border-2 border-sfl-cardBorder focus:outline-none focus:border-amber-600 bg-amber-50";
+    offerInput.addEventListener('input', (e) => updateOfferPrice(index, e.target.value));
+    tdOffer.appendChild(offerInput);
+
+    const tdAction = document.createElement('td');
+    tdAction.className = "px-2 py-2.5 text-center";
+    const removeBtn = document.createElement('button');
+    removeBtn.className = "bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 shadow-sm cursor-pointer";
+    removeBtn.textContent = '🗑️ Remove';
+    removeBtn.addEventListener('click', () => removeFromWishlist(index));
+    tdAction.appendChild(removeBtn);
+
+    tr.appendChild(tdName);
+    tr.appendChild(tdBoost);
+    tr.appendChild(tdFloor);
+    tr.appendChild(tdOffer);
+    tr.appendChild(tdAction);
+
     tbody.appendChild(tr);
   });
 
   updateWishlistTotals();
 }
 
-window.updateOfferPrice = updateOfferPrice;
-window.removeFromWishlist = removeFromWishlist;
-window.renderWishlist = renderWishlist;
+if (typeof window !== 'undefined') {
+  window.updateOfferPrice = updateOfferPrice;
+  window.removeFromWishlist = removeFromWishlist;
+  window.renderWishlist = renderWishlist;
+}

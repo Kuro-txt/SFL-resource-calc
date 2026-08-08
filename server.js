@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -9,22 +10,33 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Supabase Client Setup
+app.use(express.static(path.join(__dirname)));
+
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://gtvglgeoznnrsdcfazpc.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
-const SFL_API_KEY = process.env.SFL_API_KEY || ""; // Central SFL API Key set in Render
+const SFL_API_KEY = process.env.SFL_API_KEY || "";
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Helper: Generate headers with SFL_API_KEY
+const SFL_WORLD_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Referer': 'https://sfl.world/',
+  'Origin': 'https://sfl.world',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin'
+};
+
 function getSflHeaders() {
   const headers = {
     'Accept': 'application/json, text/plain, */*',
     'Accept-Language': 'en-US,en;q=0.9',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Referer': 'https://sunflower-land.com/',
     'Origin': 'https://sunflower-land.com'
   };
@@ -36,7 +48,6 @@ function getSflHeaders() {
   return headers;
 }
 
-// Helper: Fetch farm inventory with 429 retry + exponential backoff
 async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -44,21 +55,13 @@ async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
         headers: getSflHeaders(),
         timeout: 10000
       });
-
       return response.data?.farm?.inventory || response.data?.inventory || {};
     } catch (err) {
       const status = err.response?.status;
-
-      if (status === 401) {
-        console.error(`❌ [401 Unauthorized] SFL API rejected Farm #${cleanFarmId}. Ensure SFL_API_KEY is set in Render Environment Variables.`);
-        throw err;
-      }
-
+      if (status === 401) throw err;
       if (status === 429 && attempt < maxRetries) {
         const retryHeader = err.response?.headers['retry-after'];
         const waitTimeSec = retryHeader ? parseInt(retryHeader, 10) : attempt * 5;
-
-        console.warn(`⚠️ Rate limited (429) on Farm #${cleanFarmId}. Retrying in ${waitTimeSec}s... (Attempt ${attempt}/${maxRetries})`);
         await delay(waitTimeSec * 1000);
       } else {
         throw err;
@@ -68,7 +71,6 @@ async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
   return {};
 }
 
-// Case-insensitive stock lookup for inventory objects
 function getStockAmount(stockObj, targetCleanKey) {
   if (!stockObj || typeof stockObj !== 'object') return 0;
   for (let k in stockObj) {
@@ -82,120 +84,157 @@ function getStockAmount(stockObj, targetCleanKey) {
   return 0;
 }
 
-// Health check endpoint
+function formatNftItem(item, parentKey = '') {
+  if (!item || typeof item !== 'object') return null;
+
+  const rawName = item.name || item.title || item.itemName || (isNaN(Number(parentKey)) && parentKey.length > 1 ? parentKey : '');
+  const name = String(rawName).trim();
+
+  if (!name || name === 'Unknown NFT' || ['success', 'status', 'message', 'updated_at', 'timestamp'].includes(name.toLowerCase())) {
+    return null;
+  }
+
+  const rawPrice = item.floor ?? item.price ?? item.floorPrice ?? item.floor_price ?? item.lastSalePrice ?? item.sfl ?? 0;
+  const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
+
+  const boostText = String(item.boost_text || item.boost || item.details || '').trim();
+  let boost = "No Boost";
+  if (boostText) {
+    boost = boostText;
+  } else if (item.have_boost) {
+    boost = "Boost Active";
+  }
+
+  return { name, price, boost };
+}
+
 app.get('/api/health', (req, res) => res.status(200).send('OK'));
 
-// 1. Live SFL Prices API
 app.get('/api/get-data', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/prices', {
-      headers: getSflHeaders(),
+      headers: SFL_WORLD_HEADERS,
       timeout: 10000
     });
     res.json(response.data);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch prices', details: error.message });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch price data', details: err.message });
   }
 });
 
-// 2. Public Farm Inventory API Endpoint
 app.get('/api/get-farm', async (req, res) => {
   const { farmId } = req.query;
   if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
 
   const cleanFarmId = String(farmId).trim();
-
   try {
     const inventory = await fetchFarmInventoryWithRetry(cleanFarmId);
     res.json({ success: true, farm: { inventory } });
-  } catch (error) {
-    const status = error.response ? error.response.status : 500;
-    res.status(status).json({ error: `API Error ${status}`, details: error.message });
+  } catch (err) {
+    res.status(err.response?.status || 500).json({ error: err.message });
   }
 });
 
-// 3. NFT Catalog API
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
-      headers: getSflHeaders(),
+      headers: SFL_WORLD_HEADERS,
       timeout: 12000
     });
 
-    const rawData = response.data;
-    let itemsArray = Array.isArray(rawData) ? rawData : (rawData?.data || rawData?.nfts || rawData?.items || Object.values(rawData || {}));
+    let rawData = response.data;
 
-    const cleanedList = itemsArray.map(item => ({
-      name: String(item.name || item.title || 'Unknown NFT').trim(),
-      price: parseFloat(item.floor ?? item.price ?? item.lastSalePrice ?? 0) || 0,
-      boost: String(item.boost_text || item.boost || (item.have_boost ? "Boost Active" : "No Boost")).trim()
-    })).filter(item => item.name !== 'Unknown NFT');
+    if (typeof rawData === 'string') {
+      if (rawData.includes('<!DOCTYPE html>') || rawData.includes('Cloudflare')) {
+        throw new Error("Cloudflare blocked Render IP and returned an HTML challenge page");
+      }
+      try {
+        rawData = JSON.parse(rawData);
+      } catch (e) {
+        throw new Error("Received non-JSON response string from sfl.world");
+      }
+    }
 
-    res.json(cleanedList);
+    let itemsList = [];
+
+    function parseNode(node, key = '') {
+      if (!node || typeof node !== 'object') return;
+
+      if (Array.isArray(node)) {
+        node.forEach(child => parseNode(child, key));
+        return;
+      }
+
+      const formatted = formatNftItem(node, key);
+      if (formatted) {
+        itemsList.push(formatted);
+      }
+
+      for (const [childKey, childValue] of Object.entries(node)) {
+        if (typeof childValue === 'object' && childValue !== null) {
+          parseNode(childValue, childKey);
+        }
+      }
+    }
+
+    parseNode(rawData);
+
+    const uniqueMap = new Map();
+    itemsList.forEach(item => {
+      if (item.name && !uniqueMap.has(item.name.toLowerCase())) {
+        uniqueMap.set(item.name.toLowerCase(), item);
+      }
+    });
+
+    const finalNFTs = Array.from(uniqueMap.values());
+
+    if (finalNFTs.length > 0) {
+      return res.json(finalNFTs);
+    }
+
+    throw new Error("0 NFT items could be parsed from live response");
   } catch (err) {
-    res.status(500).json({ error: `Failed to fetch NFTs: ${err.message}` });
+    res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });
   }
 });
 
-// Helper: 00:00 UTC Baseline Snapshot Process
 async function processBaselineSnapshot() {
-  console.log("🔍 [CRON 00:00 UTC] Starting baseline snapshot process...");
-
   const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
-  
-  if (error || !users || users.length === 0) {
-    console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
-    return;
-  }
+  if (error || !users || users.length === 0) return;
 
   const todayDate = new Date().toISOString().split('T')[0];
 
   for (const user of users) {
     if (!user.farm_id) continue;
-
     const cleanFarmId = String(user.farm_id).trim();
 
     try {
       const stock = await fetchFarmInventoryWithRetry(cleanFarmId);
-
       await supabase.from('preharvest_baselines').upsert({
         user_id: user.id,
         snapshot_date: todayDate,
         stock: stock
       }, { onConflict: 'user_id,snapshot_date' });
-
-      console.log(`✅ 00:00 UTC Baseline saved for Farm #${cleanFarmId} on ${todayDate}`);
-    } catch (err) {
-      console.error(`❌ Failed API fetch for Farm #${cleanFarmId}: Status ${err.response?.status || err.message}`);
-    }
+    } catch (err) {}
 
     await delay(3500);
   }
 }
 
-// Helper: 22:00 UTC Yield Calculation Process
 async function processYieldCalculation() {
-  console.log("🔍 [CRON 22:00 UTC] Starting yield calculation process...");
   const todayDate = new Date().toISOString().split('T')[0];
-
   const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
 
-  if (error || !users || users.length === 0) {
-    console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
-    return;
-  }
+  if (error || !users || users.length === 0) return;
 
   let livePrices = {};
   try {
-    const priceRes = await axios.get('https://sfl.world/api/v1/prices', { headers: getSflHeaders(), timeout: 10000 });
+    const priceRes = await axios.get('https://sfl.world/api/v1/prices', { headers: SFL_WORLD_HEADERS, timeout: 10000 });
     livePrices = priceRes.data || {};
-  } catch (e) {
-    console.warn("⚠️ Price API fetch failed, defaulting unit prices to 0.");
-  }
+  } catch (e) {}
 
   for (const user of users) {
     if (!user.farm_id) continue;
-
     const cleanFarmId = String(user.farm_id).trim();
 
     let targets = user.tracked_items;
@@ -203,12 +242,8 @@ async function processYieldCalculation() {
       try { targets = JSON.parse(targets); } catch (e) { targets = []; }
     }
 
-    if (!Array.isArray(targets) || targets.length === 0) {
-      console.warn(`⏩ Skipping Farm #${cleanFarmId}: No tracking targets selected.`);
-      continue;
-    }
+    if (!Array.isArray(targets) || targets.length === 0) continue;
 
-    // 1. Fetch 00:00 UTC Baseline
     const { data: baselineRecord } = await supabase
       .from('preharvest_baselines')
       .select('stock')
@@ -216,39 +251,29 @@ async function processYieldCalculation() {
       .eq('snapshot_date', todayDate)
       .maybeSingle();
 
-    if (!baselineRecord || !baselineRecord.stock || Object.keys(baselineRecord.stock).length === 0) {
-      console.warn(`⚠️ Skipped 22:00 UTC yield for Farm #${cleanFarmId}: Baseline for ${todayDate} not found. Run type=baseline first!`);
-      continue;
-    }
-
+    if (!baselineRecord || !baselineRecord.stock) continue;
     const baselineStock = baselineRecord.stock;
 
-    // 2. Fetch live farm inventory with 429 retry
     let farmInventory = {};
     try {
       farmInventory = await fetchFarmInventoryWithRetry(cleanFarmId);
     } catch (err) {
-      console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: Status ${err.response?.status || err.message}`);
       await delay(3500);
       continue;
     }
 
-    // 3. Compare inventory differences
     let yieldsList = [];
     let totalHarvestCount = 0;
     let totalNetFlowers = 0;
 
     targets.forEach(targetItem => {
       let cleanKey = String(targetItem).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-      
       let currentQty = getStockAmount(farmInventory, cleanKey);
       let baselineQty = getStockAmount(baselineStock, cleanKey);
-      
       let diff = currentQty - baselineQty;
 
       if (diff > 0.0001) {
         let harvestedQty = Math.ceil(diff * 10) / 10;
-        
         let unitPrice = 0;
         let matchedKey = Object.keys(livePrices).find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '').trim() === cleanKey);
         if (matchedKey) {
@@ -258,7 +283,7 @@ async function processYieldCalculation() {
 
         let itemFlowers = Math.ceil((unitPrice * harvestedQty * 0.9) * 1000) / 1000;
         let formattedName = cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
-        
+
         yieldsList.push({ name: formattedName, qty: harvestedQty, flowers: itemFlowers });
         totalHarvestCount += harvestedQty;
         totalNetFlowers += itemFlowers;
@@ -273,46 +298,39 @@ async function processYieldCalculation() {
         net_flowers: Math.ceil(totalNetFlowers * 1000) / 1000,
         crops: yieldsList
       }, { onConflict: 'user_id,yield_date' });
-
-      console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
-    } else {
-      console.log(`ℹ️ Farm #${cleanFarmId}: No positive yield difference detected.`);
     }
 
     await delay(3500);
   }
 }
 
-// Unified Cron Endpoint
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   const { key, type } = req.query;
-
-  if (key !== CRON_SECRET_KEY) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid key' });
-  }
+  if (key !== CRON_SECRET_KEY) return res.status(401).json({ error: 'Unauthorized' });
 
   if (type === 'baseline') {
-    res.status(200).json({ success: true, message: "00:00 UTC Baseline snapshot started." });
-    processBaselineSnapshot().catch(err => console.error("Baseline Task Error:", err.message));
+    res.status(200).json({ success: true, message: "Baseline started." });
+    processBaselineSnapshot().catch(() => {});
   } else if (type === 'yield') {
-    res.status(200).json({ success: true, message: "22:00 UTC Yield calculation started." });
-    processYieldCalculation().catch(err => console.error("Yield Task Error:", err.message));
+    res.status(200).json({ success: true, message: "Yield started." });
+    processYieldCalculation().catch(() => {});
   } else {
-    res.status(400).json({ error: "Invalid type parameter. Use 'type=baseline' or 'type=yield'." });
+    res.status(400).json({ error: "Invalid type" });
   }
 });
 
-// Direct Cron Endpoints
 app.get('/api/cron/snapshot', async (req, res) => {
-  res.status(200).json({ success: true, message: "Automated snapshot task started in background." });
-  processBaselineSnapshot().catch(err => console.error("Snapshot Task Error:", err.message));
+  res.status(200).json({ success: true });
+  processBaselineSnapshot().catch(() => {});
 });
 
 app.get('/api/cron/22utc-yield', async (req, res) => {
-  res.status(200).json({ success: true, message: "22:00 UTC yield calculation started in background." });
-  processYieldCalculation().catch(err => console.error("Yield Task Error:", err.message));
+  res.status(200).json({ success: true });
+  processYieldCalculation().catch(() => {});
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 SFL Backend server running on port ${PORT}`);
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
+
+app.listen(PORT, () => {});
