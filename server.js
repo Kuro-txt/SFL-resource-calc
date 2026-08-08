@@ -23,7 +23,6 @@ const SFL_API_KEY = process.env.SFL_API_KEY || "";
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Enhanced browser headers to avoid Cloudflare bot detection
 const SFL_WORLD_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'application/json, text/plain, */*',
@@ -95,15 +94,18 @@ function getStockAmount(stockObj, targetCleanKey) {
   return 0;
 }
 
-function formatNftItem(item) {
+function formatNftItem(item, keyName = '') {
   if (!item || typeof item !== 'object') return null;
-  const name = String(item.name || item.title || item.itemName || '').trim();
-  if (!name || name === 'Unknown NFT') return null;
 
-  const rawPrice = item.floor ?? item.price ?? item.lastSalePrice ?? 0;
+  const name = String(item.name || item.title || item.itemName || (isNaN(Number(keyName)) ? keyName : '')).trim();
+  if (!name || name === 'Unknown NFT' || ['success', 'status', 'message'].includes(name.toLowerCase())) {
+    return null;
+  }
+
+  const rawPrice = item.floor ?? item.price ?? item.floorPrice ?? item.floor_price ?? item.lastSalePrice ?? item.sfl ?? 0;
   const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
 
-  const boostText = String(item.boost_text || item.boost || '').trim();
+  const boostText = String(item.boost_text || item.boost || item.details || '').trim();
   let boost = "No Boost";
   if (boostText) {
     boost = boostText;
@@ -144,10 +146,10 @@ app.get('/api/get-farm', async (req, res) => {
   }
 });
 
-// 3. Live NFT Catalog API Endpoint
+// 3. Live NFT Catalog API Endpoint (Robust Traversal)
 app.get('/api/nfts', async (req, res) => {
   try {
-    console.log("🔍 [NFT API] Fetching live dataset from sfl.world/api/v1/nfts...");
+    console.log("🔍 [NFT API] Fetching live catalog from sfl.world/api/v1/nfts...");
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
       headers: SFL_WORLD_HEADERS,
       timeout: 12000
@@ -158,35 +160,58 @@ app.get('/api/nfts', async (req, res) => {
     // Detect Cloudflare HTML response
     if (typeof rawData === 'string') {
       if (rawData.includes('<!DOCTYPE html>') || rawData.includes('Cloudflare')) {
-        throw new Error("Cloudflare blocked Node.js IP and returned an HTML challenge page");
+        throw new Error("Cloudflare blocked Render IP and returned an HTML challenge page");
       }
       try {
         rawData = JSON.parse(rawData);
       } catch (e) {
-        throw new Error("Received invalid non-JSON string from sfl.world");
+        throw new Error("Received non-JSON response string from sfl.world");
       }
     }
 
     let itemsList = [];
 
-    // Parse array response directly
-    if (Array.isArray(rawData)) {
-      itemsList = rawData.map(formatNftItem).filter(Boolean);
-    } else if (rawData && typeof rawData === 'object') {
-      const targetArray = rawData.data || rawData.nfts || rawData.items;
-      if (Array.isArray(targetArray)) {
-        itemsList = targetArray.map(formatNftItem).filter(Boolean);
+    function traverseAndExtract(obj, parentKey = '') {
+      if (!obj || typeof obj !== 'object') return;
+
+      if (Array.isArray(obj)) {
+        obj.forEach(item => traverseAndExtract(item, parentKey));
+        return;
+      }
+
+      const formatted = formatNftItem(obj, parentKey);
+      if (formatted && (formatted.price > 0 || formatted.boost !== "No Boost")) {
+        itemsList.push(formatted);
+        return;
+      }
+
+      for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'object' && value !== null) {
+          traverseAndExtract(value, key);
+        }
       }
     }
 
-    if (itemsList.length > 0) {
-      console.log(`✅ [NFT API SUCCESS] Returning ${itemsList.length} items to frontend.`);
-      return res.json(itemsList);
+    traverseAndExtract(rawData);
+
+    // Deduplicate by name
+    const uniqueMap = new Map();
+    itemsList.forEach(item => {
+      if (item.name && !uniqueMap.has(item.name.toLowerCase())) {
+        uniqueMap.set(item.name.toLowerCase(), item);
+      }
+    });
+
+    const finalNFTs = Array.from(uniqueMap.values());
+
+    if (finalNFTs.length > 0) {
+      console.log(`✅ [NFT API SUCCESS] Transmitted ${finalNFTs.length} live NFT records to client.`);
+      return res.json(finalNFTs);
     }
 
-    throw new Error("API returned 200 OK but 0 items could be parsed");
+    throw new Error("0 NFT items could be parsed from live response");
   } catch (err) {
-    console.error(`❌ [NFT API Error]: ${err.message}`);
+    console.error(`❌ [NFT API ERROR]: ${err.message}`);
     return res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });
   }
 });
