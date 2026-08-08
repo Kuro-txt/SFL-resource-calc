@@ -45,8 +45,8 @@ export function renderHeader() {
             <p>Enter your <strong>Farm ID</strong>, click <strong>Sync Inventory Now</strong>, and select items under <strong class="text-amber-800">"⚙️ Manage Tracking Targets"</strong>.</p>
           </div>
           <div class="bg-white/60 p-2.5 rounded-lg border border-sfl-cardBorder/40 space-y-1">
-            <span class="font-bold text-sfl-dirt block">3. Manual Calculation</span>
-            <p>Add items to your basket and click <strong class="text-sfl-dirt">"🚩 1. Save Pre-Harvest Stock"</strong> first. When done harvesting, add them to your basket again and click <strong class="text-sfl-green">"🏁 2. Calculate Harvest Yield"</strong>.</p>
+            <span class="font-bold text-sfl-dirt block">Manual Calculation</span>
+            <p>Add items to your basket and click <strong class="text-sfl-dirt">"🚩 1. Save Pre-Harvest Stock"</strong> first. When done harvesting, add items to your basket again and click <strong class="text-sfl-green">"🏁 2. Calculate Harvest Yield"</strong>.</p>
           </div>
         </div>
       </div>
