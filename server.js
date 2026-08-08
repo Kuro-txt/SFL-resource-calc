@@ -15,6 +15,20 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
 
+// Helper: Case-insensitive stock lookup for Sunflower Land inventory objects
+function getStockAmount(stockObj, targetCleanKey) {
+  if (!stockObj || typeof stockObj !== 'object') return 0;
+  for (let k in stockObj) {
+    let cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    if (cleanK === targetCleanKey) {
+      let val = stockObj[k];
+      let num = typeof val === 'number' ? val : parseFloat(val?.amount || val || 0);
+      return isNaN(num) ? 0 : num;
+    }
+  }
+  return 0;
+}
+
 // Health check endpoint
 app.get('/api/health', (req, res) => res.status(200).send('OK'));
 
@@ -96,7 +110,6 @@ async function processBaselineSnapshot() {
     return;
   }
 
-  console.log(`📋 Found ${users.length} user profile(s) to process.`);
   const todayDate = new Date().toISOString().split('T')[0];
 
   await Promise.allSettled(
@@ -107,7 +120,6 @@ async function processBaselineSnapshot() {
       }
 
       try {
-        console.log(`📡 Fetching live inventory for Farm #${user.farm_id}...`);
         const farmRes = await axios.get(`https://api.sunflower-land.com/community/farms/${user.farm_id}`, {
           headers: { 'User-Agent': 'Mozilla/5.0' },
           timeout: 10000
@@ -215,8 +227,9 @@ async function processYieldCalculation() {
       targets.forEach(targetItem => {
         let cleanKey = String(targetItem).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
         
-        let currentQty = parseFloat(farmInventory[cleanKey]?.amount || farmInventory[cleanKey] || 0);
-        let baselineQty = parseFloat(baselineStock[cleanKey]?.amount || baselineStock[cleanKey] || 0);
+        // Case-insensitive stock lookups
+        let currentQty = getStockAmount(farmInventory, cleanKey);
+        let baselineQty = getStockAmount(baselineStock, cleanKey);
         
         let diff = currentQty - baselineQty;
 
