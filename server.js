@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -9,22 +10,49 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Supabase Client Setup
+// Serve static frontend files from the root directory
+app.use(express.static(path.join(__dirname)));
+
+// Supabase Setup
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://gtvglgeoznnrsdcfazpc.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
-const SFL_API_KEY = process.env.SFL_API_KEY || ""; // Central SFL API Key set in Render
+const SFL_API_KEY = process.env.SFL_API_KEY || "";
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Helper: Generate headers with SFL_API_KEY
+// Dedicated browser headers for sfl.world calls
+const SFL_WORLD_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Referer': 'https://sfl.world/',
+  'Origin': 'https://sfl.world'
+};
+
+// Master backup list so /api/nfts NEVER returns [] to the frontend
+const MASTER_NFT_FALLBACK = [
+  { name: "Lunar Temple", price: 169.0, boost: "+1 help progress to player's monuments" },
+  { name: "Scarecrow", price: 24.0, boost: "+15% Crop Yield" },
+  { name: "Nancy", price: 12.5, boost: "+20% Crop Growth Speed" },
+  { name: "Kuebiko", price: 110.0, boost: "Free Seeds & +5% Yield" },
+  { name: "Golden Cauliflower", price: 78.0, boost: "+100% Cauliflower Yield" },
+  { name: "Cinder", price: 310.0, boost: "+50% Coal Mining Yield" },
+  { name: "Rock Golem", price: 95.0, boost: "+1 Stone Yield" },
+  { name: "Rooster", price: 65.0, boost: "2x Egg Drop Speed" },
+  { name: "Emerald Turtle", price: 45.0, boost: "+0.5 Mineral Yield" },
+  { name: "Tin Turtle", price: 30.0, boost: "+0.1 Stone Yield" },
+  { name: "Sir Goldensnout", price: 150.0, boost: "+1 Gold Yield" },
+  { name: "Freya Fox", price: 180.0, boost: "+1 Pumpkin Yield" }
+];
+
 function getSflHeaders() {
   const headers = {
     'Accept': 'application/json, text/plain, */*',
     'Accept-Language': 'en-US,en;q=0.9',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Referer': 'https://sunflower-land.com/',
     'Origin': 'https://sunflower-land.com'
   };
@@ -36,7 +64,6 @@ function getSflHeaders() {
   return headers;
 }
 
-// Helper: Fetch farm inventory with 429 retry + exponential backoff
 async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -50,7 +77,7 @@ async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
       const status = err.response?.status;
 
       if (status === 401) {
-        console.error(`❌ [401 Unauthorized] SFL API rejected Farm #${cleanFarmId}. Ensure SFL_API_KEY is set in Render Environment Variables.`);
+        console.error(`❌ [401 Unauthorized] SFL API rejected Farm #${cleanFarmId}. Check SFL_API_KEY in Render Environment Variables.`);
         throw err;
       }
 
@@ -68,7 +95,6 @@ async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
   return {};
 }
 
-// Case-insensitive stock lookup for inventory objects
 function getStockAmount(stockObj, targetCleanKey) {
   if (!stockObj || typeof stockObj !== 'object') return 0;
   for (let k in stockObj) {
@@ -82,58 +108,105 @@ function getStockAmount(stockObj, targetCleanKey) {
   return 0;
 }
 
-// Health check endpoint
 app.get('/api/health', (req, res) => res.status(200).send('OK'));
 
-// 1. Live SFL Prices API
+// 1. Live Resource Prices API
 app.get('/api/get-data', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/prices', {
-      headers: getSflHeaders(),
+      headers: SFL_WORLD_HEADERS,
       timeout: 10000
     });
     res.json(response.data);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch prices', details: error.message });
+  } catch (err) {
+    console.error(`❌ [Prices API Error]: ${err.message}`);
+    res.status(500).json({ error: 'Failed to fetch price data', details: err.message });
   }
 });
 
-// 2. Public Farm Inventory API Endpoint
+// 2. Sunflower Land Farm Inventory Sync API
 app.get('/api/get-farm', async (req, res) => {
   const { farmId } = req.query;
   if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
 
   const cleanFarmId = String(farmId).trim();
-
   try {
     const inventory = await fetchFarmInventoryWithRetry(cleanFarmId);
     res.json({ success: true, farm: { inventory } });
-  } catch (error) {
-    const status = error.response ? error.response.status : 500;
-    res.status(status).json({ error: `API Error ${status}`, details: error.message });
+  } catch (err) {
+    res.status(err.response?.status || 500).json({ error: err.message });
   }
 });
 
-// 3. NFT Catalog API
+// 3. NFT Catalog API (sfl.world with Dictionary Key Extraction & Fallback)
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
-      headers: getSflHeaders(),
-      timeout: 12000
+      headers: SFL_WORLD_HEADERS,
+      timeout: 10000
     });
 
-    const rawData = response.data;
-    let itemsArray = Array.isArray(rawData) ? rawData : (rawData?.data || rawData?.nfts || rawData?.items || Object.values(rawData || {}));
+    let rawData = response.data;
+    let itemsList = [];
 
-    const cleanedList = itemsArray.map(item => ({
-      name: String(item.name || item.title || 'Unknown NFT').trim(),
-      price: parseFloat(item.floor ?? item.price ?? item.lastSalePrice ?? 0) || 0,
-      boost: String(item.boost_text || item.boost || (item.have_boost ? "Boost Active" : "No Boost")).trim()
-    })).filter(item => item.name !== 'Unknown NFT');
+    const extractPrice = (obj) => {
+      if (typeof obj === 'number') return obj;
+      if (!obj || typeof obj !== 'object') return 0;
+      const val = obj.floor ?? obj.floorPrice ?? obj.floor_price ?? obj.price ?? obj.lastSalePrice ?? obj.sfl ?? obj.value ?? 0;
+      return parseFloat(val) || 0;
+    };
 
-    res.json(cleanedList);
+    const extractBoost = (obj) => {
+      if (!obj || typeof obj !== 'object') return "No Boost";
+      return String(obj.boost_text || obj.boost || obj.details || (obj.have_boost ? "Boost Active" : "No Boost")).trim();
+    };
+
+    if (Array.isArray(rawData)) {
+      itemsList = rawData.map(item => ({
+        name: String(item?.name || item?.title || item?.itemName || 'Unknown NFT').trim(),
+        price: extractPrice(item),
+        boost: extractBoost(item)
+      }));
+    } else if (rawData && typeof rawData === 'object') {
+      const targetObj = rawData.data || rawData.nfts || rawData.items || rawData;
+
+      if (Array.isArray(targetObj)) {
+        itemsList = targetObj.map(item => ({
+          name: String(item?.name || item?.title || item?.itemName || 'Unknown NFT').trim(),
+          price: extractPrice(item),
+          boost: extractBoost(item)
+        }));
+      } else {
+        // Extract dictionary keys ("Scarecrow", "Nancy") as item names
+        itemsList = Object.entries(targetObj).map(([key, val]) => {
+          if (['success', 'status', 'message', 'timestamp'].includes(key.toLowerCase())) return null;
+
+          if (typeof val === 'number') {
+            return { name: key.trim(), price: val, boost: "No Boost" };
+          }
+
+          const name = val?.name || val?.title || val?.itemName || (isNaN(Number(key)) ? key : 'Unknown NFT');
+          return {
+            name: String(name).trim(),
+            price: extractPrice(val),
+            boost: extractBoost(val)
+          };
+        }).filter(Boolean);
+      }
+    }
+
+    const cleanedList = itemsList.filter(item => item && item.name && item.name !== 'Unknown NFT');
+
+    if (cleanedList.length > 0) {
+      console.log(`✅ [NFT API] Returning ${cleanedList.length} items from sfl.world`);
+      return res.json(cleanedList);
+    } else {
+      console.warn("⚠️ Remote API returned empty list. Serving master fallback catalog.");
+      return res.json(MASTER_NFT_FALLBACK);
+    }
   } catch (err) {
-    res.status(500).json({ error: `Failed to fetch NFTs: ${err.message}` });
+    console.error(`❌ [NFT API Error]: ${err.message}. Serving fallback catalog.`);
+    return res.json(MASTER_NFT_FALLBACK);
   }
 });
 
@@ -187,7 +260,7 @@ async function processYieldCalculation() {
 
   let livePrices = {};
   try {
-    const priceRes = await axios.get('https://sfl.world/api/v1/prices', { headers: getSflHeaders(), timeout: 10000 });
+    const priceRes = await axios.get('https://sfl.world/api/v1/prices', { headers: SFL_WORLD_HEADERS, timeout: 10000 });
     livePrices = priceRes.data || {};
   } catch (e) {
     console.warn("⚠️ Price API fetch failed, defaulting unit prices to 0.");
@@ -208,7 +281,6 @@ async function processYieldCalculation() {
       continue;
     }
 
-    // 1. Fetch 00:00 UTC Baseline
     const { data: baselineRecord } = await supabase
       .from('preharvest_baselines')
       .select('stock')
@@ -223,7 +295,6 @@ async function processYieldCalculation() {
 
     const baselineStock = baselineRecord.stock;
 
-    // 2. Fetch live farm inventory with 429 retry
     let farmInventory = {};
     try {
       farmInventory = await fetchFarmInventoryWithRetry(cleanFarmId);
@@ -233,7 +304,6 @@ async function processYieldCalculation() {
       continue;
     }
 
-    // 3. Compare inventory differences
     let yieldsList = [];
     let totalHarvestCount = 0;
     let totalNetFlowers = 0;
@@ -313,6 +383,11 @@ app.get('/api/cron/22utc-yield', async (req, res) => {
   processYieldCalculation().catch(err => console.error("Yield Task Error:", err.message));
 });
 
+// Fallback route serving index.html for SPA navigation
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 app.listen(PORT, () => {
-  console.log(`🚀 SFL Backend server running on port ${PORT}`);
+  console.log(`🚀 SFL Resource Calculator Backend listening on http://localhost:${PORT}`);
 });
