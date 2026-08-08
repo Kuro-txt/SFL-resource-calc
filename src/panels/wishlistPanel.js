@@ -92,65 +92,22 @@ export function initWishlistPanel() {
   }
 }
 
-function parseRawNftItem(item) {
-  if (!item || typeof item !== 'object') return null;
-  const name = String(item.name || item.title || item.itemName || '').trim();
-  if (!name || name === 'Unknown NFT') return null;
-
-  const rawPrice = item.floor ?? item.price ?? item.lastSalePrice ?? 0;
-  const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
-
-  const boostText = String(item.boost_text || item.boost || '').trim();
-  let boost = "No Boost";
-  if (boostText) {
-    boost = boostText;
-  } else if (item.have_boost) {
-    boost = "Boost Active";
-  }
-
-  return { name, price, boost };
-}
-
 export async function loadNftCatalog() {
   try {
-    let rawList = null;
-
-    // 1. Primary: Direct browser fetch to sfl.world API
-    try {
-      const directRes = await fetch('https://sfl.world/api/v1/nfts', {
-        headers: { 'Accept': 'application/json' }
-      });
-      if (directRes.ok) {
-        const directData = await directRes.json();
-        if (Array.isArray(directData) && directData.length > 0) {
-          rawList = directData;
-          console.log(`✅ Direct fetch from sfl.world succeeded (${rawList.length} items).`);
-        }
-      }
-    } catch (directErr) {
-      console.warn("Direct browser fetch to sfl.world skipped, attempting backend proxy...");
+    const rawUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : '';
+    const cleanBaseUrl = rawUrl.replace(/\/+$/, '');
+    
+    const res = await fetch(`${cleanBaseUrl}/api/nfts`);
+    if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+    
+    const data = await res.json();
+    
+    if (Array.isArray(data) && data.length > 0) {
+      allNfts = data;
+      console.log(`✅ Loaded ${allNfts.length} live NFTs into catalog from backend.`);
+    } else {
+      throw new Error("API returned invalid payload");
     }
-
-    // 2. Secondary: Backend proxy
-    if (!rawList) {
-      const rawUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : '';
-      const cleanBaseUrl = rawUrl.replace(/\/+$/, '');
-      const backendRes = await fetch(`${cleanBaseUrl}/api/nfts`);
-      if (backendRes.ok) {
-        const backendData = await backendRes.json();
-        if (Array.isArray(backendData) && backendData.length > 0) {
-          rawList = backendData;
-          console.log(`✅ Backend proxy fetch succeeded (${rawList.length} items).`);
-        }
-      }
-    }
-
-    if (!rawList || !Array.isArray(rawList) || rawList.length === 0) {
-      throw new Error("Could not retrieve NFT catalog from direct API or proxy");
-    }
-
-    // Process raw items into clean NFT catalog
-    allNfts = rawList.map(parseRawNftItem).filter(Boolean);
 
     wishlistItems.forEach(savedItem => {
       let match = allNfts.find(n => n.name.toLowerCase() === savedItem.name.toLowerCase());
@@ -166,7 +123,7 @@ export async function loadNftCatalog() {
     saveWishlist();
     renderWishlist();
   } catch (err) {
-    console.warn("Could not fetch live catalog:", err.message);
+    console.error("Failed to load NFT catalog:", err.message);
   }
 }
 
