@@ -94,11 +94,13 @@ function getStockAmount(stockObj, targetCleanKey) {
   return 0;
 }
 
-function formatNftItem(item, keyName = '') {
+function formatNftItem(item, parentKey = '') {
   if (!item || typeof item !== 'object') return null;
 
-  const name = String(item.name || item.title || item.itemName || (isNaN(Number(keyName)) ? keyName : '')).trim();
-  if (!name || name === 'Unknown NFT' || ['success', 'status', 'message'].includes(name.toLowerCase())) {
+  const rawName = item.name || item.title || item.itemName || (isNaN(Number(parentKey)) && parentKey.length > 1 ? parentKey : '');
+  const name = String(rawName).trim();
+
+  if (!name || name === 'Unknown NFT' || ['success', 'status', 'message', 'updated_at', 'timestamp'].includes(name.toLowerCase())) {
     return null;
   }
 
@@ -146,10 +148,10 @@ app.get('/api/get-farm', async (req, res) => {
   }
 });
 
-// 3. Live NFT Catalog API Endpoint (Robust Traversal)
+// 3. Live NFT Catalog API Endpoint
 app.get('/api/nfts', async (req, res) => {
   try {
-    console.log("🔍 [NFT API] Fetching live catalog from sfl.world/api/v1/nfts...");
+    console.log("🔍 [NFT API] Fetching live dataset from sfl.world/api/v1/nfts...");
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
       headers: SFL_WORLD_HEADERS,
       timeout: 12000
@@ -171,28 +173,29 @@ app.get('/api/nfts', async (req, res) => {
 
     let itemsList = [];
 
-    function traverseAndExtract(obj, parentKey = '') {
-      if (!obj || typeof obj !== 'object') return;
+    // Corrected Array & Object Parser
+    function parseNode(node, key = '') {
+      if (!node || typeof node !== 'object') return;
 
-      if (Array.isArray(obj)) {
-        obj.forEach(item => traverseAndExtract(item, parentKey));
+      if (Array.isArray(node)) {
+        node.forEach(child => parseNode(child, key));
         return;
       }
 
-      const formatted = formatNftItem(obj, parentKey);
-      if (formatted && (formatted.price > 0 || formatted.boost !== "No Boost")) {
+      const formatted = formatNftItem(node, key);
+      if (formatted) {
         itemsList.push(formatted);
-        return;
       }
 
-      for (const [key, value] of Object.entries(obj)) {
-        if (typeof value === 'object' && value !== null) {
-          traverseAndExtract(value, key);
+      // Continue scanning nested objects/categories if not an explicit leaf item
+      for (const [childKey, childValue] of Object.entries(node)) {
+        if (typeof childValue === 'object' && childValue !== null) {
+          parseNode(childValue, childKey);
         }
       }
     }
 
-    traverseAndExtract(rawData);
+    parseNode(rawData);
 
     // Deduplicate by name
     const uniqueMap = new Map();
@@ -209,7 +212,7 @@ app.get('/api/nfts', async (req, res) => {
       return res.json(finalNFTs);
     }
 
-    throw new Error("0 NFT items could be parsed from live response");
+    throw new Error("sfl.world response parsed into 0 valid NFT records");
   } catch (err) {
     console.error(`❌ [NFT API ERROR]: ${err.message}`);
     return res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });
