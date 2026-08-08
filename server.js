@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Serve static frontend files from the root directory
+// Serve static frontend files from root directory
 app.use(express.static(path.join(__dirname)));
 
 // Supabase Setup
@@ -23,7 +23,7 @@ const SFL_API_KEY = process.env.SFL_API_KEY || "";
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Dedicated browser headers for sfl.world calls
+// Browser-like headers to bypass Cloudflare
 const SFL_WORLD_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'application/json, text/plain, */*',
@@ -31,22 +31,6 @@ const SFL_WORLD_HEADERS = {
   'Referer': 'https://sfl.world/',
   'Origin': 'https://sfl.world'
 };
-
-// Master backup list so /api/nfts NEVER returns [] to the frontend
-const MASTER_NFT_FALLBACK = [
-  { name: "Lunar Temple", price: 169.0, boost: "+1 help progress to player's monuments" },
-  { name: "Scarecrow", price: 24.0, boost: "+15% Crop Yield" },
-  { name: "Nancy", price: 12.5, boost: "+20% Crop Growth Speed" },
-  { name: "Kuebiko", price: 110.0, boost: "Free Seeds & +5% Yield" },
-  { name: "Golden Cauliflower", price: 78.0, boost: "+100% Cauliflower Yield" },
-  { name: "Cinder", price: 310.0, boost: "+50% Coal Mining Yield" },
-  { name: "Rock Golem", price: 95.0, boost: "+1 Stone Yield" },
-  { name: "Rooster", price: 65.0, boost: "2x Egg Drop Speed" },
-  { name: "Emerald Turtle", price: 45.0, boost: "+0.5 Mineral Yield" },
-  { name: "Tin Turtle", price: 30.0, boost: "+0.1 Stone Yield" },
-  { name: "Sir Goldensnout", price: 150.0, boost: "+1 Gold Yield" },
-  { name: "Freya Fox", price: 180.0, boost: "+1 Pumpkin Yield" }
-];
 
 function getSflHeaders() {
   const headers = {
@@ -110,7 +94,7 @@ function getStockAmount(stockObj, targetCleanKey) {
 
 app.get('/api/health', (req, res) => res.status(200).send('OK'));
 
-// 1. Live Resource Prices API
+// 1. Live SFL Resource Prices API
 app.get('/api/get-data', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/prices', {
@@ -138,75 +122,80 @@ app.get('/api/get-farm', async (req, res) => {
   }
 });
 
-// 3. NFT Catalog API (sfl.world with Dictionary Key Extraction & Fallback)
+// --------------------------------------------------------------------------
+// 3. Live NFT Catalog Parser (Extracts Name, Price, Boost directly from API)
+// --------------------------------------------------------------------------
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
       headers: SFL_WORLD_HEADERS,
-      timeout: 10000
+      timeout: 12000
     });
 
-    let rawData = response.data;
-    let itemsList = [];
+    const rawData = response.data;
+    const itemsList = [];
 
-    const extractPrice = (obj) => {
-      if (typeof obj === 'number') return obj;
-      if (!obj || typeof obj !== 'object') return 0;
-      const val = obj.floor ?? obj.floorPrice ?? obj.floor_price ?? obj.price ?? obj.lastSalePrice ?? obj.sfl ?? obj.value ?? 0;
-      return parseFloat(val) || 0;
-    };
+    // Recursive helper function to traverse nested objects/arrays
+    function parseNftObject(obj, parentKey = '') {
+      if (!obj || typeof obj !== 'object') return;
 
-    const extractBoost = (obj) => {
-      if (!obj || typeof obj !== 'object') return "No Boost";
-      return String(obj.boost_text || obj.boost || obj.details || (obj.have_boost ? "Boost Active" : "No Boost")).trim();
-    };
+      if (Array.isArray(obj)) {
+        obj.forEach(item => parseNftObject(item));
+        return;
+      }
 
-    if (Array.isArray(rawData)) {
-      itemsList = rawData.map(item => ({
-        name: String(item?.name || item?.title || item?.itemName || 'Unknown NFT').trim(),
-        price: extractPrice(item),
-        boost: extractBoost(item)
-      }));
-    } else if (rawData && typeof rawData === 'object') {
-      const targetObj = rawData.data || rawData.nfts || rawData.items || rawData;
+      // Check if this object is an NFT record (contains price or boost indicator)
+      const hasFloor = obj.floor !== undefined || obj.floorPrice !== undefined || obj.floor_price !== undefined || obj.price !== undefined || obj.lastSalePrice !== undefined || obj.sfl !== undefined;
+      const hasBoost = obj.boost !== undefined || obj.boost_text !== undefined || obj.details !== undefined || obj.have_boost !== undefined;
 
-      if (Array.isArray(targetObj)) {
-        itemsList = targetObj.map(item => ({
-          name: String(item?.name || item?.title || item?.itemName || 'Unknown NFT').trim(),
-          price: extractPrice(item),
-          boost: extractBoost(item)
-        }));
-      } else {
-        // Extract dictionary keys ("Scarecrow", "Nancy") as item names
-        itemsList = Object.entries(targetObj).map(([key, val]) => {
-          if (['success', 'status', 'message', 'timestamp'].includes(key.toLowerCase())) return null;
+      if (hasFloor || hasBoost) {
+        // Name is explicitly inside obj, or derived from the key in dictionary
+        const name = obj.name || obj.title || obj.itemName || obj.item_name || (isNaN(Number(parentKey)) && parentKey.length > 1 ? parentKey : null);
+        
+        if (name && !['success', 'status', 'message', 'updated_at', 'timestamp'].includes(String(name).toLowerCase())) {
+          const rawPrice = obj.floor ?? obj.floorPrice ?? obj.floor_price ?? obj.price ?? obj.lastSalePrice ?? obj.last_sale_price ?? obj.sfl ?? obj.sflPrice ?? obj.value ?? 0;
+          const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
+          
+          const boost = String(obj.boost_text || obj.boost || obj.details || obj.description || (obj.have_boost ? "Boost Active" : "No Boost")).trim();
 
-          if (typeof val === 'number') {
-            return { name: key.trim(), price: val, boost: "No Boost" };
-          }
-
-          const name = val?.name || val?.title || val?.itemName || (isNaN(Number(key)) ? key : 'Unknown NFT');
-          return {
+          itemsList.push({
             name: String(name).trim(),
-            price: extractPrice(val),
-            boost: extractBoost(val)
-          };
-        }).filter(Boolean);
+            price: price,
+            boost: boost
+          });
+          return;
+        }
+      }
+
+      // Otherwise, iterate down through child keys (e.g. "collectibles", "wearables", item names)
+      for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'object' && value !== null) {
+          parseNftObject(value, key);
+        }
       }
     }
 
-    const cleanedList = itemsList.filter(item => item && item.name && item.name !== 'Unknown NFT');
+    parseNftObject(rawData);
 
-    if (cleanedList.length > 0) {
-      console.log(`✅ [NFT API] Returning ${cleanedList.length} items from sfl.world`);
-      return res.json(cleanedList);
-    } else {
-      console.warn("⚠️ Remote API returned empty list. Serving master fallback catalog.");
-      return res.json(MASTER_NFT_FALLBACK);
+    // Deduplicate list by name
+    const uniqueMap = new Map();
+    itemsList.forEach(item => {
+      if (item.name && !uniqueMap.has(item.name.toLowerCase())) {
+        uniqueMap.set(item.name.toLowerCase(), item);
+      }
+    });
+
+    const finalNFTs = Array.from(uniqueMap.values());
+    console.log(`✅ [NFT API] Successfully fetched and parsed ${finalNFTs.length} live items from sfl.world`);
+
+    if (finalNFTs.length === 0) {
+      return res.status(404).json({ error: "No NFT catalog items found in live response" });
     }
+
+    res.json(finalNFTs);
   } catch (err) {
-    console.error(`❌ [NFT API Error]: ${err.message}. Serving fallback catalog.`);
-    return res.json(MASTER_NFT_FALLBACK);
+    console.error(`❌ [NFT API Error]: ${err.message}`);
+    res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });
   }
 });
 
