@@ -108,9 +108,9 @@ export async function loadNftCatalog() {
     
     if (Array.isArray(data) && data.length > 0) {
       allNfts = data;
-      console.log(`✅ [Wishlist] Loaded ${allNfts.length} live NFTs from backend.`);
+      console.log(`✅ [Wishlist] Successfully loaded ${allNfts.length} live NFTs into catalog from backend.`);
     } else {
-      throw new Error("Backend returned 0 items");
+      throw new Error("Backend returned empty dataset");
     }
 
     wishlistItems.forEach(savedItem => {
