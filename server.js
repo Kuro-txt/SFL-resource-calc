@@ -141,7 +141,7 @@ app.get('/api/get-farm', async (req, res) => {
   }
 });
 
-// 3. Live NFT Catalog API Endpoint
+// 3. Live NFT Catalog API Endpoint (With Deep Object Unwrapping)
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
@@ -161,18 +161,34 @@ app.get('/api/nfts', async (req, res) => {
 
     let itemsList = [];
 
-    if (Array.isArray(rawData)) {
-      itemsList = rawData.map(formatNftItem).filter(Boolean);
-    } else if (rawData && typeof rawData === 'object') {
-      const targetArray = rawData.data || rawData.nfts || rawData.items;
-      if (Array.isArray(targetArray)) {
-        itemsList = targetArray.map(formatNftItem).filter(Boolean);
+    // Helper to recursively collect array items from nested category keys
+    function extractItems(node) {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) {
+        node.forEach(item => {
+          const formatted = formatNftItem(item);
+          if (formatted) itemsList.push(formatted);
+        });
+      } else {
+        Object.values(node).forEach(child => extractItems(child));
       }
     }
 
-    if (itemsList.length > 0) {
-      console.log(`✅ [NFT API] Successfully parsed ${itemsList.length} items from sfl.world`);
-      return res.json(itemsList);
+    extractItems(rawData);
+
+    // Deduplicate array by item name
+    const uniqueMap = new Map();
+    itemsList.forEach(item => {
+      if (item.name && !uniqueMap.has(item.name.toLowerCase())) {
+        uniqueMap.set(item.name.toLowerCase(), item);
+      }
+    });
+
+    const finalNFTs = Array.from(uniqueMap.values());
+
+    if (finalNFTs.length > 0) {
+      console.log(`✅ [NFT API] Successfully parsed ${finalNFTs.length} items from sfl.world`);
+      return res.json(finalNFTs);
     }
 
     throw new Error("Parsed items list is empty");
