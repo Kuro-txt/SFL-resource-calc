@@ -92,22 +92,65 @@ export function initWishlistPanel() {
   }
 }
 
+function parseRawNftItem(item) {
+  if (!item || typeof item !== 'object') return null;
+  const name = String(item.name || item.title || item.itemName || '').trim();
+  if (!name || name === 'Unknown NFT') return null;
+
+  const rawPrice = item.floor ?? item.price ?? item.lastSalePrice ?? 0;
+  const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
+
+  const boostText = String(item.boost_text || item.boost || '').trim();
+  let boost = "No Boost";
+  if (boostText) {
+    boost = boostText;
+  } else if (item.have_boost) {
+    boost = "Boost Active";
+  }
+
+  return { name, price, boost };
+}
+
 export async function loadNftCatalog() {
   try {
-    const rawUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : '';
-    const cleanBaseUrl = rawUrl.replace(/\/+$/, '');
-    
-    const res = await fetch(`${cleanBaseUrl}/api/nfts`);
-    if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-    
-    const data = await res.json();
-    
-    if (Array.isArray(data) && data.length > 0) {
-      allNfts = data;
-      console.log(`✅ Loaded ${allNfts.length} live NFTs into catalog.`);
-    } else {
-      throw new Error("API returned empty list");
+    let rawList = null;
+
+    // 1. Primary: Direct browser fetch to sfl.world API
+    try {
+      const directRes = await fetch('https://sfl.world/api/v1/nfts', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (directRes.ok) {
+        const directData = await directRes.json();
+        if (Array.isArray(directData) && directData.length > 0) {
+          rawList = directData;
+          console.log(`✅ Direct fetch from sfl.world succeeded (${rawList.length} items).`);
+        }
+      }
+    } catch (directErr) {
+      console.warn("Direct browser fetch to sfl.world skipped, attempting backend proxy...");
     }
+
+    // 2. Secondary: Backend proxy
+    if (!rawList) {
+      const rawUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : '';
+      const cleanBaseUrl = rawUrl.replace(/\/+$/, '');
+      const backendRes = await fetch(`${cleanBaseUrl}/api/nfts`);
+      if (backendRes.ok) {
+        const backendData = await backendRes.json();
+        if (Array.isArray(backendData) && backendData.length > 0) {
+          rawList = backendData;
+          console.log(`✅ Backend proxy fetch succeeded (${rawList.length} items).`);
+        }
+      }
+    }
+
+    if (!rawList || !Array.isArray(rawList) || rawList.length === 0) {
+      throw new Error("Could not retrieve NFT catalog from direct API or proxy");
+    }
+
+    // Process raw items into clean NFT catalog
+    allNfts = rawList.map(parseRawNftItem).filter(Boolean);
 
     wishlistItems.forEach(savedItem => {
       let match = allNfts.find(n => n.name.toLowerCase() === savedItem.name.toLowerCase());
@@ -123,26 +166,7 @@ export async function loadNftCatalog() {
     saveWishlist();
     renderWishlist();
   } catch (err) {
-    console.warn("Could not fetch live catalog, using fallback catalog:", err.message);
-    
-    allNfts = [
-      { name: "Lunar Temple", price: 169, boost: "+1 help progress to player's monuments" },
-      { name: "Scarecrow", price: 24, boost: "+15% Crop Yield" },
-      { name: "Nancy", price: 12.5, boost: "+20% Crop Growth Speed" },
-      { name: "Kuebiko", price: 110, boost: "Free Seeds & +5% Yield" },
-      { name: "Golden Cauliflower", price: 78, boost: "+100% Cauliflower Yield" },
-      { name: "Cinder", price: 310, boost: "+50% Coal Mining Yield" },
-      { name: "Rock Golem", price: 95, boost: "+1 Stone Yield" },
-      { name: "Rooster", price: 65, boost: "2x Egg Drop Speed" }
-    ];
-
-    wishlistItems.forEach(savedItem => {
-      if (savedItem.offerPrice === undefined) {
-        savedItem.offerPrice = savedItem.price;
-      }
-    });
-    saveWishlist();
-    renderWishlist();
+    console.warn("Could not fetch live catalog:", err.message);
   }
 }
 
