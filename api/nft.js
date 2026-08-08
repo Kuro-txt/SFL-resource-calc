@@ -2,25 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-function formatNftItem(item) {
-  if (!item || typeof item !== 'object') return null;
-  const name = String(item.name || item.title || item.itemName || '').trim();
-  if (!name || name === 'Unknown NFT') return null;
-
-  const rawPrice = item.floor ?? item.price ?? item.lastSalePrice ?? 0;
-  const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
-
-  const boostText = String(item.boost_text || item.boost || '').trim();
-  let boost = "No Boost";
-  if (boostText) {
-    boost = boostText;
-  } else if (item.have_boost) {
-    boost = "Boost Active";
-  }
-
-  return { name, price, boost };
-}
-
+// CHANGE THIS: Change '/nfts' to '/'
 router.get('/', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
@@ -35,31 +17,47 @@ router.get('/', async (req, res) => {
 
     let rawData = response.data;
 
+    // Check if the response is an HTML page (Cloudflare or SPA fallback) instead of JSON
     if (typeof rawData === 'string') {
       try {
         rawData = JSON.parse(rawData);
       } catch (e) {
-        throw new Error("Received non-JSON string response from sfl.world");
+        throw new Error("Received HTML or invalid text response from sfl.world");
       }
     }
 
-    let itemsList = [];
-
+    let rawItems = [];
     if (Array.isArray(rawData)) {
-      itemsList = rawData.map(formatNftItem).filter(Boolean);
+      rawItems = rawData;
     } else if (rawData && typeof rawData === 'object') {
-      const targetArray = rawData.data || rawData.nfts || rawData.items;
-      if (Array.isArray(targetArray)) {
-        itemsList = targetArray.map(formatNftItem).filter(Boolean);
+      rawItems = rawData.data || rawData.nfts || rawData.items || Object.values(rawData);
+    }
+
+    const cleanedList = rawItems.map(item => {
+      if (!item || typeof item !== 'object') return null;
+      const name = String(item.name || item.title || item.itemName || '').trim();
+      if (!name || name === 'Unknown NFT') return null;
+
+      const rawPrice = item.floor ?? item.price ?? item.lastSalePrice ?? 0;
+      const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
+
+      const boostText = String(item.boost_text || item.boost || '').trim();
+      let boost = "No Boost";
+      if (boostText) {
+        boost = boostText;
+      } else if (item.have_boost) {
+        boost = "Boost Active";
       }
+
+      return { name, price, boost };
+    }).filter(Boolean);
+
+    if (cleanedList.length > 0) {
+      console.log(`✅ [NFT API] Returning ${cleanedList.length} items from sfl.world`);
+      return res.json(cleanedList);
     }
 
-    if (itemsList.length > 0) {
-      console.log(`✅ [NFT API] Returning ${itemsList.length} items from sfl.world`);
-      return res.json(itemsList);
-    }
-
-    throw new Error("Parsed items list is empty");
+    throw new Error("Parsed items array is empty");
   } catch (err) {
     console.error('❌ [NFT API ERROR]:', err.message);
     return res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });
