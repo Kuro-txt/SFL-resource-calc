@@ -9,22 +9,36 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Supabase Setup
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://gtvglgeoznnrsdcfazpc.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Secret Keys & Environment Variables
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
+const SFL_API_KEY = process.env.SFL_API_KEY || ""; // Global API Key set in Render
 
-// Browser-mimicking headers to pass Cloudflare WAF checks
-const SFL_BROWSER_HEADERS = {
-  'Accept': 'application/json, text/plain, */*',
-  'Accept-Language': 'en-US,en;q=0.9',
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-  'Referer': 'https://sunflower-land.com/',
-  'Origin': 'https://sunflower-land.com'
-};
+// Helper: Generate headers with Render or User SFL API Key
+function getSflHeaders(userApiKey) {
+  const activeKey = (userApiKey && String(userApiKey).trim()) || SFL_API_KEY;
+  
+  const headers = {
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Referer': 'https://sunflower-land.com/',
+    'Origin': 'https://sunflower-land.com'
+  };
 
-// Case-insensitive inventory lookup
+  if (activeKey) {
+    headers['x-api-key'] = activeKey;
+    headers['Authorization'] = `Bearer ${activeKey}`;
+  }
+
+  return headers;
+}
+
+// Case-insensitive inventory stock lookup
 function getStockAmount(stockObj, targetCleanKey) {
   if (!stockObj || typeof stockObj !== 'object') return 0;
   for (let k in stockObj) {
@@ -38,14 +52,14 @@ function getStockAmount(stockObj, targetCleanKey) {
   return 0;
 }
 
-// Health check
+// Health check endpoint
 app.get('/api/health', (req, res) => res.status(200).send('OK'));
 
 // 1. Live SFL Prices API
 app.get('/api/get-data', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/prices', {
-      headers: SFL_BROWSER_HEADERS,
+      headers: getSflHeaders(),
       timeout: 10000
     });
     res.json(response.data);
@@ -56,14 +70,14 @@ app.get('/api/get-data', async (req, res) => {
 
 // 2. Farm Inventory API
 app.get('/api/get-farm', async (req, res) => {
-  const { farmId } = req.query;
+  const { farmId, apiKey } = req.query;
   if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
 
   const cleanFarmId = String(farmId).trim();
 
   try {
     const response = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
-      headers: SFL_BROWSER_HEADERS,
+      headers: getSflHeaders(apiKey),
       timeout: 10000
     });
     res.json({ success: true, farm: response.data });
@@ -77,7 +91,7 @@ app.get('/api/get-farm', async (req, res) => {
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
-      headers: SFL_BROWSER_HEADERS,
+      headers: getSflHeaders(),
       timeout: 12000
     });
 
@@ -100,7 +114,7 @@ app.get('/api/nfts', async (req, res) => {
 async function processBaselineSnapshot() {
   console.log("🔍 [CRON 00:00 UTC] Starting baseline snapshot process...");
 
-  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
+  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, api_key, tracked_items');
   
   if (error || !users || users.length === 0) {
     console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
@@ -117,7 +131,7 @@ async function processBaselineSnapshot() {
 
       try {
         const farmRes = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
-          headers: SFL_BROWSER_HEADERS,
+          headers: getSflHeaders(user.api_key),
           timeout: 10000
         });
 
@@ -131,7 +145,7 @@ async function processBaselineSnapshot() {
 
         console.log(`✅ 00:00 UTC Baseline saved for Farm #${cleanFarmId} on ${todayDate}`);
       } catch (err) {
-        console.error(`❌ Failed API fetch for Farm #${cleanFarmId}: ${err.response?.status || err.message}`);
+        console.error(`❌ Failed API fetch for Farm #${cleanFarmId}: Status ${err.response?.status || err.message}`);
       }
     })
   );
@@ -142,7 +156,7 @@ async function processYieldCalculation() {
   console.log("🔍 [CRON 22:00 UTC] Starting yield calculation process...");
   const todayDate = new Date().toISOString().split('T')[0];
 
-  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
+  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, api_key, tracked_items');
 
   if (error || !users || users.length === 0) {
     console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
@@ -151,7 +165,7 @@ async function processYieldCalculation() {
 
   let livePrices = {};
   try {
-    const priceRes = await axios.get('https://sfl.world/api/v1/prices', { headers: SFL_BROWSER_HEADERS, timeout: 10000 });
+    const priceRes = await axios.get('https://sfl.world/api/v1/prices', { headers: getSflHeaders(), timeout: 10000 });
     livePrices = priceRes.data || {};
   } catch (e) {
     console.warn("⚠️ Price API fetch failed, defaulting unit prices to 0.");
@@ -192,12 +206,12 @@ async function processYieldCalculation() {
       let farmInventory = {};
       try {
         const farmRes = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
-          headers: SFL_BROWSER_HEADERS,
+          headers: getSflHeaders(user.api_key),
           timeout: 10000
         });
         farmInventory = farmRes.data?.farm?.inventory || farmRes.data?.inventory || {};
       } catch (err) {
-        console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: ${err.response?.status || err.message}`);
+        console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: Status ${err.response?.status || err.message}`);
         return;
       }
 
