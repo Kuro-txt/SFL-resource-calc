@@ -97,20 +97,15 @@ export async function loadNftCatalog() {
     const rawUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : '';
     const cleanBaseUrl = rawUrl.replace(/\/+$/, '');
     
-    console.log(`🔍 [Wishlist] Fetching live NFT dataset from ${cleanBaseUrl}/api/nfts...`);
     const res = await fetch(`${cleanBaseUrl}/api/nfts`);
-    
     const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.error || `HTTP ${res.status} Error`);
-    }
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     
     if (Array.isArray(data) && data.length > 0) {
       allNfts = data;
-      console.log(`✅ [Wishlist] Successfully loaded ${allNfts.length} live NFTs into catalog from backend.`);
     } else {
-      throw new Error("Backend returned empty dataset");
+      throw new Error("Empty dataset");
     }
 
     wishlistItems.forEach(savedItem => {
@@ -126,9 +121,7 @@ export async function loadNftCatalog() {
 
     saveWishlist();
     renderWishlist();
-  } catch (err) {
-    console.error("❌ Live NFT catalog load failed:", err.message);
-  }
+  } catch (err) {}
 }
 
 let isComboboxBound = false;
