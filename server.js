@@ -16,7 +16,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
 
-// Standard Public Headers for SFL Community API Calls
+// Public Browser Headers for SFL Community API Calls
 const PUBLIC_SFL_HEADERS = {
   'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
@@ -25,8 +25,36 @@ const PUBLIC_SFL_HEADERS = {
   'Origin': 'https://sunflower-land.com'
 };
 
-// Helper: Delay execution to prevent 429 Rate Limiting
+// Delay helper
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper: Smart fetch with automatic 429 retry + exponential backoff
+async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
+        headers: PUBLIC_SFL_HEADERS,
+        timeout: 10000
+      });
+
+      return response.data?.farm?.inventory || response.data?.inventory || {};
+    } catch (err) {
+      const status = err.response?.status;
+
+      if (status === 429 && attempt < maxRetries) {
+        // Read Retry-After header if provided, otherwise back off exponentially (5s, 10s...)
+        const retryHeader = err.response?.headers['retry-after'];
+        const waitTimeSec = retryHeader ? parseInt(retryHeader, 10) : attempt * 5;
+
+        console.warn(`⚠️ Rate limited (429) on Farm #${cleanFarmId}. Retrying in ${waitTimeSec}s... (Attempt ${attempt}/${maxRetries})`);
+        await delay(waitTimeSec * 1000);
+      } else {
+        throw err;
+      }
+    }
+  }
+  return {};
+}
 
 // Case-insensitive stock lookup for inventory objects
 function getStockAmount(stockObj, targetCleanKey) {
@@ -58,7 +86,7 @@ app.get('/api/get-data', async (req, res) => {
   }
 });
 
-// 2. Public Farm Inventory API
+// 2. Public Farm Inventory API Endpoint
 app.get('/api/get-farm', async (req, res) => {
   const { farmId } = req.query;
   if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
@@ -66,11 +94,8 @@ app.get('/api/get-farm', async (req, res) => {
   const cleanFarmId = String(farmId).trim();
 
   try {
-    const response = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
-      headers: PUBLIC_SFL_HEADERS,
-      timeout: 10000
-    });
-    res.json({ success: true, farm: response.data });
+    const inventory = await fetchFarmInventoryWithRetry(cleanFarmId);
+    res.json({ success: true, farm: { inventory } });
   } catch (error) {
     const status = error.response ? error.response.status : 500;
     res.status(status).json({ error: `API Error ${status}`, details: error.message });
@@ -100,7 +125,7 @@ app.get('/api/nfts', async (req, res) => {
   }
 });
 
-// Helper: 00:00 UTC Baseline Snapshot Process (Sequential with Delay)
+// Helper: 00:00 UTC Baseline Snapshot Process
 async function processBaselineSnapshot() {
   console.log("🔍 [CRON 00:00 UTC] Starting baseline snapshot process...");
 
@@ -119,13 +144,8 @@ async function processBaselineSnapshot() {
     const cleanFarmId = String(user.farm_id).trim();
 
     try {
-      const farmRes = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
-        headers: PUBLIC_SFL_HEADERS,
-        timeout: 10000
-      });
+      const stock = await fetchFarmInventoryWithRetry(cleanFarmId);
 
-      const stock = farmRes.data?.farm?.inventory || farmRes.data?.inventory || {};
-      
       await supabase.from('preharvest_baselines').upsert({
         user_id: user.id,
         snapshot_date: todayDate,
@@ -137,12 +157,12 @@ async function processBaselineSnapshot() {
       console.error(`❌ Failed API fetch for Farm #${cleanFarmId}: Status ${err.response?.status || err.message}`);
     }
 
-    // Wait 1.2 seconds between requests to avoid rate limits
-    await delay(1200);
+    // Wait 3.5 seconds between users to stay under rate limits
+    await delay(3500);
   }
 }
 
-// Helper: 22:00 UTC Yield Calculation Process (Sequential with Delay)
+// Helper: 22:00 UTC Yield Calculation Process
 async function processYieldCalculation() {
   console.log("🔍 [CRON 22:00 UTC] Starting yield calculation process...");
   const todayDate = new Date().toISOString().split('T')[0];
@@ -192,17 +212,13 @@ async function processYieldCalculation() {
 
     const baselineStock = baselineRecord.stock;
 
-    // 2. Fetch live farm inventory
+    // 2. Fetch live farm inventory with 429 retry
     let farmInventory = {};
     try {
-      const farmRes = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
-        headers: PUBLIC_SFL_HEADERS,
-        timeout: 10000
-      });
-      farmInventory = farmRes.data?.farm?.inventory || farmRes.data?.inventory || {};
+      farmInventory = await fetchFarmInventoryWithRetry(cleanFarmId);
     } catch (err) {
       console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: Status ${err.response?.status || err.message}`);
-      await delay(1200);
+      await delay(3500);
       continue;
     }
 
@@ -252,8 +268,8 @@ async function processYieldCalculation() {
       console.log(`ℹ️ Farm #${cleanFarmId}: No positive yield difference detected.`);
     }
 
-    // Delay 1.2s before processing the next profile
-    await delay(1200);
+    // Pause 3.5 seconds before processing the next profile
+    await delay(3500);
   }
 }
 
