@@ -10,13 +10,12 @@ app.use(cors());
 app.use(express.json());
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://gtvglgeoznnrsdcfazpc.supabase.co";
-// Use SERVICE_ROLE_KEY if provided in env to bypass RLS in background jobs, otherwise fallback to anon key
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
 
-// Helper: Case-insensitive stock lookup for Sunflower Land inventory objects
+// Case-insensitive inventory lookup
 function getStockAmount(stockObj, targetCleanKey) {
   if (!stockObj || typeof stockObj !== 'object') return 0;
   for (let k in stockObj) {
@@ -30,20 +29,7 @@ function getStockAmount(stockObj, targetCleanKey) {
   return 0;
 }
 
-// Helper: Build request headers with optional API Key authorization
-function getFarmHeaders(userApiKey) {
-  const headers = {
-    'Accept': 'application/json',
-    'User-Agent': 'Mozilla/5.0'
-  };
-  if (userApiKey) {
-    headers['x-api-key'] = userApiKey;
-    headers['Authorization'] = `Bearer ${userApiKey}`;
-  }
-  return headers;
-}
-
-// Health check endpoint
+// Health check
 app.get('/api/health', (req, res) => res.status(200).send('OK'));
 
 // 1. Live SFL Prices API
@@ -61,12 +47,12 @@ app.get('/api/get-data', async (req, res) => {
 
 // 2. Farm Inventory API
 app.get('/api/get-farm', async (req, res) => {
-  const { farmId, apiKey } = req.query;
+  const { farmId } = req.query;
   if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
 
   try {
     const response = await axios.get(`https://api.sunflower-land.com/community/farms/${farmId}`, {
-      headers: getFarmHeaders(apiKey),
+      headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
       timeout: 10000
     });
     res.json({ success: true, farm: response.data });
@@ -102,19 +88,14 @@ app.get('/api/nfts', async (req, res) => {
   }
 });
 
-// Helper Function: 00:00 UTC Baseline Snapshot
+// Helper: 00:00 UTC Baseline Snapshot Process
 async function processBaselineSnapshot() {
   console.log("🔍 [CRON 00:00 UTC] Starting baseline snapshot process...");
 
-  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, api_key, tracked_items');
+  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
   
-  if (error) {
-    console.error("❌ Supabase fetch profiles error:", error.message);
-    return;
-  }
-
-  if (!users || users.length === 0) {
-    console.warn("⚠️ No user profiles found in Supabase database.");
+  if (error || !users || users.length === 0) {
+    console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
     return;
   }
 
@@ -122,30 +103,23 @@ async function processBaselineSnapshot() {
 
   await Promise.allSettled(
     users.map(async (user) => {
-      if (!user.farm_id) {
-        console.warn(`⏩ Skipping User ${user.id}: No linked Farm ID.`);
-        return;
-      }
+      if (!user.farm_id) return;
 
       try {
         const farmRes = await axios.get(`https://api.sunflower-land.com/community/farms/${user.farm_id}`, {
-          headers: getFarmHeaders(user.api_key),
+          headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
           timeout: 10000
         });
 
         const stock = farmRes.data?.farm?.inventory || farmRes.data?.inventory || {};
         
-        const { error: upsertErr } = await supabase.from('preharvest_baselines').upsert({
+        await supabase.from('preharvest_baselines').upsert({
           user_id: user.id,
           snapshot_date: todayDate,
           stock: stock
         }, { onConflict: 'user_id,snapshot_date' });
 
-        if (upsertErr) {
-          console.error(`❌ Baseline save error for Farm #${user.farm_id}:`, upsertErr.message);
-        } else {
-          console.log(`✅ 00:00 UTC Baseline saved for Farm #${user.farm_id} on ${todayDate}`);
-        }
+        console.log(`✅ 00:00 UTC Baseline saved for Farm #${user.farm_id} on ${todayDate}`);
       } catch (err) {
         console.error(`❌ Failed API fetch for Farm #${user.farm_id}: ${err.message}`);
       }
@@ -153,20 +127,15 @@ async function processBaselineSnapshot() {
   );
 }
 
-// Helper Function: 22:00 UTC Yield Calculation
+// Helper: 22:00 UTC Yield Calculation Process
 async function processYieldCalculation() {
   console.log("🔍 [CRON 22:00 UTC] Starting yield calculation process...");
   const todayDate = new Date().toISOString().split('T')[0];
 
-  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, api_key, tracked_items');
+  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
 
-  if (error) {
-    console.error("❌ Supabase fetch profiles error:", error.message);
-    return;
-  }
-
-  if (!users || users.length === 0) {
-    console.warn("⚠️ No user profiles found in Supabase.");
+  if (error || !users || users.length === 0) {
+    console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
     return;
   }
 
@@ -180,10 +149,7 @@ async function processYieldCalculation() {
 
   await Promise.allSettled(
     users.map(async (user) => {
-      if (!user.farm_id) {
-        console.warn(`⏩ Skipping User ${user.id}: No farm_id.`);
-        return;
-      }
+      if (!user.farm_id) return;
 
       let targets = user.tracked_items;
       if (typeof targets === 'string') {
@@ -195,31 +161,27 @@ async function processYieldCalculation() {
         return;
       }
 
-      // Check for 00:00 UTC Baseline
-      const { data: baselineRecord, error: baseErr } = await supabase
+      // 1. Fetch 00:00 UTC Baseline
+      const { data: baselineRecord } = await supabase
         .from('preharvest_baselines')
         .select('stock')
         .eq('user_id', user.id)
         .eq('snapshot_date', todayDate)
         .maybeSingle();
 
-      if (baseErr) {
-        console.error(`❌ Baseline check error for Farm #${user.farm_id}:`, baseErr.message);
-        return;
-      }
-
+      // Guard check: skip if no baseline exists today
       if (!baselineRecord || !baselineRecord.stock || Object.keys(baselineRecord.stock).length === 0) {
-        console.warn(`⚠️ Skipped 22:00 UTC yield for Farm #${user.farm_id}: No 00:00 UTC baseline found for ${todayDate}.`);
+        console.warn(`⚠️ Skipped 22:00 UTC yield for Farm #${user.farm_id}: Baseline for ${todayDate} not found. Run type=baseline first!`);
         return;
       }
 
       const baselineStock = baselineRecord.stock;
 
-      // Fetch live farm inventory
+      // 2. Fetch live farm inventory
       let farmInventory = {};
       try {
         const farmRes = await axios.get(`https://api.sunflower-land.com/community/farms/${user.farm_id}`, {
-          headers: getFarmHeaders(user.api_key),
+          headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
           timeout: 10000
         });
         farmInventory = farmRes.data?.farm?.inventory || farmRes.data?.inventory || {};
@@ -228,6 +190,7 @@ async function processYieldCalculation() {
         return;
       }
 
+      // 3. Compare inventory differences
       let yieldsList = [];
       let totalHarvestCount = 0;
       let totalNetFlowers = 0;
@@ -260,7 +223,7 @@ async function processYieldCalculation() {
       });
 
       if (yieldsList.length > 0) {
-        const { error: yieldSaveErr } = await supabase.from('daily_yields').upsert({
+        await supabase.from('daily_yields').upsert({
           user_id: user.id,
           yield_date: todayDate,
           total_count: Math.ceil(totalHarvestCount * 10) / 10,
@@ -268,11 +231,7 @@ async function processYieldCalculation() {
           crops: yieldsList
         }, { onConflict: 'user_id,yield_date' });
 
-        if (yieldSaveErr) {
-          console.error(`❌ Yield save error for Farm #${user.farm_id}:`, yieldSaveErr.message);
-        } else {
-          console.log(`✅ 22:00 UTC Yield saved for Farm #${user.farm_id} on ${todayDate}`);
-        }
+        console.log(`✅ 22:00 UTC Yield saved for Farm #${user.farm_id} on ${todayDate}`);
       } else {
         console.log(`ℹ️ Farm #${user.farm_id}: No positive yield difference detected.`);
       }
@@ -280,7 +239,7 @@ async function processYieldCalculation() {
   );
 }
 
-// UNIFIED CRON ENDPOINT
+// Unified Cron Endpoint
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   const { key, type } = req.query;
 
