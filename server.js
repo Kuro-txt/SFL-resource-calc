@@ -10,8 +10,9 @@ app.use(cors());
 app.use(express.json());
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://gtvglgeoznnrsdcfazpc.supabase.co";
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo";
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Use SERVICE_ROLE_KEY if provided in env to bypass RLS in background jobs, otherwise fallback to anon key
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
 
@@ -27,6 +28,19 @@ function getStockAmount(stockObj, targetCleanKey) {
     }
   }
   return 0;
+}
+
+// Helper: Build request headers with optional API Key authorization
+function getFarmHeaders(userApiKey) {
+  const headers = {
+    'Accept': 'application/json',
+    'User-Agent': 'Mozilla/5.0'
+  };
+  if (userApiKey) {
+    headers['x-api-key'] = userApiKey;
+    headers['Authorization'] = `Bearer ${userApiKey}`;
+  }
+  return headers;
 }
 
 // Health check endpoint
@@ -50,15 +64,9 @@ app.get('/api/get-farm', async (req, res) => {
   const { farmId, apiKey } = req.query;
   if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
 
-  const headers = { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' };
-  if (apiKey) {
-    headers['x-api-key'] = apiKey;
-    headers['Authorization'] = `Bearer ${apiKey}`;
-  }
-
   try {
     const response = await axios.get(`https://api.sunflower-land.com/community/farms/${farmId}`, {
-      headers,
+      headers: getFarmHeaders(apiKey),
       timeout: 10000
     });
     res.json({ success: true, farm: response.data });
@@ -98,7 +106,7 @@ app.get('/api/nfts', async (req, res) => {
 async function processBaselineSnapshot() {
   console.log("🔍 [CRON 00:00 UTC] Starting baseline snapshot process...");
 
-  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
+  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, api_key, tracked_items');
   
   if (error) {
     console.error("❌ Supabase fetch profiles error:", error.message);
@@ -121,7 +129,7 @@ async function processBaselineSnapshot() {
 
       try {
         const farmRes = await axios.get(`https://api.sunflower-land.com/community/farms/${user.farm_id}`, {
-          headers: { 'User-Agent': 'Mozilla/5.0' },
+          headers: getFarmHeaders(user.api_key),
           timeout: 10000
         });
 
@@ -150,7 +158,7 @@ async function processYieldCalculation() {
   console.log("🔍 [CRON 22:00 UTC] Starting yield calculation process...");
   const todayDate = new Date().toISOString().split('T')[0];
 
-  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
+  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, api_key, tracked_items');
 
   if (error) {
     console.error("❌ Supabase fetch profiles error:", error.message);
@@ -211,7 +219,7 @@ async function processYieldCalculation() {
       let farmInventory = {};
       try {
         const farmRes = await axios.get(`https://api.sunflower-land.com/community/farms/${user.farm_id}`, {
-          headers: { 'User-Agent': 'Mozilla/5.0' },
+          headers: getFarmHeaders(user.api_key),
           timeout: 10000
         });
         farmInventory = farmRes.data?.farm?.inventory || farmRes.data?.inventory || {};
@@ -227,7 +235,6 @@ async function processYieldCalculation() {
       targets.forEach(targetItem => {
         let cleanKey = String(targetItem).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
         
-        // Case-insensitive stock lookups
         let currentQty = getStockAmount(farmInventory, cleanKey);
         let baselineQty = getStockAmount(baselineStock, cleanKey);
         
