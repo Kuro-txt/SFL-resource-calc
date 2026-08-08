@@ -140,7 +140,7 @@ app.get('/api/get-farm', async (req, res) => {
   }
 });
 
-// 3. Live NFT Catalog API Endpoint
+// 3. Live NFT Catalog API Endpoint (Fixes Top-Level Flat Array [...] Parsing)
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
@@ -154,7 +154,7 @@ app.get('/api/nfts', async (req, res) => {
       try {
         rawData = JSON.parse(rawData);
       } catch (e) {
-        throw new Error("Received non-JSON HTML challenge page from sfl.world");
+        throw new Error("Received non-JSON response from sfl.world");
       }
     }
 
@@ -163,7 +163,7 @@ app.get('/api/nfts', async (req, res) => {
     if (Array.isArray(rawData)) {
       itemsList = rawData.map(formatNftItem).filter(Boolean);
     } else if (rawData && typeof rawData === 'object') {
-      const targetArray = rawData.data || rawData.nfts || rawData.items;
+      const targetArray = rawData.data || rawData.nfts || rawData.items || Object.values(rawData);
       if (Array.isArray(targetArray)) {
         itemsList = targetArray.map(formatNftItem).filter(Boolean);
       }
