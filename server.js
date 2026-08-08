@@ -15,25 +15,33 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABA
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
+const SFL_API_KEY = process.env.SFL_API_KEY || ""; // Central SFL API Key set in Render
 
-// Public Browser Headers for SFL Community API Calls
-const PUBLIC_SFL_HEADERS = {
-  'Accept': 'application/json, text/plain, */*',
-  'Accept-Language': 'en-US,en;q=0.9',
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-  'Referer': 'https://sunflower-land.com/',
-  'Origin': 'https://sunflower-land.com'
-};
-
-// Delay helper
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Helper: Smart fetch with automatic 429 retry + exponential backoff
+// Helper: Generate headers with SFL_API_KEY
+function getSflHeaders() {
+  const headers = {
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Referer': 'https://sunflower-land.com/',
+    'Origin': 'https://sunflower-land.com'
+  };
+
+  if (SFL_API_KEY && SFL_API_KEY.trim() !== '') {
+    headers['x-api-key'] = SFL_API_KEY.trim();
+  }
+
+  return headers;
+}
+
+// Helper: Fetch farm inventory with 429 retry + exponential backoff
 async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
-        headers: PUBLIC_SFL_HEADERS,
+        headers: getSflHeaders(),
         timeout: 10000
       });
 
@@ -41,8 +49,12 @@ async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
     } catch (err) {
       const status = err.response?.status;
 
+      if (status === 401) {
+        console.error(`❌ [401 Unauthorized] SFL API rejected Farm #${cleanFarmId}. Ensure SFL_API_KEY is set in Render Environment Variables.`);
+        throw err;
+      }
+
       if (status === 429 && attempt < maxRetries) {
-        // Read Retry-After header if provided, otherwise back off exponentially (5s, 10s...)
         const retryHeader = err.response?.headers['retry-after'];
         const waitTimeSec = retryHeader ? parseInt(retryHeader, 10) : attempt * 5;
 
@@ -77,7 +89,7 @@ app.get('/api/health', (req, res) => res.status(200).send('OK'));
 app.get('/api/get-data', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/prices', {
-      headers: PUBLIC_SFL_HEADERS,
+      headers: getSflHeaders(),
       timeout: 10000
     });
     res.json(response.data);
@@ -106,7 +118,7 @@ app.get('/api/get-farm', async (req, res) => {
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
-      headers: PUBLIC_SFL_HEADERS,
+      headers: getSflHeaders(),
       timeout: 12000
     });
 
@@ -157,7 +169,6 @@ async function processBaselineSnapshot() {
       console.error(`❌ Failed API fetch for Farm #${cleanFarmId}: Status ${err.response?.status || err.message}`);
     }
 
-    // Wait 3.5 seconds between users to stay under rate limits
     await delay(3500);
   }
 }
@@ -176,7 +187,7 @@ async function processYieldCalculation() {
 
   let livePrices = {};
   try {
-    const priceRes = await axios.get('https://sfl.world/api/v1/prices', { headers: PUBLIC_SFL_HEADERS, timeout: 10000 });
+    const priceRes = await axios.get('https://sfl.world/api/v1/prices', { headers: getSflHeaders(), timeout: 10000 });
     livePrices = priceRes.data || {};
   } catch (e) {
     console.warn("⚠️ Price API fetch failed, defaulting unit prices to 0.");
@@ -268,7 +279,6 @@ async function processYieldCalculation() {
       console.log(`ℹ️ Farm #${cleanFarmId}: No positive yield difference detected.`);
     }
 
-    // Pause 3.5 seconds before processing the next profile
     await delay(3500);
   }
 }
