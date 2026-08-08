@@ -58,10 +58,14 @@ async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
       return response.data?.farm?.inventory || response.data?.inventory || {};
     } catch (err) {
       const status = err.response?.status;
-      if (status === 401) throw err;
+      if (status === 401) {
+        console.error(`❌ [401 Unauthorized] SFL API rejected Farm #${cleanFarmId}. Check SFL_API_KEY.`);
+        throw err;
+      }
       if (status === 429 && attempt < maxRetries) {
         const retryHeader = err.response?.headers['retry-after'];
         const waitTimeSec = retryHeader ? parseInt(retryHeader, 10) : attempt * 5;
+        console.warn(`⚠️ Rate limited (429) on Farm #${cleanFarmId}. Retrying in ${waitTimeSec}s... (Attempt ${attempt}/${maxRetries})`);
         await delay(waitTimeSec * 1000);
       } else {
         throw err;
@@ -199,8 +203,12 @@ app.get('/api/nfts', async (req, res) => {
 });
 
 async function processBaselineSnapshot() {
+  console.log("🔍 [CRON 00:00 UTC] Starting baseline snapshot process...");
   const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
-  if (error || !users || users.length === 0) return;
+  if (error || !users || users.length === 0) {
+    console.warn("⚠️ No user profiles found or Supabase error.");
+    return;
+  }
 
   const todayDate = new Date().toISOString().split('T')[0];
 
@@ -215,23 +223,32 @@ async function processBaselineSnapshot() {
         snapshot_date: todayDate,
         stock: stock
       }, { onConflict: 'user_id,snapshot_date' });
-    } catch (err) {}
+      console.log(`✅ 00:00 UTC Baseline saved for Farm #${cleanFarmId} on ${todayDate}`);
+    } catch (err) {
+      console.error(`❌ Failed baseline snapshot for Farm #${cleanFarmId}: ${err.message}`);
+    }
 
     await delay(3500);
   }
 }
 
 async function processYieldCalculation() {
+  console.log("🔍 [CRON 22:00 UTC] Starting yield calculation process...");
   const todayDate = new Date().toISOString().split('T')[0];
   const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
 
-  if (error || !users || users.length === 0) return;
+  if (error || !users || users.length === 0) {
+    console.warn("⚠️ No user profiles found or Supabase error.");
+    return;
+  }
 
   let livePrices = {};
   try {
     const priceRes = await axios.get('https://sfl.world/api/v1/prices', { headers: SFL_WORLD_HEADERS, timeout: 10000 });
     livePrices = priceRes.data || {};
-  } catch (e) {}
+  } catch (e) {
+    console.warn("⚠️ Price API fetch failed, defaulting unit prices to 0.");
+  }
 
   for (const user of users) {
     if (!user.farm_id) continue;
@@ -242,7 +259,10 @@ async function processYieldCalculation() {
       try { targets = JSON.parse(targets); } catch (e) { targets = []; }
     }
 
-    if (!Array.isArray(targets) || targets.length === 0) continue;
+    if (!Array.isArray(targets) || targets.length === 0) {
+      console.warn(`⏩ Skipping Farm #${cleanFarmId}: No tracking targets selected.`);
+      continue;
+    }
 
     const { data: baselineRecord } = await supabase
       .from('preharvest_baselines')
@@ -251,13 +271,17 @@ async function processYieldCalculation() {
       .eq('snapshot_date', todayDate)
       .maybeSingle();
 
-    if (!baselineRecord || !baselineRecord.stock) continue;
+    if (!baselineRecord || !baselineRecord.stock) {
+      console.warn(`⚠️ Skipped 22:00 UTC yield for Farm #${cleanFarmId}: Baseline for ${todayDate} not found.`);
+      continue;
+    }
     const baselineStock = baselineRecord.stock;
 
     let farmInventory = {};
     try {
       farmInventory = await fetchFarmInventoryWithRetry(cleanFarmId);
     } catch (err) {
+      console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: ${err.message}`);
       await delay(3500);
       continue;
     }
@@ -298,6 +322,9 @@ async function processYieldCalculation() {
         net_flowers: Math.ceil(totalNetFlowers * 1000) / 1000,
         crops: yieldsList
       }, { onConflict: 'user_id,yield_date' });
+      console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
+    } else {
+      console.log(`ℹ️ Farm #${cleanFarmId}: No positive yield difference detected.`);
     }
 
     await delay(3500);
@@ -333,4 +360,6 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(PORT, () => {});
+app.listen(PORT, () => {
+  console.log(`🚀 SFL Resource Calculator Backend listening on port ${PORT}`);
+});
