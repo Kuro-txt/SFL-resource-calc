@@ -48,24 +48,30 @@ function getSflHeaders() {
   return headers;
 }
 
+// Retries on 429 Rate Limits, 5xx Server Errors, and Timeouts
 async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
         headers: getSflHeaders(),
-        timeout: 10000
+        timeout: 15000 // Increased timeout to 15 seconds
       });
       return response.data?.farm?.inventory || response.data?.inventory || {};
     } catch (err) {
       const status = err.response?.status;
+      const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
+      const isServerError = status >= 500 && status < 600;
+
       if (status === 401) {
         console.error(`❌ [401 Unauthorized] SFL API rejected Farm #${cleanFarmId}. Check SFL_API_KEY.`);
         throw err;
       }
-      if (status === 429 && attempt < maxRetries) {
+
+      if ((status === 429 || isServerError || isTimeout) && attempt < maxRetries) {
         const retryHeader = err.response?.headers['retry-after'];
-        const waitTimeSec = retryHeader ? parseInt(retryHeader, 10) : attempt * 5;
-        console.warn(`⚠️ Rate limited (429) on Farm #${cleanFarmId}. Retrying in ${waitTimeSec}s... (Attempt ${attempt}/${maxRetries})`);
+        const waitTimeSec = retryHeader ? parseInt(retryHeader, 10) : attempt * 4;
+        const reason = isTimeout ? 'Timeout' : `HTTP ${status}`;
+        console.warn(`⚠️ [Farm #${cleanFarmId}] ${reason}. Retrying in ${waitTimeSec}s... (Attempt ${attempt}/${maxRetries})`);
         await delay(waitTimeSec * 1000);
       } else {
         throw err;
