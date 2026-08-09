@@ -223,6 +223,7 @@ async function processBaselineSnapshot() {
         .from('preharvest_baselines')
         .upsert({
           user_id: user.id,
+          farm_id: cleanFarmId,
           snapshot_date: todayDate,
           stock: stock
         }, { onConflict: 'user_id,snapshot_date' });
@@ -325,6 +326,7 @@ async function processYieldCalculation() {
     if (yieldsList.length > 0) {
       const { error: dbError } = await supabase.from('daily_yields').upsert({
         user_id: user.id,
+        farm_id: cleanFarmId,
         yield_date: todayDate,
         total_count: Math.ceil(totalHarvestCount * 10) / 10,
         net_flowers: Math.ceil(totalNetFlowers * 1000) / 1000,
