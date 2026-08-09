@@ -206,7 +206,7 @@ async function processBaselineSnapshot() {
   console.log("🔍 [CRON 00:00 UTC] Starting baseline snapshot process...");
   const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
   if (error || !users || users.length === 0) {
-    console.warn("⚠️ No user profiles found or Supabase error.");
+    console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
     return;
   }
 
@@ -218,12 +218,20 @@ async function processBaselineSnapshot() {
 
     try {
       const stock = await fetchFarmInventoryWithRetry(cleanFarmId);
-      await supabase.from('preharvest_baselines').upsert({
-        user_id: user.id,
-        snapshot_date: todayDate,
-        stock: stock
-      }, { onConflict: 'user_id,snapshot_date' });
-      console.log(`✅ 00:00 UTC Baseline saved for Farm #${cleanFarmId} on ${todayDate}`);
+
+      const { error: dbError } = await supabase
+        .from('preharvest_baselines')
+        .upsert({
+          user_id: user.id,
+          snapshot_date: todayDate,
+          stock: stock
+        }, { onConflict: 'user_id,snapshot_date' });
+
+      if (dbError) {
+        console.error(`❌ [Supabase DB Error] Baseline save failed for Farm #${cleanFarmId}: ${dbError.message}`);
+      } else {
+        console.log(`✅ 00:00 UTC Baseline saved for Farm #${cleanFarmId} on ${todayDate}`);
+      }
     } catch (err) {
       console.error(`❌ Failed baseline snapshot for Farm #${cleanFarmId}: ${err.message}`);
     }
@@ -238,7 +246,7 @@ async function processYieldCalculation() {
   const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
 
   if (error || !users || users.length === 0) {
-    console.warn("⚠️ No user profiles found or Supabase error.");
+    console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
     return;
   }
 
@@ -264,14 +272,14 @@ async function processYieldCalculation() {
       continue;
     }
 
-    const { data: baselineRecord } = await supabase
+    const { data: baselineRecord, error: baselineErr } = await supabase
       .from('preharvest_baselines')
       .select('stock')
       .eq('user_id', user.id)
       .eq('snapshot_date', todayDate)
       .maybeSingle();
 
-    if (!baselineRecord || !baselineRecord.stock) {
+    if (baselineErr || !baselineRecord || !baselineRecord.stock) {
       console.warn(`⚠️ Skipped 22:00 UTC yield for Farm #${cleanFarmId}: Baseline for ${todayDate} not found.`);
       continue;
     }
@@ -315,14 +323,19 @@ async function processYieldCalculation() {
     });
 
     if (yieldsList.length > 0) {
-      await supabase.from('daily_yields').upsert({
+      const { error: dbError } = await supabase.from('daily_yields').upsert({
         user_id: user.id,
         yield_date: todayDate,
         total_count: Math.ceil(totalHarvestCount * 10) / 10,
         net_flowers: Math.ceil(totalNetFlowers * 1000) / 1000,
         crops: yieldsList
       }, { onConflict: 'user_id,yield_date' });
-      console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
+
+      if (dbError) {
+        console.error(`❌ [Supabase DB Error] Yield save failed for Farm #${cleanFarmId}: ${dbError.message}`);
+      } else {
+        console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
+      }
     } else {
       console.log(`ℹ️ Farm #${cleanFarmId}: No positive yield difference detected.`);
     }
@@ -337,23 +350,23 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
 
   if (type === 'baseline') {
     res.status(200).json({ success: true, message: "Baseline started." });
-    processBaselineSnapshot().catch(() => {});
+    processBaselineSnapshot().catch((err) => console.error("Baseline Error:", err.message));
   } else if (type === 'yield') {
     res.status(200).json({ success: true, message: "Yield started." });
-    processYieldCalculation().catch(() => {});
+    processYieldCalculation().catch((err) => console.error("Yield Error:", err.message));
   } else {
-    res.status(400).json({ error: "Invalid type" });
+    res.status(400).json({ error: "Invalid type parameter. Use 'type=baseline' or 'type=yield'." });
   }
 });
 
 app.get('/api/cron/snapshot', async (req, res) => {
   res.status(200).json({ success: true });
-  processBaselineSnapshot().catch(() => {});
+  processBaselineSnapshot().catch((err) => console.error("Snapshot Error:", err.message));
 });
 
 app.get('/api/cron/22utc-yield', async (req, res) => {
   res.status(200).json({ success: true });
-  processYieldCalculation().catch(() => {});
+  processYieldCalculation().catch((err) => console.error("Yield Error:", err.message));
 });
 
 app.get('*', (req, res) => {
