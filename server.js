@@ -48,8 +48,8 @@ function getSflHeaders() {
   return headers;
 }
 
-// Retries on 429 Rate Limits, 5xx Server Errors, Timeouts, Aborts, & Dropped Connections
-async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
+// Retries up to 5 times on 429 Rate Limits, 5xx Server Errors, Timeouts, Aborts, & Dropped Connections
+async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 5) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
@@ -80,7 +80,7 @@ async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
 
       if ((status === 429 || isServerError || isTimeoutOrAbort) && attempt < maxRetries) {
         const retryHeader = err.response?.headers['retry-after'];
-        const waitTimeSec = retryHeader ? parseInt(retryHeader, 10) : attempt * 5;
+        const waitTimeSec = retryHeader ? Math.max(parseInt(retryHeader, 10), 10) : attempt * 8;
         const reason = isTimeoutOrAbort ? `Network/Timeout (${err.code || err.message})` : `HTTP ${status}`;
         console.warn(`⚠️ [Farm #${cleanFarmId}] ${reason}. Retrying in ${waitTimeSec}s... (Attempt ${attempt}/${maxRetries})`);
         await delay(waitTimeSec * 1000);
@@ -254,7 +254,7 @@ async function processBaselineSnapshot() {
       console.error(`❌ Failed baseline snapshot for Farm #${cleanFarmId}: ${err.message}`);
     }
 
-    await delay(3500);
+    await delay(4500);
   }
 }
 
@@ -308,7 +308,7 @@ async function processYieldCalculation() {
       farmInventory = await fetchFarmInventoryWithRetry(cleanFarmId);
     } catch (err) {
       console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: ${err.message}`);
-      await delay(3500);
+      await delay(4500);
       continue;
     }
 
@@ -358,7 +358,7 @@ async function processYieldCalculation() {
       console.log(`ℹ️ Farm #${cleanFarmId}: No positive yield difference detected.`);
     }
 
-    await delay(3500);
+    await delay(4500);
   }
 }
 
