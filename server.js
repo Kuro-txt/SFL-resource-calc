@@ -48,7 +48,7 @@ function getSflHeaders() {
   return headers;
 }
 
-// Retries on 429 Rate Limits, 5xx Server Errors, and Timeouts
+// Retries on 429 Rate Limits, 5xx Server Errors, Timeouts, Aborts, & Dropped Connections
 async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -59,7 +59,18 @@ async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
       return response.data?.farm?.inventory || response.data?.inventory || {};
     } catch (err) {
       const status = err.response?.status;
-      const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
+      const errMsg = (err.message || '').toLowerCase();
+      const errCode = err.code || '';
+
+      const isTimeoutOrAbort = 
+        errCode === 'ECONNABORTED' || 
+        errCode === 'ETIMEDOUT' || 
+        errCode === 'ERR_CANCELED' || 
+        errCode === 'ECONNRESET' || 
+        errMsg.includes('timeout') || 
+        errMsg.includes('aborted') || 
+        errMsg.includes('canceled');
+
       const isServerError = status >= 500 && status < 600;
 
       if (status === 401) {
@@ -67,10 +78,10 @@ async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
         throw err;
       }
 
-      if ((status === 429 || isServerError || isTimeout) && attempt < maxRetries) {
+      if ((status === 429 || isServerError || isTimeoutOrAbort) && attempt < maxRetries) {
         const retryHeader = err.response?.headers['retry-after'];
-        const waitTimeSec = retryHeader ? parseInt(retryHeader, 10) : attempt * 4;
-        const reason = isTimeout ? 'Timeout' : `HTTP ${status}`;
+        const waitTimeSec = retryHeader ? parseInt(retryHeader, 10) : attempt * 5;
+        const reason = isTimeoutOrAbort ? `Network/Timeout (${err.code || err.message})` : `HTTP ${status}`;
         console.warn(`⚠️ [Farm #${cleanFarmId}] ${reason}. Retrying in ${waitTimeSec}s... (Attempt ${attempt}/${maxRetries})`);
         await delay(waitTimeSec * 1000);
       } else {
