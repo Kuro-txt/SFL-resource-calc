@@ -54,7 +54,7 @@ async function fetchFarmInventoryWithRetry(cleanFarmId, maxRetries = 3) {
     try {
       const response = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
         headers: getSflHeaders(),
-        timeout: 15000 // Increased timeout to 15 seconds
+        timeout: 15000
       });
       return response.data?.farm?.inventory || response.data?.inventory || {};
     } catch (err) {
@@ -332,7 +332,6 @@ async function processYieldCalculation() {
     if (yieldsList.length > 0) {
       const { error: dbError } = await supabase.from('daily_yields').upsert({
         user_id: user.id,
-        farm_id: cleanFarmId,
         yield_date: todayDate,
         total_count: Math.ceil(totalHarvestCount * 10) / 10,
         net_flowers: Math.ceil(totalNetFlowers * 1000) / 1000,
