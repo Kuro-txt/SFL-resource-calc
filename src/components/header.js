@@ -38,7 +38,7 @@ export function renderHeader() {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-medium text-sfl-woodLight">
           <div class="bg-white/60 p-2.5 rounded-lg border border-sfl-cardBorder/40 space-y-1">
             <span class="font-bold text-sfl-dirt block">1. Sign In (Required)</span>
-            <p><strong>Signing in is a must</strong> for automatic tracking and cloud backups. Enter your email & password at the top.</p>
+            <p><strong>Signing in is a must</strong> for automatic tracking and cloud backups. Enter your username & password at the top.</p>
           </div>
           <div class="bg-white/60 p-2.5 rounded-lg border border-sfl-cardBorder/40 space-y-1">
             <span class="font-bold text-sfl-dirt block">2. Farm ID & Targets</span>
