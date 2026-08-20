@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
 app.use(express.static(path.join(__dirname)));
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://gtvglgeoznnrsdcfazpc.supabase.co";
@@ -47,7 +48,7 @@ function getSflHeaders() {
   return headers;
 }
 
-// Fetches both Inventory and FarmActivity with retry backoff
+// Retries up to 5 times on 429 Rate Limits, 5xx Server Errors, Timeouts, Aborts, & Dropped Connections
 async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 5) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -295,8 +296,9 @@ async function processYieldCalculation() {
       .eq('snapshot_date', todayDate)
       .maybeSingle();
 
-    if (baselineErr || !baselineRecord) {
-      console.warn(`⚠️ Skipped 22:00 UTC calculation for Farm #${cleanFarmId}: Baseline for ${todayDate} not found.`);
+    // STRICT CHECK: Skip calculation if baseline is not logged or missing farmActivity for today
+    if (baselineErr || !baselineRecord || !baselineRecord.farm_activity || Object.keys(baselineRecord.farm_activity).length === 0) {
+      console.warn(`⚠️ Skipped 22:00 UTC calculation for Farm #${cleanFarmId}: Baseline or farmActivity for ${todayDate} not found.`);
       continue;
     }
 
