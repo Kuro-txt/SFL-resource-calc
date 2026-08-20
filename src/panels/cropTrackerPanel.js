@@ -15,23 +15,33 @@ export function renderCropTrackerTemplate() {
     <div class="space-y-6">
       
       <!-- TOP HEADER & CONTROLS -->
-      <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-sm">
+      <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
         <div>
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
             <span>🌱</span> Crop Tracker v1
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
-            shows number of harvest, please input your estimated yeild
+            shows number of harvest, please input your estimated yeild per plot
           </p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button id="open-crop-weekly-btn" class="bg-sfl-gold text-sfl-dirt px-3 py-2 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-400 transition cursor-pointer flex items-center gap-1.5 shadow-sm">
+        
+        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <!-- QUICK APPLY AVG YIELD -->
+          <div class="flex items-center gap-1 bg-amber-100/90 border border-amber-300 px-2 py-1 rounded-lg">
+            <span class="text-[10px] font-bold text-sfl-wood whitespace-nowrap">Default Yield/Plot:</span>
+            <input type="number" id="global-avg-yield-input" value="1.0" min="0.1" step="0.05" class="w-14 sfl-input rounded px-1 text-xs font-mono font-bold text-center text-sfl-dirt">
+            <button id="apply-global-yield-btn" title="Apply to all active crops" class="bg-sfl-wood text-amber-100 px-2 py-0.5 rounded text-[10px] font-bold hover:bg-sfl-dirt transition cursor-pointer">
+              Set All
+            </button>
+          </div>
+
+          <button id="open-crop-weekly-btn" class="bg-sfl-gold text-sfl-dirt px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-400 transition cursor-pointer flex items-center gap-1 shadow-sm">
             <span>📊</span> Weekly Summary
           </button>
-          <button id="refresh-crop-activity-btn" class="bg-sfl-wood text-amber-200 px-3 py-2 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition cursor-pointer flex items-center gap-1.5">
+          <button id="refresh-crop-activity-btn" class="bg-sfl-wood text-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition cursor-pointer flex items-center gap-1">
             🔄 Check Live Today
           </button>
-          <button id="save-base-yields-btn" class="bg-sfl-green text-white px-3 py-2 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-green-700 transition cursor-pointer flex items-center gap-1.5">
+          <button id="save-base-yields-btn" class="bg-sfl-green text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-green-700 transition cursor-pointer flex items-center gap-1 shadow-sm">
             💾 Save Multipliers
           </button>
         </div>
@@ -49,8 +59,8 @@ export function renderCropTrackerTemplate() {
             <thead class="text-[11px] uppercase bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood">
               <tr>
                 <th class="px-3 py-2.5">Crop</th>
-                <th class="px-2 py-2.5">Harvest Cycles</th>
-                <th class="px-2 py-2.5 w-24">Base Yield</th>
+                <th class="px-2 py-2.5">Plots Harvested</th>
+                <th class="px-2 py-2.5 w-28">Avg Yield / Plot</th>
                 <th class="px-2 py-2.5">Est. Harvested Qty</th>
                 <th class="px-2 py-2.5">Unit Price</th>
                 <th class="px-3 py-2.5">Net Flowers (10% Tax)</th>
@@ -72,7 +82,7 @@ export function renderCropTrackerTemplate() {
       <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 shadow-inner">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center items-center">
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Total Harvest Cycles</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Total Plots Harvested</span>
             <h2 id="summary-total-cycles" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-dirt mt-0.5">0</h2>
           </div>
           <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
@@ -123,7 +133,7 @@ export function renderCropTrackerTemplate() {
         <div class="overflow-y-auto flex-1 pr-1 space-y-4">
           <div class="grid grid-cols-3 gap-2">
             <div class="bg-amber-100/90 border-2 border-sfl-gold/60 p-2.5 rounded-xl text-center shadow-sm">
-              <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">Harvest Cycles</span>
+              <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">Harvested Plots</span>
               <span id="crop-weekly-total-cycles" class="text-lg font-extrabold text-sfl-wood font-mono">0</span>
             </div>
             <div class="bg-amber-100/90 border-2 border-sfl-gold/60 p-2.5 rounded-xl text-center shadow-sm">
@@ -139,7 +149,7 @@ export function renderCropTrackerTemplate() {
           <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl p-3 shadow-inner">
             <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider mb-2 border-b border-amber-200/60 pb-1 flex justify-between">
               <span>Crop</span>
-              <span>Cycles / Total Qty / Net Flowers</span>
+              <span>Plots / Est. Qty / Net Flowers</span>
             </h4>
             <div id="crop-weekly-breakdown" class="space-y-1.5 max-h-48 overflow-y-auto text-xs"></div>
           </div>
@@ -160,6 +170,7 @@ export function initCropTrackerPanel() {
 
   document.getElementById('refresh-crop-activity-btn')?.addEventListener('click', fetchLiveCropDiff);
   document.getElementById('save-base-yields-btn')?.addEventListener('click', saveBaseYieldSettings);
+  document.getElementById('apply-global-yield-btn')?.addEventListener('click', applyGlobalYieldToAll);
 
   const modal = document.getElementById('crop-weekly-modal');
   const openBtn = document.getElementById('open-crop-weekly-btn');
@@ -206,6 +217,18 @@ export async function loadCloudBaseYields() {
   }
 }
 
+export function applyGlobalYieldToAll() {
+  const val = parseFloat(document.getElementById('global-avg-yield-input')?.value) || 1.0;
+  if (activeHarvestDiffs.length === 0) {
+    alert("⚠️ No active crops detected yet. Refresh live data first!");
+    return;
+  }
+  activeHarvestDiffs.forEach(entry => {
+    cropBaseYields[entry.cleanKey] = val;
+  });
+  renderCropTrackerRows();
+}
+
 export async function saveBaseYieldSettings() {
   localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
 
@@ -219,7 +242,7 @@ export async function saveBaseYieldSettings() {
     }, { onConflict: 'id' });
   }
 
-  alert("✅ Base Yield Multipliers saved successfully!");
+  alert("✅ Avg Yield per Plot settings saved successfully!");
   renderCropTrackerRows();
 }
 
@@ -255,7 +278,7 @@ export async function fetchLiveCropDiff() {
       }
     }
 
-    // STRICT CHECK: Do not show if baseline is not saved
+    // STRICT CHECK: Do not show if baseline is not saved for today
     if (!baselineActivity) {
       hasBaselineForToday = false;
       activeHarvestDiffs = [];
@@ -373,11 +396,11 @@ export function renderCropTrackerRows() {
     tr.className = "hover:bg-amber-50/50 transition";
     tr.innerHTML = `
       <td class="px-3 py-2.5 font-bold text-sfl-dirt">${entry.crop}</td>
-      <td class="px-2 py-2.5 font-mono font-bold text-sfl-wood">+${entry.harvestCount}</td>
+      <td class="px-2 py-2.5 font-mono font-bold text-sfl-wood">+${entry.harvestCount} plots</td>
       <td class="px-2 py-2.5 font-mono">
-        <input type="number" step="0.1" min="0.1" value="${baseYield}" 
+        <input type="number" step="0.05" min="0.1" value="${baseYield}" 
           onchange="updateCropBaseYield('${entry.cleanKey}', this.value)"
-          class="w-16 sfl-input rounded px-1.5 py-0.5 text-xs font-bold text-center text-sfl-dirt focus:ring-1 focus:ring-sfl-gold">
+          class="w-20 sfl-input rounded px-2 py-0.5 text-xs font-bold text-center text-sfl-dirt focus:ring-1 focus:ring-sfl-gold">
       </td>
       <td class="px-2 py-2.5 font-mono font-bold text-sfl-green">${totalHarvested.toFixed(1)}</td>
       <td class="px-2 py-2.5 font-mono text-sfl-woodLight">${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</td>
@@ -500,7 +523,7 @@ export function renderCropWeeklySummary() {
           <div class="flex justify-between items-center p-2 bg-amber-50 rounded border border-amber-200/60">
             <span class="font-bold text-sfl-dirt">${cropName}</span>
             <div class="flex items-center gap-2 font-mono">
-              <span class="text-sfl-wood font-bold">${data.cycles} cycles</span>
+              <span class="text-sfl-wood font-bold">${data.cycles} plots</span>
               <span class="text-sfl-dirt font-extrabold">(${data.qty.toFixed(1)} qty)</span>
               <span class="text-[10px] text-sfl-green font-semibold flex items-center gap-1">${data.flowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
             </div>
