@@ -1,8 +1,10 @@
-import { FLOWER_IMG_SMALL_HTML, COIN_ICON } from '../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, roundUpToTwoDecimals } from '../utils/formatters.js';
 
 let cropBaseYields = JSON.parse(localStorage.getItem('sfl_crop_base_yields') || '{}');
 let activeHarvestDiffs = [];
+let hasBaselineForToday = false;
+let isInitialCheckDone = false;
 
 export function renderCropTrackerTemplate() {
   const container = document.getElementById('crop-tracker-section');
@@ -35,7 +37,7 @@ export function renderCropTrackerTemplate() {
       <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl overflow-hidden shadow-sm">
         <div class="bg-sfl-wood text-amber-200 px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-sfl-dirt flex justify-between items-center">
           <span>🌾 Today's Harvest Yield & Profit</span>
-          <span id="crop-tracker-status" class="text-[11px] text-amber-300 font-mono">0 Harvests Active</span>
+          <span id="crop-tracker-status" class="text-[11px] text-amber-300 font-mono">Checking Baseline...</span>
         </div>
 
         <div class="overflow-x-auto">
@@ -54,7 +56,7 @@ export function renderCropTrackerTemplate() {
             <tbody id="crop-tracker-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
               <tr>
                 <td colspan="7" class="px-4 py-8 text-center text-sfl-woodLight italic">
-                  Click 'Check Live Today' or wait for 22:00 UTC cloud sync.
+                  Click 'Check Live Today' or sign in to verify today's 00:00 UTC baseline.
                 </td>
               </tr>
             </tbody>
@@ -132,19 +134,21 @@ export async function saveBaseYieldSettings() {
 export async function fetchLiveCropDiff() {
   const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim();
   const statusEl = document.getElementById('crop-tracker-status');
+  const client = window.supabaseClient;
+  const user = window.currentUser;
+  const todayDate = new Date().toISOString().split('T')[0];
+
+  isInitialCheckDone = true;
 
   if (!farmId) {
     alert("⚠️ Please enter your Farm ID at the top first!");
     return;
   }
 
-  if (statusEl) statusEl.textContent = "⏳ Fetching live farm activity...";
+  if (statusEl) statusEl.textContent = "⏳ Verifying 00:00 UTC baseline...";
 
   try {
-    const client = window.supabaseClient;
-    const user = window.currentUser;
-    const todayDate = new Date().toISOString().split('T')[0];
-    let baselineActivity = {};
+    let baselineActivity = null;
 
     if (client && user) {
       const { data } = await client
@@ -154,8 +158,22 @@ export async function fetchLiveCropDiff() {
         .eq('snapshot_date', todayDate)
         .maybeSingle();
 
-      if (data?.farm_activity) baselineActivity = data.farm_activity;
+      if (data?.farm_activity && Object.keys(data.farm_activity).length > 0) {
+        baselineActivity = data.farm_activity;
+      }
     }
+
+    // STRICT CHECK: If baseline is missing or empty for today, do not calculate
+    if (!baselineActivity) {
+      hasBaselineForToday = false;
+      activeHarvestDiffs = [];
+      renderCropTrackerRows();
+      if (statusEl) statusEl.textContent = "⚠️ Baseline Missing";
+      return;
+    }
+
+    hasBaselineForToday = true;
+    if (statusEl) statusEl.textContent = "⏳ Fetching live farm activity...";
 
     const backend = window.BACKEND_URL || '';
     const res = await fetch(`${backend}/api/get-farm?farmId=${encodeURIComponent(farmId)}`);
@@ -216,12 +234,32 @@ export function renderCropTrackerRows() {
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0.10;
   const coinRatio = parseFloat(document.getElementById('coin-ratio')?.value) || 1000;
 
-  if (activeHarvestDiffs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-sfl-woodLight italic">No crop harvests detected yet today compared to 00:00 UTC.</td></tr>`;
+  // 1. Baseline not saved state
+  if (isInitialCheckDone && !hasBaselineForToday) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="px-4 py-8 text-center text-sfl-dirt space-y-2">
+          <div class="inline-block px-3 py-1 bg-amber-100 border-2 border-amber-400 rounded-lg text-amber-900 font-bold text-xs shadow-sm">
+            🚩 00:00 UTC Baseline Not Found For Today
+          </div>
+          <p class="text-xs text-sfl-woodLight max-w-md mx-auto mt-2">
+            Crop Activity Tracker compares harvest counts against your saved <strong>00:00 UTC snapshot</strong>. Yields and profit calculations will show here once today's baseline is logged.
+          </p>
+        </td>
+      </tr>
+    `;
     updateCropTrackerTotals(0, 0, 0);
     return;
   }
 
+  // 2. Baseline exists but 0 positive harvest differences
+  if (activeHarvestDiffs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-sfl-woodLight italic">No crop harvests detected yet today compared to 00:00 UTC baseline.</td></tr>`;
+    updateCropTrackerTotals(0, 0, 0);
+    return;
+  }
+
+  // 3. Render Harvest Differences
   tbody.innerHTML = '';
   let grandCycles = 0;
   let grandFlowers = 0;
