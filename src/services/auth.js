@@ -81,7 +81,7 @@ export async function loadCloudUserData() {
 
   const { data: profile } = await window.supabaseClient
     .from('profiles')
-    .select('farm_id, tracked_items')
+    .select('farm_id, tracked_items, crop_base_yields')
     .eq('id', window.currentUser.id)
     .maybeSingle();
 
@@ -102,6 +102,10 @@ export async function loadCloudUserData() {
       } catch (e) {
         window.trackedTargets = [];
       }
+    }
+
+    if (profile.crop_base_yields) {
+      localStorage.setItem('sfl_crop_base_yields', JSON.stringify(profile.crop_base_yields));
     }
 
     if (typeof window.renderTrackedBadges === 'function') window.renderTrackedBadges();
