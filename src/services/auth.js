@@ -125,7 +125,8 @@ export async function loadCloudUserData() {
       date: y.yield_date,
       totalCount: parseFloat(y.total_count),
       netFlowers: y.net_flowers,
-      crops: y.crops
+      crops: y.crops,
+      cropActivityYields: y.crop_activity_yields || []
     }));
     localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
   }
