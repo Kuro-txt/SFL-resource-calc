@@ -28,7 +28,7 @@ export function renderCropTrackerTemplate() {
         <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <!-- QUICK APPLY AVG YIELD -->
           <div class="flex items-center gap-1 bg-amber-100/90 border border-amber-300 px-2 py-1 rounded-lg">
-            <span class="text-[10px] font-bold text-sfl-wood whitespace-nowrap">Default Yield/Plot:</span>
+            <span class="text-[10px] font-bold text-sfl-wood whitespace-nowrap">Avg Yield per Plot:</span>
             <input type="number" id="global-avg-yield-input" value="1.0" min="0.1" step="0.05" class="w-14 sfl-input rounded px-1 text-xs font-mono font-bold text-center text-sfl-dirt">
             <button id="apply-global-yield-btn" title="Apply to all active crops" class="bg-sfl-wood text-amber-100 px-2 py-0.5 rounded text-[10px] font-bold hover:bg-sfl-dirt transition cursor-pointer">
               Set All
@@ -278,7 +278,6 @@ export async function fetchLiveCropDiff() {
       }
     }
 
-    // STRICT CHECK: Do not show if baseline is not saved for today
     if (!baselineActivity) {
       hasBaselineForToday = false;
       activeHarvestDiffs = [];
@@ -349,7 +348,6 @@ export function renderCropTrackerRows() {
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0.10;
   const coinRatio = parseFloat(document.getElementById('coin-ratio')?.value) || 1000;
 
-  // 1. Baseline not saved state
   if (isInitialCheckDone && !hasBaselineForToday) {
     tbody.innerHTML = `
       <tr>
@@ -367,14 +365,12 @@ export function renderCropTrackerRows() {
     return;
   }
 
-  // 2. Baseline exists but 0 positive harvest differences
   if (activeHarvestDiffs.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-sfl-woodLight italic">No crop harvests detected yet today compared to 00:00 UTC baseline.</td></tr>`;
     updateCropTrackerTotals(0, 0, 0);
     return;
   }
 
-  // 3. Render Harvest Differences
   tbody.innerHTML = '';
   let grandCycles = 0;
   let grandFlowers = 0;
