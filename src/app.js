@@ -5,6 +5,7 @@ import { renderNavTabs } from './components/navTabs.js';
 import { initAuth } from './services/auth.js';
 import { PanelManager } from './services/panelManager.js';
 import { initCalculatorPanel } from './panels/calculatorPanel.js';
+import { initCropTrackerPanel } from './panels/cropTrackerPanel.js';
 import { initTrackerPanel } from './panels/trackerPanel.js';
 import { initWishlistPanel, renderWishlist } from './panels/wishlistPanel.js';
 import { initTrackingModal } from './modals/trackingModal.js';
@@ -18,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderNavTabs();
 
   initCalculatorPanel();
+  initCropTrackerPanel();
   initTrackerPanel();
   initWishlistPanel();
   initTrackingModal();
@@ -25,6 +27,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   PanelManager.register('calc', {
     onMount: () => console.log("Calculator Panel Active")
+  });
+
+  PanelManager.register('croptracker', {
+    onMount: () => console.log("Crop Tracker V1 Active")
   });
 
   PanelManager.register('wishlist', {
