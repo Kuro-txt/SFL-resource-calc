@@ -2,10 +2,12 @@ import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML } from '../config/constants.js';
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, roundUpToTwoDecimals, formatDateYYYYMMDD } from '../utils/formatters.js';
 
 let cropBaseYields = JSON.parse(localStorage.getItem('sfl_crop_base_yields') || '{}');
+let globalAvgYield = parseFloat(localStorage.getItem('sfl_global_avg_yield') || '1.0');
 let activeHarvestDiffs = [];
 let hasBaselineForToday = false;
 let isInitialCheckDone = false;
 let currentCropWeekOffset = 0;
+let cloudSaveTimer = null;
 
 export function renderCropTrackerTemplate() {
   const container = document.getElementById('crop-tracker-section');
@@ -29,7 +31,7 @@ export function renderCropTrackerTemplate() {
           <!-- QUICK APPLY AVG YIELD -->
           <div class="flex items-center gap-1 bg-amber-100/90 border border-amber-300 px-2 py-1 rounded-lg">
             <span class="text-[10px] font-bold text-sfl-wood whitespace-nowrap">Avg Yield per Plot:</span>
-            <input type="number" id="global-avg-yield-input" value="1.0" min="0.1" step="0.05" class="w-14 sfl-input rounded px-1 text-xs font-mono font-bold text-center text-sfl-dirt">
+            <input type="number" id="global-avg-yield-input" value="${globalAvgYield}" min="0.1" step="0.05" class="w-14 sfl-input rounded px-1 text-xs font-mono font-bold text-center text-sfl-dirt">
             <button id="apply-global-yield-btn" title="Apply to all active crops" class="bg-sfl-wood text-amber-100 px-2 py-0.5 rounded text-[10px] font-bold hover:bg-sfl-dirt transition cursor-pointer">
               Set All
             </button>
@@ -169,8 +171,17 @@ export function initCropTrackerPanel() {
   renderCropTrackerTemplate();
 
   document.getElementById('refresh-crop-activity-btn')?.addEventListener('click', fetchLiveCropDiff);
-  document.getElementById('save-base-yields-btn')?.addEventListener('click', saveBaseYieldSettings);
+  document.getElementById('save-base-yields-btn')?.addEventListener('click', () => saveBaseYieldSettings(true));
   document.getElementById('apply-global-yield-btn')?.addEventListener('click', applyGlobalYieldToAll);
+
+  const globalYieldInput = document.getElementById('global-avg-yield-input');
+  globalYieldInput?.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value) || 1.0;
+    globalAvgYield = val;
+    localStorage.setItem('sfl_global_avg_yield', val.toString());
+    cropBaseYields['_global'] = val;
+    debouncedCloudSave();
+  });
 
   const modal = document.getElementById('crop-weekly-modal');
   const openBtn = document.getElementById('open-crop-weekly-btn');
@@ -209,40 +220,71 @@ export async function loadCloudBaseYields() {
   const user = window.currentUser;
 
   if (client && user) {
-    const { data } = await client.from('profiles').select('crop_base_yields').eq('id', user.id).maybeSingle();
-    if (data?.crop_base_yields) {
-      cropBaseYields = data.crop_base_yields;
-      localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
+    try {
+      const { data } = await client.from('profiles').select('crop_base_yields').eq('id', user.id).maybeSingle();
+      if (data?.crop_base_yields) {
+        cropBaseYields = data.crop_base_yields;
+        localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
+
+        if (cropBaseYields['_global'] !== undefined) {
+          globalAvgYield = parseFloat(cropBaseYields['_global']) || 1.0;
+          localStorage.setItem('sfl_global_avg_yield', globalAvgYield.toString());
+          const inputEl = document.getElementById('global-avg-yield-input');
+          if (inputEl) inputEl.value = globalAvgYield;
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load cloud crop multipliers:", err.message);
     }
   }
 }
 
+function debouncedCloudSave() {
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(() => {
+    saveBaseYieldSettings(false);
+  }, 1000);
+}
+
 export function applyGlobalYieldToAll() {
-  const val = parseFloat(document.getElementById('global-avg-yield-input')?.value) || 1.0;
-  if (activeHarvestDiffs.length === 0) {
-    alert("⚠️ No active crops detected yet. Refresh live data first!");
-    return;
+  const inputEl = document.getElementById('global-avg-yield-input');
+  const val = parseFloat(inputEl?.value) || 1.0;
+  globalAvgYield = val;
+  localStorage.setItem('sfl_global_avg_yield', val.toString());
+  cropBaseYields['_global'] = val;
+
+  if (activeHarvestDiffs.length > 0) {
+    activeHarvestDiffs.forEach(entry => {
+      cropBaseYields[entry.cleanKey] = val;
+    });
   }
-  activeHarvestDiffs.forEach(entry => {
-    cropBaseYields[entry.cleanKey] = val;
-  });
+
+  saveBaseYieldSettings(false);
   renderCropTrackerRows();
 }
 
-export async function saveBaseYieldSettings() {
+export async function saveBaseYieldSettings(showAlert = false) {
+  cropBaseYields['_global'] = globalAvgYield;
   localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
+  localStorage.setItem('sfl_global_avg_yield', globalAvgYield.toString());
 
   const client = window.supabaseClient;
   const user = window.currentUser;
 
   if (client && user) {
-    await client.from('profiles').upsert({
-      id: user.id,
-      crop_base_yields: cropBaseYields
-    }, { onConflict: 'id' });
+    try {
+      await client.from('profiles').upsert({
+        id: user.id,
+        crop_base_yields: cropBaseYields
+      }, { onConflict: 'id' });
+      if (showAlert) alert("✅ Avg Yield per Plot multipliers saved to cloud and local storage!");
+    } catch (err) {
+      if (showAlert) alert("⚠️ Saved locally, but failed to reach Supabase: " + err.message);
+    }
+  } else if (showAlert) {
+    alert("✅ Avg Yield per Plot settings saved locally!");
   }
 
-  alert("✅ Avg Yield per Plot settings saved successfully!");
   renderCropTrackerRows();
 }
 
@@ -334,8 +376,10 @@ function getItemFlowerPrice(cleanKey) {
 }
 
 export function updateCropBaseYield(cleanKey, value) {
-  const val = parseFloat(value) || 1.0;
+  const val = parseFloat(value) || globalAvgYield || 1.0;
   cropBaseYields[cleanKey] = val;
+  localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
+  debouncedCloudSave();
   renderCropTrackerRows();
 }
 
@@ -377,7 +421,7 @@ export function renderCropTrackerRows() {
   let grandCoins = 0;
 
   activeHarvestDiffs.forEach(entry => {
-    const baseYield = cropBaseYields[entry.cleanKey] !== undefined ? cropBaseYields[entry.cleanKey] : 1.0;
+    const baseYield = cropBaseYields[entry.cleanKey] !== undefined ? cropBaseYields[entry.cleanKey] : globalAvgYield;
     const totalHarvested = roundUpToOneDecimal(entry.harvestCount * baseYield);
     const unitPrice = getItemFlowerPrice(entry.cleanKey);
     const grossFlowers = unitPrice * totalHarvested;
