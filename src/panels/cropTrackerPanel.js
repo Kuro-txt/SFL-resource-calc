@@ -1,10 +1,11 @@
-import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
-import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, roundUpToTwoDecimals } from '../utils/formatters.js';
+import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML } from '../config/constants.js';
+import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, roundUpToTwoDecimals, formatDateYYYYMMDD } from '../utils/formatters.js';
 
 let cropBaseYields = JSON.parse(localStorage.getItem('sfl_crop_base_yields') || '{}');
 let activeHarvestDiffs = [];
 let hasBaselineForToday = false;
 let isInitialCheckDone = false;
+let currentCropWeekOffset = 0;
 
 export function renderCropTrackerTemplate() {
   const container = document.getElementById('crop-tracker-section');
@@ -17,13 +18,16 @@ export function renderCropTrackerTemplate() {
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-sm">
         <div>
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
-            <span>🌱</span> Crop Activity Tracker (farmActivity)
+            <span>🌱</span> Crop Tracker v1
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
-            Compares 22:00 UTC vs 00:00 UTC crop harvest events. Total Yield = Harvests × Base Yield.
+            shows number of harvest, please input your estimated yeild
           </p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="open-crop-weekly-btn" class="bg-sfl-gold text-sfl-dirt px-3 py-2 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-400 transition cursor-pointer flex items-center gap-1.5 shadow-sm">
+            <span>📊</span> Weekly Summary
+          </button>
           <button id="refresh-crop-activity-btn" class="bg-sfl-wood text-amber-200 px-3 py-2 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition cursor-pointer flex items-center gap-1.5">
             🔄 Check Live Today
           </button>
@@ -89,6 +93,65 @@ export function renderCropTrackerTemplate() {
       </div>
 
     </div>
+
+    <!-- CROP TRACKER WEEKLY SUMMARY MODAL -->
+    <div id="crop-weekly-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-sfl-card border-4 border-sfl-wood rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col space-y-4">
+        
+        <div class="flex justify-between items-center border-b-2 border-sfl-cardBorder pb-3">
+          <div>
+            <h3 class="text-lg font-black text-sfl-dirt flex items-center gap-2">
+              <span>🗓️</span> Crop Weekly Harvest Report
+            </h3>
+            <p id="crop-weekly-date-range" class="text-xs font-bold text-sfl-woodLight font-mono mt-0.5">
+              Mon – Sun
+            </p>
+          </div>
+          <button id="close-crop-weekly-modal-btn" class="text-sfl-accent hover:text-red-700 font-black text-lg p-1 cursor-pointer">✕</button>
+        </div>
+
+        <div class="flex justify-between items-center bg-amber-100/80 p-2 rounded-lg border border-amber-300 text-xs font-bold">
+          <button id="prev-crop-week-btn" class="bg-sfl-wood text-amber-100 px-2.5 py-1 rounded hover:bg-sfl-dirt transition cursor-pointer">
+            ◀ Previous Week
+          </button>
+          <span id="crop-week-label-badge" class="text-sfl-dirt font-black">Current Week</span>
+          <button id="next-crop-week-btn" class="bg-sfl-wood text-amber-100 px-2.5 py-1 rounded hover:bg-sfl-dirt transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+            Next Week ▶
+          </button>
+        </div>
+
+        <div class="overflow-y-auto flex-1 pr-1 space-y-4">
+          <div class="grid grid-cols-3 gap-2">
+            <div class="bg-amber-100/90 border-2 border-sfl-gold/60 p-2.5 rounded-xl text-center shadow-sm">
+              <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">Harvest Cycles</span>
+              <span id="crop-weekly-total-cycles" class="text-lg font-extrabold text-sfl-wood font-mono">0</span>
+            </div>
+            <div class="bg-amber-100/90 border-2 border-sfl-gold/60 p-2.5 rounded-xl text-center shadow-sm">
+              <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">Total Produced</span>
+              <span id="crop-weekly-total-qty" class="text-lg font-extrabold text-sfl-wood font-mono">0.0</span>
+            </div>
+            <div class="bg-green-100/90 border-2 border-sfl-green/50 p-2.5 rounded-xl text-center shadow-sm">
+              <span class="text-[10px] font-bold text-sfl-green uppercase tracking-wider block mb-0.5">Net Flowers</span>
+              <span id="crop-weekly-total-flowers" class="text-lg font-extrabold text-sfl-green font-mono">0.000 ${FLOWER_IMG_HTML}</span>
+            </div>
+          </div>
+
+          <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl p-3 shadow-inner">
+            <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider mb-2 border-b border-amber-200/60 pb-1 flex justify-between">
+              <span>Crop</span>
+              <span>Cycles / Total Qty / Net Flowers</span>
+            </h4>
+            <div id="crop-weekly-breakdown" class="space-y-1.5 max-h-48 overflow-y-auto text-xs"></div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-sfl-cardBorder flex justify-end">
+          <button id="close-crop-weekly-modal-footer-btn" class="bg-sfl-wood text-amber-100 font-bold px-4 py-1.5 rounded-lg hover:bg-sfl-dirt transition text-xs cursor-pointer">
+            Close Report
+          </button>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -97,6 +160,35 @@ export function initCropTrackerPanel() {
 
   document.getElementById('refresh-crop-activity-btn')?.addEventListener('click', fetchLiveCropDiff);
   document.getElementById('save-base-yields-btn')?.addEventListener('click', saveBaseYieldSettings);
+
+  const modal = document.getElementById('crop-weekly-modal');
+  const openBtn = document.getElementById('open-crop-weekly-btn');
+  const closeBtn = document.getElementById('close-crop-weekly-modal-btn');
+  const closeFooterBtn = document.getElementById('close-crop-weekly-modal-footer-btn');
+  const prevBtn = document.getElementById('prev-crop-week-btn');
+  const nextBtn = document.getElementById('next-crop-week-btn');
+
+  openBtn?.addEventListener('click', () => {
+    currentCropWeekOffset = 0;
+    renderCropWeeklySummary();
+    modal?.classList.remove('hidden');
+  });
+
+  const closeModal = () => modal?.classList.add('hidden');
+  closeBtn?.addEventListener('click', closeModal);
+  closeFooterBtn?.addEventListener('click', closeModal);
+
+  prevBtn?.addEventListener('click', () => {
+    currentCropWeekOffset--;
+    renderCropWeeklySummary();
+  });
+
+  nextBtn?.addEventListener('click', () => {
+    if (currentCropWeekOffset < 0) {
+      currentCropWeekOffset++;
+      renderCropWeeklySummary();
+    }
+  });
 
   loadCloudBaseYields();
 }
@@ -163,7 +255,7 @@ export async function fetchLiveCropDiff() {
       }
     }
 
-    // STRICT CHECK: If baseline is missing or empty for today, do not calculate
+    // STRICT CHECK: Do not show if baseline is not saved
     if (!baselineActivity) {
       hasBaselineForToday = false;
       activeHarvestDiffs = [];
@@ -243,7 +335,7 @@ export function renderCropTrackerRows() {
             🚩 00:00 UTC Baseline Not Found For Today
           </div>
           <p class="text-xs text-sfl-woodLight max-w-md mx-auto mt-2">
-            Crop Activity Tracker compares harvest counts against your saved <strong>00:00 UTC snapshot</strong>. Yields and profit calculations will show here once today's baseline is logged.
+            Crop Tracker v1 compares harvest counts against your saved <strong>00:00 UTC snapshot</strong>. Yields and profit calculations will show here once today's baseline is logged.
           </p>
         </td>
       </tr>
@@ -306,4 +398,116 @@ function updateCropTrackerTotals(cycles, flowers, coins) {
   if (cyclesEl) cyclesEl.textContent = cycles;
   if (flowersEl) flowersEl.textContent = flowers.toFixed(3);
   if (coinsEl) coinsEl.textContent = coins.toFixed(2);
+}
+
+// -------------------------------------------------------------
+// WEEKLY SUMMARY REPORT (CROP TRACKER V1)
+// -------------------------------------------------------------
+
+function getCropWeekRange(offset = 0) {
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMonday = (day === 0 ? 6 : day - 1);
+
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - diffToMonday + (offset * 7));
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  return {
+    mondayDate: monday,
+    sundayDate: sunday,
+    mondayStr: formatDateYYYYMMDD(monday),
+    sundayStr: formatDateYYYYMMDD(sunday)
+  };
+}
+
+export function renderCropWeeklySummary() {
+  const { mondayStr, sundayStr, mondayDate, sundayDate } = getCropWeekRange(currentCropWeekOffset);
+
+  const dateRangeEl = document.getElementById('crop-weekly-date-range');
+  const weekLabelEl = document.getElementById('crop-week-label-badge');
+  const nextBtn = document.getElementById('next-crop-week-btn');
+
+  if (dateRangeEl) {
+    const monFmt = mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const sunFmt = sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    dateRangeEl.textContent = `${monFmt} – ${sunFmt}`;
+  }
+
+  if (weekLabelEl) {
+    if (currentCropWeekOffset === 0) weekLabelEl.textContent = 'Current Week';
+    else if (currentCropWeekOffset === -1) weekLabelEl.textContent = 'Last Week';
+    else weekLabelEl.textContent = `${Math.abs(currentCropWeekOffset)} Weeks Ago`;
+  }
+
+  if (nextBtn) nextBtn.disabled = currentCropWeekOffset >= 0;
+
+  let history = [];
+  try {
+    history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+  } catch (e) {}
+
+  let cropAggregates = {};
+  let totalCycles = 0;
+  let totalQty = 0;
+  let totalFlowers = 0;
+
+  history.forEach(entry => {
+    let cleanDate = (entry.date || entry.yield_date || '').split('T')[0];
+    if (cleanDate >= mondayStr && cleanDate <= sundayStr) {
+      let cropList = entry.cropActivityYields || entry.crop_activity_yields || [];
+      cropList.forEach(item => {
+        let name = item.crop || 'Crop';
+        if (!cropAggregates[name]) {
+          cropAggregates[name] = { cycles: 0, qty: 0, flowers: 0 };
+        }
+        let cycles = parseFloat(item.harvestCount || item.harvest_count || 0);
+        let qty = parseFloat(item.totalProduced || item.total_produced || 0);
+        let flowers = parseFloat(item.netFlowers || item.net_flowers || 0);
+
+        cropAggregates[name].cycles += cycles;
+        cropAggregates[name].qty += qty;
+        cropAggregates[name].flowers += flowers;
+
+        totalCycles += cycles;
+        totalQty += qty;
+        totalFlowers += flowers;
+      });
+    }
+  });
+
+  const cyclesEl = document.getElementById('crop-weekly-total-cycles');
+  const qtyEl = document.getElementById('crop-weekly-total-qty');
+  const flowersEl = document.getElementById('crop-weekly-total-flowers');
+  const breakdownEl = document.getElementById('crop-weekly-breakdown');
+
+  if (cyclesEl) cyclesEl.textContent = totalCycles;
+  if (qtyEl) qtyEl.textContent = totalQty.toFixed(1);
+  if (flowersEl) flowersEl.innerHTML = `${totalFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
+
+  if (breakdownEl) {
+    const entries = Object.entries(cropAggregates);
+    if (entries.length === 0) {
+      breakdownEl.innerHTML = '<div class="text-center italic text-sfl-woodLight py-3">No crop activity logged for this calendar week.</div>';
+    } else {
+      let html = '';
+      entries.sort((a, b) => b[1].cycles - a[1].cycles).forEach(([cropName, data]) => {
+        html += `
+          <div class="flex justify-between items-center p-2 bg-amber-50 rounded border border-amber-200/60">
+            <span class="font-bold text-sfl-dirt">${cropName}</span>
+            <div class="flex items-center gap-2 font-mono">
+              <span class="text-sfl-wood font-bold">${data.cycles} cycles</span>
+              <span class="text-sfl-dirt font-extrabold">(${data.qty.toFixed(1)} qty)</span>
+              <span class="text-[10px] text-sfl-green font-semibold flex items-center gap-1">${data.flowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+            </div>
+          </div>
+        `;
+      });
+      breakdownEl.innerHTML = html;
+    }
+  }
 }
