@@ -37,56 +37,30 @@ export function renderCalculatorTemplate() {
         <p id="sync-status" class="text-xs text-center font-bold text-sfl-woodLight min-h-[16px]"></p>
       </div>
 
-      <!-- GLOBAL SETTINGS (TAX & RATIO) -->
-      <div class="bg-sfl-card/90 p-3.5 rounded-xl border-2 border-sfl-cardBorder shadow-sm">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="flex flex-col">
-            <label class="text-xs font-bold text-sfl-wood uppercase mb-1 flex items-center gap-1">
-              <span>🏷️</span> Market Tax Rate
-            </label>
-            <select id="tax-select" class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt cursor-pointer">
-              <option value="0">0% (No Tax)</option>
-              <option value="0.05">5% Tax</option>
-              <option value="0.075">7.5% Tax</option>
-              <option value="0.10" selected>10% Tax</option>
-              <option value="0.125">12.5% Tax</option>
-              <option value="0.15">15% Tax</option>
-            </select>
-          </div>
-          <div class="flex flex-col">
-            <label class="text-xs font-bold text-sfl-wood uppercase mb-1 flex items-center gap-1">
-              <img src="./assets/coins.webp" class="w-4 h-4 sfl-icon" alt="Coins"> Coins per 1 Flower
-            </label>
-            <input type="number" id="coin-ratio" value="1000" min="1" step="1" class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt">
-          </div>
-        </div>
+      <!-- TAX RATE BAR -->
+      <div class="bg-sfl-card/90 p-3 rounded-xl border-2 border-sfl-cardBorder shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <label class="text-xs font-bold text-sfl-wood uppercase flex items-center gap-1.5">
+          <span>🏷️</span> Market Tax Rate:
+        </label>
+        <select id="tax-select" class="w-full sm:w-48 sfl-input rounded-lg px-3 py-1.5 text-xs font-bold text-sfl-dirt cursor-pointer">
+          <option value="0">0% (No Tax)</option>
+          <option value="0.05">5% Tax</option>
+          <option value="0.075">7.5% Tax</option>
+          <option value="0.10" selected>10% Tax</option>
+          <option value="0.125">12.5% Tax</option>
+          <option value="0.15">15% Tax</option>
+        </select>
       </div>
 
       <!-- HARVEST TRACKER SUB-SECTION -->
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder shadow-sm space-y-4">
         
-        <!-- TRACKER TITLE & ACTION BUTTONS -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div>
             <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
               <span>🌾</span> Daily Yield & Resource Tracker
             </h3>
-            <p class="text-[11px] text-sfl-woodLight font-semibold">Track crop, fruit, & resource yields harvested between sessions (Kept for 30 days).</p>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <button id="save-pre-harvest-btn" class="bg-amber-600 text-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-700 transition cursor-pointer">
-              🚩 1. Save Pre-Harvest Stock
-            </button>
-            <button id="log-yield-btn" class="bg-sfl-green text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-green-700 transition cursor-pointer">
-              🏁 2. Calculate Harvest Yield
-            </button>
-            <input type="file" id="import-file-input" accept=".json" class="hidden">
-            <button id="import-json-btn" class="bg-sfl-wood text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition cursor-pointer">
-              📤 Import
-            </button>
-            <button id="export-json-btn" class="bg-sfl-wood text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition cursor-pointer">
-              📥 Export
-            </button>
+            <p class="text-[11px] text-sfl-woodLight font-semibold">Automated yield tracking against your 00:00 UTC cloud baseline (Kept for 30 days).</p>
           </div>
         </div>
 
@@ -102,16 +76,9 @@ export function renderCalculatorTemplate() {
 
         <!-- BASELINE STATUS DISPLAY -->
         <div id="pre-harvest-status" class="hidden bg-amber-100/90 border-2 border-amber-400 p-3 rounded-lg text-xs font-bold text-amber-900 space-y-2 shadow-sm">
-          <div id="cloud-baseline-status" class="hidden flex justify-between items-center text-green-800 border-b border-amber-300/60 pb-1">
+          <div id="cloud-baseline-status" class="flex justify-between items-center text-green-800">
             <span>☁️ 00:00 UTC Cloud Baseline: <span class="font-extrabold">Active</span></span>
-            <span class="text-[10px] bg-green-200 text-green-900 px-2 py-0.5 rounded-full font-bold">Automatic</span>
-          </div>
-          <div id="manual-baseline-status" class="hidden">
-            <div class="flex justify-between items-center text-amber-900">
-              <span>🚩 Manual Baseline: <span class="font-extrabold text-amber-800">Active</span> (<span id="pre-harvest-time">Today</span>)</span>
-              <button id="clear-pre-harvest-btn" class="text-[10px] bg-sfl-accent text-white px-2 py-0.5 rounded font-bold hover:bg-red-700 transition cursor-pointer">Clear Manual Baseline</button>
-            </div>
-            <div id="manual-baseline-items" class="mt-1 flex flex-wrap gap-1 text-[10px]"></div>
+            <span class="text-[10px] bg-green-200 text-green-900 px-2 py-0.5 rounded-full font-bold">Automatic Sync</span>
           </div>
         </div>
 
@@ -146,13 +113,8 @@ export function initCalculatorPanel() {
   renderCalculatorTemplate();
 
   const savedTaxRate = localStorage.getItem('sfl_tax_rate');
-  const savedCoinRatio = localStorage.getItem('sfl_coin_ratio');
-
   const taxEl = document.getElementById('tax-select');
-  const coinEl = document.getElementById('coin-ratio');
-
   if (savedTaxRate !== null && taxEl) taxEl.value = savedTaxRate;
-  if (savedCoinRatio !== null && coinEl) coinEl.value = savedCoinRatio;
 
   bindCalculatorEvents();
   loadPrices();
@@ -162,11 +124,7 @@ function bindCalculatorEvents() {
   document.getElementById('tax-select')?.addEventListener('change', (e) => {
     localStorage.setItem('sfl_tax_rate', e.target.value);
     if (typeof window.renderSnapshotHistory === 'function') window.renderSnapshotHistory();
-  });
-
-  document.getElementById('coin-ratio')?.addEventListener('input', (e) => {
-    localStorage.setItem('sfl_coin_ratio', e.target.value);
-    if (typeof window.renderWishlist === 'function') window.renderWishlist();
+    if (typeof window.renderCropTrackerRows === 'function') window.renderCropTrackerRows();
   });
 
   document.getElementById('import-farm-btn')?.addEventListener('click', handleFarmSync);
