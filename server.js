@@ -19,6 +19,15 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
 const SFL_API_KEY = process.env.SFL_API_KEY || "";
 
+// 23 standard plantable plot crops (strictly isolated for Crop Tracker v1)
+const SFL_PLOT_CROPS = new Set([
+  'sunflower', 'potato', 'pumpkin', 'carrot', 'cabbage',
+  'beetroot', 'cauliflower', 'parsnip', 'eggplant', 'corn',
+  'radish', 'wheat', 'kale', 'soybean', 'barley',
+  'rhubarb', 'zucchini', 'yam', 'broccoli', 'pepper',
+  'onion', 'turnip', 'artichoke'
+]);
+
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const SFL_WORLD_HEADERS = {
@@ -296,7 +305,7 @@ async function processYieldCalculation() {
       .eq('snapshot_date', todayDate)
       .maybeSingle();
 
-    // STRICT CHECK: Skip calculation if baseline is not logged or missing farmActivity for today
+    // STRICT CHECK: Skip calculation if baseline is missing for today
     if (baselineErr || !baselineRecord || !baselineRecord.farm_activity || Object.keys(baselineRecord.farm_activity).length === 0) {
       console.warn(`⚠️ Skipped 22:00 UTC calculation for Farm #${cleanFarmId}: Baseline or farmActivity for ${todayDate} not found.`);
       continue;
@@ -345,7 +354,7 @@ async function processYieldCalculation() {
       });
     }
 
-    // 2. Calculate FarmActivity Crop Harvest Differences
+    // 2. Calculate FarmActivity Crop Harvest Differences (Exclusively for SFL 23 Plot Crops)
     const baseYields = user.crop_base_yields || {};
     const currActivity = currentData.farmActivity || {};
     let cropActivityYields = [];
@@ -355,12 +364,15 @@ async function processYieldCalculation() {
         let cropName = actKey.replace(/harvested/i, '').trim();
         let cleanCropKey = cropName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+        // Strict 23 plot crop filter (excludes flowers, fruits, and exotics)
+        if (!SFL_PLOT_CROPS.has(cleanCropKey)) continue;
+
         let startCount = parseFloat(baseActivity[actKey] || 0);
         let endCount = parseFloat(currActivity[actKey] || 0);
         let harvestCycles = endCount - startCount;
 
         if (harvestCycles > 0) {
-          let baseYield = parseFloat(baseYields[cleanCropKey]) || 1.0;
+          let baseYield = parseFloat(baseYields[cleanCropKey] || baseYields['_global']) || 1.0;
           let totalProduced = Math.ceil((harvestCycles * baseYield) * 10) / 10;
 
           let unitPrice = 0;
