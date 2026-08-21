@@ -1,4 +1,4 @@
-import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML } from '../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML, SFL_PLOT_CROPS } from '../config/constants.js';
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, roundUpToTwoDecimals, formatDateYYYYMMDD } from '../utils/formatters.js';
 
 let cropBaseYields = JSON.parse(localStorage.getItem('sfl_crop_base_yields') || '{}');
@@ -342,6 +342,9 @@ export async function fetchLiveCropDiff() {
       if (key.toLowerCase().includes('harvested')) {
         let cropName = key.replace(/harvested/i, '').trim();
         let cleanCropKey = cropName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        // 23 Standard Plot Crops only (excludes flowers, fruits, and exotics)
+        if (!SFL_PLOT_CROPS.has(cleanCropKey)) continue;
 
         let startCount = parseFloat(baselineActivity[key] || 0);
         let endCount = parseFloat(currentActivity[key] || 0);
