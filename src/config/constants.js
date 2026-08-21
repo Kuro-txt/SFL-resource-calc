@@ -34,6 +34,15 @@ export function isSnapshotEligible(itemName) {
   return !isExcludedItem(clean);
 }
 
+// STRICT FILTER EXCLUSIVELY FOR CROP TRACKER V1 (23 Standard Plot Crops)
+export const SFL_PLOT_CROPS = new Set([
+  'sunflower', 'potato', 'pumpkin', 'carrot', 'cabbage',
+  'beetroot', 'cauliflower', 'parsnip', 'eggplant', 'corn',
+  'radish', 'wheat', 'kale', 'soybean', 'barley',
+  'rhubarb', 'zucchini', 'yam', 'broccoli', 'pepper',
+  'onion', 'turnip', 'artichoke'
+]);
+
 export const BETTY_SHOP_PRICES = {
   "sunflower": 0.02, "potato": 0.14, "rhubarb": 0.24, "pumpkin": 0.4,
   "zucchini": 0.4, "carrot": 0.8, "yam": 0.8, "cabbage": 1.5,
@@ -53,4 +62,5 @@ if (typeof window !== 'undefined') {
   window.supabaseClient = supabaseClient;
   window.isExcludedItem = isExcludedItem;
   window.isSnapshotEligible = isSnapshotEligible;
+  window.SFL_PLOT_CROPS = SFL_PLOT_CROPS;
 }
