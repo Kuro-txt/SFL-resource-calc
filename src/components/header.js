@@ -35,18 +35,14 @@ export function renderHeader() {
           </span>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-medium text-sfl-woodLight">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-medium text-sfl-woodLight">
           <div class="bg-white/60 p-2.5 rounded-lg border border-sfl-cardBorder/40 space-y-1">
             <span class="font-bold text-sfl-dirt block">1. Sign In (Required)</span>
             <p><strong>Signing in is a must</strong> for automatic tracking and cloud backups. Enter your email & password at the top.</p>
           </div>
           <div class="bg-white/60 p-2.5 rounded-lg border border-sfl-cardBorder/40 space-y-1">
-            <span class="font-bold text-sfl-dirt block">2. Farm ID & Targets</span>
+            <span class="font-bold text-sfl-dirt block">2. Farm ID & Automated Tracking</span>
             <p>Enter your <strong>Farm ID</strong>, click <strong>Sync Inventory Now</strong>, and select items under <strong class="text-amber-800">"⚙️ Manage Tracking Targets"</strong>.</p>
-          </div>
-          <div class="bg-white/60 p-2.5 rounded-lg border border-sfl-cardBorder/40 space-y-1">
-            <span class="font-bold text-sfl-dirt block">3. Daily Harvest Tracking</span>
-            <p>Sync your farm stock and click <strong class="text-sfl-dirt">"🚩 1. Save Pre-Harvest Stock"</strong>. When done harvesting, click <strong class="text-sfl-wood">"🔄 Sync Inventory Now"</strong> and <strong class="text-sfl-green">"🏁 2. Calculate Harvest Yield"</strong>.</p>
           </div>
         </div>
       </div>
