@@ -1,5 +1,5 @@
 import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML, SFL_PLOT_CROPS } from '../config/constants.js';
-import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, roundUpToTwoDecimals, formatDateYYYYMMDD } from '../utils/formatters.js';
+import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, formatDateYYYYMMDD } from '../utils/formatters.js';
 
 let cropBaseYields = JSON.parse(localStorage.getItem('sfl_crop_base_yields') || '{}');
 let globalAvgYield = parseFloat(localStorage.getItem('sfl_global_avg_yield') || '1.0');
@@ -65,13 +65,12 @@ export function renderCropTrackerTemplate() {
                 <th class="px-2 py-2.5 w-28">Avg Yield / Plot</th>
                 <th class="px-2 py-2.5">Est. Harvested Qty</th>
                 <th class="px-2 py-2.5">Unit Price</th>
-                <th class="px-3 py-2.5">Net Flowers (10% Tax)</th>
-                <th class="px-3 py-2.5">Coins Value</th>
+                <th class="px-3 py-2.5">Net Flowers</th>
               </tr>
             </thead>
             <tbody id="crop-tracker-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
               <tr>
-                <td colspan="7" class="px-4 py-8 text-center text-sfl-woodLight italic">
+                <td colspan="6" class="px-4 py-8 text-center text-sfl-woodLight italic">
                   Click 'Check Live Today' or sign in to verify today's 00:00 UTC baseline.
                 </td>
               </tr>
@@ -82,7 +81,7 @@ export function renderCropTrackerTemplate() {
 
       <!-- PROFIT SUMMARY CARDS -->
       <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 shadow-inner">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center items-center">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-center items-center">
           <div>
             <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Total Plots Harvested</span>
             <h2 id="summary-total-cycles" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-dirt mt-0.5">0</h2>
@@ -92,13 +91,6 @@ export function renderCropTrackerTemplate() {
             <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green mt-0.5 flex items-center justify-center gap-1">
               <span id="summary-total-flowers">0.000</span>
               <img src="./assets/flower.webp" class="w-5 h-5 sfl-icon" alt="Flower">
-            </h2>
-          </div>
-          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Estimated Coin Value</span>
-            <h2 class="text-xl sm:text-2xl font-pixel font-bold text-amber-600 mt-0.5 flex items-center justify-center gap-1">
-              <span id="summary-total-coins">0.00</span>
-              <img src="./assets/coins.webp" class="w-5 h-5 sfl-icon" alt="Coins">
             </h2>
           </div>
         </div>
@@ -343,7 +335,6 @@ export async function fetchLiveCropDiff() {
         let cropName = key.replace(/harvested/i, '').trim();
         let cleanCropKey = cropName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-        // 23 Standard Plot Crops only (excludes flowers, fruits, and exotics)
         if (!SFL_PLOT_CROPS.has(cleanCropKey)) continue;
 
         let startCount = parseFloat(baselineActivity[key] || 0);
@@ -393,12 +384,11 @@ export function renderCropTrackerRows() {
   if (!tbody) return;
 
   const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0.10;
-  const coinRatio = parseFloat(document.getElementById('coin-ratio')?.value) || 1000;
 
   if (isInitialCheckDone && !hasBaselineForToday) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="px-4 py-8 text-center text-sfl-dirt space-y-2">
+        <td colspan="6" class="px-4 py-8 text-center text-sfl-dirt space-y-2">
           <div class="inline-block px-3 py-1 bg-amber-100 border-2 border-amber-400 rounded-lg text-amber-900 font-bold text-xs shadow-sm">
             🚩 00:00 UTC Baseline Not Found For Today
           </div>
@@ -408,20 +398,19 @@ export function renderCropTrackerRows() {
         </td>
       </tr>
     `;
-    updateCropTrackerTotals(0, 0, 0);
+    updateCropTrackerTotals(0, 0);
     return;
   }
 
   if (activeHarvestDiffs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-sfl-woodLight italic">No crop harvests detected yet today compared to 00:00 UTC baseline.</td></tr>`;
-    updateCropTrackerTotals(0, 0, 0);
+    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-sfl-woodLight italic">No crop harvests detected yet today compared to 00:00 UTC baseline.</td></tr>`;
+    updateCropTrackerTotals(0, 0);
     return;
   }
 
   tbody.innerHTML = '';
   let grandCycles = 0;
   let grandFlowers = 0;
-  let grandCoins = 0;
 
   activeHarvestDiffs.forEach(entry => {
     const baseYield = cropBaseYields[entry.cleanKey] !== undefined ? cropBaseYields[entry.cleanKey] : globalAvgYield;
@@ -429,11 +418,9 @@ export function renderCropTrackerRows() {
     const unitPrice = getItemFlowerPrice(entry.cleanKey);
     const grossFlowers = unitPrice * totalHarvested;
     const netFlowers = roundUpToThreeDecimals(grossFlowers * (1 - taxRate));
-    const netCoins = roundUpToTwoDecimals(netFlowers * coinRatio);
 
     grandCycles += entry.harvestCount;
     grandFlowers += netFlowers;
-    grandCoins += netCoins;
 
     const tr = document.createElement('tr');
     tr.className = "hover:bg-amber-50/50 transition";
@@ -448,22 +435,19 @@ export function renderCropTrackerRows() {
       <td class="px-2 py-2.5 font-mono font-bold text-sfl-green">${totalHarvested.toFixed(1)}</td>
       <td class="px-2 py-2.5 font-mono text-sfl-woodLight">${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</td>
       <td class="px-3 py-2.5 font-mono font-bold text-sfl-green">${netFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</td>
-      <td class="px-3 py-2.5 font-mono font-bold text-amber-600">${netCoins.toFixed(2)} 🪙</td>
     `;
     tbody.appendChild(tr);
   });
 
-  updateCropTrackerTotals(grandCycles, grandFlowers, grandCoins);
+  updateCropTrackerTotals(grandCycles, grandFlowers);
 }
 
-function updateCropTrackerTotals(cycles, flowers, coins) {
+function updateCropTrackerTotals(cycles, flowers) {
   const cyclesEl = document.getElementById('summary-total-cycles');
   const flowersEl = document.getElementById('summary-total-flowers');
-  const coinsEl = document.getElementById('summary-total-coins');
 
   if (cyclesEl) cyclesEl.textContent = cycles;
   if (flowersEl) flowersEl.textContent = flowers.toFixed(3);
-  if (coinsEl) coinsEl.textContent = coins.toFixed(2);
 }
 
 // -------------------------------------------------------------
