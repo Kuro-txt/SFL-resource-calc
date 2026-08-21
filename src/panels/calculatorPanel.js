@@ -10,7 +10,7 @@ export function renderCalculatorTemplate() {
   if (!container) return;
 
   container.innerHTML = `
-    <div class="space-y-6">
+    <div class="space-y-5">
 
       <!-- FARM SYNC PANEL -->
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder space-y-3">
@@ -37,19 +37,21 @@ export function renderCalculatorTemplate() {
         <p id="sync-status" class="text-xs text-center font-bold text-sfl-woodLight min-h-[16px]"></p>
       </div>
 
-      <!-- TAX RATE BAR -->
-      <div class="bg-sfl-card/90 p-3 rounded-xl border-2 border-sfl-cardBorder shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <label class="text-xs font-bold text-sfl-wood uppercase flex items-center gap-1.5">
-          <span>🏷️</span> Market Tax Rate:
-        </label>
-        <select id="tax-select" class="w-full sm:w-48 sfl-input rounded-lg px-3 py-1.5 text-xs font-bold text-sfl-dirt cursor-pointer">
-          <option value="0">0% (No Tax)</option>
-          <option value="0.05">5% Tax</option>
-          <option value="0.075">7.5% Tax</option>
-          <option value="0.10" selected>10% Tax</option>
-          <option value="0.125">12.5% Tax</option>
-          <option value="0.15">15% Tax</option>
-        </select>
+      <!-- COMPACT TAX RATE BAR -->
+      <div class="flex justify-end">
+        <div class="bg-sfl-card/90 px-3 py-1.5 rounded-xl border-2 border-sfl-cardBorder shadow-sm inline-flex items-center gap-2">
+          <label class="text-xs font-bold text-sfl-wood uppercase flex items-center gap-1 whitespace-nowrap">
+            <span>🏷️</span> Tax Rate:
+          </label>
+          <select id="tax-select" class="sfl-input rounded-lg px-2 py-0.5 text-xs font-bold text-sfl-dirt cursor-pointer w-28">
+            <option value="0">0% (None)</option>
+            <option value="0.05">5%</option>
+            <option value="0.075">7.5%</option>
+            <option value="0.10" selected>10%</option>
+            <option value="0.125">12.5%</option>
+            <option value="0.15">15%</option>
+          </select>
+        </div>
       </div>
 
       <!-- HARVEST TRACKER SUB-SECTION -->
@@ -66,10 +68,10 @@ export function renderCalculatorTemplate() {
 
         <!-- AUTOMATED TRACKING & WEEKLY SUMMARY ACTION BAR -->
         <div class="flex flex-col sm:flex-row justify-center items-center gap-2 border-t-2 border-b-2 border-sfl-cardBorder/60 py-3">
-          <button id="open-tracking-modal-btn" onclick="openTrackingModal()" class="w-full sm:w-auto bg-amber-600 text-amber-100 font-bold py-2.5 px-5 rounded-xl border-2 border-sfl-dirt text-xs sm:text-sm hover:bg-amber-700 transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+          <button id="open-tracking-modal-btn" onclick="openTrackingModal()" class="w-full sm:w-auto bg-amber-600 text-amber-100 font-bold py-2 px-4 rounded-xl border-2 border-sfl-dirt text-xs hover:bg-amber-700 transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
             <span>⚙️</span> Manage Automated Tracking Targets
           </button>
-          <button id="open-weekly-modal-btn" class="w-full sm:w-auto bg-sfl-gold text-sfl-dirt font-bold py-2.5 px-5 rounded-xl border-2 border-sfl-dirt hover:bg-amber-400 transition shadow-md cursor-pointer flex items-center justify-center gap-2 text-xs sm:text-sm">
+          <button id="open-weekly-modal-btn" class="w-full sm:w-auto bg-sfl-gold text-sfl-dirt font-bold py-2 px-4 rounded-xl border-2 border-sfl-dirt hover:bg-amber-400 transition shadow-md cursor-pointer flex items-center justify-center gap-2 text-xs">
             <span>📊</span> Weekly Summary
           </button>
         </div>
