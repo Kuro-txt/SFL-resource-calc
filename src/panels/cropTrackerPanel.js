@@ -100,7 +100,7 @@ export function renderCropTrackerTemplate() {
 
     <!-- CROP TRACKER WEEKLY SUMMARY MODAL -->
     <div id="crop-weekly-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-sfl-card border-4 border-sfl-wood rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col space-y-4">
+      <div class="bg-sfl-card border-4 border-sfl-wood rounded-2xl max-w-xl w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col space-y-4">
         
         <div class="flex justify-between items-center border-b-2 border-sfl-cardBorder pb-3">
           <div>
@@ -135,17 +135,17 @@ export function renderCropTrackerTemplate() {
               <span id="crop-weekly-total-qty" class="text-lg font-extrabold text-sfl-wood font-mono">0.0</span>
             </div>
             <div class="bg-green-100/90 border-2 border-sfl-green/50 p-2.5 rounded-xl text-center shadow-sm">
-              <span class="text-[10px] font-bold text-sfl-green uppercase tracking-wider block mb-0.5">Net Flowers</span>
+              <span class="text-[10px] font-bold text-sfl-green uppercase tracking-wider block mb-0.5">Net Flowers (Live)</span>
               <span id="crop-weekly-total-flowers" class="text-lg font-extrabold text-sfl-green font-mono">0.000 ${FLOWER_IMG_HTML}</span>
             </div>
           </div>
 
           <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl p-3 shadow-inner">
-            <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider mb-2 border-b border-amber-200/60 pb-1 flex justify-between">
-              <span>Crop</span>
-              <span>Plots / Est. Qty / Net Flowers</span>
+            <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider mb-2 border-b border-amber-200/60 pb-1 flex justify-between items-center">
+              <span>Crop Breakdown</span>
+              <span>Plots / Qty / Live Value</span>
             </h4>
-            <div id="crop-weekly-breakdown" class="space-y-1.5 max-h-48 overflow-y-auto text-xs"></div>
+            <div id="crop-weekly-breakdown" class="space-y-1.5 max-h-56 overflow-y-auto text-xs"></div>
           </div>
         </div>
 
@@ -496,6 +496,8 @@ export function renderCropWeeklySummary() {
 
   if (nextBtn) nextBtn.disabled = currentCropWeekOffset >= 0;
 
+  const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0.10;
+
   let history = [];
   try {
     history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
@@ -511,53 +513,76 @@ export function renderCropWeeklySummary() {
     if (cleanDate >= mondayStr && cleanDate <= sundayStr) {
       let cropList = entry.cropActivityYields || entry.crop_activity_yields || [];
       cropList.forEach(item => {
-        let name = item.crop || 'Crop';
-        if (!cropAggregates[name]) {
-          cropAggregates[name] = { cycles: 0, qty: 0, flowers: 0 };
+        let rawCropName = item.crop || item.name || 'Crop';
+        let cleanCropKey = normalizeItemKey(rawCropName);
+
+        // Ensure item belongs to 23 valid plot crops
+        if (!SFL_PLOT_CROPS.has(cleanCropKey)) return;
+
+        let formattedName = cleanCropKey.charAt(0).toUpperCase() + cleanCropKey.slice(1);
+
+        if (!cropAggregates[formattedName]) {
+          cropAggregates[formattedName] = { cycles: 0, qty: 0, cleanKey: cleanCropKey };
         }
+
         let cycles = parseFloat(item.harvestCount || item.harvest_count || 0);
         let qty = parseFloat(item.totalProduced || item.total_produced || 0);
-        let flowers = parseFloat(item.netFlowers || item.net_flowers || 0);
 
-        cropAggregates[name].cycles += cycles;
-        cropAggregates[name].qty += qty;
-        cropAggregates[name].flowers += flowers;
+        cropAggregates[formattedName].cycles += cycles;
+        cropAggregates[formattedName].qty += qty;
 
         totalCycles += cycles;
         totalQty += qty;
-        totalFlowers += flowers;
       });
     }
   });
 
+  const breakdownEl = document.getElementById('crop-weekly-breakdown');
   const cyclesEl = document.getElementById('crop-weekly-total-cycles');
   const qtyEl = document.getElementById('crop-weekly-total-qty');
   const flowersEl = document.getElementById('crop-weekly-total-flowers');
-  const breakdownEl = document.getElementById('crop-weekly-breakdown');
+
+  const entries = Object.entries(cropAggregates);
+
+  if (entries.length === 0) {
+    if (breakdownEl) breakdownEl.innerHTML = '<div class="text-center italic text-sfl-woodLight py-4">No crop activity logged for this calendar week.</div>';
+    if (cyclesEl) cyclesEl.textContent = '0';
+    if (qtyEl) qtyEl.textContent = '0.0';
+    if (flowersEl) flowersEl.innerHTML = `0.000 ${FLOWER_IMG_HTML}`;
+    return;
+  }
+
+  let html = '';
+  entries.sort((a, b) => b[1].cycles - a[1].cycles).forEach(([cropName, data]) => {
+    // Fetch live market price and compute net Flower earnings with active tax rate
+    let unitPrice = getItemFlowerPrice(data.cleanKey);
+    let grossTotal = unitPrice * data.qty;
+    let netFlowerVal = roundUpToThreeDecimals(grossTotal * (1 - taxRate));
+
+    totalFlowers += netFlowerVal;
+
+    html += `
+      <div class="flex justify-between items-center p-2.5 bg-amber-50 rounded-lg border border-amber-200/60 shadow-xs">
+        <div class="flex flex-col">
+          <span class="font-bold text-sfl-dirt text-xs">${cropName}</span>
+          <span class="text-[10px] text-sfl-woodLight font-mono">Live: ${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+        <div class="flex items-center gap-2.5 font-mono text-xs">
+          <span class="text-sfl-wood font-bold">${data.cycles} plots</span>
+          <span class="text-sfl-dirt font-extrabold">(${data.qty.toFixed(1)} qty)</span>
+          <span class="text-xs text-sfl-green font-bold flex items-center gap-1 bg-green-100 border border-sfl-green/30 px-2 py-0.5 rounded">
+            ${netFlowerVal.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+          </span>
+        </div>
+      </div>
+    `;
+  });
 
   if (cyclesEl) cyclesEl.textContent = totalCycles;
   if (qtyEl) qtyEl.textContent = totalQty.toFixed(1);
   if (flowersEl) flowersEl.innerHTML = `${totalFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
-
-  if (breakdownEl) {
-    const entries = Object.entries(cropAggregates);
-    if (entries.length === 0) {
-      breakdownEl.innerHTML = '<div class="text-center italic text-sfl-woodLight py-3">No crop activity logged for this calendar week.</div>';
-    } else {
-      let html = '';
-      entries.sort((a, b) => b[1].cycles - a[1].cycles).forEach(([cropName, data]) => {
-        html += `
-          <div class="flex justify-between items-center p-2 bg-amber-50 rounded border border-amber-200/60">
-            <span class="font-bold text-sfl-dirt">${cropName}</span>
-            <div class="flex items-center gap-2 font-mono">
-              <span class="text-sfl-wood font-bold">${data.cycles} plots</span>
-              <span class="text-sfl-dirt font-extrabold">(${data.qty.toFixed(1)} qty)</span>
-              <span class="text-[10px] text-sfl-green font-semibold flex items-center gap-1">${data.flowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
-            </div>
-          </div>
-        `;
-      });
-      breakdownEl.innerHTML = html;
-    }
-  }
+  if (breakdownEl) breakdownEl.innerHTML = html;
 }
+
+window.renderCropTrackerRows = renderCropTrackerRows;
+window.renderCropWeeklySummary = renderCropWeeklySummary;
