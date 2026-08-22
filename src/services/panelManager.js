@@ -1,5 +1,5 @@
 const panels = {};
-let activePanelId = null;
+let activePanelId = 'calc';
 
 export const PanelManager = {
   register(id, { onMount, onUnmount } = {}) {
@@ -7,7 +7,7 @@ export const PanelManager = {
   },
 
   switch(targetId) {
-    if (!panels[targetId] && !document.getElementById(`${targetId}-section`)) {
+    if (!panels[targetId] && !document.getElementById(`${targetId === 'croptracker' ? 'crop-tracker' : targetId}-section`)) {
       console.warn(`Panel '${targetId}' is not registered.`);
       return;
     }
