@@ -1,6 +1,5 @@
 import { renderHeader } from './components/header.js';
 import { renderAuthBar } from './components/authBar.js';
-import { initFarmSync } from './components/farmSyncBar.js';
 import { renderNavTabs } from './components/navTabs.js';
 
 import { initAuth } from './services/auth.js';
@@ -17,7 +16,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   renderHeader();
   renderAuthBar();
-  initFarmSync();
   renderNavTabs();
 
   initCalculatorPanel();
