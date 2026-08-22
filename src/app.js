@@ -1,5 +1,6 @@
 import { renderHeader } from './components/header.js';
 import { renderAuthBar } from './components/authBar.js';
+import { initFarmSync } from './components/farmSyncBar.js';
 import { renderNavTabs } from './components/navTabs.js';
 
 import { initAuth } from './services/auth.js';
@@ -16,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   renderHeader();
   renderAuthBar();
+  initFarmSync();
   renderNavTabs();
 
   initCalculatorPanel();
@@ -26,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initWeeklySummaryModal();
 
   PanelManager.register('calc', {
-    onMount: () => console.log("Calculator Panel Active")
+    onMount: () => console.log("Daily Tracker Panel Active")
   });
 
   PanelManager.register('croptracker', {
