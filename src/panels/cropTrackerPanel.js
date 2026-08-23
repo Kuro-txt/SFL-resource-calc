@@ -1,5 +1,5 @@
 import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML, SFL_PLOT_CROPS } from '../config/constants.js';
-import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, formatDateYYYYMMDD } from '../utils/formatters.js';
+import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, getBettyUnitPrice, formatDateYYYYMMDD } from '../utils/formatters.js';
 
 let cropBaseYields = JSON.parse(localStorage.getItem('sfl_crop_base_yields') || '{}');
 let globalAvgYield = parseFloat(localStorage.getItem('sfl_global_avg_yield') || '1.0');
@@ -135,15 +135,22 @@ export function renderCropTrackerTemplate() {
               <span id="crop-weekly-total-qty" class="text-lg font-extrabold text-sfl-wood font-mono">0.0</span>
             </div>
             <div class="bg-green-100/90 border-2 border-sfl-green/50 p-2.5 rounded-xl text-center shadow-sm">
-              <span class="text-[10px] font-bold text-sfl-green uppercase tracking-wider block mb-0.5">Net Flowers (Live)</span>
+              <span class="text-[10px] font-bold text-sfl-green uppercase tracking-wider block mb-0.5">Net Flowers</span>
               <span id="crop-weekly-total-flowers" class="text-lg font-extrabold text-sfl-green font-mono">0.000 ${FLOWER_IMG_HTML}</span>
             </div>
+          </div>
+
+          <!-- SUMMARY TAX DEDUCTION BREAKDOWN BAR -->
+          <div id="crop-weekly-tax-bar" class="bg-amber-100/70 border border-amber-300/80 px-3 py-1.5 rounded-lg flex justify-between items-center text-[11px] font-mono text-sfl-wood">
+            <span>Gross: <strong id="crop-weekly-gross-val" class="text-sfl-dirt">0.000 Flowers</strong></span>
+            <span class="text-sfl-accent font-bold">Tax (-): <span id="crop-weekly-tax-val">0.000 Flowers</span></span>
+            <span class="text-sfl-green font-extrabold">Net: <span id="crop-weekly-net-val">0.000 Flowers</span></span>
           </div>
 
           <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl p-3 shadow-inner">
             <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider mb-2 border-b border-amber-200/60 pb-1 flex justify-between items-center">
               <span>Crop & Harvest Dates</span>
-              <span>Plots / Qty / Live Value</span>
+              <span>Plots / Qty / Live Net Value</span>
             </h4>
             <div id="crop-weekly-breakdown" class="space-y-2 max-h-56 overflow-y-auto text-xs"></div>
           </div>
@@ -363,9 +370,15 @@ function getItemFlowerPrice(cleanKey) {
     let matchedKey = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanKey);
     if (matchedKey) {
       let rawPrice = parseFloat(window.allPrices[matchedKey]) || 0;
-      return rawPrice > 100 ? rawPrice / 1000 : rawPrice;
+      if (rawPrice > 0) return rawPrice > 100 ? rawPrice / 1000 : rawPrice;
     }
   }
+
+  let bettyPrice = getBettyUnitPrice(cleanKey);
+  if (bettyPrice !== null && bettyPrice > 0) {
+    return bettyPrice;
+  }
+
   return 0;
 }
 
@@ -383,7 +396,9 @@ export function renderCropTrackerRows() {
   const tbody = document.getElementById('crop-tracker-body');
   if (!tbody) return;
 
-  const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0.10;
+  const savedTax = localStorage.getItem('sfl_tax_rate');
+  const taxSelectEl = document.getElementById('tax-select');
+  const taxRate = taxSelectEl ? (parseFloat(taxSelectEl.value) || 0) : (savedTax !== null ? parseFloat(savedTax) : 0.10);
 
   if (isInitialCheckDone && !hasBaselineForToday) {
     tbody.innerHTML = `
@@ -417,7 +432,8 @@ export function renderCropTrackerRows() {
     const totalHarvested = roundUpToOneDecimal(entry.harvestCount * baseYield);
     const unitPrice = getItemFlowerPrice(entry.cleanKey);
     const grossFlowers = unitPrice * totalHarvested;
-    const netFlowers = roundUpToThreeDecimals(grossFlowers * (1 - taxRate));
+    const taxDeduction = grossFlowers * taxRate;
+    const netFlowers = roundUpToThreeDecimals(grossFlowers - taxDeduction);
 
     grandCycles += entry.harvestCount;
     grandFlowers += netFlowers;
@@ -483,7 +499,7 @@ export function renderCropWeeklySummary() {
   const nextBtn = document.getElementById('next-crop-week-btn');
 
   if (dateRangeEl) {
-    const monFmt = mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const monFmt = mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     const sunFmt = sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     dateRangeEl.textContent = `📅 ${monFmt} – ${sunFmt}`;
   }
@@ -496,7 +512,9 @@ export function renderCropWeeklySummary() {
 
   if (nextBtn) nextBtn.disabled = currentCropWeekOffset >= 0;
 
-  const taxRate = parseFloat(document.getElementById('tax-select')?.value) || 0.10;
+  const savedTax = localStorage.getItem('sfl_tax_rate');
+  const taxSelectEl = document.getElementById('tax-select');
+  const taxRate = taxSelectEl ? (parseFloat(taxSelectEl.value) || 0) : (savedTax !== null ? parseFloat(savedTax) : 0.10);
 
   let history = [];
   try {
@@ -506,7 +524,8 @@ export function renderCropWeeklySummary() {
   let cropAggregates = {};
   let totalCycles = 0;
   let totalQty = 0;
-  let totalFlowers = 0;
+  let grandGrossFlowers = 0;
+  let grandNetFlowers = 0;
 
   history.forEach(entry => {
     let rawDate = entry.date || entry.yield_date || '';
@@ -554,6 +573,9 @@ export function renderCropWeeklySummary() {
   const cyclesEl = document.getElementById('crop-weekly-total-cycles');
   const qtyEl = document.getElementById('crop-weekly-total-qty');
   const flowersEl = document.getElementById('crop-weekly-total-flowers');
+  const grossValEl = document.getElementById('crop-weekly-gross-val');
+  const taxValEl = document.getElementById('crop-weekly-tax-val');
+  const netValEl = document.getElementById('crop-weekly-net-val');
 
   const entries = Object.entries(cropAggregates);
 
@@ -562,16 +584,22 @@ export function renderCropWeeklySummary() {
     if (cyclesEl) cyclesEl.textContent = '0';
     if (qtyEl) qtyEl.textContent = '0.0';
     if (flowersEl) flowersEl.innerHTML = `0.000 ${FLOWER_IMG_HTML}`;
+    if (grossValEl) grossValEl.textContent = '0.000 Flowers';
+    if (taxValEl) taxValEl.textContent = `0.000 Flowers (0%)`;
+    if (netValEl) netValEl.textContent = '0.000 Flowers';
     return;
   }
 
   let html = '';
   entries.sort((a, b) => b[1].cycles - a[1].cycles).forEach(([cropName, data]) => {
+    // Fetch live market unit price
     let unitPrice = getItemFlowerPrice(data.cleanKey);
     let grossTotal = unitPrice * data.qty;
-    let netFlowerVal = roundUpToThreeDecimals(grossTotal * (1 - taxRate));
+    let taxAmount = grossTotal * taxRate;
+    let netFlowerVal = roundUpToThreeDecimals(grossTotal - taxAmount);
 
-    totalFlowers += netFlowerVal;
+    grandGrossFlowers += grossTotal;
+    grandNetFlowers += netFlowerVal;
 
     let datesBadgeList = Array.from(data.dates)
       .map(d => `<span class="bg-amber-200/80 text-amber-900 border border-amber-300 text-[9px] font-bold px-1.5 py-0.5 rounded">${d}</span>`)
@@ -582,14 +610,17 @@ export function renderCropWeeklySummary() {
         <div class="flex justify-between items-center">
           <div class="flex flex-col">
             <span class="font-bold text-sfl-dirt text-xs">${cropName}</span>
-            <span class="text-[10px] text-sfl-woodLight font-mono">Live: ${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</span>
+            <span class="text-[10px] text-sfl-woodLight font-mono">Live Unit: ${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
           <div class="flex items-center gap-2.5 font-mono text-xs">
             <span class="text-sfl-wood font-bold">${data.cycles} plots</span>
             <span class="text-sfl-dirt font-extrabold">(${data.qty.toFixed(1)} qty)</span>
-            <span class="text-xs text-sfl-green font-bold flex items-center gap-1 bg-green-100 border border-sfl-green/30 px-2 py-0.5 rounded">
-              ${netFlowerVal.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
-            </span>
+            <div class="flex flex-col items-end">
+              <span class="text-xs text-sfl-green font-bold flex items-center gap-1 bg-green-100 border border-sfl-green/30 px-2 py-0.5 rounded">
+                ${netFlowerVal.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+              </span>
+              <span class="text-[9px] text-sfl-woodLight/80 font-mono">Gross: ${grossTotal.toFixed(3)}</span>
+            </div>
           </div>
         </div>
         <div class="flex items-center gap-1.5 pt-1 border-t border-amber-200/40">
@@ -600,9 +631,16 @@ export function renderCropWeeklySummary() {
     `;
   });
 
+  const grandTaxTotal = grandGrossFlowers * taxRate;
+
   if (cyclesEl) cyclesEl.textContent = totalCycles;
   if (qtyEl) qtyEl.textContent = totalQty.toFixed(1);
-  if (flowersEl) flowersEl.innerHTML = `${totalFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
+  if (flowersEl) flowersEl.innerHTML = `${grandNetFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
+  
+  if (grossValEl) grossValEl.textContent = `${grandGrossFlowers.toFixed(3)} Flowers`;
+  if (taxValEl) taxValEl.textContent = `${grandTaxTotal.toFixed(3)} Flowers (${(taxRate * 100).toFixed(1)}%)`;
+  if (netValEl) netValEl.textContent = `${grandNetFlowers.toFixed(3)} Flowers`;
+
   if (breakdownEl) breakdownEl.innerHTML = html;
 }
 
