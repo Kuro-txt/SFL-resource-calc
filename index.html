@@ -11,6 +11,7 @@
   
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
@@ -32,11 +33,18 @@
         }
       }
     }
+
+    // Apply saved theme immediately to prevent flashing
+    if (localStorage.getItem('sfl_theme') === 'dark' || (!('sfl_theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   </script>
 
   <link rel="stylesheet" href="styles.css">
 </head>
-<body class="font-game text-sfl-dirt min-h-screen p-4 sm:p-8 flex items-center justify-center">
+<body class="font-game text-sfl-dirt min-h-screen p-4 sm:p-8 flex items-center justify-center transition-colors duration-200">
 
   <div class="w-full max-w-5xl space-y-4">
     <!-- Header Mount -->
