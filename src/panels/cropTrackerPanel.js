@@ -37,7 +37,7 @@ export function renderCropTrackerTemplate() {
             </button>
           </div>
 
-          <button id="open-crop-weekly-btn" class="bg-sfl-gold text-sfl-dirt px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-amber-400 transition cursor-pointer flex items-center gap-1 shadow-sm">
+          <button id="open-crop-weekly-btn" class="bg-amber-500 hover:bg-amber-400 text-amber-950 dark:bg-amber-600 dark:hover:bg-amber-500 dark:text-amber-100 font-black px-3 py-1.5 rounded-lg text-xs border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center gap-1.5">
             <span>📊</span> Weekly Summary
           </button>
           <button id="refresh-crop-activity-btn" class="bg-sfl-wood text-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition cursor-pointer flex items-center gap-1">
@@ -124,6 +124,19 @@ export function renderCropTrackerTemplate() {
           </button>
         </div>
 
+        <!-- WEEKLY MODAL GLOBAL YIELD ADJUSTER -->
+        <div class="flex items-center justify-between bg-amber-100/90 border border-amber-300 p-2.5 rounded-xl shadow-xs text-xs font-bold">
+          <span class="text-sfl-wood flex items-center gap-1.5">
+            <span>⚙️</span> Set All Weekly Avg Yields:
+          </span>
+          <div class="flex items-center gap-1.5">
+            <input type="number" id="weekly-global-avg-yield-input" value="${globalAvgYield}" min="0.1" step="0.05" class="w-16 sfl-input rounded px-1.5 py-0.5 text-xs font-mono font-bold text-center text-sfl-dirt">
+            <button id="apply-weekly-global-yield-btn" class="bg-sfl-wood text-amber-100 px-2.5 py-1 rounded-lg text-[10px] font-bold hover:bg-sfl-dirt transition cursor-pointer shadow-xs">
+              Apply All
+            </button>
+          </div>
+        </div>
+
         <div class="overflow-y-auto flex-1 pr-1 space-y-4">
           <div class="grid grid-cols-3 gap-2">
             <div class="bg-amber-100/90 border-2 border-sfl-gold/60 p-2.5 rounded-xl text-center shadow-sm">
@@ -150,9 +163,9 @@ export function renderCropTrackerTemplate() {
           <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl p-3 shadow-inner">
             <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider mb-2 border-b border-amber-200/60 pb-1 flex justify-between items-center">
               <span>Crop & Harvest Dates</span>
-              <span>Plots / Qty / Live Net Value</span>
+              <span>Plots / Avg Yield / Net Value</span>
             </h4>
-            <div id="crop-weekly-breakdown" class="space-y-2 max-h-56 overflow-y-auto text-xs"></div>
+            <div id="crop-weekly-breakdown" class="space-y-2.5 max-h-56 overflow-y-auto text-xs"></div>
           </div>
         </div>
 
@@ -172,6 +185,7 @@ export function initCropTrackerPanel() {
   document.getElementById('refresh-crop-activity-btn')?.addEventListener('click', fetchLiveCropDiff);
   document.getElementById('save-base-yields-btn')?.addEventListener('click', () => saveBaseYieldSettings(true));
   document.getElementById('apply-global-yield-btn')?.addEventListener('click', applyGlobalYieldToAll);
+  document.getElementById('apply-weekly-global-yield-btn')?.addEventListener('click', applyWeeklyGlobalYieldToAll);
 
   const globalYieldInput = document.getElementById('global-avg-yield-input');
   globalYieldInput?.addEventListener('input', (e) => {
@@ -179,6 +193,17 @@ export function initCropTrackerPanel() {
     globalAvgYield = val;
     localStorage.setItem('sfl_global_avg_yield', val.toString());
     cropBaseYields['_global'] = val;
+    syncWeeklyGlobalInput(val);
+    debouncedCloudSave();
+  });
+
+  const weeklyGlobalInput = document.getElementById('weekly-global-avg-yield-input');
+  weeklyGlobalInput?.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value) || 1.0;
+    globalAvgYield = val;
+    localStorage.setItem('sfl_global_avg_yield', val.toString());
+    cropBaseYields['_global'] = val;
+    syncMainGlobalInput(val);
     debouncedCloudSave();
   });
 
@@ -214,6 +239,16 @@ export function initCropTrackerPanel() {
   loadCloudBaseYields();
 }
 
+function syncMainGlobalInput(val) {
+  const el = document.getElementById('global-avg-yield-input');
+  if (el) el.value = val;
+}
+
+function syncWeeklyGlobalInput(val) {
+  const el = document.getElementById('weekly-global-avg-yield-input');
+  if (el) el.value = val;
+}
+
 export async function loadCloudBaseYields() {
   const client = window.supabaseClient;
   const user = window.currentUser;
@@ -228,8 +263,8 @@ export async function loadCloudBaseYields() {
         if (cropBaseYields['_global'] !== undefined) {
           globalAvgYield = parseFloat(cropBaseYields['_global']) || 1.0;
           localStorage.setItem('sfl_global_avg_yield', globalAvgYield.toString());
-          const inputEl = document.getElementById('global-avg-yield-input');
-          if (inputEl) inputEl.value = globalAvgYield;
+          syncMainGlobalInput(globalAvgYield);
+          syncWeeklyGlobalInput(globalAvgYield);
         }
       }
     } catch (err) {
@@ -251,6 +286,7 @@ export function applyGlobalYieldToAll() {
   globalAvgYield = val;
   localStorage.setItem('sfl_global_avg_yield', val.toString());
   cropBaseYields['_global'] = val;
+  syncWeeklyGlobalInput(val);
 
   if (activeHarvestDiffs.length > 0) {
     activeHarvestDiffs.forEach(entry => {
@@ -260,6 +296,24 @@ export function applyGlobalYieldToAll() {
 
   saveBaseYieldSettings(false);
   renderCropTrackerRows();
+}
+
+export function applyWeeklyGlobalYieldToAll() {
+  const inputEl = document.getElementById('weekly-global-avg-yield-input');
+  const val = parseFloat(inputEl?.value) || 1.0;
+  globalAvgYield = val;
+  localStorage.setItem('sfl_global_avg_yield', val.toString());
+  cropBaseYields['_global'] = val;
+  syncMainGlobalInput(val);
+
+  // Set all valid plot crops to this multiplier
+  SFL_PLOT_CROPS.forEach(cropKey => {
+    cropBaseYields[cropKey] = val;
+  });
+
+  saveBaseYieldSettings(false);
+  renderCropTrackerRows();
+  renderCropWeeklySummary();
 }
 
 export async function saveBaseYieldSettings(showAlert = false) {
@@ -390,7 +444,17 @@ export function updateCropBaseYield(cleanKey, value) {
   renderCropTrackerRows();
 }
 
+export function updateWeeklyCropYield(cleanKey, value) {
+  const val = parseFloat(value) || globalAvgYield || 1.0;
+  cropBaseYields[cleanKey] = val;
+  localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
+  debouncedCloudSave();
+  renderCropWeeklySummary();
+  renderCropTrackerRows();
+}
+
 window.updateCropBaseYield = updateCropBaseYield;
+window.updateWeeklyCropYield = updateWeeklyCropYield;
 
 export function renderCropTrackerRows() {
   const tbody = document.getElementById('crop-tracker-body');
@@ -499,7 +563,7 @@ export function renderCropWeeklySummary() {
   const nextBtn = document.getElementById('next-crop-week-btn');
 
   if (dateRangeEl) {
-    const monFmt = mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const monFmt = mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     const sunFmt = sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     dateRangeEl.textContent = `📅 ${monFmt} – ${sunFmt}`;
   }
@@ -550,21 +614,17 @@ export function renderCropWeeklySummary() {
         if (!cropAggregates[formattedName]) {
           cropAggregates[formattedName] = { 
             cycles: 0, 
-            qty: 0, 
             cleanKey: cleanCropKey,
             dates: new Set()
           };
         }
 
         let cycles = parseFloat(item.harvestCount || item.harvest_count || 0);
-        let qty = parseFloat(item.totalProduced || item.total_produced || 0);
 
         cropAggregates[formattedName].cycles += cycles;
-        cropAggregates[formattedName].qty += qty;
         if (shortDateFmt) cropAggregates[formattedName].dates.add(shortDateFmt);
 
         totalCycles += cycles;
-        totalQty += qty;
       });
     }
   });
@@ -592,9 +652,14 @@ export function renderCropWeeklySummary() {
 
   let html = '';
   entries.sort((a, b) => b[1].cycles - a[1].cycles).forEach(([cropName, data]) => {
-    // Fetch live market unit price
+    // Determine active base yield for this crop
+    const baseYield = cropBaseYields[data.cleanKey] !== undefined ? cropBaseYields[data.cleanKey] : globalAvgYield;
+    const cropCalculatedQty = roundUpToOneDecimal(data.cycles * baseYield);
+
+    totalQty += cropCalculatedQty;
+
     let unitPrice = getItemFlowerPrice(data.cleanKey);
-    let grossTotal = unitPrice * data.qty;
+    let grossTotal = unitPrice * cropCalculatedQty;
     let taxAmount = grossTotal * taxRate;
     let netFlowerVal = roundUpToThreeDecimals(grossTotal - taxAmount);
 
@@ -606,25 +671,43 @@ export function renderCropWeeklySummary() {
       .join(' ');
 
     html += `
-      <div class="p-2.5 bg-amber-50 rounded-lg border border-amber-200/60 shadow-xs space-y-1.5">
-        <div class="flex justify-between items-center">
+      <div class="p-3 bg-amber-50 rounded-xl border border-amber-200/60 shadow-xs space-y-2">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div class="flex flex-col">
-            <span class="font-bold text-sfl-dirt text-xs">${cropName}</span>
-            <span class="text-[10px] text-sfl-woodLight font-mono">Live Unit: ${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</span>
+            <span class="font-bold text-sfl-dirt text-sm flex items-center gap-1.5">
+              <span>🌾</span> ${cropName}
+            </span>
+            <span class="text-[10px] text-sfl-woodLight font-mono">Live Unit Price: ${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
-          <div class="flex items-center gap-2.5 font-mono text-xs">
-            <span class="text-sfl-wood font-bold">${data.cycles} plots</span>
-            <span class="text-sfl-dirt font-extrabold">(${data.qty.toFixed(1)} qty)</span>
+          
+          <div class="flex flex-wrap items-center gap-2 font-mono text-xs">
+            <span class="text-sfl-wood font-bold bg-amber-100/90 px-2 py-1 rounded border border-amber-300/60">
+              ${data.cycles} plots
+            </span>
+
+            <!-- INLINE AVG YIELD INPUT IN WEEKLY MODAL -->
+            <div class="flex items-center gap-1 bg-white/90 border border-sfl-cardBorder px-2 py-0.5 rounded-lg shadow-xs">
+              <span class="text-[10px] font-bold text-sfl-wood uppercase">Yield/Plot:</span>
+              <input type="number" step="0.05" min="0.1" value="${baseYield}"
+                onchange="updateWeeklyCropYield('${data.cleanKey}', this.value)"
+                class="w-16 sfl-input rounded px-1.5 py-0.5 text-xs font-bold text-center text-sfl-dirt focus:ring-1 focus:ring-sfl-gold">
+            </div>
+
+            <span class="text-sfl-dirt font-extrabold text-xs">
+              = ${cropCalculatedQty.toFixed(1)} qty
+            </span>
+
             <div class="flex flex-col items-end">
-              <span class="text-xs text-sfl-green font-bold flex items-center gap-1 bg-green-100 border border-sfl-green/30 px-2 py-0.5 rounded">
+              <span class="text-xs text-sfl-green font-extrabold flex items-center gap-1 bg-green-100 border border-sfl-green/30 px-2.5 py-1 rounded-lg">
                 ${netFlowerVal.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
               </span>
               <span class="text-[9px] text-sfl-woodLight/80 font-mono">Gross: ${grossTotal.toFixed(3)}</span>
             </div>
           </div>
         </div>
-        <div class="flex items-center gap-1.5 pt-1 border-t border-amber-200/40">
-          <span class="text-[9px] font-bold text-sfl-woodLight uppercase">🗓️ Dates:</span>
+
+        <div class="flex items-center gap-1.5 pt-1.5 border-t border-amber-200/50">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase">🗓️ Harvest Dates:</span>
           <div class="flex flex-wrap gap-1">${datesBadgeList || '<span class="text-[9px] italic text-gray-400">N/A</span>'}</div>
         </div>
       </div>
