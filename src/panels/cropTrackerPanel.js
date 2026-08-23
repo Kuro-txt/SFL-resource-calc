@@ -28,11 +28,11 @@ export function renderCropTrackerTemplate() {
         </div>
         
         <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <!-- QUICK APPLY AVG YIELD -->
-          <div class="flex items-center gap-1 bg-amber-100/90 border border-amber-300 px-2 py-1 rounded-lg">
-            <span class="text-[10px] font-bold text-sfl-wood whitespace-nowrap">Avg Yield per Plot:</span>
-            <input type="number" id="global-avg-yield-input" value="${globalAvgYield}" min="0.1" step="0.05" class="w-14 sfl-input rounded px-1 text-xs font-mono font-bold text-center text-sfl-dirt">
-            <button id="apply-global-yield-btn" title="Apply to all active crops" class="bg-sfl-wood text-amber-100 px-2 py-0.5 rounded text-[10px] font-bold hover:bg-sfl-dirt transition cursor-pointer">
+          <!-- QUICK APPLY AVG YIELD PILL -->
+          <div class="flex items-center gap-1.5 bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 px-2.5 py-1 rounded-lg shadow-xs">
+            <span class="text-[10px] font-bold text-sfl-wood dark:text-amber-300 whitespace-nowrap">Avg Yield / Plot:</span>
+            <input type="number" id="global-avg-yield-input" value="${globalAvgYield}" min="0.1" step="0.05" class="w-14 sfl-input rounded px-1.5 py-0.5 text-xs font-mono font-bold text-center text-sfl-dirt">
+            <button id="apply-global-yield-btn" title="Apply to all active crops" class="bg-sfl-wood text-amber-100 px-2 py-0.5 rounded text-[10px] font-bold hover:bg-sfl-dirt transition cursor-pointer shadow-xs">
               Set All
             </button>
           </div>
@@ -40,7 +40,7 @@ export function renderCropTrackerTemplate() {
           <button id="open-crop-weekly-btn" class="bg-amber-500 hover:bg-amber-400 text-amber-950 dark:bg-amber-600 dark:hover:bg-amber-500 dark:text-amber-100 font-black px-3 py-1.5 rounded-lg text-xs border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center gap-1.5">
             <span>📊</span> Weekly Summary
           </button>
-          <button id="refresh-crop-activity-btn" class="bg-sfl-wood text-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition cursor-pointer flex items-center gap-1">
+          <button id="refresh-crop-activity-btn" class="bg-sfl-wood text-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition cursor-pointer flex items-center gap-1 shadow-xs">
             🔄 Check Live Today
           </button>
           <button id="save-base-yields-btn" class="bg-sfl-green text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-green-700 transition cursor-pointer flex items-center gap-1 shadow-sm">
@@ -125,8 +125,8 @@ export function renderCropTrackerTemplate() {
         </div>
 
         <!-- WEEKLY MODAL GLOBAL YIELD ADJUSTER -->
-        <div class="flex items-center justify-between bg-amber-100/90 border border-amber-300 p-2.5 rounded-xl shadow-xs text-xs font-bold">
-          <span class="text-sfl-wood flex items-center gap-1.5">
+        <div class="flex items-center justify-between bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 p-2.5 rounded-xl shadow-xs text-xs font-bold">
+          <span class="text-sfl-wood dark:text-amber-300 flex items-center gap-1.5">
             <span>⚙️</span> Set All Weekly Avg Yields:
           </span>
           <div class="flex items-center gap-1.5">
@@ -306,7 +306,6 @@ export function applyWeeklyGlobalYieldToAll() {
   cropBaseYields['_global'] = val;
   syncMainGlobalInput(val);
 
-  // Set all valid plot crops to this multiplier
   SFL_PLOT_CROPS.forEach(cropKey => {
     cropBaseYields[cropKey] = val;
   });
@@ -652,7 +651,6 @@ export function renderCropWeeklySummary() {
 
   let html = '';
   entries.sort((a, b) => b[1].cycles - a[1].cycles).forEach(([cropName, data]) => {
-    // Determine active base yield for this crop
     const baseYield = cropBaseYields[data.cleanKey] !== undefined ? cropBaseYields[data.cleanKey] : globalAvgYield;
     const cropCalculatedQty = roundUpToOneDecimal(data.cycles * baseYield);
 
@@ -685,9 +683,9 @@ export function renderCropWeeklySummary() {
               ${data.cycles} plots
             </span>
 
-            <!-- INLINE AVG YIELD INPUT IN WEEKLY MODAL -->
-            <div class="flex items-center gap-1 bg-white/90 border border-sfl-cardBorder px-2 py-0.5 rounded-lg shadow-xs">
-              <span class="text-[10px] font-bold text-sfl-wood uppercase">Yield/Plot:</span>
+            <!-- CLEAN INLINE AVG YIELD PILL -->
+            <div class="flex items-center gap-1.5 bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 px-2 py-0.5 rounded-lg shadow-xs">
+              <span class="text-[10px] font-bold text-sfl-wood dark:text-amber-300 uppercase">Yield/Plot:</span>
               <input type="number" step="0.05" min="0.1" value="${baseYield}"
                 onchange="updateWeeklyCropYield('${data.cleanKey}', this.value)"
                 class="w-16 sfl-input rounded px-1.5 py-0.5 text-xs font-bold text-center text-sfl-dirt focus:ring-1 focus:ring-sfl-gold">
