@@ -50,3 +50,91 @@ input[type=number]::-webkit-outer-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+/* ========================================================
+   DARK MODE OVERRIDES
+======================================================== */
+
+.dark body {
+  background-color: #121f0c;
+  background-image: radial-gradient(#1c3313 15%, transparent 16%), radial-gradient(#1c3313 15%, transparent 16%);
+  color: #fceade;
+}
+
+.dark .sfl-panel {
+  background-color: #221812;
+  border-color: #4a2811;
+  box-shadow: inset -4px -4px 0px #160f0a, 0px 8px 0px #080402;
+  color: #f8e5d2;
+}
+
+.dark .sfl-input {
+  background-color: #2d1f17;
+  border-color: #633d1f;
+  color: #fef3c7;
+  box-shadow: inset 2px 2px 0px #160f0a;
+}
+
+.dark select option {
+  background-color: #2d1f17;
+  color: #fef3c7;
+}
+
+.dark .bg-sfl-card,
+.dark .bg-sfl-card\/90,
+.dark .bg-sfl-card\/80 {
+  background-color: #2a1c14 !important;
+  border-color: #5c381e !important;
+}
+
+.dark .bg-white,
+.dark .bg-white\/80,
+.dark .bg-white\/70,
+.dark .bg-white\/60 {
+  background-color: rgba(38, 26, 18, 0.9) !important;
+  color: #fef3c7;
+}
+
+.dark .bg-amber-50,
+.dark .bg-amber-50\/90,
+.dark .bg-amber-100\/90,
+.dark .bg-amber-100\/80,
+.dark .bg-amber-100\/70,
+.dark .bg-amber-100\/60,
+.dark .bg-amber-200\/90,
+.dark .bg-amber-200\/80 {
+  background-color: rgba(46, 32, 22, 0.95) !important;
+  color: #fde68a !important;
+  border-color: #633d1f !important;
+}
+
+.dark .text-sfl-dirt {
+  color: #fef3c7 !important;
+}
+
+.dark .text-sfl-wood {
+  color: #fcd34d !important;
+}
+
+.dark .text-sfl-woodLight {
+  color: #d1a880 !important;
+}
+
+.dark .text-amber-900,
+.dark .text-amber-950 {
+  color: #fde68a !important;
+}
+
+.dark .border-sfl-cardBorder,
+.dark .border-sfl-cardBorder\/30,
+.dark .border-sfl-cardBorder\/40,
+.dark .border-sfl-cardBorder\/50,
+.dark .border-sfl-cardBorder\/60 {
+  border-color: #5c381e !important;
+}
+
+.dark .divide-sfl-cardBorder\/30 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-sfl-cardBorder\/40 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-sfl-cardBorder\/50 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #5c381e !important;
+}
