@@ -107,8 +107,8 @@ export function renderCropTrackerTemplate() {
             <h3 class="text-lg font-black text-sfl-dirt flex items-center gap-2">
               <span>🗓️</span> Crop Weekly Harvest Report
             </h3>
-            <p id="crop-weekly-date-range" class="text-xs font-bold text-sfl-woodLight font-mono mt-0.5">
-              Mon – Sun
+            <p id="crop-weekly-date-range" class="text-xs font-bold text-sfl-wood font-mono mt-0.5">
+              Calculating dates...
             </p>
           </div>
           <button id="close-crop-weekly-modal-btn" class="text-sfl-accent hover:text-red-700 font-black text-lg p-1 cursor-pointer">✕</button>
@@ -142,10 +142,10 @@ export function renderCropTrackerTemplate() {
 
           <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl p-3 shadow-inner">
             <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider mb-2 border-b border-amber-200/60 pb-1 flex justify-between items-center">
-              <span>Crop Breakdown</span>
+              <span>Crop & Harvest Dates</span>
               <span>Plots / Qty / Live Value</span>
             </h4>
-            <div id="crop-weekly-breakdown" class="space-y-1.5 max-h-56 overflow-y-auto text-xs"></div>
+            <div id="crop-weekly-breakdown" class="space-y-2 max-h-56 overflow-y-auto text-xs"></div>
           </div>
         </div>
 
@@ -483,9 +483,9 @@ export function renderCropWeeklySummary() {
   const nextBtn = document.getElementById('next-crop-week-btn');
 
   if (dateRangeEl) {
-    const monFmt = mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const monFmt = mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     const sunFmt = sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-    dateRangeEl.textContent = `${monFmt} – ${sunFmt}`;
+    dateRangeEl.textContent = `📅 ${monFmt} – ${sunFmt}`;
   }
 
   if (weekLabelEl) {
@@ -509,20 +509,32 @@ export function renderCropWeeklySummary() {
   let totalFlowers = 0;
 
   history.forEach(entry => {
-    let cleanDate = (entry.date || entry.yield_date || '').split('T')[0];
+    let rawDate = entry.date || entry.yield_date || '';
+    let cleanDate = rawDate.split('T')[0];
+
     if (cleanDate >= mondayStr && cleanDate <= sundayStr) {
       let cropList = entry.cropActivityYields || entry.crop_activity_yields || [];
+      
+      let dateObj = new Date(cleanDate + 'T00:00:00');
+      let shortDateFmt = !isNaN(dateObj.getTime())
+        ? dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        : cleanDate;
+
       cropList.forEach(item => {
         let rawCropName = item.crop || item.name || 'Crop';
         let cleanCropKey = normalizeItemKey(rawCropName);
 
-        // Ensure item belongs to 23 valid plot crops
         if (!SFL_PLOT_CROPS.has(cleanCropKey)) return;
 
         let formattedName = cleanCropKey.charAt(0).toUpperCase() + cleanCropKey.slice(1);
 
         if (!cropAggregates[formattedName]) {
-          cropAggregates[formattedName] = { cycles: 0, qty: 0, cleanKey: cleanCropKey };
+          cropAggregates[formattedName] = { 
+            cycles: 0, 
+            qty: 0, 
+            cleanKey: cleanCropKey,
+            dates: new Set()
+          };
         }
 
         let cycles = parseFloat(item.harvestCount || item.harvest_count || 0);
@@ -530,6 +542,7 @@ export function renderCropWeeklySummary() {
 
         cropAggregates[formattedName].cycles += cycles;
         cropAggregates[formattedName].qty += qty;
+        if (shortDateFmt) cropAggregates[formattedName].dates.add(shortDateFmt);
 
         totalCycles += cycles;
         totalQty += qty;
@@ -554,25 +567,34 @@ export function renderCropWeeklySummary() {
 
   let html = '';
   entries.sort((a, b) => b[1].cycles - a[1].cycles).forEach(([cropName, data]) => {
-    // Fetch live market price and compute net Flower earnings with active tax rate
     let unitPrice = getItemFlowerPrice(data.cleanKey);
     let grossTotal = unitPrice * data.qty;
     let netFlowerVal = roundUpToThreeDecimals(grossTotal * (1 - taxRate));
 
     totalFlowers += netFlowerVal;
 
+    let datesBadgeList = Array.from(data.dates)
+      .map(d => `<span class="bg-amber-200/80 text-amber-900 border border-amber-300 text-[9px] font-bold px-1.5 py-0.5 rounded">${d}</span>`)
+      .join(' ');
+
     html += `
-      <div class="flex justify-between items-center p-2.5 bg-amber-50 rounded-lg border border-amber-200/60 shadow-xs">
-        <div class="flex flex-col">
-          <span class="font-bold text-sfl-dirt text-xs">${cropName}</span>
-          <span class="text-[10px] text-sfl-woodLight font-mono">Live: ${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</span>
+      <div class="p-2.5 bg-amber-50 rounded-lg border border-amber-200/60 shadow-xs space-y-1.5">
+        <div class="flex justify-between items-center">
+          <div class="flex flex-col">
+            <span class="font-bold text-sfl-dirt text-xs">${cropName}</span>
+            <span class="text-[10px] text-sfl-woodLight font-mono">Live: ${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</span>
+          </div>
+          <div class="flex items-center gap-2.5 font-mono text-xs">
+            <span class="text-sfl-wood font-bold">${data.cycles} plots</span>
+            <span class="text-sfl-dirt font-extrabold">(${data.qty.toFixed(1)} qty)</span>
+            <span class="text-xs text-sfl-green font-bold flex items-center gap-1 bg-green-100 border border-sfl-green/30 px-2 py-0.5 rounded">
+              ${netFlowerVal.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+            </span>
+          </div>
         </div>
-        <div class="flex items-center gap-2.5 font-mono text-xs">
-          <span class="text-sfl-wood font-bold">${data.cycles} plots</span>
-          <span class="text-sfl-dirt font-extrabold">(${data.qty.toFixed(1)} qty)</span>
-          <span class="text-xs text-sfl-green font-bold flex items-center gap-1 bg-green-100 border border-sfl-green/30 px-2 py-0.5 rounded">
-            ${netFlowerVal.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
-          </span>
+        <div class="flex items-center gap-1.5 pt-1 border-t border-amber-200/40">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase">🗓️ Dates:</span>
+          <div class="flex flex-wrap gap-1">${datesBadgeList || '<span class="text-[9px] italic text-gray-400">N/A</span>'}</div>
         </div>
       </div>
     `;
