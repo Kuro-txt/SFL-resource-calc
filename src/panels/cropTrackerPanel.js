@@ -107,7 +107,7 @@ export function renderCropTrackerTemplate() {
 
     </div>
 
-    <!-- CROP TRACKER WEEKLY SUMMARY MODAL -->
+    <!-- CROP TRACKER WEEKLY SUMMARY MODAL (SINGLE UNIFIED SCROLLBAR) -->
     <div id="crop-weekly-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div class="bg-sfl-card border-4 border-sfl-wood rounded-2xl max-w-xl w-full p-6 shadow-2xl relative max-h-[90vh] flex flex-col space-y-4">
         
@@ -146,7 +146,8 @@ export function renderCropTrackerTemplate() {
           </div>
         </div>
 
-        <div class="overflow-y-auto flex-1 pr-1 space-y-4">
+        <!-- MAIN SCROLLABLE CONTENT BODY (ONLY ONE SCROLLBAR) -->
+        <div class="overflow-y-auto flex-1 pr-1.5 space-y-4">
           <div class="grid grid-cols-3 gap-2">
             <div class="bg-amber-100/90 border-2 border-sfl-gold/60 p-2.5 rounded-xl text-center shadow-sm">
               <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">Harvested Plots</span>
@@ -169,18 +170,18 @@ export function renderCropTrackerTemplate() {
             <span class="text-sfl-green font-extrabold">Net: <span id="crop-weekly-net-val">0.000 Flowers</span></span>
           </div>
 
-          <!-- DAY-BY-DAY HARVEST SECTION CONTAINER -->
+          <!-- DAY-BY-DAY HARVEST SECTION CONTAINER (FLOWS NATURALLY WITHOUT INNER SCROLLBAR) -->
           <div class="space-y-3">
             <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider border-b border-amber-200/60 pb-1 flex justify-between items-center">
               <span>📅 Day-by-Day Harvest Log</span>
               <span class="text-[10px] text-sfl-woodLight font-mono">Plots / Yield / Net Flowers</span>
             </h4>
-            <div id="crop-weekly-breakdown" class="space-y-3.5 max-h-64 overflow-y-auto pr-1 text-xs"></div>
+            <div id="crop-weekly-breakdown" class="space-y-3.5 text-xs"></div>
           </div>
         </div>
 
         <div class="pt-3 border-t border-sfl-cardBorder flex justify-end">
-          <button id="close-crop-weekly-modal-footer-btn" class="bg-sfl-wood text-amber-100 font-bold px-4 py-1.5 rounded-lg hover:bg-sfl-dirt transition text-xs cursor-pointer">
+          <button id="close-crop-weekly-modal-footer-btn" class="bg-sfl-wood text-amber-100 font-bold px-4 py-1.5 rounded-lg hover:bg-sfl-dirt transition text-xs cursor-pointer shadow-xs">
             Close Report
           </button>
         </div>
@@ -704,11 +705,11 @@ export function renderCropWeeklySummary() {
             </span>
 
             <!-- CLEAN INLINE AVG YIELD PILL -->
-            <div class="flex items-center gap-1 bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 px-2 py-0.5 rounded-lg shadow-xs">
+            <div class="flex items-center gap-1.5 bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 px-2 py-0.5 rounded-lg shadow-xs">
               <span class="text-[10px] font-bold text-sfl-wood dark:text-amber-300 uppercase">Yield:</span>
               <input type="number" step="0.05" min="0.1" value="${baseYield}"
                 onchange="updateWeeklyCropYield('${cleanCropKey}', this.value)"
-                class="w-14 sfl-input rounded px-1 py-0.5 text-xs font-bold text-center text-sfl-dirt focus:ring-1 focus:ring-sfl-gold">
+                class="w-14 sfl-input rounded px-1.5 py-0.5 text-xs font-bold text-center text-sfl-dirt focus:ring-1 focus:ring-sfl-gold">
             </div>
 
             <span class="text-sfl-dirt font-extrabold text-xs">
