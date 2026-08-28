@@ -1,13 +1,16 @@
 import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../utils/formatters.js';
 
-// NPC Catalog with verified Favorite Flowers from SFL
+// NPC Catalog with exact milestone thresholds and recurring rewards
 export const NPC_CATALOG = [
   {
     id: "betty",
     name: "Betty",
     location: "Plaza",
     icon: "👩‍🌾",
+    milestones: [10, 20, 40, 110],
+    repeatInterval: 100,
+    repeatReward: "Treasure Key: 1",
     favorites: [
       "Red Pansy",
       "Yellow Pansy",
@@ -21,6 +24,9 @@ export const NPC_CATALOG = [
     name: "Pumpkin' Pete",
     location: "Plaza",
     icon: "🎃",
+    milestones: [5, 12, 50, 100],
+    repeatInterval: 100,
+    repeatReward: "Coins: 640, Treasure Key: 1",
     favorites: [
       "Yellow Cosmos"
     ]
@@ -30,6 +36,9 @@ export const NPC_CATALOG = [
     name: "Blacksmith",
     location: "Plaza",
     icon: "🔨",
+    milestones: [50, 110, 200, 320],
+    repeatInterval: 150,
+    repeatReward: "Coins: 960, Treasure Key: 1",
     favorites: [
       "Red Carnation"
     ]
@@ -39,6 +48,9 @@ export const NPC_CATALOG = [
     name: "Bert",
     location: "Plaza",
     icon: "🍄",
+    milestones: [60, 100, 210, 330],
+    repeatInterval: 150,
+    repeatReward: "Rare Key: 1",
     favorites: [
       "Red Lotus",
       "Yellow Lotus",
@@ -52,6 +64,9 @@ export const NPC_CATALOG = [
     name: "Finley",
     location: "Beach",
     icon: "🎣",
+    milestones: [25, 95, 150],
+    repeatInterval: 100,
+    repeatReward: "Fishing Lure: 5",
     favorites: [
       "Red Daffodil",
       "Yellow Daffodil",
@@ -65,6 +80,9 @@ export const NPC_CATALOG = [
     name: "Raven",
     location: "Plaza",
     icon: "🧙‍♀️",
+    milestones: [50, 140, 220, 330, 700],
+    repeatInterval: 160,
+    repeatReward: "Rare Key: 1",
     favorites: [
       "Purple Carnation",
       "Purple Lotus",
@@ -83,6 +101,9 @@ export const NPC_CATALOG = [
     name: "Tywin",
     location: "Plaza",
     icon: "👑",
+    milestones: [35, 175, 330],
+    repeatInterval: 160,
+    repeatReward: "Luxury Key: 1",
     favorites: [
       "Primula Enigma",
       "Celestial Frostbloom"
@@ -93,6 +114,9 @@ export const NPC_CATALOG = [
     name: "Old Salty",
     location: "Beach",
     icon: "🏴‍☠️",
+    milestones: [30, 90, 500, 850],
+    repeatInterval: 250,
+    repeatReward: "Coins: 2500",
     favorites: [
       "Blue Carnation",
       "Blue Lotus",
@@ -111,6 +135,9 @@ export const NPC_CATALOG = [
     name: "Miranda",
     location: "Beach",
     icon: "🐚",
+    milestones: [30, 90, 260, 500],
+    repeatInterval: 100,
+    repeatReward: "Fruit Seeds (x5)",
     favorites: [
       "Yellow Carnation",
       "Yellow Lotus",
@@ -129,6 +156,9 @@ export const NPC_CATALOG = [
     name: "Finn",
     location: "Beach",
     icon: "🐡",
+    milestones: [40, 150],
+    repeatInterval: 130,
+    repeatReward: "Rare Key: 1",
     favorites: [
       "White Cosmos",
       "Blue Cosmos"
@@ -139,6 +169,9 @@ export const NPC_CATALOG = [
     name: "Corale",
     location: "Beach",
     icon: "🪸",
+    milestones: [45, 150, 320],
+    repeatInterval: 200,
+    repeatReward: "Coins: 3200",
     favorites: [
       "Prism Petal"
     ]
@@ -148,6 +181,9 @@ export const NPC_CATALOG = [
     name: "Cornwell",
     location: "Plaza",
     icon: "🌽",
+    milestones: [65, 175, 340, 600],
+    repeatInterval: 200,
+    repeatReward: "Luxury Key: 1",
     favorites: [
       "Red Balloon Flower",
       "Yellow Balloon Flower",
@@ -161,6 +197,9 @@ export const NPC_CATALOG = [
     name: "Victoria",
     location: "Kingdom",
     icon: "👸",
+    milestones: [50, 140, 340, 520, 850],
+    repeatInterval: 160,
+    repeatReward: "Rare Key: 1",
     favorites: [
       "Primula Enigma"
     ]
@@ -170,6 +209,9 @@ export const NPC_CATALOG = [
     name: "Jester",
     location: "Kingdom",
     icon: "🃏",
+    milestones: [50, 140, 340, 520, 740],
+    repeatInterval: 90,
+    repeatReward: "Treasure Key: 1",
     favorites: [
       "Red Balloon Flower",
       "Red Carnation"
@@ -203,6 +245,56 @@ function getItemFlowerPrice(cleanKey) {
   return 0;
 }
 
+// Computes next milestone, current tier progress, points needed, and percentage
+function calculateMilestoneProgress(npc, points) {
+  const milestones = npc.milestones || [];
+  const baseCap = milestones.length > 0 ? milestones[milestones.length - 1] : 0;
+  const repeat = npc.repeatInterval || 100;
+
+  if (points < baseCap) {
+    let prev = 0;
+    let next = baseCap;
+    for (let m of milestones) {
+      if (points < m) {
+        next = m;
+        break;
+      }
+      prev = m;
+    }
+    const currentInTier = points - prev;
+    const tierTotal = next - prev;
+    const needed = next - points;
+    const pct = Math.min(100, Math.max(0, Math.round((currentInTier / tierTotal) * 100)));
+
+    return {
+      isRecurring: false,
+      currentInTier,
+      tierTotal,
+      nextMilestone: next,
+      pointsNeeded: needed,
+      percentage: pct,
+      rewardText: `Fixed Reward (${next} pts)`
+    };
+  } else {
+    const steps = Math.floor((points - baseCap) / repeat);
+    const cycleStart = baseCap + (steps * repeat);
+    const nextMilestone = cycleStart + repeat;
+    const currentInTier = points - cycleStart;
+    const needed = nextMilestone - points;
+    const pct = Math.min(100, Math.max(0, Math.round((currentInTier / repeat) * 100)));
+
+    return {
+      isRecurring: true,
+      currentInTier,
+      tierTotal: repeat,
+      nextMilestone,
+      pointsNeeded: needed,
+      percentage: pct,
+      rewardText: npc.repeatReward || `Recurring (+${repeat} pts)`
+    };
+  }
+}
+
 export function renderNpcGiftsTemplate() {
   const container = document.getElementById('npc-gifts-section');
   if (!container) return;
@@ -216,7 +308,7 @@ export function renderNpcGiftsTemplate() {
             <span>🎁</span> NPC Gift & Friendship Tracker
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
-            Track live friendship points, claimable gifts, and favorite flower market prices.
+            Track live friendship points, recurring reward progress bars, and favorite flowers.
           </p>
         </div>
 
@@ -289,6 +381,9 @@ export function renderNpcCards() {
         name: cleanName,
         location: "Plaza",
         icon: "👤",
+        milestones: [50, 100],
+        repeatInterval: 100,
+        repeatReward: "Mystery Gift",
         favorites: []
       });
     }
@@ -337,6 +432,9 @@ export function renderNpcCards() {
     const unclaimed = Math.max(0, points - claimedAt);
     const hasClaimableGift = unclaimed > 0;
     const giftedToday = isInteractionToday(friendship.updatedAt);
+
+    // Compute progress stats for the progress bar
+    const progress = calculateMilestoneProgress(npc, points);
 
     const favoritesHtml = npc.favorites.length > 0
       ? npc.favorites.map(item => {
@@ -398,6 +496,31 @@ export function renderNpcCards() {
         <div class="border-l border-amber-600/20 px-1">
           <span class="text-[9px] font-bold text-sfl-green uppercase block">Unclaimed</span>
           <span class="text-xs font-black ${unclaimed > 0 ? 'text-sfl-green font-extrabold' : 'text-sfl-woodLight'}">+${unclaimed}</span>
+        </div>
+      </div>
+
+      <!-- RECURRING / NEXT MILESTONE PROGRESS BAR -->
+      <div class="bg-amber-50/80 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-700/40 rounded-lg p-2.5 space-y-1.5">
+        <div class="flex justify-between items-center text-[11px] font-bold font-mono">
+          <span class="text-sfl-wood dark:text-amber-300">
+            ${progress.isRecurring ? '🔄 Recurring Milestone' : '🎯 Next Milestone'}
+          </span>
+          <span class="text-sfl-dirt dark:text-amber-100 font-extrabold">
+            ${progress.currentInTier} / ${progress.tierTotal} pts (${progress.percentage}%)
+          </span>
+        </div>
+
+        <div class="w-full bg-amber-900/20 dark:bg-amber-900/50 rounded-full h-3 border border-amber-600/30 overflow-hidden">
+          <div class="bg-gradient-to-r from-amber-500 to-sfl-green h-full rounded-full transition-all duration-300" style="width: ${progress.percentage}%"></div>
+        </div>
+
+        <div class="flex justify-between items-center text-[10px] text-sfl-woodLight font-mono pt-0.5">
+          <span>Target: <strong class="text-sfl-dirt dark:text-amber-200">${progress.nextMilestone} pts</strong></span>
+          <span class="text-sfl-accent dark:text-amber-400 font-bold">${progress.pointsNeeded} pts needed</span>
+        </div>
+
+        <div class="text-[10px] text-sfl-green dark:text-green-400 font-semibold truncate border-t border-amber-200/40 dark:border-amber-700/30 pt-1">
+          🎁 Reward: <strong>${progress.rewardText}</strong>
         </div>
       </div>
 
