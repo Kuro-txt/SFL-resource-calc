@@ -34,7 +34,6 @@
       }
     }
 
-    // Apply saved theme immediately to prevent flashing
     if (localStorage.getItem('sfl_theme') === 'dark' || (!('sfl_theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       document.documentElement.classList.add('dark');
     } else {
@@ -60,6 +59,7 @@
       <!-- Views Containers -->
       <div id="calc-section"></div>
       <div id="crop-tracker-section" class="hidden"></div>
+      <div id="npc-gifts-section" class="hidden"></div>
       <div id="wishlist-section" class="hidden"></div>
     </div>
   </div>
