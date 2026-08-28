@@ -7,17 +7,18 @@ export const PanelManager = {
   },
 
   switch(targetId) {
-    if (!panels[targetId] && !document.getElementById(`${targetId === 'croptracker' ? 'crop-tracker' : targetId}-section`)) {
-      console.warn(`Panel '${targetId}' is not registered.`);
-      return;
-    }
-
     if (activePanelId && panels[activePanelId]?.onUnmount) {
       panels[activePanelId].onUnmount();
     }
 
-    ['calc', 'croptracker', 'wishlist'].forEach(id => {
-      const sectionEl = document.getElementById(`${id === 'croptracker' ? 'crop-tracker' : id}-section`);
+    const panelIds = ['calc', 'croptracker', 'npc', 'wishlist'];
+
+    panelIds.forEach(id => {
+      let sectionId = `${id}-section`;
+      if (id === 'croptracker') sectionId = 'crop-tracker-section';
+      if (id === 'npc') sectionId = 'npc-gifts-section';
+
+      const sectionEl = document.getElementById(sectionId);
       const btnEl = document.getElementById(`tab-${id}-btn`);
 
       if (id === targetId) {
@@ -43,6 +44,7 @@ export const PanelManager = {
   initTabs() {
     document.getElementById('tab-calc-btn')?.addEventListener('click', () => this.switch('calc'));
     document.getElementById('tab-croptracker-btn')?.addEventListener('click', () => this.switch('croptracker'));
+    document.getElementById('tab-npc-btn')?.addEventListener('click', () => this.switch('npc'));
     document.getElementById('tab-wishlist-btn')?.addEventListener('click', () => this.switch('wishlist'));
   }
 };
