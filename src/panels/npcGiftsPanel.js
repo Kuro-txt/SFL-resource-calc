@@ -1,14 +1,19 @@
 import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../utils/formatters.js';
 
-// Strict catalog of the 14 Gift NPCs
+// Strict catalog of 14 NPCs with verified Milestone Rewards & Favorite Flowers
 export const NPC_CATALOG = [
   {
     id: "betty",
     name: "Betty",
     location: "Plaza",
     icon: "👩‍🌾",
-    milestones: [10, 20, 40, 110],
+    milestones: [
+      { pts: 10, reward: "Coins: 120" },
+      { pts: 20, reward: "Coins: 960, Recipe: Basic Bed" },
+      { pts: 40, reward: "Treasure Key: 1, Recipe: Doll" },
+      { pts: 110, reward: "Radish Cake: 1, Recipe: Buzz Doll" }
+    ],
     repeatInterval: 100,
     repeatReward: "Treasure Key: 1",
     favorites: [
@@ -24,7 +29,12 @@ export const NPC_CATALOG = [
     name: "Pumpkin' Pete",
     location: "Plaza",
     icon: "🎃",
-    milestones: [5, 12, 50, 100],
+    milestones: [
+      { pts: 5, reward: "Coins: 160" },
+      { pts: 12, reward: "Treasure Key: 1" },
+      { pts: 50, reward: "Pumpkin Hat: 1" },
+      { pts: 100, reward: "Coins: 640" }
+    ],
     repeatInterval: 100,
     repeatReward: "Coins: 640, Treasure Key: 1",
     favorites: [
@@ -36,7 +46,12 @@ export const NPC_CATALOG = [
     name: "Blacksmith",
     location: "Plaza",
     icon: "🔨",
-    milestones: [50, 110, 200, 320],
+    milestones: [
+      { pts: 50, reward: "Treasure Key: 1, Recipe: Timber" },
+      { pts: 110, reward: "Coins: 760, Recipe: Cushion" },
+      { pts: 200, reward: "Coins: 1600, Recipe: Hardened Leather" },
+      { pts: 320, reward: "Pickaxe: 10, Recipe: Crimsteel" }
+    ],
     repeatInterval: 150,
     repeatReward: "Coins: 960, Treasure Key: 1",
     favorites: [
@@ -48,7 +63,12 @@ export const NPC_CATALOG = [
     name: "Bert",
     location: "Plaza",
     icon: "🍄",
-    milestones: [60, 100, 210, 330],
+    milestones: [
+      { pts: 60, reward: "Tattered Jacket: 1, Recipe: Wooly Doll" },
+      { pts: 100, reward: "Gem: 20, Recipe: Cluck Doll" },
+      { pts: 210, reward: "Pirate Cake: 3, Recipe: Cow Bed" },
+      { pts: 330, reward: "Greyed Glory: 1, Recipe: Moo Doll" }
+    ],
     repeatInterval: 150,
     repeatReward: "Rare Key: 1",
     favorites: [
@@ -64,7 +84,11 @@ export const NPC_CATALOG = [
     name: "Finley",
     location: "Beach",
     icon: "🎣",
-    milestones: [25, 95, 150],
+    milestones: [
+      { pts: 25, reward: "Fishing Lure: 3, Recipe: Fisher Bed" },
+      { pts: 95, reward: "Coins: 3200" },
+      { pts: 150, reward: "Tuna: 5" }
+    ],
     repeatInterval: 100,
     repeatReward: "Fishing Lure: 5",
     favorites: [
@@ -80,7 +104,13 @@ export const NPC_CATALOG = [
     name: "Raven",
     location: "Plaza",
     icon: "🧙‍♀️",
-    milestones: [50, 140, 220, 330, 700],
+    milestones: [
+      { pts: 50, reward: "Time Warp Totem: 1" },
+      { pts: 140, reward: "Coins: 2560, Recipe: Lunar Doll" },
+      { pts: 220, reward: "Victorian Hat: 1" },
+      { pts: 330, reward: "Coins: 1600, Eggplant Seed: 50, Recipe: Shadow Doll" },
+      { pts: 700, reward: "Bat Wings: 1" }
+    ],
     repeatInterval: 160,
     repeatReward: "Rare Key: 1",
     favorites: [
@@ -101,7 +131,11 @@ export const NPC_CATALOG = [
     name: "Tywin",
     location: "Plaza",
     icon: "👑",
-    milestones: [35, 175, 330],
+    milestones: [
+      { pts: 35, reward: "Rare Key: 1" },
+      { pts: 175, reward: "Coins: 3200" },
+      { pts: 330, reward: "Pirate Cake: 5" }
+    ],
     repeatInterval: 160,
     repeatReward: "Luxury Key: 1",
     favorites: [
@@ -114,7 +148,12 @@ export const NPC_CATALOG = [
     name: "Old Salty",
     location: "Beach",
     icon: "🏴‍☠️",
-    milestones: [30, 90, 500, 850],
+    milestones: [
+      { pts: 30, reward: "Coins: 80, Striped Blue Shirt: 1" },
+      { pts: 90, reward: "Coins: 260, Peg Leg: 1, Recipe: Gilded Doll" },
+      { pts: 500, reward: "Pirate Potion: 1, Recipe: Pirate Bed" },
+      { pts: 850, reward: "Pirate Bounty: 1, Pirate Hat: 1, Recipe: Ocean's Treasure" }
+    ],
     repeatInterval: 250,
     repeatReward: "Coins: 2500",
     favorites: [
@@ -135,9 +174,14 @@ export const NPC_CATALOG = [
     name: "Miranda",
     location: "Beach",
     icon: "🐚",
-    milestones: [30, 90, 260, 500],
+    milestones: [
+      { pts: 30, reward: "Time Warp Totem: 1, Recipe: Floral Bed" },
+      { pts: 90, reward: "Coins: 960, Fruit Picker Shirt: 1" },
+      { pts: 260, reward: "Fruit Picker Apron: 1, Recipe: Desert Bed" },
+      { pts: 500, reward: "Coins: 6400, Fruit Bowl: 1, Recipe: Juicy Doll" }
+    ],
     repeatInterval: 100,
-    repeatReward: "Fruit Seeds (x5)",
+    repeatReward: "Blueberry Seed: 5, Apple Seed: 5, Banana Plant: 5, Orange Seed: 5",
     favorites: [
       "Yellow Carnation",
       "Yellow Lotus",
@@ -156,7 +200,10 @@ export const NPC_CATALOG = [
     name: "Finn",
     location: "Beach",
     icon: "🐡",
-    milestones: [40, 150],
+    milestones: [
+      { pts: 40, reward: "Rod: 10" },
+      { pts: 150, reward: "Coins: 960" }
+    ],
     repeatInterval: 130,
     repeatReward: "Rare Key: 1",
     favorites: [
@@ -169,7 +216,11 @@ export const NPC_CATALOG = [
     name: "Corale",
     location: "Beach",
     icon: "🪸",
-    milestones: [45, 150, 320],
+    milestones: [
+      { pts: 45, reward: "Coins: 960" },
+      { pts: 150, reward: "Gem: 40, Recipe: Synthetic Fabric" },
+      { pts: 320, reward: "Pink Ponytail: 1, Recipe: Kelp Fibre" }
+    ],
     repeatInterval: 200,
     repeatReward: "Coins: 3200",
     favorites: [
@@ -181,7 +232,12 @@ export const NPC_CATALOG = [
     name: "Cornwell",
     location: "Plaza",
     icon: "🌽",
-    milestones: [65, 175, 340, 600],
+    milestones: [
+      { pts: 65, reward: "Rare Key: 1, Recipe: Sturdy Bed" },
+      { pts: 175, reward: "Gem: 20" },
+      { pts: 340, reward: "Wise Robes: 1, Recipe: Harvest Doll" },
+      { pts: 600, reward: "Wise Beard: 1, Recipe: Ember Doll" }
+    ],
     repeatInterval: 200,
     repeatReward: "Luxury Key: 1",
     favorites: [
@@ -197,7 +253,13 @@ export const NPC_CATALOG = [
     name: "Victoria",
     location: "Kingdom",
     icon: "👸",
-    milestones: [50, 140, 340, 520, 850],
+    milestones: [
+      { pts: 50, reward: "Coins: 2560" },
+      { pts: 140, reward: "Time Warp Totem: 1, Recipe: Royal Bed" },
+      { pts: 340, reward: "Royal Dress: 1" },
+      { pts: 520, reward: "Coins: 16000" },
+      { pts: 850, reward: "Queen's Crown: 1" }
+    ],
     repeatInterval: 160,
     repeatReward: "Rare Key: 1",
     favorites: [
@@ -209,7 +271,13 @@ export const NPC_CATALOG = [
     name: "Jester",
     location: "Kingdom",
     icon: "🃏",
-    milestones: [50, 140, 340, 520, 740],
+    milestones: [
+      { pts: 50, reward: "Time Warp Totem: 1, Recipe: Royal Bedding" },
+      { pts: 140, reward: "Rare Key: 1, Recipe: Royal Ornament" },
+      { pts: 340, reward: "Cap n Bells: 1" },
+      { pts: 520, reward: "Coins: 16000" },
+      { pts: 740, reward: "Motley: 1" }
+    ],
     repeatInterval: 90,
     repeatReward: "Treasure Key: 1",
     favorites: [
@@ -221,7 +289,6 @@ export const NPC_CATALOG = [
 
 let activeLocationFilter = 'all';
 
-// Robust lookup matching regardless of casing, spaces, or apostrophes
 function getNpcFriendship(npcId, liveNpcData) {
   if (!liveNpcData || typeof liveNpcData !== 'object') return {};
 
@@ -266,19 +333,23 @@ function getItemFlowerPrice(cleanKey) {
 
 function calculateMilestoneProgress(npc, points) {
   const milestones = npc.milestones || [];
-  const baseCap = milestones.length > 0 ? milestones[milestones.length - 1] : 0;
+  const baseCap = milestones.length > 0 ? milestones[milestones.length - 1].pts : 0;
   const repeat = npc.repeatInterval || 100;
 
   if (points < baseCap) {
     let prev = 0;
     let next = baseCap;
+    let nextReward = "";
+
     for (let m of milestones) {
-      if (points < m) {
-        next = m;
+      if (points < m.pts) {
+        next = m.pts;
+        nextReward = m.reward;
         break;
       }
-      prev = m;
+      prev = m.pts;
     }
+
     const currentInTier = points - prev;
     const tierTotal = next - prev;
     const needed = next - points;
@@ -291,7 +362,7 @@ function calculateMilestoneProgress(npc, points) {
       nextMilestone: next,
       pointsNeeded: needed,
       percentage: pct,
-      rewardText: `Fixed Reward (${next} pts)`
+      rewardText: nextReward
     };
   } else {
     const steps = Math.floor((points - baseCap) / repeat);
@@ -308,7 +379,7 @@ function calculateMilestoneProgress(npc, points) {
       nextMilestone,
       pointsNeeded: needed,
       percentage: pct,
-      rewardText: npc.repeatReward || `Recurring (+${repeat} pts)`
+      rewardText: npc.repeatReward || `Every ${repeat} pts`
     };
   }
 }
@@ -326,7 +397,7 @@ export function renderNpcGiftsTemplate() {
             <span>🎁</span> NPC Gift & Friendship Tracker
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
-            Track live friendship points, recurring reward progress bars, and favorite flowers.
+            Track live friendship points, milestone rewards, and favorite flower market prices.
           </p>
         </div>
 
@@ -387,7 +458,6 @@ export function renderNpcCards() {
   const query = document.getElementById('npc-search-input')?.value.toLowerCase().trim() || '';
   const filter = activeLocationFilter;
 
-  // Strict 14 defined NPCs
   const fullNpcList = NPC_CATALOG;
 
   const filteredNpcs = fullNpcList.filter(npc => {
@@ -497,11 +567,11 @@ export function renderNpcCards() {
         </div>
       </div>
 
-      <!-- RECURRING / NEXT MILESTONE PROGRESS BAR -->
+      <!-- MILESTONE PROGRESS BAR WITH EXACT REWARD NAME -->
       <div class="bg-amber-50/80 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-700/40 rounded-lg p-2.5 space-y-1.5">
         <div class="flex justify-between items-center text-[11px] font-bold font-mono">
           <span class="text-sfl-wood dark:text-amber-300">
-            ${progress.isRecurring ? '🔄 Recurring Milestone' : '🎯 Next Milestone'}
+            ${progress.isRecurring ? '🔄 Recurring Reward' : '🎯 Next Reward'}
           </span>
           <span class="text-sfl-dirt dark:text-amber-100 font-extrabold">
             ${progress.currentInTier} / ${progress.tierTotal} pts (${progress.percentage}%)
@@ -517,8 +587,8 @@ export function renderNpcCards() {
           <span class="text-sfl-accent dark:text-amber-400 font-bold">${progress.pointsNeeded} pts needed</span>
         </div>
 
-        <div class="text-[10px] text-sfl-green dark:text-green-400 font-semibold truncate border-t border-amber-200/40 dark:border-amber-700/30 pt-1">
-          🎁 Reward: <strong>${progress.rewardText}</strong>
+        <div class="text-[10px] text-sfl-green dark:text-green-400 font-semibold border-t border-amber-200/40 dark:border-amber-700/30 pt-1 flex items-center gap-1">
+          <span>🎁</span> Reward: <strong class="text-sfl-dirt dark:text-amber-100">${progress.rewardText}</strong>
         </div>
       </div>
 
