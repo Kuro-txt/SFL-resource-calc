@@ -6,6 +6,7 @@ import { initAuth } from './services/auth.js';
 import { PanelManager } from './services/panelManager.js';
 import { initCalculatorPanel } from './panels/calculatorPanel.js';
 import { initCropTrackerPanel } from './panels/cropTrackerPanel.js';
+import { initNpcGiftsPanel, renderNpcCards } from './panels/npcGiftsPanel.js';
 import { initTrackerPanel } from './panels/trackerPanel.js';
 import { initWishlistPanel, renderWishlist } from './panels/wishlistPanel.js';
 import { initTrackingModal } from './modals/trackingModal.js';
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   initCalculatorPanel();
   initCropTrackerPanel();
+  initNpcGiftsPanel();
   initTrackerPanel();
   initWishlistPanel();
   initTrackingModal();
@@ -31,6 +33,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   PanelManager.register('croptracker', {
     onMount: () => console.log("Crop Tracker V1 Active")
+  });
+
+  PanelManager.register('npc', {
+    onMount: () => renderNpcCards()
   });
 
   PanelManager.register('wishlist', {
