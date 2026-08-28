@@ -1,104 +1,179 @@
 import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../utils/formatters.js';
 
+// NPC Catalog with verified Favorite Flowers from SFL
 export const NPC_CATALOG = [
   {
     id: "betty",
     name: "Betty",
     location: "Plaza",
     icon: "👩‍🌾",
-    favorites: ["Carrot Cake", "Pancakes", "Beetroot Salad"]
+    favorites: [
+      "Red Pansy",
+      "Yellow Pansy",
+      "Purple Pansy",
+      "White Pansy",
+      "Blue Pansy"
+    ]
   },
   {
     id: "pumpkin_pete",
     name: "Pumpkin' Pete",
     location: "Plaza",
     icon: "🎃",
-    favorites: ["Pumpkin Soup", "Mashed Potato", "Vegetable Stew"]
+    favorites: [
+      "Yellow Cosmos"
+    ]
   },
   {
     id: "blacksmith",
     name: "Blacksmith",
     location: "Plaza",
     icon: "🔨",
-    favorites: ["Gold", "Iron", "Pickaxe"]
+    favorites: [
+      "Red Carnation"
+    ]
   },
   {
     id: "bert",
     name: "Bert",
     location: "Plaza",
     icon: "🍄",
-    favorites: ["Mushroom Salad", "Mushroom Soup", "Fermented Carrots"]
+    favorites: [
+      "Red Lotus",
+      "Yellow Lotus",
+      "Purple Lotus",
+      "White Lotus",
+      "Blue Lotus"
+    ]
   },
   {
     id: "finley",
     name: "Finley",
     location: "Beach",
     icon: "🎣",
-    favorites: ["Rod", "Red Snapper", "Tuna"]
+    favorites: [
+      "Red Daffodil",
+      "Yellow Daffodil",
+      "Purple Daffodil",
+      "White Daffodil",
+      "Blue Daffodil"
+    ]
   },
   {
     id: "raven",
     name: "Raven",
     location: "Plaza",
     icon: "🧙‍♀️",
-    favorites: ["Goblin Brunch", "Boiled Eggs", "Nightshade"]
+    favorites: [
+      "Purple Carnation",
+      "Purple Lotus",
+      "Purple Daffodil",
+      "Purple Pansy",
+      "Purple Cosmos",
+      "Purple Balloon Flower",
+      "Purple Gladiolus",
+      "Purple Lavender",
+      "Purple Clover",
+      "Purple Edelweiss"
+    ]
   },
   {
     id: "tywin",
     name: "Tywin",
     location: "Plaza",
     icon: "👑",
-    favorites: ["Gold Egg", "Feather", "Gold"]
+    favorites: [
+      "Primula Enigma",
+      "Celestial Frostbloom"
+    ]
   },
   {
     id: "old_salty",
     name: "Old Salty",
     location: "Beach",
     icon: "🏴‍☠️",
-    favorites: ["Salt", "Crab", "Pirate Cake"]
+    favorites: [
+      "Blue Carnation",
+      "Blue Lotus",
+      "Blue Daffodil",
+      "Blue Pansy",
+      "Blue Balloon Flower",
+      "Blue Cosmos",
+      "Blue Gladiolus",
+      "Blue Lavender",
+      "Blue Clover",
+      "Blue Edelweiss"
+    ]
   },
   {
     id: "miranda",
     name: "Miranda",
     location: "Beach",
     icon: "🐚",
-    favorites: ["Orange Juice", "Fruit Salad", "Apple Pie"]
+    favorites: [
+      "Yellow Carnation",
+      "Yellow Lotus",
+      "Yellow Daffodil",
+      "Yellow Pansy",
+      "Yellow Balloon Flower",
+      "Yellow Cosmos",
+      "Yellow Gladiolus",
+      "Yellow Lavender",
+      "Yellow Clover",
+      "Yellow Edelweiss"
+    ]
   },
   {
     id: "finn",
     name: "Finn",
     location: "Beach",
     icon: "🐡",
-    favorites: ["Fish Burger", "Fish and Chips", "Chowder"]
+    favorites: [
+      "White Cosmos",
+      "Blue Cosmos"
+    ]
   },
   {
     id: "corale",
     name: "Corale",
     location: "Beach",
     icon: "🪸",
-    favorites: ["Seaweed", "Clam Shell", "Coral"]
+    favorites: [
+      "Prism Petal"
+    ]
   },
   {
     id: "cornwell",
     name: "Cornwell",
     location: "Plaza",
     icon: "🌽",
-    favorites: ["Cornbread", "Popcorn", "Chowder"]
+    favorites: [
+      "Red Balloon Flower",
+      "Yellow Balloon Flower",
+      "Purple Balloon Flower",
+      "White Balloon Flower",
+      "Blue Balloon Flower"
+    ]
   },
   {
     id: "victoria",
     name: "Victoria",
     location: "Kingdom",
     icon: "👸",
-    favorites: ["Purple Cosmos", "Red Pansy", "Fruit Salad"]
+    favorites: [
+      "Primula Enigma"
+    ]
   },
   {
     id: "jester",
     name: "Jester",
     location: "Kingdom",
     icon: "🃏",
-    favorites: ["Popcorn", "Banana Pop", "Apple"]
+    favorites: [
+      "Red Balloon Flower",
+      "Red Carnation"
+    ]
   }
 ];
 
@@ -141,13 +216,13 @@ export function renderNpcGiftsTemplate() {
             <span>🎁</span> NPC Gift & Friendship Tracker
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
-            Track live friendship points, claimable gifts, and favorite gift costs.
+            Track live friendship points, claimable gifts, and favorite flower market prices.
           </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <!-- SEARCH -->
-          <input type="text" id="npc-search-input" placeholder="Search NPC or Gift..." class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt w-full sm:w-44 focus:ring-1 focus:ring-sfl-gold">
+          <input type="text" id="npc-search-input" placeholder="Search NPC or Flower..." class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt w-full sm:w-44 focus:ring-1 focus:ring-sfl-gold">
 
           <!-- LOCATION FILTER -->
           <select id="npc-location-filter" class="sfl-input rounded-lg px-2 py-1 text-xs font-bold text-sfl-dirt cursor-pointer">
@@ -271,12 +346,12 @@ export function renderNpcCards() {
             <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2 py-1 rounded text-xs">
               <span class="font-bold text-sfl-dirt">${item}</span>
               <span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5">
-                ${price > 0 ? price.toFixed(3) : 'Craft/Farm'} ${FLOWER_IMG_SMALL_HTML}
+                ${price > 0 ? price.toFixed(3) : 'Free/Craft'} ${FLOWER_IMG_SMALL_HTML}
               </span>
             </div>
           `;
         }).join('')
-      : `<span class="text-[10px] text-sfl-woodLight italic">No specific favorites cataloged yet.</span>`;
+      : `<span class="text-[10px] text-sfl-woodLight italic">No favorite flowers cataloged.</span>`;
 
     const card = document.createElement('div');
     card.className = `p-3.5 rounded-xl border-2 transition shadow-sm space-y-3 ${
@@ -324,12 +399,12 @@ export function renderNpcCards() {
         </div>
       </div>
 
-      <!-- FAVORITE GIFTS -->
+      <!-- FAVORITE FLOWERS -->
       <div class="space-y-1.5">
         <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood flex items-center gap-1">
-          <span>⭐</span> Favorite Gifts (Live Price):
+          <span>🌸</span> Favorite Flowers:
         </span>
-        <div class="space-y-1">
+        <div class="space-y-1 max-h-36 overflow-y-auto pr-1">
           ${favoritesHtml}
         </div>
       </div>
