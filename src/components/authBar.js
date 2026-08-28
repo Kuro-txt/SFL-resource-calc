@@ -1,6 +1,7 @@
 import { BACKEND_URL } from '../config/constants.js';
 
 window.farmInventoryData = window.farmInventoryData || {};
+window.farmNpcData = window.farmNpcData || JSON.parse(localStorage.getItem('sfl_farm_npcs') || '{}');
 window.syncCount = window.syncCount || 0;
 window.syncCooldownTimer = window.syncCooldownTimer || null;
 
@@ -32,10 +33,10 @@ export function renderAuthBar() {
         </div>
       </div>
 
-      <!-- GLOBAL FARM SYNC PANEL (Visible across all tabs) -->
+      <!-- GLOBAL FARM SYNC PANEL -->
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder space-y-3 shadow-sm">
         <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
-          <span>🔑</span> SYNC INVENTORY
+          <span>🔑</span> SYNC INVENTORY & NPC GIFTS
         </h3>
         <form onsubmit="return false;" class="space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -51,7 +52,7 @@ export function renderAuthBar() {
             </div>
           </div>
           <button type="button" id="import-farm-btn" class="w-full bg-sfl-wood text-amber-200 font-bold py-2.5 px-3 rounded-lg border-2 border-sfl-dirt text-sm hover:bg-sfl-woodLight transition flex items-center justify-center gap-2 cursor-pointer shadow-xs">
-            🔄 Sync Inventory Now
+            🔄 Sync Inventory & Gifts Now
           </button>
         </form>
         <p id="sync-status" class="text-xs text-center font-bold text-sfl-woodLight min-h-[16px]"></p>
@@ -87,7 +88,7 @@ function startSyncCooldown() {
     } else {
       clearInterval(window.syncCooldownTimer);
       syncBtn.disabled = false;
-      syncBtn.textContent = '🔄 Sync Inventory Now';
+      syncBtn.textContent = '🔄 Sync Inventory & Gifts Now';
     }
   }, 1000);
 }
@@ -124,13 +125,20 @@ export async function handleFarmSync() {
 
     const farmObj = data.farm?.farm || data.farm?.data || data.farm || data;
     window.farmInventoryData = farmObj?.inventory || {};
+    
+    // EXTRACT AND STORE NPC GIFT DATA ONLY
+    window.farmNpcData = farmObj?.npcs || {};
+    localStorage.setItem('sfl_farm_npcs', JSON.stringify(window.farmNpcData));
 
     let totalItemsCount = Object.keys(window.farmInventoryData).length;
+    let totalNpcsCount = Object.keys(window.farmNpcData).length;
 
-    if (totalItemsCount > 0) {
-      if (status) status.textContent = `✅ Synced ${totalItemsCount} item types from Farm #${farmId}!`;
-    } else {
-      if (status) status.textContent = `⚠️ Connected, but no inventory found on farm.`;
+    if (status) {
+      status.textContent = `✅ Synced ${totalItemsCount} items & ${totalNpcsCount} NPCs from Farm #${farmId}!`;
+    }
+
+    if (typeof window.renderNpcCards === 'function') {
+      window.renderNpcCards();
     }
   } catch (err) {
     if (status) status.textContent = err.message;
