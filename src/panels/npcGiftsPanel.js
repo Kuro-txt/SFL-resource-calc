@@ -288,6 +288,18 @@ export const NPC_CATALOG = [
 ];
 
 let activeLocationFilter = 'all';
+let favoriteNpcIds = new Set(JSON.parse(localStorage.getItem('sfl_favorite_npcs') || '[]'));
+
+export function toggleFavoriteNpc(npcId) {
+  if (favoriteNpcIds.has(npcId)) {
+    favoriteNpcIds.delete(npcId);
+  } else {
+    favoriteNpcIds.add(npcId);
+  }
+  localStorage.setItem('sfl_favorite_npcs', JSON.stringify(Array.from(favoriteNpcIds)));
+  renderNpcCards();
+}
+window.toggleFavoriteNpc = toggleFavoriteNpc;
 
 function getNpcFriendship(npcId, liveNpcData) {
   if (!liveNpcData || typeof liveNpcData !== 'object') return {};
@@ -458,9 +470,8 @@ export function renderNpcCards() {
   const query = document.getElementById('npc-search-input')?.value.toLowerCase().trim() || '';
   const filter = activeLocationFilter;
 
-  const fullNpcList = NPC_CATALOG;
-
-  const filteredNpcs = fullNpcList.filter(npc => {
+  // Filter list
+  let filteredNpcs = NPC_CATALOG.filter(npc => {
     const matchesLoc = filter === 'all' || npc.location.toLowerCase() === filter.toLowerCase();
     const matchesQuery = !query || 
       npc.name.toLowerCase().includes(query) || 
@@ -468,10 +479,19 @@ export function renderNpcCards() {
     return matchesLoc && matchesQuery;
   });
 
+  // Sort favorites to the top
+  filteredNpcs.sort((a, b) => {
+    const aFav = favoriteNpcIds.has(a.id);
+    const bFav = favoriteNpcIds.has(b.id);
+    if (aFav && !bFav) return -1;
+    if (!aFav && bFav) return 1;
+    return 0;
+  });
+
   let totalClaimable = 0;
   let totalGiftedToday = 0;
 
-  fullNpcList.forEach(npc => {
+  NPC_CATALOG.forEach(npc => {
     const friendship = getNpcFriendship(npc.id, liveNpcData);
     const points = parseInt(friendship.points || 0, 10);
     const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
@@ -485,9 +505,9 @@ export function renderNpcCards() {
   const claimableEl = document.getElementById('npc-claimable-gifts');
   const todayEl = document.getElementById('npc-gifted-today-count');
 
-  if (countEl) countEl.textContent = `${fullNpcList.length} NPCs`;
+  if (countEl) countEl.textContent = `${NPC_CATALOG.length} NPCs`;
   if (claimableEl) claimableEl.textContent = `${totalClaimable} Ready`;
-  if (todayEl) todayEl.textContent = `${totalGiftedToday} / ${fullNpcList.length}`;
+  if (todayEl) todayEl.textContent = `${totalGiftedToday} / ${NPC_CATALOG.length}`;
 
   if (filteredNpcs.length === 0) {
     grid.innerHTML = `<div class="col-span-full py-8 text-center text-sfl-woodLight italic">No NPCs found matching your criteria.</div>`;
@@ -497,6 +517,7 @@ export function renderNpcCards() {
   grid.innerHTML = '';
 
   filteredNpcs.forEach(npc => {
+    const isFav = favoriteNpcIds.has(npc.id);
     const friendship = getNpcFriendship(npc.id, liveNpcData);
     const points = parseInt(friendship.points || 0, 10);
     const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
@@ -522,7 +543,9 @@ export function renderNpcCards() {
     }).join('');
 
     const card = document.createElement('div');
-    card.className = `p-3.5 rounded-xl border-2 transition shadow-sm space-y-3 ${
+    card.className = `p-3.5 rounded-xl border-2 transition shadow-sm space-y-3 relative ${
+      isFav ? 'ring-2 ring-sfl-gold/60' : ''
+    } ${
       hasClaimableGift 
         ? 'bg-green-50/80 dark:bg-green-950/20 border-sfl-green/60 shadow-md' 
         : 'bg-white/90 dark:bg-amber-950/30 border-sfl-cardBorder'
@@ -534,7 +557,12 @@ export function renderNpcCards() {
         <div class="flex items-center gap-2">
           <span class="text-2xl">${npc.icon}</span>
           <div>
-            <h4 class="font-bold text-sfl-dirt text-sm">${npc.name}</h4>
+            <div class="flex items-center gap-1.5">
+              <h4 class="font-bold text-sfl-dirt text-sm">${npc.name}</h4>
+              <button onclick="toggleFavoriteNpc('${npc.id}')" title="${isFav ? 'Remove Favorite' : 'Favorite NPC'}" class="text-xs transition-transform hover:scale-125 cursor-pointer leading-none">
+                ${isFav ? '⭐' : '☆'}
+              </button>
+            </div>
             <span class="text-[10px] text-sfl-woodLight font-semibold">📍 ${npc.location}</span>
           </div>
         </div>
