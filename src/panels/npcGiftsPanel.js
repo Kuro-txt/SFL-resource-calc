@@ -422,7 +422,7 @@ export function renderNpcGiftsTemplate() {
 
       <!-- OVERVIEW METRICS -->
       <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 shadow-inner">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center items-center">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-center items-center">
           <div>
             <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">NPCs Tracked</span>
             <h2 id="npc-total-count" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-dirt mt-0.5">14</h2>
@@ -430,10 +430,6 @@ export function renderNpcGiftsTemplate() {
           <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
             <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-gold block">⭐ Favorited</span>
             <h2 id="npc-favorited-count" class="text-xl sm:text-2xl font-pixel font-bold text-amber-700 mt-0.5">0</h2>
-          </div>
-          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-green block">Gifts Ready to Claim</span>
-            <h2 id="npc-claimable-gifts" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green mt-0.5">0</h2>
           </div>
         </div>
       </div>
@@ -481,24 +477,11 @@ export function renderNpcCards() {
     return 0;
   });
 
-  let totalClaimable = 0;
-
-  fullNpcList.forEach(npc => {
-    const friendship = getNpcFriendship(npc.id, liveNpcData);
-    const points = parseInt(friendship.points || 0, 10);
-    const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
-    const unclaimed = points - claimedAt;
-
-    if (unclaimed > 0) totalClaimable++;
-  });
-
   const countEl = document.getElementById('npc-total-count');
   const favEl = document.getElementById('npc-favorited-count');
-  const claimableEl = document.getElementById('npc-claimable-gifts');
 
   if (countEl) countEl.textContent = `${fullNpcList.length} NPCs`;
   if (favEl) favEl.textContent = `${favoriteNpcIds.size}`;
-  if (claimableEl) claimableEl.textContent = `${totalClaimable} Ready`;
 
   if (filteredNpcs.length === 0) {
     grid.innerHTML = `<div class="col-span-full py-8 text-center text-sfl-woodLight italic">No NPCs found matching your criteria.</div>`;
@@ -513,7 +496,6 @@ export function renderNpcCards() {
     const points = parseInt(friendship.points || 0, 10);
     const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
     const unclaimed = Math.max(0, points - claimedAt);
-    const hasClaimableGift = unclaimed > 0;
 
     const progress = calculateMilestoneProgress(npc, points);
 
@@ -535,15 +517,11 @@ export function renderNpcCards() {
     const card = document.createElement('div');
     card.className = `p-3.5 rounded-xl border-2 transition shadow-sm space-y-3 relative ${
       isFav ? 'ring-2 ring-sfl-gold/60' : ''
-    } ${
-      hasClaimableGift 
-        ? 'bg-green-50/80 dark:bg-green-950/20 border-sfl-green/60 shadow-md' 
-        : 'bg-white/90 dark:bg-amber-950/30 border-sfl-cardBorder'
-    }`;
+    } bg-white/90 dark:bg-amber-950/30 border-sfl-cardBorder`;
 
     card.innerHTML = `
       <!-- TOP HEADER -->
-      <div class="flex justify-between items-start border-b border-sfl-cardBorder/40 pb-2">
+      <div class="flex justify-between items-center border-b border-sfl-cardBorder/40 pb-2">
         <div class="flex items-center gap-2">
           <span class="text-2xl">${npc.icon}</span>
           <div>
@@ -555,14 +533,6 @@ export function renderNpcCards() {
             </div>
             <span class="text-[10px] text-sfl-woodLight font-semibold">📍 ${npc.location}</span>
           </div>
-        </div>
-
-        <div class="flex items-center">
-          ${
-            hasClaimableGift 
-              ? `<span class="bg-sfl-green text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-xs animate-pulse">🎁 Gift Ready!</span>`
-              : `<span class="bg-amber-100 dark:bg-amber-900/50 text-sfl-wood text-[10px] font-bold px-2 py-0.5 rounded-md border border-sfl-cardBorder/50">Up to date</span>`
-          }
         </div>
       </div>
 
