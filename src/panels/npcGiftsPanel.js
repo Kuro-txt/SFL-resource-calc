@@ -1,7 +1,6 @@
 import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
-import { normalizeItemKey } from '../utils/formatters.js';
+import { normalizeItemKey, getBettyUnitPrice } from '../utils/formatters.js';
 
-// Base NPC Catalog mapped to SFL NPC Keys
 export const NPC_CATALOG = [
   {
     id: "betty",
@@ -120,6 +119,12 @@ function getItemFlowerPrice(cleanKey) {
       if (rawPrice > 0) return rawPrice > 100 ? rawPrice / 1000 : rawPrice;
     }
   }
+
+  const bettyPrice = getBettyUnitPrice(cleanKey);
+  if (bettyPrice !== null && bettyPrice > 0) {
+    return bettyPrice;
+  }
+
   return 0;
 }
 
@@ -198,7 +203,6 @@ export function renderNpcCards() {
   const query = document.getElementById('npc-search-input')?.value.toLowerCase().trim() || '';
   const filter = activeLocationFilter;
 
-  // Build combined catalog from standard catalog + any newly discovered NPCs in the API response
   const knownIds = new Set(NPC_CATALOG.map(n => n.id));
   const fullNpcList = [...NPC_CATALOG];
 
@@ -259,7 +263,6 @@ export function renderNpcCards() {
     const hasClaimableGift = unclaimed > 0;
     const giftedToday = isInteractionToday(friendship.updatedAt);
 
-    // Build favorite items list
     const favoritesHtml = npc.favorites.length > 0
       ? npc.favorites.map(item => {
           const cleanKey = normalizeItemKey(item);
