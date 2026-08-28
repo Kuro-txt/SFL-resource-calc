@@ -319,13 +319,6 @@ function getNpcFriendship(npcId, liveNpcData) {
   return {};
 }
 
-function isInteractionToday(updatedAtMs) {
-  if (!updatedAtMs) return false;
-  const interactionDate = new Date(updatedAtMs).toISOString().split('T')[0];
-  const todayDate = new Date().toISOString().split('T')[0];
-  return interactionDate === todayDate;
-}
-
 function getItemFlowerPrice(cleanKey) {
   if (window.allPrices) {
     let matchedKey = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanKey);
@@ -435,12 +428,12 @@ export function renderNpcGiftsTemplate() {
             <h2 id="npc-total-count" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-dirt mt-0.5">14</h2>
           </div>
           <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-green block">Gifts Ready to Claim</span>
-            <h2 id="npc-claimable-gifts" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green mt-0.5">0</h2>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-gold block">⭐ Favorited</span>
+            <h2 id="npc-favorited-count" class="text-xl sm:text-2xl font-pixel font-bold text-amber-700 mt-0.5">0</h2>
           </div>
           <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Gifted Today (UTC)</span>
-            <h2 id="npc-gifted-today-count" class="text-xl sm:text-2xl font-pixel font-bold text-amber-700 mt-0.5">0</h2>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-green block">Gifts Ready to Claim</span>
+            <h2 id="npc-claimable-gifts" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green mt-0.5">0</h2>
           </div>
         </div>
       </div>
@@ -470,8 +463,9 @@ export function renderNpcCards() {
   const query = document.getElementById('npc-search-input')?.value.toLowerCase().trim() || '';
   const filter = activeLocationFilter;
 
-  // Filter list
-  let filteredNpcs = NPC_CATALOG.filter(npc => {
+  const fullNpcList = NPC_CATALOG;
+
+  const filteredNpcs = fullNpcList.filter(npc => {
     const matchesLoc = filter === 'all' || npc.location.toLowerCase() === filter.toLowerCase();
     const matchesQuery = !query || 
       npc.name.toLowerCase().includes(query) || 
@@ -479,7 +473,6 @@ export function renderNpcCards() {
     return matchesLoc && matchesQuery;
   });
 
-  // Sort favorites to the top
   filteredNpcs.sort((a, b) => {
     const aFav = favoriteNpcIds.has(a.id);
     const bFav = favoriteNpcIds.has(b.id);
@@ -489,25 +482,23 @@ export function renderNpcCards() {
   });
 
   let totalClaimable = 0;
-  let totalGiftedToday = 0;
 
-  NPC_CATALOG.forEach(npc => {
+  fullNpcList.forEach(npc => {
     const friendship = getNpcFriendship(npc.id, liveNpcData);
     const points = parseInt(friendship.points || 0, 10);
     const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
     const unclaimed = points - claimedAt;
 
     if (unclaimed > 0) totalClaimable++;
-    if (isInteractionToday(friendship.updatedAt)) totalGiftedToday++;
   });
 
   const countEl = document.getElementById('npc-total-count');
+  const favEl = document.getElementById('npc-favorited-count');
   const claimableEl = document.getElementById('npc-claimable-gifts');
-  const todayEl = document.getElementById('npc-gifted-today-count');
 
-  if (countEl) countEl.textContent = `${NPC_CATALOG.length} NPCs`;
+  if (countEl) countEl.textContent = `${fullNpcList.length} NPCs`;
+  if (favEl) favEl.textContent = `${favoriteNpcIds.size}`;
   if (claimableEl) claimableEl.textContent = `${totalClaimable} Ready`;
-  if (todayEl) todayEl.textContent = `${totalGiftedToday} / ${NPC_CATALOG.length}`;
 
   if (filteredNpcs.length === 0) {
     grid.innerHTML = `<div class="col-span-full py-8 text-center text-sfl-woodLight italic">No NPCs found matching your criteria.</div>`;
@@ -523,7 +514,6 @@ export function renderNpcCards() {
     const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
     const unclaimed = Math.max(0, points - claimedAt);
     const hasClaimableGift = unclaimed > 0;
-    const giftedToday = isInteractionToday(friendship.updatedAt);
 
     const progress = calculateMilestoneProgress(npc, points);
 
@@ -567,15 +557,12 @@ export function renderNpcCards() {
           </div>
         </div>
 
-        <div class="flex flex-col items-end gap-1">
+        <div class="flex items-center">
           ${
             hasClaimableGift 
               ? `<span class="bg-sfl-green text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-xs animate-pulse">🎁 Gift Ready!</span>`
               : `<span class="bg-amber-100 dark:bg-amber-900/50 text-sfl-wood text-[10px] font-bold px-2 py-0.5 rounded-md border border-sfl-cardBorder/50">Up to date</span>`
           }
-          <span class="text-[9px] font-mono ${giftedToday ? 'text-sfl-green font-bold' : 'text-sfl-woodLight'}">
-            ${giftedToday ? '✅ Gifted Today' : '⏳ Not Gifted Today'}
-          </span>
         </div>
       </div>
 
