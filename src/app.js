@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     onMount: () => renderWishlist()
   });
 
+  // Initializes tabs and restores last opened tab automatically
   PanelManager.initTabs();
 
   await initAuth();
