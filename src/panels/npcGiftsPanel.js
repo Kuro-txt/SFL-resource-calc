@@ -149,6 +149,7 @@ export function renderNpcGiftsTemplate() {
             <option value="all">📍 All Locations</option>
             <option value="Plaza">Plaza</option>
             <option value="Beach">Beach</option>
+            <option value="Kingdom">Kingdom</option>
             <option value="Desert">Desert</option>
           </select>
         </div>
