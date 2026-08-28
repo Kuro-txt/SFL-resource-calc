@@ -3,18 +3,104 @@ import { normalizeItemKey } from '../utils/formatters.js';
 
 // Base NPC Catalog mapped to SFL NPC Keys
 export const NPC_CATALOG = [
-  { id: "blacksmith", name: "Blacksmith", location: "Plaza", icon: "🔨", favorites: ["Gold", "Iron", "Pickaxe"] },
-  { id: "pumpkin_pete", name: "Pumpkin Pete", location: "Plaza", icon: "🎃", favorites: ["Mashed Potato", "Pumpkin Soup", "Vegetable Stew"] },
-  { id: "hank", name: "Hank", location: "Plaza", icon: "🤠", favorites: ["Club Sandwich", "Roast Veggies", "Sunflower Crunch"] },
-  { id: "corny", name: "Corny", location: "Plaza", icon: "🌽", favorites: ["Popcorn", "Cornbread"] },
-  { id: "raven", name: "Raven", location: "Plaza", icon: "🧙‍♀️", favorites: ["Goblin Brunch", "Boiled Eggs"] },
-  { id: "tywin", name: "Tywin", location: "Plaza", icon: "👑", favorites: ["Gold Egg", "Feather"] },
-  { id: "bert", name: "Bert", location: "Plaza", icon: "🍄", favorites: ["Mushroom Salad", "Mushroom Soup"] },
-  { id: "finn", name: "Finn", location: "Beach", icon: "🎣", favorites: ["Fish Burger", "Fish and Chips", "Chowder"] },
-  { id: "miranda", name: "Miranda", location: "Beach", icon: "🐚", favorites: ["Fruit Salad", "Orange Juice"] },
-  { id: "tango", name: "Tango", location: "Desert", icon: "🐒", favorites: ["Banana Pop", "Fruit Salad"] },
-  { id: "gregor", name: "Gregor", location: "Plaza", icon: "🧑‍🌾", favorites: ["Carrot Cake", "Cabbage Soup"] },
-  { id: "craig", name: "Craig", location: "Plaza", icon: "🪓", favorites: ["Wood", "Axe"] }
+  {
+    id: "betty",
+    name: "Betty",
+    location: "Plaza",
+    icon: "👩‍🌾",
+    favorites: ["Carrot Cake", "Pancakes", "Beetroot Salad"]
+  },
+  {
+    id: "pumpkin_pete",
+    name: "Pumpkin' Pete",
+    location: "Plaza",
+    icon: "🎃",
+    favorites: ["Pumpkin Soup", "Mashed Potato", "Vegetable Stew"]
+  },
+  {
+    id: "blacksmith",
+    name: "Blacksmith",
+    location: "Plaza",
+    icon: "🔨",
+    favorites: ["Gold", "Iron", "Pickaxe"]
+  },
+  {
+    id: "bert",
+    name: "Bert",
+    location: "Plaza",
+    icon: "🍄",
+    favorites: ["Mushroom Salad", "Mushroom Soup", "Fermented Carrots"]
+  },
+  {
+    id: "finley",
+    name: "Finley",
+    location: "Beach",
+    icon: "🎣",
+    favorites: ["Rod", "Red Snapper", "Tuna"]
+  },
+  {
+    id: "raven",
+    name: "Raven",
+    location: "Plaza",
+    icon: "🧙‍♀️",
+    favorites: ["Goblin Brunch", "Boiled Eggs", "Nightshade"]
+  },
+  {
+    id: "tywin",
+    name: "Tywin",
+    location: "Plaza",
+    icon: "👑",
+    favorites: ["Gold Egg", "Feather", "Gold"]
+  },
+  {
+    id: "old_salty",
+    name: "Old Salty",
+    location: "Beach",
+    icon: "🏴‍☠️",
+    favorites: ["Salt", "Crab", "Pirate Cake"]
+  },
+  {
+    id: "miranda",
+    name: "Miranda",
+    location: "Beach",
+    icon: "🐚",
+    favorites: ["Orange Juice", "Fruit Salad", "Apple Pie"]
+  },
+  {
+    id: "finn",
+    name: "Finn",
+    location: "Beach",
+    icon: "🐡",
+    favorites: ["Fish Burger", "Fish and Chips", "Chowder"]
+  },
+  {
+    id: "corale",
+    name: "Corale",
+    location: "Beach",
+    icon: "🪸",
+    favorites: ["Seaweed", "Clam Shell", "Coral"]
+  },
+  {
+    id: "cornwell",
+    name: "Cornwell",
+    location: "Plaza",
+    icon: "🌽",
+    favorites: ["Cornbread", "Popcorn", "Chowder"]
+  },
+  {
+    id: "victoria",
+    name: "Victoria",
+    location: "Kingdom",
+    icon: "👸",
+    favorites: ["Purple Cosmos", "Red Pansy", "Fruit Salad"]
+  },
+  {
+    id: "jester",
+    name: "Jester",
+    location: "Kingdom",
+    icon: "🃏",
+    favorites: ["Popcorn", "Banana Pop", "Apple"]
+  }
 ];
 
 let activeLocationFilter = 'all';
