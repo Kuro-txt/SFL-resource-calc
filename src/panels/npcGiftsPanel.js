@@ -342,12 +342,14 @@ export function renderNpcCards() {
       ? npc.favorites.map(item => {
           const cleanKey = normalizeItemKey(item);
           const price = getItemFlowerPrice(cleanKey);
+          const priceBadge = price > 0
+            ? `<span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5">${price.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>`
+            : '';
+
           return `
             <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2 py-1 rounded text-xs">
               <span class="font-bold text-sfl-dirt">${item}</span>
-              <span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5">
-                ${price > 0 ? price.toFixed(3) : 'Free/Craft'} ${FLOWER_IMG_SMALL_HTML}
-              </span>
+              ${priceBadge}
             </div>
           `;
         }).join('')
