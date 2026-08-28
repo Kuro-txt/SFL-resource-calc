@@ -1,5 +1,5 @@
 const panels = {};
-let activePanelId = 'calc';
+let activePanelId = null;
 
 export const PanelManager = {
   register(id, { onMount, onUnmount } = {}) {
@@ -7,13 +7,16 @@ export const PanelManager = {
   },
 
   switch(targetId) {
+    const validTabs = ['calc', 'croptracker', 'npc', 'wishlist'];
+    if (!validTabs.includes(targetId)) {
+      targetId = 'calc';
+    }
+
     if (activePanelId && panels[activePanelId]?.onUnmount) {
       panels[activePanelId].onUnmount();
     }
 
-    const panelIds = ['calc', 'croptracker', 'npc', 'wishlist'];
-
-    panelIds.forEach(id => {
+    validTabs.forEach(id => {
       let sectionId = `${id}-section`;
       if (id === 'croptracker') sectionId = 'crop-tracker-section';
       if (id === 'npc') sectionId = 'npc-gifts-section';
@@ -35,6 +38,7 @@ export const PanelManager = {
     });
 
     activePanelId = targetId;
+    localStorage.setItem('sfl_active_tab', targetId);
 
     if (panels[targetId]?.onMount) {
       panels[targetId].onMount();
@@ -46,5 +50,9 @@ export const PanelManager = {
     document.getElementById('tab-croptracker-btn')?.addEventListener('click', () => this.switch('croptracker'));
     document.getElementById('tab-npc-btn')?.addEventListener('click', () => this.switch('npc'));
     document.getElementById('tab-wishlist-btn')?.addEventListener('click', () => this.switch('wishlist'));
+
+    // Restore the last opened tab or default to 'calc'
+    const savedTab = localStorage.getItem('sfl_active_tab') || 'calc';
+    this.switch(savedTab);
   }
 };
