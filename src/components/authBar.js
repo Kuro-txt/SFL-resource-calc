@@ -125,8 +125,6 @@ export async function handleFarmSync() {
 
     const farmObj = data.farm?.farm || data.farm?.data || data.farm || data;
     window.farmInventoryData = farmObj?.inventory || {};
-    
-    // EXTRACT AND STORE NPC GIFT DATA ONLY
     window.farmNpcData = farmObj?.npcs || {};
     localStorage.setItem('sfl_farm_npcs', JSON.stringify(window.farmNpcData));
 
