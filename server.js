@@ -9,7 +9,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-
 app.use(express.static(path.join(__dirname)));
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://gtvglgeoznnrsdcfazpc.supabase.co";
@@ -19,7 +18,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
 const SFL_API_KEY = process.env.SFL_API_KEY || "";
 
-// 23 standard plantable plot crops (strictly isolated for Crop Tracker v1)
 const SFL_PLOT_CROPS = new Set([
   'sunflower', 'potato', 'pumpkin', 'carrot', 'cabbage',
   'beetroot', 'cauliflower', 'parsnip', 'eggplant', 'corn',
@@ -57,7 +55,6 @@ function getSflHeaders() {
   return headers;
 }
 
-// Retries up to 5 times on 429 Rate Limits, 5xx Server Errors, Timeouts, Aborts, & Dropped Connections
 async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 5) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -68,7 +65,8 @@ async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 5) {
       const farmObj = response.data?.farm || response.data || {};
       const inventory = farmObj.inventory || {};
       const farmActivity = farmObj.farmActivity || farmObj.activity || {};
-      return { inventory, farmActivity };
+      const npcs = farmObj.npcs || {};
+      return { inventory, farmActivity, npcs };
     } catch (err) {
       const status = err.response?.status;
       const errMsg = (err.message || '').toLowerCase();
@@ -101,7 +99,7 @@ async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 5) {
       }
     }
   }
-  return { inventory: {}, farmActivity: {} };
+  return { inventory: {}, farmActivity: {}, npcs: {} };
 }
 
 function getStockAmount(stockObj, targetCleanKey) {
@@ -161,8 +159,8 @@ app.get('/api/get-farm', async (req, res) => {
 
   const cleanFarmId = String(farmId).trim();
   try {
-    const { inventory, farmActivity } = await fetchFarmFullDataWithRetry(cleanFarmId);
-    res.json({ success: true, farm: { inventory, farmActivity } });
+    const { inventory, farmActivity, npcs } = await fetchFarmFullDataWithRetry(cleanFarmId);
+    res.json({ success: true, farm: { inventory, farmActivity, npcs } });
   } catch (err) {
     res.status(err.response?.status || 500).json({ error: err.message });
   }
@@ -179,12 +177,12 @@ app.get('/api/nfts', async (req, res) => {
 
     if (typeof rawData === 'string') {
       if (rawData.includes('<!DOCTYPE html>') || rawData.includes('Cloudflare')) {
-        throw new Error("Cloudflare blocked Render IP and returned an HTML challenge page");
+        throw new Error("Cloudflare challenge page returned");
       }
       try {
         rawData = JSON.parse(rawData);
       } catch (e) {
-        throw new Error("Received non-JSON response string from sfl.world");
+        throw new Error("Received non-JSON response from price service");
       }
     }
 
@@ -220,12 +218,9 @@ app.get('/api/nfts', async (req, res) => {
     });
 
     const finalNFTs = Array.from(uniqueMap.values());
+    if (finalNFTs.length > 0) return res.json(finalNFTs);
 
-    if (finalNFTs.length > 0) {
-      return res.json(finalNFTs);
-    }
-
-    throw new Error("0 NFT items could be parsed from live response");
+    throw new Error("Parsed items array is empty");
   } catch (err) {
     res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });
   }
@@ -261,7 +256,7 @@ async function processBaselineSnapshot() {
       if (dbError) {
         console.error(`❌ [Supabase DB Error] Baseline save failed for Farm #${cleanFarmId}: ${dbError.message}`);
       } else {
-        console.log(`✅ 00:00 UTC Baseline + FarmActivity saved for Farm #${cleanFarmId} on ${todayDate}`);
+        console.log(`✅ 00:00 UTC Baseline saved for Farm #${cleanFarmId} on ${todayDate}`);
       }
     } catch (err) {
       console.error(`❌ Failed baseline snapshot for Farm #${cleanFarmId}: ${err.message}`);
@@ -272,7 +267,7 @@ async function processBaselineSnapshot() {
 }
 
 async function processYieldCalculation() {
-  console.log("🔍 [CRON 22:00 UTC] Starting yield & crop activity calculation process...");
+  console.log("🔍 [CRON 22:00 UTC] Starting yield calculation process...");
   const todayDate = new Date().toISOString().split('T')[0];
   const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items, crop_base_yields');
 
@@ -305,16 +300,15 @@ async function processYieldCalculation() {
       .eq('snapshot_date', todayDate)
       .maybeSingle();
 
-    // STRICT CHECK: Skip calculation if baseline is missing for today
     if (baselineErr || !baselineRecord || !baselineRecord.farm_activity || Object.keys(baselineRecord.farm_activity).length === 0) {
-      console.warn(`⚠️ Skipped 22:00 UTC calculation for Farm #${cleanFarmId}: Baseline or farmActivity for ${todayDate} not found.`);
+      console.warn(`⚠️ Skipped 22:00 UTC calculation for Farm #${cleanFarmId}: Baseline for ${todayDate} not found.`);
       continue;
     }
 
     const baselineStock = baselineRecord.stock || {};
     const baseActivity = baselineRecord.farm_activity || {};
 
-    let currentData = { inventory: {}, farmActivity: {} };
+    let currentData = { inventory: {}, farmActivity: {}, npcs: {} };
     try {
       currentData = await fetchFarmFullDataWithRetry(cleanFarmId);
     } catch (err) {
@@ -323,7 +317,6 @@ async function processYieldCalculation() {
       continue;
     }
 
-    // 1. Calculate Inventory Yield Differences
     let yieldsList = [];
     let totalHarvestCount = 0;
     let totalNetFlowers = 0;
@@ -354,7 +347,6 @@ async function processYieldCalculation() {
       });
     }
 
-    // 2. Calculate FarmActivity Crop Harvest Differences (Exclusively for SFL 23 Plot Crops)
     const baseYields = user.crop_base_yields || {};
     const currActivity = currentData.farmActivity || {};
     let cropActivityYields = [];
@@ -364,7 +356,6 @@ async function processYieldCalculation() {
         let cropName = actKey.replace(/harvested/i, '').trim();
         let cleanCropKey = cropName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-        // Strict 23 plot crop filter (excludes flowers, fruits, and exotics)
         if (!SFL_PLOT_CROPS.has(cleanCropKey)) continue;
 
         let startCount = parseFloat(baseActivity[actKey] || 0);
@@ -408,7 +399,7 @@ async function processYieldCalculation() {
     if (dbError) {
       console.error(`❌ [Supabase DB Error] Yield save failed for Farm #${cleanFarmId}: ${dbError.message}`);
     } else {
-      console.log(`✅ 22:00 UTC Yield + Crop Activity saved for Farm #${cleanFarmId} on ${todayDate}`);
+      console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
     }
 
     await delay(4500);
