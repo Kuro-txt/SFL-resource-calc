@@ -1,7 +1,7 @@
 import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../utils/formatters.js';
 
-// NPC Catalog with exact milestone thresholds and recurring rewards
+// Strict catalog of the 14 Gift NPCs
 export const NPC_CATALOG = [
   {
     id: "betty",
@@ -245,7 +245,6 @@ function getItemFlowerPrice(cleanKey) {
   return 0;
 }
 
-// Computes next milestone, current tier progress, points needed, and percentage
 function calculateMilestoneProgress(npc, points) {
   const milestones = npc.milestones || [];
   const baseCap = milestones.length > 0 ? milestones[milestones.length - 1] : 0;
@@ -322,7 +321,6 @@ export function renderNpcGiftsTemplate() {
             <option value="Plaza">Plaza</option>
             <option value="Beach">Beach</option>
             <option value="Kingdom">Kingdom</option>
-            <option value="Desert">Desert</option>
           </select>
         </div>
       </div>
@@ -332,7 +330,7 @@ export function renderNpcGiftsTemplate() {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center items-center">
           <div>
             <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">NPCs Tracked</span>
-            <h2 id="npc-total-count" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-dirt mt-0.5">0</h2>
+            <h2 id="npc-total-count" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-dirt mt-0.5">14</h2>
           </div>
           <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
             <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-green block">Gifts Ready to Claim</span>
@@ -370,24 +368,8 @@ export function renderNpcCards() {
   const query = document.getElementById('npc-search-input')?.value.toLowerCase().trim() || '';
   const filter = activeLocationFilter;
 
-  const knownIds = new Set(NPC_CATALOG.map(n => n.id));
-  const fullNpcList = [...NPC_CATALOG];
-
-  Object.keys(liveNpcData).forEach(apiId => {
-    if (!knownIds.has(apiId)) {
-      const cleanName = apiId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      fullNpcList.push({
-        id: apiId,
-        name: cleanName,
-        location: "Plaza",
-        icon: "👤",
-        milestones: [50, 100],
-        repeatInterval: 100,
-        repeatReward: "Mystery Gift",
-        favorites: []
-      });
-    }
-  });
+  // Strict list: Only the 14 defined NPCs
+  const fullNpcList = NPC_CATALOG;
 
   const filteredNpcs = fullNpcList.filter(npc => {
     const matchesLoc = filter === 'all' || npc.location.toLowerCase() === filter.toLowerCase();
@@ -433,25 +415,22 @@ export function renderNpcCards() {
     const hasClaimableGift = unclaimed > 0;
     const giftedToday = isInteractionToday(friendship.updatedAt);
 
-    // Compute progress stats for the progress bar
     const progress = calculateMilestoneProgress(npc, points);
 
-    const favoritesHtml = npc.favorites.length > 0
-      ? npc.favorites.map(item => {
-          const cleanKey = normalizeItemKey(item);
-          const price = getItemFlowerPrice(cleanKey);
-          const priceBadge = price > 0
-            ? `<span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5">${price.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>`
-            : '';
+    const favoritesHtml = npc.favorites.map(item => {
+      const cleanKey = normalizeItemKey(item);
+      const price = getItemFlowerPrice(cleanKey);
+      const priceBadge = price > 0
+        ? `<span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5">${price.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>`
+        : '';
 
-          return `
-            <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2 py-1 rounded text-xs">
-              <span class="font-bold text-sfl-dirt">${item}</span>
-              ${priceBadge}
-            </div>
-          `;
-        }).join('')
-      : `<span class="text-[10px] text-sfl-woodLight italic">No favorite flowers cataloged.</span>`;
+      return `
+        <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2 py-1 rounded text-xs">
+          <span class="font-bold text-sfl-dirt">${item}</span>
+          ${priceBadge}
+        </div>
+      `;
+    }).join('');
 
     const card = document.createElement('div');
     card.className = `p-3.5 rounded-xl border-2 transition shadow-sm space-y-3 ${
