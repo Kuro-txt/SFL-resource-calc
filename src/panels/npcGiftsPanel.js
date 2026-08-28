@@ -1,7 +1,7 @@
 import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../utils/formatters.js';
 
-// Strict catalog of 14 NPCs with verified Milestone Rewards & Favorite Flowers with exact points
+// Strict catalog of 14 NPCs with verified Milestone Rewards & Total Flower Point values
 export const NPC_CATALOG = [
   {
     id: "betty",
@@ -17,11 +17,11 @@ export const NPC_CATALOG = [
     repeatInterval: 100,
     repeatReward: "Treasure Key: 1",
     favorites: [
-      { name: "Red Pansy", pts: "+5 (8)" },
-      { name: "Yellow Pansy", pts: "+5 (8)" },
-      { name: "Purple Pansy", pts: "+5 (8)" },
-      { name: "White Pansy", pts: "+5 (8)" },
-      { name: "Blue Pansy", pts: "+5 (8)" }
+      { name: "Red Pansy", pts: 8 },
+      { name: "Yellow Pansy", pts: 8 },
+      { name: "Purple Pansy", pts: 8 },
+      { name: "White Pansy", pts: 8 },
+      { name: "Blue Pansy", pts: 8 }
     ]
   },
   {
@@ -38,7 +38,7 @@ export const NPC_CATALOG = [
     repeatInterval: 100,
     repeatReward: "Coins: 640, Treasure Key: 1",
     favorites: [
-      { name: "Yellow Cosmos", pts: "+6 (9)" }
+      { name: "Yellow Cosmos", pts: 9 }
     ]
   },
   {
@@ -55,7 +55,7 @@ export const NPC_CATALOG = [
     repeatInterval: 150,
     repeatReward: "Coins: 960, Treasure Key: 1",
     favorites: [
-      { name: "Red Carnation", pts: "+5 (10)" }
+      { name: "Red Carnation", pts: 10 }
     ]
   },
   {
@@ -72,11 +72,11 @@ export const NPC_CATALOG = [
     repeatInterval: 150,
     repeatReward: "Rare Key: 1",
     favorites: [
-      { name: "Red Lotus", pts: "+6 (13)" },
-      { name: "Yellow Lotus", pts: "+6 (13)" },
-      { name: "Purple Lotus", pts: "+6 (13)" },
-      { name: "White Lotus", pts: "+6 (13)" },
-      { name: "Blue Lotus", pts: "+6 (13)" }
+      { name: "Red Lotus", pts: 13 },
+      { name: "Yellow Lotus", pts: 13 },
+      { name: "Purple Lotus", pts: 13 },
+      { name: "White Lotus", pts: 13 },
+      { name: "Blue Lotus", pts: 13 }
     ]
   },
   {
@@ -92,11 +92,11 @@ export const NPC_CATALOG = [
     repeatInterval: 100,
     repeatReward: "Fishing Lure: 5",
     favorites: [
-      { name: "Red Daffodil", pts: "+5 (12)" },
-      { name: "Yellow Daffodil", pts: "+5 (12)" },
-      { name: "Purple Daffodil", pts: "+5 (12)" },
-      { name: "White Daffodil", pts: "+5 (12)" },
-      { name: "Blue Daffodil", pts: "+5 (12)" }
+      { name: "Red Daffodil", pts: 12 },
+      { name: "Yellow Daffodil", pts: 12 },
+      { name: "Purple Daffodil", pts: 12 },
+      { name: "White Daffodil", pts: 12 },
+      { name: "Blue Daffodil", pts: 12 }
     ]
   },
   {
@@ -114,16 +114,16 @@ export const NPC_CATALOG = [
     repeatInterval: 160,
     repeatReward: "Rare Key: 1",
     favorites: [
-      { name: "Purple Carnation", pts: "+6 (11)" },
-      { name: "Purple Lotus", pts: "+5 (12)" },
-      { name: "Purple Daffodil", pts: "+4 (11)" },
-      { name: "Purple Pansy", pts: "+4 (7)" },
-      { name: "Purple Cosmos", pts: "+4 (7)" },
-      { name: "Purple Balloon Flower", pts: "+4 (9)" },
-      { name: "Purple Gladiolus", pts: "+3 (7)" },
-      { name: "Purple Lavender", pts: "+4 (8)" },
-      { name: "Purple Clover", pts: "+3 (7)" },
-      { name: "Purple Edelweiss", pts: "+4 (8)" }
+      { name: "Purple Carnation", pts: 11 },
+      { name: "Purple Lotus", pts: 12 },
+      { name: "Purple Daffodil", pts: 11 },
+      { name: "Purple Pansy", pts: 7 },
+      { name: "Purple Cosmos", pts: 7 },
+      { name: "Purple Balloon Flower", pts: 9 },
+      { name: "Purple Gladiolus", pts: 7 },
+      { name: "Purple Lavender", pts: 8 },
+      { name: "Purple Clover", pts: 7 },
+      { name: "Purple Edelweiss", pts: 8 }
     ]
   },
   {
@@ -139,8 +139,8 @@ export const NPC_CATALOG = [
     repeatInterval: 160,
     repeatReward: "Luxury Key: 1",
     favorites: [
-      { name: "Primula Enigma", pts: "+7 (19)" },
-      { name: "Celestial Frostbloom", pts: "+6 (18)" }
+      { name: "Primula Enigma", pts: 19 },
+      { name: "Celestial Frostbloom", pts: 18 }
     ]
   },
   {
@@ -157,16 +157,16 @@ export const NPC_CATALOG = [
     repeatInterval: 250,
     repeatReward: "Coins: 2500",
     favorites: [
-      { name: "Blue Carnation", pts: "+6 (11)" },
-      { name: "Blue Lotus", pts: "+5 (12)" },
-      { name: "Blue Daffodil", pts: "+4 (11)" },
-      { name: "Blue Pansy", pts: "+4 (7)" },
-      { name: "Blue Balloon Flower", pts: "+5 (10)" },
-      { name: "Blue Cosmos", pts: "+4 (7)" },
-      { name: "Blue Gladiolus", pts: "+4 (8)" },
-      { name: "Blue Lavender", pts: "+3 (7)" },
-      { name: "Blue Clover", pts: "+4 (8)" },
-      { name: "Blue Edelweiss", pts: "+3 (7)" }
+      { name: "Blue Carnation", pts: 11 },
+      { name: "Blue Lotus", pts: 12 },
+      { name: "Blue Daffodil", pts: 11 },
+      { name: "Blue Pansy", pts: 7 },
+      { name: "Blue Balloon Flower", pts: 10 },
+      { name: "Blue Cosmos", pts: 7 },
+      { name: "Blue Gladiolus", pts: 8 },
+      { name: "Blue Lavender", pts: 7 },
+      { name: "Blue Clover", pts: 8 },
+      { name: "Blue Edelweiss", pts: 7 }
     ]
   },
   {
@@ -183,16 +183,16 @@ export const NPC_CATALOG = [
     repeatInterval: 100,
     repeatReward: "Blueberry Seed: 5, Apple Seed: 5, Banana Plant: 5, Orange Seed: 5",
     favorites: [
-      { name: "Yellow Carnation", pts: "+6 (11)" },
-      { name: "Yellow Lotus", pts: "+5 (12)" },
-      { name: "Yellow Daffodil", pts: "+4 (11)" },
-      { name: "Yellow Pansy", pts: "+4 (7)" },
-      { name: "Yellow Balloon Flower", pts: "+5 (10)" },
-      { name: "Yellow Cosmos", pts: "+4 (7)" },
-      { name: "Yellow Gladiolus", pts: "+4 (8)" },
-      { name: "Yellow Lavender", pts: "+4 (8)" },
-      { name: "Yellow Clover", pts: "+4 (8)" },
-      { name: "Yellow Edelweiss", pts: "+4 (8)" }
+      { name: "Yellow Carnation", pts: 11 },
+      { name: "Yellow Lotus", pts: 12 },
+      { name: "Yellow Daffodil", pts: 11 },
+      { name: "Yellow Pansy", pts: 7 },
+      { name: "Yellow Balloon Flower", pts: 10 },
+      { name: "Yellow Cosmos", pts: 7 },
+      { name: "Yellow Gladiolus", pts: 8 },
+      { name: "Yellow Lavender", pts: 8 },
+      { name: "Yellow Clover", pts: 8 },
+      { name: "Yellow Edelweiss", pts: 8 }
     ]
   },
   {
@@ -207,8 +207,8 @@ export const NPC_CATALOG = [
     repeatInterval: 130,
     repeatReward: "Rare Key: 1",
     favorites: [
-      { name: "White Cosmos", pts: "+5 (8)" },
-      { name: "Blue Cosmos", pts: "+5 (8)" }
+      { name: "White Cosmos", pts: 8 },
+      { name: "Blue Cosmos", pts: 8 }
     ]
   },
   {
@@ -224,7 +224,7 @@ export const NPC_CATALOG = [
     repeatInterval: 200,
     repeatReward: "Coins: 3200",
     favorites: [
-      { name: "Prism Petal", pts: "+6 (18)" }
+      { name: "Prism Petal", pts: 18 }
     ]
   },
   {
@@ -241,11 +241,11 @@ export const NPC_CATALOG = [
     repeatInterval: 200,
     repeatReward: "Luxury Key: 1",
     favorites: [
-      { name: "Red Balloon Flower", pts: "+5 (10)" },
-      { name: "Yellow Balloon Flower", pts: "+5 (10)" },
-      { name: "Purple Balloon Flower", pts: "+5 (10)" },
-      { name: "White Balloon Flower", pts: "+5 (10)" },
-      { name: "Blue Balloon Flower", pts: "+5 (10)" }
+      { name: "Red Balloon Flower", pts: 10 },
+      { name: "Yellow Balloon Flower", pts: 10 },
+      { name: "Purple Balloon Flower", pts: 10 },
+      { name: "White Balloon Flower", pts: 10 },
+      { name: "Blue Balloon Flower", pts: 10 }
     ]
   },
   {
@@ -263,7 +263,7 @@ export const NPC_CATALOG = [
     repeatInterval: 160,
     repeatReward: "Rare Key: 1",
     favorites: [
-      { name: "Primula Enigma", pts: "+8 (20)" }
+      { name: "Primula Enigma", pts: 20 }
     ]
   },
   {
@@ -281,14 +281,15 @@ export const NPC_CATALOG = [
     repeatInterval: 90,
     repeatReward: "Treasure Key: 1",
     favorites: [
-      { name: "Red Balloon Flower", pts: "+6 (11)" },
-      { name: "Red Carnation", pts: "+6 (11)" }
+      { name: "Red Balloon Flower", pts: 11 },
+      { name: "Red Carnation", pts: 11 }
     ]
   }
 ];
 
 let activeLocationFilter = 'all';
 let favoriteNpcIds = new Set(JSON.parse(localStorage.getItem('sfl_favorite_npcs') || '[]'));
+let hasBlossomBonding = localStorage.getItem('sfl_blossom_bonding') === 'true';
 
 export function toggleFavoriteNpc(npcId) {
   if (favoriteNpcIds.has(npcId)) {
@@ -402,13 +403,19 @@ export function renderNpcGiftsTemplate() {
             <span>🎁</span> NPC Gift & Friendship Tracker
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
-            Track live friendship points, milestone rewards, and favorite flower market prices.
+            Track live friendship points, milestone rewards, and required flowers.
           </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <!-- BLOSSOM BONDING SKILL TOGGLE (+2 PTS) -->
+          <label class="flex items-center gap-1.5 bg-pink-100/90 dark:bg-pink-950/40 border border-pink-300 dark:border-pink-800 px-2.5 py-1 rounded-lg shadow-xs cursor-pointer select-none">
+            <input type="checkbox" id="blossom-bonding-toggle" ${hasBlossomBonding ? 'checked' : ''} class="w-3.5 h-3.5 text-pink-600 rounded border-pink-400 focus:ring-0 cursor-pointer">
+            <span class="text-[11px] font-bold text-pink-900 dark:text-pink-300 whitespace-nowrap">🌸 Blossom Bonding (+2)</span>
+          </label>
+
           <!-- SEARCH -->
-          <input type="text" id="npc-search-input" placeholder="Search NPC or Flower..." class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt w-full sm:w-44 focus:ring-1 focus:ring-sfl-gold">
+          <input type="text" id="npc-search-input" placeholder="Search NPC or Flower..." class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt w-full sm:w-40 focus:ring-1 focus:ring-sfl-gold">
 
           <!-- LOCATION FILTER -->
           <select id="npc-location-filter" class="sfl-input rounded-lg px-2 py-1 text-xs font-bold text-sfl-dirt cursor-pointer">
@@ -447,6 +454,12 @@ export function initNpcGiftsPanel() {
   document.getElementById('npc-search-input')?.addEventListener('input', renderNpcCards);
   document.getElementById('npc-location-filter')?.addEventListener('change', (e) => {
     activeLocationFilter = e.target.value;
+    renderNpcCards();
+  });
+
+  document.getElementById('blossom-bonding-toggle')?.addEventListener('change', (e) => {
+    hasBlossomBonding = e.target.checked;
+    localStorage.setItem('sfl_blossom_bonding', hasBlossomBonding ? 'true' : 'false');
     renderNpcCards();
   });
 }
@@ -501,7 +514,13 @@ export function renderNpcCards() {
 
     const favoritesHtml = npc.favorites.map(item => {
       const favName = typeof item === 'string' ? item : item.name;
-      const favPts = typeof item === 'object' && item.pts ? item.pts : '';
+      const basePts = typeof item === 'object' && typeof item.pts === 'number' ? item.pts : 0;
+      const effectivePts = basePts + (hasBlossomBonding ? 2 : 0);
+
+      const flowersNeeded = (progress.pointsNeeded > 0 && effectivePts > 0)
+        ? Math.ceil(progress.pointsNeeded / effectivePts)
+        : 0;
+
       const cleanKey = normalizeItemKey(favName);
       const price = getItemFlowerPrice(cleanKey);
       const priceBadge = price > 0
@@ -509,12 +528,22 @@ export function renderNpcCards() {
         : '';
 
       return `
-        <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2 py-1 rounded text-xs">
+        <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2.5 py-1.5 rounded text-xs gap-2">
           <div class="flex items-center gap-1.5 overflow-hidden">
             <span class="font-bold text-sfl-dirt truncate">${favName}</span>
-            ${favPts ? `<span class="text-[10px] font-mono font-extrabold text-amber-800 dark:text-amber-300 bg-amber-200/70 dark:bg-amber-900/60 px-1 py-0.2 rounded shrink-0">${favPts}</span>` : ''}
+            <span class="text-[10px] font-mono font-extrabold text-amber-800 dark:text-amber-300 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded shrink-0">
+              ${effectivePts} pts
+            </span>
           </div>
-          ${priceBadge}
+
+          <div class="flex items-center gap-2 shrink-0">
+            ${progress.pointsNeeded > 0 ? `
+              <span class="text-[10px] font-mono font-bold bg-amber-200/90 dark:bg-amber-900/50 text-sfl-wood dark:text-amber-200 px-1.5 py-0.5 rounded border border-amber-300/80 dark:border-amber-700">
+                ${flowersNeeded} needed
+              </span>
+            ` : ''}
+            ${priceBadge}
+          </div>
         </div>
       `;
     }).join('');
@@ -582,12 +611,12 @@ export function renderNpcCards() {
         </div>
       </div>
 
-      <!-- FAVORITE FLOWERS WITH POINTS -->
+      <!-- FAVORITE FLOWERS WITH POINTS & FLOWERS NEEDED -->
       <div class="space-y-1.5">
         <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood flex items-center gap-1">
           <span>🌸</span> Favorite Flowers:
         </span>
-        <div class="space-y-1 max-h-36 overflow-y-auto pr-1">
+        <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
           ${favoritesHtml}
         </div>
       </div>
