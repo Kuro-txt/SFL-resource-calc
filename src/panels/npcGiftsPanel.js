@@ -1,108 +1,29 @@
-import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML } from '../config/constants.js';
-import { normalizeItemKey, roundUpToThreeDecimals } from '../utils/formatters.js';
+import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
+import { normalizeItemKey } from '../utils/formatters.js';
 
-// Base NPC Gift Data Catalog
+// Base NPC Catalog mapped to SFL NPC Keys
 export const NPC_CATALOG = [
-  {
-    id: "pumpkin_pete",
-    name: "Pumpkin Pete",
-    location: "Plaza",
-    icon: "🎃",
-    favorites: ["Mashed Potato", "Pumpkin Soup", "Vegetable Stew"],
-    likes: ["Pumpkin", "Potato", "Carrot"],
-    pointsMultiplier: { favorite: 3, liked: 1 }
-  },
-  {
-    id: "hank",
-    name: "Hank",
-    location: "Plaza",
-    icon: "🤠",
-    favorites: ["Club Sandwich", "Roast Veggies", "Sunflower Crunch"],
-    likes: ["Wheat", "Hay", "Corn"],
-    pointsMultiplier: { favorite: 3, liked: 1 }
-  },
-  {
-    id: "corny",
-    name: "Corny",
-    location: "Plaza",
-    icon: "🌽",
-    favorites: ["Popcorn", "Cornbread"],
-    likes: ["Corn", "Soybean"],
-    pointsMultiplier: { favorite: 3, liked: 1 }
-  },
-  {
-    id: "raven",
-    name: "Raven",
-    location: "Plaza",
-    icon: "🧙‍♀️",
-    favorites: ["Goblin Brunch", "Boiled Eggs"],
-    likes: ["Egg", "Mushroom", "Radish"],
-    pointsMultiplier: { favorite: 3, liked: 1 }
-  },
-  {
-    id: "tywin",
-    name: "Tywin",
-    location: "Plaza",
-    icon: "👑",
-    favorites: ["Gold Egg", "Feather"],
-    likes: ["Wheat", "Egg"],
-    pointsMultiplier: { favorite: 3, liked: 1 }
-  },
-  {
-    id: "bert",
-    name: "Bert",
-    location: "Plaza",
-    icon: "🍄",
-    favorites: ["Mushroom Salad", "Mushroom Soup"],
-    likes: ["Mushroom", "Wild Mushroom"],
-    pointsMultiplier: { favorite: 3, liked: 1 }
-  },
-  {
-    id: "finn",
-    name: "Finn",
-    location: "Beach",
-    icon: "🎣",
-    favorites: ["Fish Burger", "Fish and Chips", "Chowder"],
-    likes: ["Seaweed", "Anchovy", "Tuna"],
-    pointsMultiplier: { favorite: 3, liked: 1 }
-  },
-  {
-    id: "miranda",
-    name: "Miranda",
-    location: "Beach",
-    icon: "🐚",
-    favorites: ["Fruit Salad", "Orange Juice"],
-    likes: ["Blueberry", "Orange", "Apple"],
-    pointsMultiplier: { favorite: 3, liked: 1 }
-  },
-  {
-    id: "tango",
-    name: "Tango",
-    location: "Desert",
-    icon: "🐒",
-    favorites: ["Banana Pop", "Fruit Salad"],
-    likes: ["Banana", "Apple"],
-    pointsMultiplier: { favorite: 3, liked: 1 }
-  }
+  { id: "blacksmith", name: "Blacksmith", location: "Plaza", icon: "🔨", favorites: ["Gold", "Iron", "Pickaxe"] },
+  { id: "pumpkin_pete", name: "Pumpkin Pete", location: "Plaza", icon: "🎃", favorites: ["Mashed Potato", "Pumpkin Soup", "Vegetable Stew"] },
+  { id: "hank", name: "Hank", location: "Plaza", icon: "🤠", favorites: ["Club Sandwich", "Roast Veggies", "Sunflower Crunch"] },
+  { id: "corny", name: "Corny", location: "Plaza", icon: "🌽", favorites: ["Popcorn", "Cornbread"] },
+  { id: "raven", name: "Raven", location: "Plaza", icon: "🧙‍♀️", favorites: ["Goblin Brunch", "Boiled Eggs"] },
+  { id: "tywin", name: "Tywin", location: "Plaza", icon: "👑", favorites: ["Gold Egg", "Feather"] },
+  { id: "bert", name: "Bert", location: "Plaza", icon: "🍄", favorites: ["Mushroom Salad", "Mushroom Soup"] },
+  { id: "finn", name: "Finn", location: "Beach", icon: "🎣", favorites: ["Fish Burger", "Fish and Chips", "Chowder"] },
+  { id: "miranda", name: "Miranda", location: "Beach", icon: "🐚", favorites: ["Fruit Salad", "Orange Juice"] },
+  { id: "tango", name: "Tango", location: "Desert", icon: "🐒", favorites: ["Banana Pop", "Fruit Salad"] },
+  { id: "gregor", name: "Gregor", location: "Plaza", icon: "🧑‍🌾", favorites: ["Carrot Cake", "Cabbage Soup"] },
+  { id: "craig", name: "Craig", location: "Plaza", icon: "🪓", favorites: ["Wood", "Axe"] }
 ];
 
-let dailyGiftedState = {};
 let activeLocationFilter = 'all';
 
-function loadGiftedState() {
-  const today = new Date().toISOString().split('T')[0];
-  const stored = JSON.parse(localStorage.getItem('sfl_npc_gifted_state') || '{}');
-
-  if (stored.date !== today) {
-    dailyGiftedState = { date: today, npcs: {} };
-    localStorage.setItem('sfl_npc_gifted_state', JSON.stringify(dailyGiftedState));
-  } else {
-    dailyGiftedState = stored;
-  }
-}
-
-function saveGiftedState() {
-  localStorage.setItem('sfl_npc_gifted_state', JSON.stringify(dailyGiftedState));
+function isInteractionToday(updatedAtMs) {
+  if (!updatedAtMs) return false;
+  const interactionDate = new Date(updatedAtMs).toISOString().split('T')[0];
+  const todayDate = new Date().toISOString().split('T')[0];
+  return interactionDate === todayDate;
 }
 
 function getItemFlowerPrice(cleanKey) {
@@ -126,10 +47,10 @@ export function renderNpcGiftsTemplate() {
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
         <div>
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
-            <span>🎁</span> NPC Gifts & Friendship Tracker
+            <span>🎁</span> NPC Gift & Friendship Tracker
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
-            Track daily gifts, favorite items, and live market Flower costs.
+            Track live friendship points, claimable gifts, and favorite gift costs.
           </p>
         </div>
 
@@ -144,24 +65,24 @@ export function renderNpcGiftsTemplate() {
             <option value="Beach">Beach</option>
             <option value="Desert">Desert</option>
           </select>
-
-          <button id="reset-daily-gifts-btn" class="bg-sfl-accent text-white font-bold px-3 py-1 rounded-lg text-xs hover:bg-red-700 transition cursor-pointer shadow-xs">
-            🔄 Reset Today
-          </button>
         </div>
       </div>
 
-      <!-- PROGRESS OVERVIEW -->
-      <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-3.5 flex flex-col sm:flex-row justify-between items-center gap-2 text-center sm:text-left">
-        <div class="flex items-center gap-2.5">
-          <span class="text-2xl">💝</span>
+      <!-- OVERVIEW METRICS -->
+      <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 shadow-inner">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center items-center">
           <div>
-            <span class="text-xs font-bold text-sfl-dirt block">Today's Gifting Progress</span>
-            <span id="npc-gifted-count" class="text-[11px] font-mono text-sfl-wood font-semibold">0 / 0 NPCs Gifted</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">NPCs Tracked</span>
+            <h2 id="npc-total-count" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-dirt mt-0.5">0</h2>
           </div>
-        </div>
-        <div class="w-full sm:w-48 bg-white/80 dark:bg-amber-950/40 rounded-full h-3.5 border border-sfl-cardBorder overflow-hidden">
-          <div id="npc-progress-bar" class="bg-sfl-green h-full w-0 transition-all duration-300"></div>
+          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-green block">Gifts Ready to Claim</span>
+            <h2 id="npc-claimable-gifts" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green mt-0.5">0</h2>
+          </div>
+          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Gifted Today (UTC)</span>
+            <h2 id="npc-gifted-today-count" class="text-xl sm:text-2xl font-pixel font-bold text-amber-700 mt-0.5">0</h2>
+          </div>
         </div>
       </div>
 
@@ -172,7 +93,6 @@ export function renderNpcGiftsTemplate() {
 }
 
 export function initNpcGiftsPanel() {
-  loadGiftedState();
   renderNpcGiftsTemplate();
   renderNpcCards();
 
@@ -181,83 +101,97 @@ export function initNpcGiftsPanel() {
     activeLocationFilter = e.target.value;
     renderNpcCards();
   });
-
-  document.getElementById('reset-daily-gifts-btn')?.addEventListener('click', () => {
-    if (confirm("Reset today's gifting checklist?")) {
-      const today = new Date().toISOString().split('T')[0];
-      dailyGiftedState = { date: today, npcs: {} };
-      saveGiftedState();
-      renderNpcCards();
-    }
-  });
 }
-
-export function toggleNpcGift(npcId) {
-  dailyGiftedState.npcs = dailyGiftedState.npcs || {};
-  dailyGiftedState.npcs[npcId] = !dailyGiftedState.npcs[npcId];
-  saveGiftedState();
-  renderNpcCards();
-}
-
-window.toggleNpcGift = toggleNpcGift;
 
 export function renderNpcCards() {
   const grid = document.getElementById('npc-cards-grid');
   if (!grid) return;
 
+  const liveNpcData = window.farmNpcData || JSON.parse(localStorage.getItem('sfl_farm_npcs') || '{}');
   const query = document.getElementById('npc-search-input')?.value.toLowerCase().trim() || '';
   const filter = activeLocationFilter;
 
-  const filteredNpcs = NPC_CATALOG.filter(npc => {
+  // Build combined catalog from standard catalog + any newly discovered NPCs in the API response
+  const knownIds = new Set(NPC_CATALOG.map(n => n.id));
+  const fullNpcList = [...NPC_CATALOG];
+
+  Object.keys(liveNpcData).forEach(apiId => {
+    if (!knownIds.has(apiId)) {
+      const cleanName = apiId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      fullNpcList.push({
+        id: apiId,
+        name: cleanName,
+        location: "Plaza",
+        icon: "👤",
+        favorites: []
+      });
+    }
+  });
+
+  const filteredNpcs = fullNpcList.filter(npc => {
     const matchesLoc = filter === 'all' || npc.location.toLowerCase() === filter.toLowerCase();
     const matchesQuery = !query || 
       npc.name.toLowerCase().includes(query) || 
-      npc.favorites.some(f => f.toLowerCase().includes(query)) ||
-      npc.likes.some(l => l.toLowerCase().includes(query));
+      npc.favorites.some(f => f.toLowerCase().includes(query));
     return matchesLoc && matchesQuery;
   });
 
-  let totalGifted = 0;
-  NPC_CATALOG.forEach(npc => {
-    if (dailyGiftedState.npcs?.[npc.id]) totalGifted++;
+  let totalClaimable = 0;
+  let totalGiftedToday = 0;
+
+  fullNpcList.forEach(npc => {
+    const friendship = liveNpcData[npc.id]?.friendship || {};
+    const points = parseInt(friendship.points || 0, 10);
+    const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
+    const unclaimed = points - claimedAt;
+
+    if (unclaimed > 0) totalClaimable++;
+    if (isInteractionToday(friendship.updatedAt)) totalGiftedToday++;
   });
 
-  const countEl = document.getElementById('npc-gifted-count');
-  const barEl = document.getElementById('npc-progress-bar');
-  if (countEl) countEl.textContent = `${totalGifted} / ${NPC_CATALOG.length} NPCs Gifted`;
-  if (barEl) {
-    const pct = Math.round((totalGifted / NPC_CATALOG.length) * 100);
-    barEl.style.width = `${pct}%`;
-  }
+  const countEl = document.getElementById('npc-total-count');
+  const claimableEl = document.getElementById('npc-claimable-gifts');
+  const todayEl = document.getElementById('npc-gifted-today-count');
+
+  if (countEl) countEl.textContent = `${fullNpcList.length} NPCs`;
+  if (claimableEl) claimableEl.textContent = `${totalClaimable} Ready`;
+  if (todayEl) todayEl.textContent = `${totalGiftedToday} / ${fullNpcList.length}`;
 
   if (filteredNpcs.length === 0) {
-    grid.innerHTML = `<div class="col-span-full py-8 text-center text-sfl-woodLight italic">No NPCs found matching your search.</div>`;
+    grid.innerHTML = `<div class="col-span-full py-8 text-center text-sfl-woodLight italic">No NPCs found matching your criteria.</div>`;
     return;
   }
 
   grid.innerHTML = '';
 
   filteredNpcs.forEach(npc => {
-    const isGifted = !!dailyGiftedState.npcs?.[npc.id];
+    const friendship = liveNpcData[npc.id]?.friendship || {};
+    const points = parseInt(friendship.points || 0, 10);
+    const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
+    const unclaimed = Math.max(0, points - claimedAt);
+    const hasClaimableGift = unclaimed > 0;
+    const giftedToday = isInteractionToday(friendship.updatedAt);
 
-    // Build favorite items list with live prices
-    const favoritesHtml = npc.favorites.map(item => {
-      const cleanKey = normalizeItemKey(item);
-      const price = getItemFlowerPrice(cleanKey);
-      return `
-        <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2 py-1 rounded text-xs">
-          <span class="font-bold text-sfl-dirt">${item}</span>
-          <span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5">
-            ${price > 0 ? price.toFixed(3) : 'Free/Craft'} ${FLOWER_IMG_SMALL_HTML}
-          </span>
-        </div>
-      `;
-    }).join('');
+    // Build favorite items list
+    const favoritesHtml = npc.favorites.length > 0
+      ? npc.favorites.map(item => {
+          const cleanKey = normalizeItemKey(item);
+          const price = getItemFlowerPrice(cleanKey);
+          return `
+            <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2 py-1 rounded text-xs">
+              <span class="font-bold text-sfl-dirt">${item}</span>
+              <span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5">
+                ${price > 0 ? price.toFixed(3) : 'Craft/Farm'} ${FLOWER_IMG_SMALL_HTML}
+              </span>
+            </div>
+          `;
+        }).join('')
+      : `<span class="text-[10px] text-sfl-woodLight italic">No specific favorites cataloged yet.</span>`;
 
     const card = document.createElement('div');
     card.className = `p-3.5 rounded-xl border-2 transition shadow-sm space-y-3 ${
-      isGifted 
-        ? 'bg-green-50/80 dark:bg-green-950/20 border-sfl-green/50 opacity-90' 
+      hasClaimableGift 
+        ? 'bg-green-50/80 dark:bg-green-950/20 border-sfl-green/60 shadow-md' 
         : 'bg-white/90 dark:bg-amber-950/30 border-sfl-cardBorder'
     }`;
 
@@ -272,19 +206,38 @@ export function renderNpcCards() {
           </div>
         </div>
 
-        <button onclick="toggleNpcGift('${npc.id}')" class="px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
-          isGifted 
-            ? 'bg-sfl-green text-white shadow-xs' 
-            : 'bg-amber-100 dark:bg-amber-900/50 text-sfl-wood border border-sfl-cardBorder hover:bg-amber-200'
-        }">
-          <span>${isGifted ? '✅ Gifted' : '🎁 Gift'}</span>
-        </button>
+        <div class="flex flex-col items-end gap-1">
+          ${
+            hasClaimableGift 
+              ? `<span class="bg-sfl-green text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-xs animate-pulse">🎁 Gift Ready!</span>`
+              : `<span class="bg-amber-100 dark:bg-amber-900/50 text-sfl-wood text-[10px] font-bold px-2 py-0.5 rounded-md border border-sfl-cardBorder/50">Up to date</span>`
+          }
+          <span class="text-[9px] font-mono ${giftedToday ? 'text-sfl-green font-bold' : 'text-sfl-woodLight'}">
+            ${giftedToday ? '✅ Gifted Today' : '⏳ Not Gifted Today'}
+          </span>
+        </div>
       </div>
 
-      <!-- FAVORITE GIFTS (3X POINTS) -->
+      <!-- FRIENDSHIP POINTS & CLAIM STATS -->
+      <div class="grid grid-cols-3 gap-1.5 bg-amber-900/10 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-600/20 text-center font-mono">
+        <div>
+          <span class="text-[9px] font-bold text-sfl-wood uppercase block">Total Pts</span>
+          <span class="text-xs font-black text-sfl-dirt">${points}</span>
+        </div>
+        <div class="border-l border-amber-600/20 px-1">
+          <span class="text-[9px] font-bold text-sfl-wood uppercase block">Last Claim</span>
+          <span class="text-xs font-bold text-sfl-woodLight">${claimedAt} pts</span>
+        </div>
+        <div class="border-l border-amber-600/20 px-1">
+          <span class="text-[9px] font-bold text-sfl-green uppercase block">Unclaimed</span>
+          <span class="text-xs font-black ${unclaimed > 0 ? 'text-sfl-green font-extrabold' : 'text-sfl-woodLight'}">+${unclaimed}</span>
+        </div>
+      </div>
+
+      <!-- FAVORITE GIFTS -->
       <div class="space-y-1.5">
         <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood flex items-center gap-1">
-          <span>⭐</span> Favorite Gifts (3x Points):
+          <span>⭐</span> Favorite Gifts (Live Price):
         </span>
         <div class="space-y-1">
           ${favoritesHtml}
