@@ -20,7 +20,7 @@ export const NPC_CATALOG = [
     ]
   },
   {
-    id: "pumpkin_pete",
+    id: "Pumpkin' Pete",
     name: "Pumpkin' Pete",
     location: "Plaza",
     icon: "🎃",
@@ -221,6 +221,25 @@ export const NPC_CATALOG = [
 
 let activeLocationFilter = 'all';
 
+// Robust lookup matching regardless of casing, spaces, or apostrophes
+function getNpcFriendship(npcId, liveNpcData) {
+  if (!liveNpcData || typeof liveNpcData !== 'object') return {};
+
+  if (liveNpcData[npcId]?.friendship) {
+    return liveNpcData[npcId].friendship;
+  }
+
+  const cleanTarget = npcId.toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (let key in liveNpcData) {
+    const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (cleanKey === cleanTarget) {
+      return liveNpcData[key]?.friendship || {};
+    }
+  }
+
+  return {};
+}
+
 function isInteractionToday(updatedAtMs) {
   if (!updatedAtMs) return false;
   const interactionDate = new Date(updatedAtMs).toISOString().split('T')[0];
@@ -368,7 +387,7 @@ export function renderNpcCards() {
   const query = document.getElementById('npc-search-input')?.value.toLowerCase().trim() || '';
   const filter = activeLocationFilter;
 
-  // Strict list: Only the 14 defined NPCs
+  // Strict 14 defined NPCs
   const fullNpcList = NPC_CATALOG;
 
   const filteredNpcs = fullNpcList.filter(npc => {
@@ -383,7 +402,7 @@ export function renderNpcCards() {
   let totalGiftedToday = 0;
 
   fullNpcList.forEach(npc => {
-    const friendship = liveNpcData[npc.id]?.friendship || {};
+    const friendship = getNpcFriendship(npc.id, liveNpcData);
     const points = parseInt(friendship.points || 0, 10);
     const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
     const unclaimed = points - claimedAt;
@@ -408,7 +427,7 @@ export function renderNpcCards() {
   grid.innerHTML = '';
 
   filteredNpcs.forEach(npc => {
-    const friendship = liveNpcData[npc.id]?.friendship || {};
+    const friendship = getNpcFriendship(npc.id, liveNpcData);
     const points = parseInt(friendship.points || 0, 10);
     const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
     const unclaimed = Math.max(0, points - claimedAt);
