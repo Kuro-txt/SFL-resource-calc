@@ -1,30 +1,19 @@
-const express = require('express');
-const axios = require('axios');
-const router = express.Router();
-
-// CHANGE THIS: Change '/nfts' to '/'
-router.get('/', async (req, res) => {
+export default async function handler(req, res) {
   try {
-    const response = await axios.get('https://sfl.world/api/v1/nfts', {
-      headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', 
+    const response = await fetch('https://sfl.world/api/v1/nfts', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'application/json, text/plain, */*',
         'Referer': 'https://sfl.world/',
         'Origin': 'https://sfl.world'
-      },
-      timeout: 12000
+      }
     });
 
-    let rawData = response.data;
-
-    // Check if the response is an HTML page (Cloudflare or SPA fallback) instead of JSON
-    if (typeof rawData === 'string') {
-      try {
-        rawData = JSON.parse(rawData);
-      } catch (e) {
-        throw new Error("Received HTML or invalid text response from sfl.world");
-      }
+    if (!response.ok) {
+      return res.status(response.status).json({ error: `API responded with status ${response.status}` });
     }
+
+    let rawData = await response.json();
 
     let rawItems = [];
     if (Array.isArray(rawData)) {
@@ -53,15 +42,11 @@ router.get('/', async (req, res) => {
     }).filter(Boolean);
 
     if (cleanedList.length > 0) {
-      console.log(`✅ [NFT API] Returning ${cleanedList.length} items from sfl.world`);
-      return res.json(cleanedList);
+      return res.status(200).json(cleanedList);
     }
 
-    throw new Error("Parsed items array is empty");
+    return res.status(500).json({ error: "Parsed items array is empty" });
   } catch (err) {
-    console.error('❌ [NFT API ERROR]:', err.message);
     return res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });
   }
-});
-
-module.exports = router;
+}

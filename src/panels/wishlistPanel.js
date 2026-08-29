@@ -121,7 +121,13 @@ export async function loadNftCatalog() {
 
     saveWishlist();
     renderWishlist();
-  } catch (err) {}
+  } catch (err) {
+    console.warn("⚠️ Failed to load NFT catalog:", err.message);
+    const menu = document.getElementById('wishlist-search-menu');
+    if (menu && allNfts.length === 0) {
+      menu.innerHTML = '<li class="p-2 text-sfl-accent italic text-xs">⚠️ Unable to load live NFTs. Please retry later.</li>';
+    }
+  }
 }
 
 let isComboboxBound = false;

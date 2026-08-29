@@ -1,3 +1,5 @@
+import { debounce } from '../utils/helpers.js';
+
 export async function initAuth() {
   if (!window.supabaseClient && typeof supabaseClient !== 'undefined') {
     window.supabaseClient = supabaseClient;
@@ -106,6 +108,7 @@ export async function loadCloudUserData() {
 
     if (profile.crop_base_yields) {
       localStorage.setItem('sfl_crop_base_yields', JSON.stringify(profile.crop_base_yields));
+      if (typeof window.loadCloudBaseYields === 'function') window.loadCloudBaseYields();
     }
 
     if (typeof window.renderTrackedBadges === 'function') window.renderTrackedBadges();
@@ -133,6 +136,7 @@ export async function loadCloudUserData() {
 
   if (typeof window.renderSnapshotHistory === 'function') window.renderSnapshotHistory();
   if (typeof window.updatePreHarvestUI === 'function') window.updatePreHarvestUI();
+  if (typeof window.loadCloudBaseYields === 'function') window.loadCloudBaseYields();
 }
 
 function bindAuthEventListeners() {
@@ -187,9 +191,7 @@ function bindAuthEventListeners() {
     if (window.supabaseClient) await window.supabaseClient.auth.signOut();
   });
 
-  document.getElementById('farm-id')?.addEventListener('input', async (e) => {
-    const farmId = e.target.value.trim();
-    localStorage.setItem('sfl_farm_id', farmId);
+  const syncFarmIdToCloud = debounce(async (farmId) => {
     if (window.currentUser && window.supabaseClient && farmId) {
       await window.supabaseClient
         .from('profiles')
@@ -199,6 +201,12 @@ function bindAuthEventListeners() {
           tracked_items: window.trackedTargets || [] 
         }, { onConflict: 'id' });
     }
+  }, 400);
+
+  document.getElementById('farm-id')?.addEventListener('input', (e) => {
+    const farmId = e.target.value.trim();
+    localStorage.setItem('sfl_farm_id', farmId);
+    syncFarmIdToCloud(farmId);
   });
 
   document.getElementById('api-key')?.addEventListener('input', (e) => {

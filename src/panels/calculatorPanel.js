@@ -40,7 +40,7 @@ export function renderCalculatorTemplate() {
 
         <!-- AUTOMATED TRACKING & WEEKLY SUMMARY ACTION BAR -->
         <div class="flex flex-col sm:flex-row justify-center items-center gap-2 border-t-2 border-b-2 border-sfl-cardBorder/60 py-3">
-          <button id="open-tracking-modal-btn" onclick="openTrackingModal()" class="w-full sm:w-auto bg-amber-700 text-amber-100 hover:bg-amber-800 font-bold py-2 px-4 rounded-xl border-2 border-sfl-dirt text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
+          <button id="open-tracking-modal-btn" class="w-full sm:w-auto bg-amber-700 text-amber-100 hover:bg-amber-800 font-bold py-2 px-4 rounded-xl border-2 border-sfl-dirt text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
             <span>⚙️</span> Manage Automated Tracking Targets
           </button>
           <button id="open-weekly-modal-btn" class="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-amber-950 dark:bg-amber-600 dark:hover:bg-amber-500 dark:text-amber-100 font-black py-2 px-4 rounded-xl border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2 text-xs">

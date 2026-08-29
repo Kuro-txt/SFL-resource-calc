@@ -264,6 +264,18 @@ export async function loadCloudBaseYields() {
   const client = window.supabaseClient;
   const user = window.currentUser;
 
+  try {
+    const localSaved = localStorage.getItem('sfl_crop_base_yields');
+    if (localSaved) {
+      cropBaseYields = JSON.parse(localSaved) || {};
+      if (cropBaseYields['_global'] !== undefined) {
+        globalAvgYield = parseFloat(cropBaseYields['_global']) || 1.0;
+        syncMainGlobalInput(globalAvgYield);
+        syncWeeklyGlobalInput(globalAvgYield);
+      }
+    }
+  } catch (e) {}
+
   if (client && user) {
     try {
       const { data } = await client.from('profiles').select('crop_base_yields').eq('id', user.id).maybeSingle();
@@ -277,6 +289,7 @@ export async function loadCloudBaseYields() {
           syncMainGlobalInput(globalAvgYield);
           syncWeeklyGlobalInput(globalAvgYield);
         }
+        renderCropTrackerRows();
       }
     } catch (err) {
       console.warn("Could not load cloud crop multipliers:", err.message);
@@ -394,10 +407,12 @@ export async function fetchLiveCropDiff() {
     hasBaselineForToday = true;
     if (statusEl) statusEl.textContent = "⏳ Fetching live farm activity...";
 
+    const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
     const backend = window.BACKEND_URL || '';
-    const res = await fetch(`${backend}/api/get-farm?farmId=${encodeURIComponent(farmId)}`);
+    const res = await fetch(`${backend}/api/get-farm?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`);
     const data = await res.json();
-    const currentActivity = data.farm?.farmActivity || {};
+    const farmObj = data.farm?.farm || data.farm || {};
+    const currentActivity = farmObj.farmActivity || farmObj.activity || {};
 
     activeHarvestDiffs = [];
 
@@ -454,17 +469,68 @@ export function updateCropBaseYield(cleanKey, value) {
   renderCropTrackerRows();
 }
 
-export function updateWeeklyCropYield(cleanKey, value) {
-  const val = parseFloat(value) || globalAvgYield || 1.0;
-  cropBaseYields[cleanKey] = val;
-  localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
-  debouncedCloudSave();
+export async function updateDailyCropHistoricalYield(dateStr, cleanCropKey, value) {
+  const newYield = parseFloat(value) || 1.0;
+  let history = [];
+  try {
+    history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+  } catch (e) { history = []; }
+
+  const entryIndex = history.findIndex(entry => {
+    const d = (entry.date || entry.yield_date || '').split('T')[0];
+    return d === dateStr;
+  });
+
+  if (entryIndex !== -1) {
+    const entry = history[entryIndex];
+    const cropList = entry.cropActivityYields || entry.crop_activity_yields || [];
+    const savedTax = localStorage.getItem('sfl_tax_rate');
+    const taxSelectEl = document.getElementById('tax-select');
+    const taxRate = taxSelectEl ? (parseFloat(taxSelectEl.value) || 0) : (savedTax !== null ? parseFloat(savedTax) : 0.10);
+
+    cropList.forEach(cropItem => {
+      const rawName = cropItem.crop || cropItem.name || '';
+      if (normalizeItemKey(rawName) === cleanCropKey) {
+        cropItem.baseYield = newYield;
+        cropItem.base_yield = newYield;
+        const cycles = parseFloat(cropItem.harvestCount || cropItem.harvest_count || 0);
+        const totalProduced = roundUpToOneDecimal(cycles * newYield);
+        cropItem.totalProduced = totalProduced;
+        cropItem.total_produced = totalProduced;
+
+        const unitPrice = getItemFlowerPrice(cleanCropKey);
+        cropItem.unitPrice = unitPrice;
+        const grossTotal = unitPrice * totalProduced;
+        const taxAmount = grossTotal * taxRate;
+        cropItem.netFlowers = roundUpToThreeDecimals(grossTotal - taxAmount);
+        cropItem.net_flowers = cropItem.netFlowers;
+      }
+    });
+
+    entry.cropActivityYields = cropList;
+    entry.crop_activity_yields = cropList;
+    localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
+
+    const client = window.supabaseClient;
+    const user = window.currentUser;
+    if (client && user) {
+      try {
+        await client.from('daily_yields').upsert({
+          user_id: user.id,
+          yield_date: dateStr,
+          crop_activity_yields: cropList
+        }, { onConflict: 'user_id,yield_date' });
+      } catch (err) {
+        console.warn("Could not sync updated day yield to Supabase:", err.message);
+      }
+    }
+  }
+
   renderCropWeeklySummary();
-  renderCropTrackerRows();
 }
 
 window.updateCropBaseYield = updateCropBaseYield;
-window.updateWeeklyCropYield = updateWeeklyCropYield;
+window.updateDailyCropHistoricalYield = updateDailyCropHistoricalYield;
 
 export function renderCropTrackerRows() {
   const tbody = document.getElementById('crop-tracker-body');
@@ -674,8 +740,10 @@ export function renderCropWeeklySummary() {
       let formattedName = cleanCropKey.charAt(0).toUpperCase() + cleanCropKey.slice(1);
 
       let cycles = parseFloat(item.harvestCount || item.harvest_count || 0);
-      const baseYield = cropBaseYields[cleanCropKey] !== undefined ? cropBaseYields[cleanCropKey] : globalAvgYield;
-      const cropCalculatedQty = roundUpToOneDecimal(cycles * baseYield);
+      const dayBaseYield = item.baseYield !== undefined && item.baseYield !== null
+        ? parseFloat(item.baseYield)
+        : (item.base_yield !== undefined && item.base_yield !== null ? parseFloat(item.base_yield) : (cropBaseYields[cleanCropKey] !== undefined ? cropBaseYields[cleanCropKey] : globalAvgYield));
+      const cropCalculatedQty = roundUpToOneDecimal(cycles * dayBaseYield);
 
       let unitPrice = getItemFlowerPrice(cleanCropKey);
       let grossTotal = unitPrice * cropCalculatedQty;
@@ -707,8 +775,8 @@ export function renderCropWeeklySummary() {
             <!-- CLEAN INLINE AVG YIELD PILL -->
             <div class="flex items-center gap-1.5 bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 px-2 py-0.5 rounded-lg shadow-xs">
               <span class="text-[10px] font-bold text-sfl-wood dark:text-amber-300 uppercase">Yield:</span>
-              <input type="number" step="0.05" min="0.1" value="${baseYield}"
-                onchange="updateWeeklyCropYield('${cleanCropKey}', this.value)"
+              <input type="number" step="0.05" min="0.1" value="${dayBaseYield}"
+                onchange="updateDailyCropHistoricalYield('${dateStr}', '${cleanCropKey}', this.value)"
                 class="w-14 sfl-input rounded px-1.5 py-0.5 text-xs font-bold text-center text-sfl-dirt focus:ring-1 focus:ring-sfl-gold">
             </div>
 
@@ -761,3 +829,4 @@ export function renderCropWeeklySummary() {
 
 window.renderCropTrackerRows = renderCropTrackerRows;
 window.renderCropWeeklySummary = renderCropWeeklySummary;
+window.loadCloudBaseYields = loadCloudBaseYields;

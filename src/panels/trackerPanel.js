@@ -231,7 +231,7 @@ export async function deleteSnapshotRow(date) {
     history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
   } catch(e) { history = []; }
 
-  localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history.filter(i => i.date !== date)));
+  localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history.filter(i => (i.date || i.yield_date) !== date)));
 
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
   const activeUser = window.currentUser;
