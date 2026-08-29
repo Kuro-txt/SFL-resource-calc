@@ -26,6 +26,54 @@ const SFL_PLOT_CROPS = new Set([
   'onion', 'turnip', 'artichoke'
 ]);
 
+const BETTY_SHOP_PRICES = {
+  "sunflower": 0.02, "potato": 0.14, "rhubarb": 0.24, "pumpkin": 0.4,
+  "zucchini": 0.4, "carrot": 0.8, "yam": 0.8, "cabbage": 1.5,
+  "broccoli": 1.5, "soybean": 2.3, "beetroot": 2.8, "pepper": 3,
+  "cauliflower": 4.25, "parsnip": 6.5, "eggplant": 8, "corn": 9,
+  "onion": 10, "radish": 9.5, "wheat": 7, "turnip": 8, "kale": 10,
+  "artichoke": 12, "barley": 12, "saltwort": 50, "tomato": 2,
+  "lemon": 6, "blueberry": 12, "orange": 18, "apple": 25,
+  "banana": 25, "celestine": 200, "lunara": 500, "duskberry": 1000,
+  "grape": 240, "rice": 320, "olive": 400
+};
+
+function extractPrices(data) {
+  let pricesMap = {};
+  if (!data || typeof data !== 'object') return pricesMap;
+
+  const GLOBAL_EXCLUDES = ['updated_text', 'updatedtext', 'updatedat', 'updated_at', 'created_at', 'id'];
+
+  function searchObj(obj, prefix = '') {
+    for (let key in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+      
+      let lowerKey = key.toLowerCase().trim();
+      if (GLOBAL_EXCLUDES.includes(lowerKey)) continue;
+      if (lowerKey.includes('updated')) continue;
+
+      let val = obj[key];
+
+      if (typeof val === 'number') {
+        pricesMap[prefix + key] = val;
+      } else if (typeof val === 'string' && !isNaN(parseFloat(val))) {
+        pricesMap[prefix + key] = parseFloat(val);
+      } else if (val && typeof val === 'object') {
+        let p = val.price ?? val.sfl ?? val.sflPrice ?? val.flowerPrice ?? val.unitPrice;
+        if (p !== undefined && p !== null) {
+          pricesMap[prefix + key] = parseFloat(p) || 0;
+        } else {
+          let newPrefix = key.length <= 4 ? `[${key.toUpperCase()}] ` : '';
+          searchObj(val, newPrefix);
+        }
+      }
+    }
+  }
+
+  searchObj(data);
+  return pricesMap;
+}
+
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const SFL_WORLD_HEADERS = {
@@ -39,7 +87,7 @@ const SFL_WORLD_HEADERS = {
   'Sec-Fetch-Site': 'same-origin'
 };
 
-function getSflHeaders() {
+function getSflHeaders(customApiKey = '') {
   const headers = {
     'Accept': 'application/json, text/plain, */*',
     'Accept-Language': 'en-US,en;q=0.9',
@@ -48,18 +96,20 @@ function getSflHeaders() {
     'Origin': 'https://sunflower-land.com'
   };
 
-  if (SFL_API_KEY && SFL_API_KEY.trim() !== '') {
-    headers['x-api-key'] = SFL_API_KEY.trim();
+  const keyToUse = (customApiKey && customApiKey.trim()) || (SFL_API_KEY && SFL_API_KEY.trim());
+  if (keyToUse) {
+    headers['x-api-key'] = keyToUse;
+    headers['Authorization'] = `Bearer ${keyToUse}`;
   }
 
   return headers;
 }
 
-async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 5) {
+async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 5, customApiKey = '') {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
-        headers: getSflHeaders(),
+        headers: getSflHeaders(customApiKey),
         timeout: 15000
       });
       const farmObj = response.data?.farm || response.data || {};
@@ -154,12 +204,13 @@ app.get('/api/get-data', async (req, res) => {
 });
 
 app.get('/api/get-farm', async (req, res) => {
-  const { farmId } = req.query;
+  const { farmId, apiKey } = req.query;
   if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
 
   const cleanFarmId = String(farmId).trim();
+  const cleanApiKey = apiKey ? String(apiKey).trim() : '';
   try {
-    const { inventory, farmActivity, npcs } = await fetchFarmFullDataWithRetry(cleanFarmId);
+    const { inventory, farmActivity, npcs } = await fetchFarmFullDataWithRetry(cleanFarmId, 5, cleanApiKey);
     res.json({ success: true, farm: { inventory, farmActivity, npcs } });
   } catch (err) {
     res.status(err.response?.status || 500).json({ error: err.message });
@@ -276,12 +327,24 @@ async function processYieldCalculation() {
     return;
   }
 
-  let livePrices = {};
+  let flatPrices = {};
   try {
     const priceRes = await axios.get('https://sfl.world/api/v1/prices', { headers: SFL_WORLD_HEADERS, timeout: 10000 });
-    livePrices = priceRes.data || {};
+    flatPrices = extractPrices(priceRes.data || {});
   } catch (e) {
-    console.warn("⚠️ Price API fetch failed, defaulting unit prices to 0.");
+    console.warn("⚠️ Price API fetch failed, defaulting to shop prices.");
+  }
+
+  function getFlowerUnitPrice(cleanKey) {
+    let matchedKey = Object.keys(flatPrices).find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '').trim() === cleanKey);
+    if (matchedKey) {
+      let p = parseFloat(flatPrices[matchedKey]) || 0;
+      if (p > 0) return p > 100 ? p / 1000 : p;
+    }
+    if (BETTY_SHOP_PRICES[cleanKey] !== undefined) {
+      return BETTY_SHOP_PRICES[cleanKey];
+    }
+    return 0;
   }
 
   for (const user of users) {
@@ -330,13 +393,7 @@ async function processYieldCalculation() {
 
         if (diff > 0.0001) {
           let harvestedQty = Math.ceil(diff * 10) / 10;
-          let unitPrice = 0;
-          let matchedKey = Object.keys(livePrices).find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '').trim() === cleanKey);
-          if (matchedKey) {
-            let p = parseFloat(livePrices[matchedKey]) || 0;
-            unitPrice = p > 100 ? p / 1000 : p;
-          }
-
+          let unitPrice = getFlowerUnitPrice(cleanKey);
           let itemFlowers = Math.ceil((unitPrice * harvestedQty * 0.9) * 1000) / 1000;
           let formattedName = cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
 
@@ -365,14 +422,7 @@ async function processYieldCalculation() {
         if (harvestCycles > 0) {
           let baseYield = parseFloat(baseYields[cleanCropKey] || baseYields['_global']) || 1.0;
           let totalProduced = Math.ceil((harvestCycles * baseYield) * 10) / 10;
-
-          let unitPrice = 0;
-          let matchedKey = Object.keys(livePrices).find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '').trim() === cleanCropKey);
-          if (matchedKey) {
-            let p = parseFloat(livePrices[matchedKey]) || 0;
-            unitPrice = p > 100 ? p / 1000 : p;
-          }
-
+          let unitPrice = getFlowerUnitPrice(cleanCropKey);
           let netFlowers = Math.ceil((unitPrice * totalProduced * 0.9) * 1000) / 1000;
 
           cropActivityYields.push({
@@ -406,9 +456,14 @@ async function processYieldCalculation() {
   }
 }
 
+function verifyCronAuth(req) {
+  const key = req.query.key || (req.headers.authorization ? req.headers.authorization.replace(/^Bearer\s+/i, '') : '');
+  return key === CRON_SECRET_KEY;
+}
+
 app.get('/api/trigger-daily-baseline', async (req, res) => {
-  const { key, type } = req.query;
-  if (key !== CRON_SECRET_KEY) return res.status(401).json({ error: 'Unauthorized' });
+  if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
+  const { type } = req.query;
 
   if (type === 'baseline') {
     res.status(200).json({ success: true, message: "Baseline started." });
@@ -422,11 +477,13 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
 });
 
 app.get('/api/cron/snapshot', async (req, res) => {
+  if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
   res.status(200).json({ success: true });
   processBaselineSnapshot().catch((err) => console.error("Snapshot Error:", err.message));
 });
 
 app.get('/api/cron/22utc-yield', async (req, res) => {
+  if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
   res.status(200).json({ success: true });
   processYieldCalculation().catch((err) => console.error("Yield Error:", err.message));
 });
