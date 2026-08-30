@@ -589,8 +589,55 @@ export async function updateDailyCropHistoricalYield(dateStr, cleanCropKey, valu
   renderCropWeeklySummary();
 }
 
+export async function saveCurrentActivityAsBaseline() {
+  const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim();
+  const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
+  const client = window.supabaseClient;
+  const user = window.currentUser;
+  const todayDate = new Date().toISOString().split('T')[0];
+
+  if (!farmId) {
+    alert("⚠️ Please enter your Farm ID at the top first!");
+    return;
+  }
+
+  if (!client || !user) {
+    alert("⚠️ Please sign in to save a persistent daily baseline snapshot to the cloud.");
+    return;
+  }
+
+  const statusEl = document.getElementById('crop-tracker-status');
+  if (statusEl) statusEl.textContent = "⏳ Saving current farm activity as today's baseline...";
+
+  try {
+    const backend = window.BACKEND_URL || '';
+    const res = await fetch(`${backend}/api/get-farm?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`);
+    const data = await res.json();
+    const farmObj = data.farm?.farm || data.farm || {};
+    const inventory = farmObj.inventory || {};
+    const farmActivity = farmObj.farmActivity || farmObj.activity || {};
+
+    const { error: dbError } = await client.from('preharvest_baselines').upsert({
+      user_id: user.id,
+      farm_id: farmId,
+      snapshot_date: todayDate,
+      stock: inventory,
+      farm_activity: farmActivity
+    }, { onConflict: 'user_id,snapshot_date' });
+
+    if (dbError) throw dbError;
+
+    alert("✅ Current farm state & activity (including all fruits and crops) saved as today's baseline snapshot!");
+    await fetchLiveCropDiff();
+  } catch (err) {
+    if (statusEl) statusEl.textContent = `❌ Baseline save failed: ${err.message}`;
+    alert(`❌ Failed to save baseline snapshot: ${err.message}`);
+  }
+}
+
 window.updateCropBaseYield = updateCropBaseYield;
 window.updateDailyCropHistoricalYield = updateDailyCropHistoricalYield;
+window.saveCurrentActivityAsBaseline = saveCurrentActivityAsBaseline;
 
 export function renderCropTrackerRows() {
   const tbody = document.getElementById('crop-tracker-body');
@@ -603,13 +650,18 @@ export function renderCropTrackerRows() {
   if (isInitialCheckDone && !hasBaselineForToday) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="px-4 py-8 text-center text-sfl-dirt space-y-2">
+        <td colspan="7" class="px-4 py-8 text-center text-sfl-dirt space-y-3">
           <div class="inline-block px-3 py-1 bg-amber-100 border-2 border-amber-400 rounded-lg text-amber-900 font-bold text-xs shadow-sm">
             🚩 00:00 UTC Baseline Not Found For Today
           </div>
-          <p class="text-xs text-sfl-woodLight max-w-md mx-auto mt-2">
+          <p class="text-xs text-sfl-woodLight max-w-md mx-auto">
             Crop Tracker v1 compares harvest counts against your saved <strong>00:00 UTC snapshot</strong>. Yields and profit calculations will show here once today's baseline is logged.
           </p>
+          <div class="pt-1">
+            <button onclick="saveCurrentActivityAsBaseline()" class="bg-amber-600 hover:bg-amber-500 text-white font-extrabold px-3.5 py-1.5 rounded-lg text-xs border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer inline-flex items-center gap-1.5">
+              <span>📸</span> Set Current Farm Activity as Today's Baseline
+            </button>
+          </div>
         </td>
       </tr>
     `;
