@@ -217,6 +217,22 @@ app.get('/api/get-farm', async (req, res) => {
   }
 });
 
+app.get('/api/get-land', async (req, res) => {
+  const { farmId } = req.query;
+  if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
+
+  const cleanFarmId = String(farmId).trim();
+  try {
+    const response = await axios.get(`https://sfl.world/api/v1/land/${encodeURIComponent(cleanFarmId)}`, {
+      headers: SFL_WORLD_HEADERS,
+      timeout: 10000
+    });
+    res.json({ success: true, land: response.data });
+  } catch (err) {
+    res.status(err.response?.status || 500).json({ error: 'Failed to fetch land data from sfl.world', details: err.message });
+  }
+});
+
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {

@@ -1,5 +1,6 @@
 import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML, SFL_PLOT_CROPS } from '../config/constants.js';
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, getBettyUnitPrice, formatDateYYYYMMDD } from '../utils/formatters.js';
+import { ApiService } from '../services/api.js';
 
 let cropBaseYields = JSON.parse(localStorage.getItem('sfl_crop_base_yields') || '{}');
 let globalAvgYield = parseFloat(localStorage.getItem('sfl_global_avg_yield') || '1.0');
@@ -28,6 +29,11 @@ export function renderCropTrackerTemplate() {
         </div>
         
         <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <!-- AUTO-FILL YIELDS FROM SFL.WORLD LAND API -->
+          <button id="autofill-land-yields-btn" title="Auto-fill exact live average plot yields from sfl.world Land API" class="bg-amber-600 hover:bg-amber-500 text-white font-extrabold px-3 py-1.5 rounded-lg text-xs border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center gap-1.5">
+            <span>⚡</span> Auto-Fill Land Yields
+          </button>
+
           <!-- QUICK APPLY AVG YIELD PILL -->
           <div class="flex items-center gap-1.5 bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 px-2.5 py-1 rounded-lg shadow-xs">
             <span class="text-[10px] font-bold text-sfl-wood dark:text-amber-300 whitespace-nowrap">Avg Yield / Plot:</span>
@@ -134,11 +140,14 @@ export function renderCropTrackerTemplate() {
         </div>
 
         <!-- WEEKLY MODAL GLOBAL YIELD ADJUSTER -->
-        <div class="flex items-center justify-between bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 p-2.5 rounded-xl shadow-xs text-xs font-bold">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 p-2.5 rounded-xl shadow-xs text-xs font-bold">
           <span class="text-sfl-wood dark:text-amber-300 flex items-center gap-1.5">
             <span>⚙️</span> Set All Weekly Avg Yields:
           </span>
-          <div class="flex items-center gap-1.5">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button id="autofill-weekly-land-yields-btn" title="Auto-fill exact live average plot yields from sfl.world Land API" class="bg-amber-600 hover:bg-amber-500 text-white font-black px-2.5 py-1 rounded text-[10px] shadow-xs cursor-pointer flex items-center gap-1">
+              <span>⚡</span> Auto-Fill Land Yields
+            </button>
             <input type="number" id="weekly-global-avg-yield-input" value="${globalAvgYield}" min="0.1" step="0.05" class="w-16 sfl-input rounded px-1.5 py-0.5 text-xs font-mono font-bold text-center text-sfl-dirt">
             <button id="apply-weekly-global-yield-btn" class="bg-sfl-wood text-amber-100 px-2.5 py-1 rounded-lg text-[10px] font-bold hover:bg-sfl-dirt transition cursor-pointer shadow-xs">
               Apply All
@@ -197,6 +206,8 @@ export function initCropTrackerPanel() {
   document.getElementById('save-base-yields-btn')?.addEventListener('click', () => saveBaseYieldSettings(true));
   document.getElementById('apply-global-yield-btn')?.addEventListener('click', applyGlobalYieldToAll);
   document.getElementById('apply-weekly-global-yield-btn')?.addEventListener('click', applyWeeklyGlobalYieldToAll);
+  document.getElementById('autofill-land-yields-btn')?.addEventListener('click', () => fetchAndApplyLandYields(true));
+  document.getElementById('autofill-weekly-land-yields-btn')?.addEventListener('click', () => fetchAndApplyLandYields(true));
 
   const globalYieldInput = document.getElementById('global-avg-yield-input');
   globalYieldInput?.addEventListener('input', (e) => {
@@ -248,6 +259,48 @@ export function initCropTrackerPanel() {
   });
 
   loadCloudBaseYields();
+}
+
+export async function fetchAndApplyLandYields(showAlert = false) {
+  const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim();
+  const statusEl = document.getElementById('crop-tracker-status');
+
+  if (!farmId) {
+    if (showAlert) alert("⚠️ Please enter your Farm ID at the top first!");
+    return false;
+  }
+
+  if (statusEl) statusEl.textContent = "⚡ Fetching live land yields from SFL.world...";
+
+  try {
+    const liveLandYields = await ApiService.getLandYields(farmId);
+    if (!liveLandYields || Object.keys(liveLandYields).length === 0) {
+      if (statusEl) statusEl.textContent = "⚠️ Could not retrieve SFL.world yields";
+      if (showAlert) alert(`⚠️ Could not load land yields from sfl.world for Farm #${farmId}`);
+      return false;
+    }
+
+    let count = 0;
+    for (const [cleanKey, avgVal] of Object.entries(liveLandYields)) {
+      if (avgVal > 0) {
+        cropBaseYields[cleanKey] = avgVal;
+        count++;
+      }
+    }
+
+    localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
+    await saveBaseYieldSettings(false);
+    renderCropTrackerRows();
+    renderCropWeeklySummary();
+
+    if (statusEl) statusEl.textContent = `⚡ Auto-filled ${count} crop yields from SFL.world!`;
+    if (showAlert) alert(`✅ Successfully loaded ${count} live average crop & greenhouse yields from SFL.world for Farm #${farmId}!`);
+    return true;
+  } catch (err) {
+    if (statusEl) statusEl.textContent = `❌ Land Yields Error: ${err.message}`;
+    if (showAlert) alert(`❌ Error fetching land yields: ${err.message}`);
+    return false;
+  }
 }
 
 function syncMainGlobalInput(val) {
@@ -437,7 +490,14 @@ export async function fetchLiveCropDiff() {
       }
     }
 
-    renderCropTrackerRows();
+    // If base yields have not been populated yet, auto-fetch from SFL.world Land API
+    const customYieldsCount = Object.keys(cropBaseYields).filter(k => k !== '_global').length;
+    if (customYieldsCount === 0) {
+      await fetchAndApplyLandYields(false);
+    } else {
+      renderCropTrackerRows();
+    }
+
     if (statusEl) statusEl.textContent = `✅ ${activeHarvestDiffs.length} Active Crops Tracked`;
   } catch (err) {
     if (statusEl) statusEl.textContent = `❌ ${err.message}`;
