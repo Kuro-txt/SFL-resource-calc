@@ -34,14 +34,28 @@ export function isSnapshotEligible(itemName) {
   return !isExcludedItem(clean);
 }
 
-// STRICT FILTER EXCLUSIVELY FOR CROP TRACKER V1 (23 Standard Plot Crops)
+// STRICT FILTER FOR CROP & HARVEST TRACKER V1 (Plot Crops, Greenhouse Crops & Fruit Patch Fruits)
 export const SFL_PLOT_CROPS = new Set([
+  // 23 Standard Plot Crops
   'sunflower', 'potato', 'pumpkin', 'carrot', 'cabbage',
   'beetroot', 'cauliflower', 'parsnip', 'eggplant', 'corn',
   'radish', 'wheat', 'kale', 'soybean', 'barley',
   'rhubarb', 'zucchini', 'yam', 'broccoli', 'pepper',
-  'onion', 'turnip', 'artichoke'
+  'onion', 'turnip', 'artichoke',
+  // 3 Greenhouse Crops
+  'grape', 'rice', 'olive',
+  // 6 Fruit Patch Fruits
+  'tomato', 'lemon', 'blueberry', 'orange', 'apple', 'banana'
 ]);
+
+export const SFL_GREENHOUSE_CROPS = new Set(['grape', 'rice', 'olive']);
+export const SFL_FRUITS = new Set(['tomato', 'lemon', 'blueberry', 'orange', 'apple', 'banana']);
+
+export function getCropCategory(cleanKey) {
+  if (SFL_GREENHOUSE_CROPS.has(cleanKey)) return 'Greenhouse';
+  if (SFL_FRUITS.has(cleanKey)) return 'Fruit';
+  return 'Plot Crop';
+}
 
 export const BETTY_SHOP_PRICES = {
   "sunflower": 0.02, "potato": 0.14, "rhubarb": 0.24, "pumpkin": 0.4,
@@ -63,4 +77,7 @@ if (typeof window !== 'undefined') {
   window.isExcludedItem = isExcludedItem;
   window.isSnapshotEligible = isSnapshotEligible;
   window.SFL_PLOT_CROPS = SFL_PLOT_CROPS;
+  window.SFL_GREENHOUSE_CROPS = SFL_GREENHOUSE_CROPS;
+  window.SFL_FRUITS = SFL_FRUITS;
+  window.getCropCategory = getCropCategory;
 }

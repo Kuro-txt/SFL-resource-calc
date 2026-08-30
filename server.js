@@ -19,11 +19,16 @@ const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
 const SFL_API_KEY = process.env.SFL_API_KEY || "";
 
 const SFL_PLOT_CROPS = new Set([
+  // 23 Standard Plot Crops
   'sunflower', 'potato', 'pumpkin', 'carrot', 'cabbage',
   'beetroot', 'cauliflower', 'parsnip', 'eggplant', 'corn',
   'radish', 'wheat', 'kale', 'soybean', 'barley',
   'rhubarb', 'zucchini', 'yam', 'broccoli', 'pepper',
-  'onion', 'turnip', 'artichoke'
+  'onion', 'turnip', 'artichoke',
+  // 3 Greenhouse Crops
+  'grape', 'rice', 'olive',
+  // 6 Fruit Patch Fruits
+  'tomato', 'lemon', 'blueberry', 'orange', 'apple', 'banana'
 ]);
 
 const BETTY_SHOP_PRICES = {

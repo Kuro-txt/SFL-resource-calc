@@ -1,4 +1,4 @@
-import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML, SFL_PLOT_CROPS } from '../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML, SFL_PLOT_CROPS, SFL_GREENHOUSE_CROPS, SFL_FRUITS, getCropCategory } from '../config/constants.js';
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, getBettyUnitPrice, formatDateYYYYMMDD } from '../utils/formatters.js';
 import { ApiService } from '../services/api.js';
 
@@ -21,10 +21,10 @@ export function renderCropTrackerTemplate() {
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
         <div>
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
-            <span>🌱</span> Crop Tracker v1
+            <span>🌱</span> Crop & Harvest Tracker v1
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
-            shows number of harvest, please input your estimated yeild per plot
+            tracks plot crops, greenhouse crops & fruit patch harvests with custom yields
           </p>
         </div>
         
@@ -36,7 +36,7 @@ export function renderCropTrackerTemplate() {
 
           <!-- QUICK APPLY AVG YIELD PILL -->
           <div class="flex items-center gap-1.5 bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 px-2.5 py-1 rounded-lg shadow-xs">
-            <span class="text-[10px] font-bold text-sfl-wood dark:text-amber-300 whitespace-nowrap">Avg Yield / Plot:</span>
+            <span class="text-[10px] font-bold text-sfl-wood dark:text-amber-300 whitespace-nowrap">Avg Yield / Unit:</span>
             <input type="number" id="global-avg-yield-input" value="${globalAvgYield}" min="0.1" step="0.05" class="w-14 sfl-input rounded px-1.5 py-0.5 text-xs font-mono font-bold text-center text-sfl-dirt">
             <button id="apply-global-yield-btn" title="Apply to all active crops" class="bg-sfl-wood text-amber-100 px-2 py-0.5 rounded text-[10px] font-bold hover:bg-sfl-dirt transition cursor-pointer shadow-xs">
               Set All
@@ -66,9 +66,9 @@ export function renderCropTrackerTemplate() {
           <table class="w-full text-left text-xs text-sfl-dirt">
             <thead class="text-[11px] uppercase bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood">
               <tr>
-                <th class="px-3 py-2.5">Crop</th>
-                <th class="px-2 py-2.5">Plots Harvested</th>
-                <th class="px-2 py-2.5 w-28">Avg Yield / Plot</th>
+                <th class="px-3 py-2.5">Crop / Produce</th>
+                <th class="px-2 py-2.5">Harvests</th>
+                <th class="px-2 py-2.5 w-28">Avg Yield / Unit</th>
                 <th class="px-2 py-2.5">Est. Harvested Qty</th>
                 <th class="px-2 py-2.5">Unit Price</th>
                 <th class="px-2.5 py-2.5 text-sfl-accent">Tax Deducted</th>
@@ -642,11 +642,23 @@ export function renderCropTrackerRows() {
     grandTax += taxDeduction;
     grandFlowers += netFlowers;
 
+    let typeBadge = '';
+    let unitLabel = 'plots';
+    if (SFL_GREENHOUSE_CROPS.has(entry.cleanKey)) {
+      typeBadge = `<span class="text-[9px] bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 font-bold px-1.5 py-0.5 rounded ml-1.5 border border-emerald-300/60">🏡 Greenhouse</span>`;
+      unitLabel = 'pots';
+    } else if (SFL_FRUITS.has(entry.cleanKey)) {
+      typeBadge = `<span class="text-[9px] bg-orange-100 dark:bg-orange-950/70 text-orange-800 dark:text-orange-300 font-bold px-1.5 py-0.5 rounded ml-1.5 border border-orange-300/60">🍎 Fruit</span>`;
+      unitLabel = 'patches';
+    }
+
     const tr = document.createElement('tr');
     tr.className = "hover:bg-amber-50/50 transition";
     tr.innerHTML = `
-      <td class="px-3 py-2.5 font-bold text-sfl-dirt">${entry.crop}</td>
-      <td class="px-2 py-2.5 font-mono font-bold text-sfl-wood">+${entry.harvestCount} plots</td>
+      <td class="px-3 py-2.5 font-bold text-sfl-dirt flex items-center flex-wrap">
+        <span>${entry.crop}</span> ${typeBadge}
+      </td>
+      <td class="px-2 py-2.5 font-mono font-bold text-sfl-wood">+${entry.harvestCount} ${unitLabel}</td>
       <td class="px-2 py-2.5 font-mono">
         <input type="number" step="0.05" min="0.1" value="${baseYield}" 
           onchange="updateCropBaseYield('${entry.cleanKey}', this.value)"
@@ -818,18 +830,31 @@ export function renderCropWeeklySummary() {
       dayCycles += cycles;
       dayNetFlowers += netFlowerVal;
 
+      let typeIcon = '🌾';
+      let typeBadge = '';
+      let unitLabel = 'plots';
+      if (SFL_GREENHOUSE_CROPS.has(cleanCropKey)) {
+        typeIcon = '🏡';
+        typeBadge = `<span class="text-[9px] bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 font-bold px-1.5 py-0.5 rounded ml-1 border border-emerald-300/60">Greenhouse</span>`;
+        unitLabel = 'pots';
+      } else if (SFL_FRUITS.has(cleanCropKey)) {
+        typeIcon = '🍎';
+        typeBadge = `<span class="text-[9px] bg-orange-100 dark:bg-orange-950/70 text-orange-800 dark:text-orange-300 font-bold px-1.5 py-0.5 rounded ml-1 border border-orange-300/60">Fruit</span>`;
+        unitLabel = 'patches';
+      }
+
       dayCropsHtml += `
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-2.5 bg-amber-50/70 dark:bg-amber-950/30 rounded-lg border border-amber-200/50 dark:border-amber-700/40 gap-2">
           <div class="flex flex-col">
-            <span class="font-bold text-sfl-dirt text-xs flex items-center gap-1">
-              <span>🌾</span> ${formattedName}
+            <span class="font-bold text-sfl-dirt text-xs flex items-center gap-1 flex-wrap">
+              <span>${typeIcon}</span> <span>${formattedName}</span> ${typeBadge}
             </span>
             <span class="text-[10px] text-sfl-woodLight font-mono">Unit: ${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
           
           <div class="flex flex-wrap items-center gap-2 font-mono text-xs w-full sm:w-auto justify-between sm:justify-end">
             <span class="text-sfl-wood font-bold bg-amber-100/90 dark:bg-amber-900/40 px-2 py-0.5 rounded border border-amber-300/60 dark:border-amber-700/50">
-              ${cycles} plots
+              ${cycles} ${unitLabel}
             </span>
 
             <!-- CLEAN INLINE AVG YIELD PILL -->
