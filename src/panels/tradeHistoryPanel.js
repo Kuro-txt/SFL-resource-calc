@@ -411,7 +411,7 @@ function renderTradesTableView(mountEl, farmId) {
   filtered.forEach(t => {
     const isSeller = isUserSeller(t, farmId);
     const isEconomy = t.collection === 'economies' || Boolean(t.economy);
-    const itemName = isEconomy ? '?' : (t.itemName || getItemNameById(t.itemId));
+    const itemName = isEconomy ? `#${t.itemId || '?'}` : (t.itemName || getItemNameById(t.itemId));
     const qty = parseFloat(t.quantity || 1);
     const sfl = parseFloat(t.sfl || 0);
     const unitPrice = qty > 0 ? (sfl / qty) : sfl;
@@ -489,11 +489,11 @@ function renderListingsView(mountEl) {
     const isEconomy = listData.collection === 'economies' || Boolean(listData.economy);
     const itemsMap = listData.items || {};
     const itemNames = isEconomy 
-      ? '?' 
+      ? Object.entries(itemsMap).map(([rawId, q]) => `${q}x #${rawId}`).join(', ') || 'Economy Item'
       : Object.entries(itemsMap).map(([rawId, q]) => {
           const name = getItemNameById(rawId);
           return `${q}x ${name}`;
-        }).join(', ') || '?';
+        }).join(', ') || 'Listing Item';
 
     const sfl = parseFloat(listData.sfl || 0);
     const tax = parseFloat(listData.tax || 0);
@@ -548,11 +548,11 @@ function renderOffersView(mountEl) {
     const isEconomy = offData.collection === 'economies' || Boolean(offData.economy);
     const itemsMap = offData.items || {};
     const itemNames = isEconomy 
-      ? '?' 
+      ? Object.entries(itemsMap).map(([rawId, q]) => `${q}x #${rawId}`).join(', ') || 'Economy Item'
       : Object.entries(itemsMap).map(([rawId, q]) => {
           const name = getItemNameById(rawId);
           return `${q}x ${name}`;
-        }).join(', ') || '?';
+        }).join(', ') || 'Offer Item';
 
     const sfl = parseFloat(offData.sfl || 0);
 
