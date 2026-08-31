@@ -35,13 +35,9 @@ function getTiDBPool() {
   if (!config) return null;
 
   if (!pool) {
-    if (config.host && config.user) {
+    try {
       pool = mysql.createPool({
-        host: config.host,
-        port: config.port || 4000,
-        user: config.user,
-        password: config.password,
-        database: config.database || 'test',
+        uri: config.cleanUrl,
         ssl: {
           minVersion: 'TLSv1.2',
           rejectUnauthorized: false
@@ -52,11 +48,17 @@ function getTiDBPool() {
         idleTimeout: 30000,
         queueLimit: 0
       });
-    } else {
-      pool = mysql.createPool({
-        uri: config.cleanUrl,
-        ssl: { rejectUnauthorized: false }
-      });
+    } catch (e) {
+      if (config.host && config.user) {
+        pool = mysql.createPool({
+          host: config.host,
+          port: config.port || 4000,
+          user: config.user,
+          password: config.password,
+          database: config.database || 'test',
+          ssl: { rejectUnauthorized: false }
+        });
+      }
     }
   }
   return pool;
@@ -149,6 +151,8 @@ export default async function handler(req, res) {
       }
 
       let insertedCount = 0;
+      const errors = [];
+
       for (const t of trades) {
         const id = String(t.id || '').trim();
         if (!id) continue;
@@ -166,20 +170,25 @@ export default async function handler(req, res) {
         const fulfilledDate = new Date(fulfilledAt).toISOString().slice(0, 19).replace('T', ' ');
 
         const insertSql = `
-          INSERT IGNORE INTO user_trades 
+          INSERT INTO user_trades 
           (id, farm_id, item_id, item_name, quantity, sfl, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE 
+            item_name = VALUES(item_name),
+            quantity = VALUES(quantity),
+            sfl = VALUES(sfl),
+            unit_price = VALUES(unit_price)
         `;
 
         try {
           const [result] = await pool.query(insertSql, [
             id, farmId, itemId, itemName, quantity, sfl, unitPrice, tradeType, source, counterpartyId, counterpartyName, fulfilledAt, fulfilledDate
           ]);
-          if (result && result.affectedRows > 0) {
-            insertedCount += result.affectedRows;
+          if (result && (result.affectedRows > 0 || result.insertId !== undefined)) {
+            insertedCount++;
           }
         } catch (queryErr) {
-          console.warn("Trade insert row warning:", queryErr.message);
+          errors.push({ tradeId: id, error: queryErr.message });
         }
       }
 
@@ -188,6 +197,7 @@ export default async function handler(req, res) {
         const [countRes] = await pool.query('SELECT COUNT(*) as total FROM user_trades WHERE farm_id = ?', [farmId]);
         totalInCloud = countRes[0]?.total || 0;
       } catch (countErr) {
+        errors.push({ countError: countErr.message });
         totalInCloud = insertedCount;
       }
 
@@ -195,7 +205,9 @@ export default async function handler(req, res) {
         success: true,
         configured: true,
         savedNewTrades: insertedCount,
-        totalArchivedTrades: totalInCloud
+        totalArchivedTrades: totalInCloud,
+        debugErrors: errors.length > 0 ? errors : undefined,
+        db: config.database
       });
     }
 
