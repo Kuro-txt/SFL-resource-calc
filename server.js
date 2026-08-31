@@ -589,11 +589,17 @@ async function fetchMarketplaceTradesWithRetry(farmId, apiKey = '', maxRetries =
         headers: getSflHeaders(apiKey),
         timeout: 15000
       });
-      return response.data?.trades || [];
+      
+      const payload = response.data?.data || response.data?.farm || response.data || {};
+      const trades = Array.isArray(payload.trades) 
+        ? payload.trades 
+        : (Array.isArray(payload) ? payload : Object.values(payload.trades || {}));
+
+      return trades;
     } catch (err) {
       const status = err.response?.status;
       if (status === 401) {
-        console.warn(`⚠️ [Farm #${farmId}] 401 Unauthorized (Check API key). Skipping retries.`);
+        console.warn(`⚠️ [Farm #${farmId}] 401 Unauthorized (Check SFL API key). Skipping retries.`);
         throw err;
       }
       if (attempt < maxRetries) {
