@@ -7,7 +7,7 @@ export const PanelManager = {
   },
 
   switch(targetId) {
-    const validTabs = ['calc', 'croptracker', 'npc', 'wishlist'];
+    const validTabs = ['calc', 'croptracker', 'tradehistory', 'npc', 'wishlist'];
     if (!validTabs.includes(targetId)) {
       targetId = 'calc';
     }
@@ -19,6 +19,7 @@ export const PanelManager = {
     validTabs.forEach(id => {
       let sectionId = `${id}-section`;
       if (id === 'croptracker') sectionId = 'crop-tracker-section';
+      if (id === 'tradehistory') sectionId = 'trade-history-section';
       if (id === 'npc') sectionId = 'npc-gifts-section';
 
       const sectionEl = document.getElementById(sectionId);
@@ -48,6 +49,7 @@ export const PanelManager = {
   initTabs() {
     document.getElementById('tab-calc-btn')?.addEventListener('click', () => this.switch('calc'));
     document.getElementById('tab-croptracker-btn')?.addEventListener('click', () => this.switch('croptracker'));
+    document.getElementById('tab-tradehistory-btn')?.addEventListener('click', () => this.switch('tradehistory'));
     document.getElementById('tab-npc-btn')?.addEventListener('click', () => this.switch('npc'));
     document.getElementById('tab-wishlist-btn')?.addEventListener('click', () => this.switch('wishlist'));
 

@@ -238,6 +238,26 @@ app.get('/api/get-land', async (req, res) => {
   }
 });
 
+app.get('/api/get-marketplace', async (req, res) => {
+  const { farmId, apiKey } = req.query;
+  if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
+
+  const cleanFarmId = String(farmId).trim();
+  const cleanApiKey = apiKey ? String(apiKey).trim() : '';
+
+  try {
+    const response = await axios.get(`https://api.sunflower-land.com/community/data?type=marketplaceProfile&farmId=${encodeURIComponent(cleanFarmId)}`, {
+      headers: getSflHeaders(cleanApiKey),
+      timeout: 15000
+    });
+    res.json({ success: true, data: response.data });
+  } catch (err) {
+    const status = err.response?.status || 500;
+    const msg = err.response?.data?.error || err.message;
+    res.status(status).json({ error: msg });
+  }
+});
+
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {

@@ -64,5 +64,18 @@ export const ApiService = {
       console.warn("⚠️ Failed to load live land yields from sfl.world:", err.message);
       return null;
     }
+  },
+
+  async getMarketplaceProfile(farmId, apiKey = '') {
+    if (!farmId) throw new Error('Farm ID is required.');
+    const url = `${BACKEND_URL}/api/get-marketplace?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`;
+    const response = await fetch(url);
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || `HTTP Error ${response.status}`);
+    }
+
+    return result.data || result;
   }
 };
