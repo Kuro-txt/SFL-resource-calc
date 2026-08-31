@@ -258,6 +258,15 @@ app.get('/api/get-marketplace', async (req, res) => {
   }
 });
 
+app.all('/api/trades', async (req, res) => {
+  try {
+    const { default: tradesHandler } = await import('./api/trades.js');
+    return tradesHandler(req, res);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process trades request', details: err.message });
+  }
+});
+
 app.get('/api/nfts', async (req, res) => {
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {

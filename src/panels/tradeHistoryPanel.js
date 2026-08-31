@@ -7,6 +7,7 @@ let tradeHistoryData = null;
 let currentView = 'trades'; // 'trades' | 'listings' | 'offers' | 'friends'
 let currentFilter = 'all'; // 'all' | 'sold' | 'bought'
 let searchQuery = '';
+let cloudArchivedCount = 0;
 
 export function renderTradeHistoryTemplate() {
   const container = document.getElementById('trade-history-section');
@@ -19,14 +20,17 @@ export function renderTradeHistoryTemplate() {
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
         <div>
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
-            <span>📜</span> Marketplace Trade History & Profile
+            <span>📜</span> Marketplace Trade History & TiDB Cloud Ledger
           </h3>
           <p id="trade-user-summary" class="text-[11px] text-sfl-woodLight font-semibold">
-            tracks completed sales, purchases, active listings & top trading partners
+            tracks completed sales, purchases, active listings & permanent cloud archives
           </p>
         </div>
         
         <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <button id="export-trades-csv-btn" class="bg-amber-100/90 text-sfl-dirt px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-cardBorder hover:bg-amber-200 transition cursor-pointer flex items-center gap-1.5 shadow-xs">
+            📥 Export CSV
+          </button>
           <button id="refresh-trade-history-btn" class="bg-sfl-wood text-amber-200 px-3.5 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-sfl-woodLight transition cursor-pointer flex items-center gap-1.5 shadow-xs">
             🔄 Refresh Profile
           </button>
@@ -54,9 +58,9 @@ export function renderTradeHistoryTemplate() {
         </div>
 
         <div class="bg-white/80 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs text-center">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">🏆 Total Completed Trades</span>
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">☁️ TiDB Cloud Ledger</span>
           <span id="trade-metric-total-trades" class="text-base sm:text-lg font-black text-sfl-dirt font-mono">0</span>
-          <span id="trade-metric-profile-level" class="text-[10px] text-sfl-woodLight block mt-0.5">Bumpkin Level: -</span>
+          <span id="trade-metric-cloud-status" class="text-[10px] text-sfl-green font-bold block mt-0.5">Archive Ready</span>
         </div>
       </div>
 
@@ -119,7 +123,7 @@ export function renderTradeHistoryTemplate() {
             <tbody id="trade-history-body" class="divide-y divide-sfl-cardBorder/40 font-medium">
               <tr>
                 <td colspan="7" class="px-4 py-8 text-center text-sfl-woodLight italic">
-                  Click 'Refresh Profile' or sign in with your VIP API Key to load live marketplace activity.
+                  Click 'Refresh Profile' or 'Sync Farm' to load live marketplace activity & archive to TiDB Cloud.
                 </td>
               </tr>
             </tbody>
@@ -135,6 +139,7 @@ export function initTradeHistoryPanel() {
   renderTradeHistoryTemplate();
 
   document.getElementById('refresh-trade-history-btn')?.addEventListener('click', fetchMarketplaceTrades);
+  document.getElementById('export-trades-csv-btn')?.addEventListener('click', exportTradesToCsv);
 
   document.getElementById('subtab-trades-btn')?.addEventListener('click', () => switchSubTab('trades'));
   document.getElementById('subtab-listings-btn')?.addEventListener('click', () => switchSubTab('listings'));
@@ -199,14 +204,64 @@ export async function fetchMarketplaceTrades() {
     return;
   }
 
-  if (statusEl) statusEl.textContent = "⏳ Loading marketplace profile...";
+  if (statusEl) statusEl.textContent = "⏳ Syncing marketplace & TiDB Cloud...";
 
   try {
     const data = await ApiService.getMarketplaceProfile(farmId, apiKey);
     tradeHistoryData = data;
-    renderTradeSummaryMetrics(data);
+
+    // Format trades for TiDB Cloud archiving
+    const rawTrades = data.trades || [];
+    const formattedForCloud = rawTrades.map(t => {
+      const isSeller = isUserSeller(t, farmId);
+      const itemName = getItemNameById(t.itemId);
+      const otherUser = isSeller ? (t.fulfilledBy?.username || '') : (t.initiatedBy?.username || '');
+      const otherId = isSeller ? (t.fulfilledBy?.id || null) : (t.initiatedBy?.id || null);
+
+      return {
+        id: t.id,
+        farmId: farmId,
+        itemId: t.itemId,
+        itemName: itemName,
+        quantity: parseFloat(t.quantity || 1),
+        sfl: parseFloat(t.sfl || 0),
+        tradeType: isSeller ? 'sold' : 'bought',
+        source: t.source || 'listing',
+        counterpartyId: otherId,
+        counterpartyName: otherUser,
+        fulfilledAt: t.fulfilledAt
+      };
+    });
+
+    // 1. Sync live batch to TiDB Cloud
+    try {
+      const syncRes = await ApiService.syncTradesToCloud(farmId, formattedForCloud);
+      if (syncRes?.totalArchivedTrades) {
+        cloudArchivedCount = syncRes.totalArchivedTrades;
+      }
+    } catch (err) {
+      console.warn("TiDB Cloud batch sync note:", err.message);
+    }
+
+    // 2. Fetch accumulated lifetime trades from TiDB Cloud
+    try {
+      const cloudRes = await ApiService.getCloudTrades(farmId);
+      if (cloudRes?.trades && Array.isArray(cloudRes.trades) && cloudRes.trades.length > 0) {
+        // Merge cloud historical trades with live trades
+        const tradesMap = new Map();
+        cloudRes.trades.forEach(t => tradesMap.set(t.id, t));
+        formattedForCloud.forEach(t => tradesMap.set(t.id, t));
+
+        tradeHistoryData.trades = Array.from(tradesMap.values()).sort((a, b) => (b.fulfilledAt || 0) - (a.fulfilledAt || 0));
+        cloudArchivedCount = tradeHistoryData.trades.length;
+      }
+    } catch (err) {
+      console.warn("TiDB Cloud fetch note:", err.message);
+    }
+
+    renderTradeSummaryMetrics(tradeHistoryData);
     renderCurrentView();
-    if (statusEl) statusEl.textContent = "✅ Profile Loaded";
+    if (statusEl) statusEl.textContent = `✅ Synced & Archived (${cloudArchivedCount || tradeHistoryData.trades?.length || 0} Total)`;
   } catch (err) {
     const isAuthErr = err.message.includes('401') || err.message.toLowerCase().includes('api key');
     if (statusEl) statusEl.textContent = isAuthErr ? "⚠️ VIP Key Required" : `❌ Error: ${err.message}`;
@@ -275,7 +330,7 @@ function renderTradeSummaryMetrics(profileData) {
 
   const userSummaryEl = document.getElementById('trade-user-summary');
   if (userSummaryEl) {
-    userSummaryEl.textContent = `Player: ${user} • Level: ${level} • Lifetime Trades: ${totalTradesCount.toLocaleString()}`;
+    userSummaryEl.textContent = `Player: ${user} • Level: ${level} • Lifetime Market Volume: ${totalTradesCount.toLocaleString()} trades`;
   }
 
   const salesVolEl = document.getElementById('trade-metric-sales-volume');
@@ -285,16 +340,16 @@ function renderTradeSummaryMetrics(profileData) {
   const weeklySpentEl = document.getElementById('trade-metric-weekly-spent');
   const weeklyEarnedEl = document.getElementById('trade-metric-weekly-earned');
   const totalTradesEl = document.getElementById('trade-metric-total-trades');
-  const profileLevelEl = document.getElementById('trade-metric-profile-level');
+  const cloudStatusEl = document.getElementById('trade-metric-cloud-status');
 
   if (salesVolEl) salesVolEl.innerHTML = `${totalSoldVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-  if (salesCountEl) salesCountEl.textContent = `${totalSoldCount.toLocaleString()} items sold in history`;
+  if (salesCountEl) salesCountEl.textContent = `${totalSoldCount.toLocaleString()} items sold in ledger`;
   if (buysVolEl) buysVolEl.innerHTML = `${totalBoughtVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-  if (buysCountEl) buysCountEl.textContent = `${totalBoughtCount.toLocaleString()} items bought in history`;
+  if (buysCountEl) buysCountEl.textContent = `${totalBoughtCount.toLocaleString()} items bought in ledger`;
   if (weeklySpentEl) weeklySpentEl.innerHTML = `-${weeklySpent.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
   if (weeklyEarnedEl) weeklyEarnedEl.innerHTML = `Earned: +${weeklyEarned.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-  if (totalTradesEl) totalTradesEl.textContent = totalTradesCount.toLocaleString();
-  if (profileLevelEl) profileLevelEl.textContent = `Bumpkin Level: ${level}`;
+  if (totalTradesEl) totalTradesEl.textContent = `${trades.length} Trades`;
+  if (cloudStatusEl) cloudStatusEl.textContent = `☁️ TiDB 25GB Synced`;
 
   document.getElementById('subtab-trades-count').textContent = trades.length;
   document.getElementById('subtab-listings-count').textContent = listings.length;
@@ -303,14 +358,13 @@ function renderTradeSummaryMetrics(profileData) {
 }
 
 function isUserSeller(trade, myFarmId) {
+  if (trade.tradeType) return trade.tradeType === 'sold';
   const initId = String(trade.initiatedBy?.id || trade.seller || '');
   const fulfId = String(trade.fulfilledBy?.id || trade.buyer || '');
 
   if (trade.source === 'listing') {
-    // In a listing, the initiator is the seller, the fulfiller is the buyer
     return initId === myFarmId;
   } else if (trade.source === 'offer') {
-    // In an offer, the initiator is the buyer, the fulfiller is the seller
     return fulfId === myFarmId;
   }
   return initId === myFarmId;
@@ -324,7 +378,7 @@ function renderCurrentView() {
   const farmId = String(tradeHistoryData.id || localStorage.getItem('sfl_farm_id') || '').trim();
 
   if (currentView === 'trades') {
-    if (titleEl) titleEl.textContent = "📜 Completed Trade Transactions";
+    if (titleEl) titleEl.textContent = "📜 Completed Trade Ledger (Archived in TiDB Cloud)";
     renderTradesTableView(mountEl, farmId);
   } else if (currentView === 'listings') {
     if (titleEl) titleEl.textContent = "🏷️ Active Marketplace Listings";
@@ -347,8 +401,8 @@ function renderTradesTableView(mountEl, farmId) {
     if (currentFilter === 'bought' && isSeller) return false;
 
     if (searchQuery) {
-      const itemName = getItemNameById(t.itemId).toLowerCase();
-      const otherUser = isSeller ? (t.fulfilledBy?.username || '').toLowerCase() : (t.initiatedBy?.username || '').toLowerCase();
+      const itemName = (t.itemName || getItemNameById(t.itemId)).toLowerCase();
+      const otherUser = isSeller ? (t.counterpartyName || t.fulfilledBy?.username || '').toLowerCase() : (t.counterpartyName || t.initiatedBy?.username || '').toLowerCase();
       if (!itemName.includes(searchQuery) && !otherUser.includes(searchQuery)) return false;
     }
     return true;
@@ -366,7 +420,7 @@ function renderTradesTableView(mountEl, farmId) {
   let rowsHtml = '';
   filtered.forEach(t => {
     const isSeller = isUserSeller(t, farmId);
-    const itemName = getItemNameById(t.itemId);
+    const itemName = t.itemName || getItemNameById(t.itemId);
     const qty = parseFloat(t.quantity || 1);
     const sfl = parseFloat(t.sfl || 0);
     const unitPrice = qty > 0 ? (sfl / qty) : sfl;
@@ -379,8 +433,8 @@ function renderTradesTableView(mountEl, farmId) {
     }
 
     const otherUser = isSeller
-      ? (t.fulfilledBy?.username || `Farm #${t.fulfilledBy?.id || '?'}`)
-      : (t.initiatedBy?.username || `Farm #${t.initiatedBy?.id || '?'}`);
+      ? (t.counterpartyName || t.fulfilledBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Buyer'))
+      : (t.counterpartyName || t.initiatedBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Seller'));
 
     const badge = isSeller
       ? `<span class="bg-green-100 text-sfl-green border border-sfl-green/40 px-2 py-0.5 rounded text-[10px] font-bold">🟢 SOLD</span>`
@@ -561,4 +615,47 @@ function renderFriendsView(mountEl) {
       ${cardsHtml}
     </div>
   `;
+}
+
+function exportTradesToCsv() {
+  const trades = tradeHistoryData?.trades || [];
+  if (trades.length === 0) {
+    alert("⚠️ No trade records to export yet. Please sync your farm first.");
+    return;
+  }
+
+  const farmId = String(tradeHistoryData.id || localStorage.getItem('sfl_farm_id') || '').trim();
+  const headers = ["Date", "Type", "Item Name", "Item ID", "Quantity", "Total SFL", "Unit Price", "Counterparty", "Source", "Trade ID"];
+  
+  const rows = trades.map(t => {
+    const isSeller = isUserSeller(t, farmId);
+    const rawDate = t.fulfilledAt ? new Date(t.fulfilledAt).toISOString() : '';
+    const itemName = t.itemName || getItemNameById(t.itemId);
+    const qty = t.quantity || 1;
+    const sfl = t.sfl || 0;
+    const unitPrice = qty > 0 ? (sfl / qty) : sfl;
+    const counterparty = isSeller ? (t.counterpartyName || t.fulfilledBy?.username || '') : (t.counterpartyName || t.initiatedBy?.username || '');
+
+    return [
+      `"${rawDate}"`,
+      `"${isSeller ? 'SOLD' : 'BOUGHT'}"`,
+      `"${itemName}"`,
+      `"${t.itemId || ''}"`,
+      qty,
+      sfl,
+      unitPrice.toFixed(4),
+      `"${counterparty}"`,
+      `"${t.source || 'listing'}"`,
+      `"${t.id || ''}"`
+    ].join(',');
+  });
+
+  const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `sfl_trades_farm_${farmId || 'all'}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }

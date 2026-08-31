@@ -121,5 +121,48 @@ export const ApiService = {
     }
 
     throw lastError || new Error("Failed to load marketplace profile. Please check your Farm ID and VIP API Key.");
+  },
+
+  async syncTradesToCloud(farmId, trades) {
+    if (!farmId || !Array.isArray(trades) || trades.length === 0) return null;
+    const endpoints = [`/api/trades`, `${BACKEND_URL}/api/trades`];
+
+    for (const url of endpoints) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ farmId, trades })
+        });
+        const text = await response.text();
+        if (text.trim().startsWith('<')) continue;
+        const data = JSON.parse(text);
+        if (response.ok) return data;
+      } catch (e) {
+        console.warn("⚠️ TiDB Cloud trade sync notice:", e.message);
+      }
+    }
+    return null;
+  },
+
+  async getCloudTrades(farmId) {
+    if (!farmId) return null;
+    const endpoints = [
+      `/api/trades?farmId=${encodeURIComponent(farmId)}`,
+      `${BACKEND_URL}/api/trades?farmId=${encodeURIComponent(farmId)}`
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        if (text.trim().startsWith('<')) continue;
+        const data = JSON.parse(text);
+        if (response.ok && data.success) return data;
+      } catch (e) {
+        console.warn("⚠️ TiDB Cloud fetch notice:", e.message);
+      }
+    }
+    return null;
   }
 };
