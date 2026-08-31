@@ -55,7 +55,7 @@ export function renderTradeHistoryTemplate() {
         </div>
 
         <div class="bg-white/80 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs text-center">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">🏆 Total Completed Trades</span>
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">☁️ Trades Saved in Cloud</span>
           <span id="trade-metric-total-trades" class="text-base sm:text-lg font-black text-sfl-dirt font-mono">0</span>
         </div>
       </div>
@@ -339,7 +339,7 @@ function renderTradeSummaryMetrics(profileData) {
   if (salesVolEl) salesVolEl.innerHTML = `${totalSoldVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
   if (buysVolEl) buysVolEl.innerHTML = `${totalBoughtVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
   if (weeklySpentEl) weeklySpentEl.innerHTML = `${weeklySpent.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-  if (totalTradesEl) totalTradesEl.textContent = `${totalTradesCount.toLocaleString()}`;
+  if (totalTradesEl) totalTradesEl.textContent = `${trades.length.toLocaleString()}`;
 
   document.getElementById('subtab-trades-count').textContent = trades.length;
   document.getElementById('subtab-listings-count').textContent = listings.length;
