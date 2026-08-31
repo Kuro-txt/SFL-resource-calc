@@ -76,12 +76,12 @@ export function renderTradeHistoryTemplate() {
         <div class="bg-white/90 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs flex flex-col justify-between">
           <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 pb-1.5 mb-2">
             <span class="text-xs font-bold text-sfl-wood flex items-center gap-1">
-              <span>📊</span> Weekly Trading
+              <span>📊</span> Weekly (Mon–Sun)
             </span>
             <span id="trade-metric-week-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-sfl-dirt border border-amber-300">0 trades</span>
           </div>
           <div class="mb-2">
-            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">7-Day Net Profit</span>
+            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">Mon – Sun Net Profit</span>
             <span id="trade-metric-week-net" class="text-lg font-black text-sfl-wood font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
           <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40">
@@ -105,7 +105,7 @@ export function renderTradeHistoryTemplate() {
             <span id="trade-metric-month-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-sfl-dirt border border-amber-300">0 trades</span>
           </div>
           <div class="mb-2">
-            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">30-Day Net Profit</span>
+            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">This Month Net Profit</span>
             <span id="trade-metric-month-net" class="text-lg font-black text-sfl-wood font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
           <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40">
@@ -393,8 +393,23 @@ function renderTradeSummaryMetrics(profileData) {
   const now = Date.now();
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
-  const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+  // Calculate Monday to Sunday of the current week
+  const dayOfWeek = today.getDay(); // 0 is Sun, 1 is Mon, 2 is Tue ...
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const currentWeekMonday = new Date(today);
+  currentWeekMonday.setDate(today.getDate() + diffToMonday);
+  currentWeekMonday.setHours(0, 0, 0, 0);
+
+  const currentWeekSunday = new Date(currentWeekMonday);
+  currentWeekSunday.setDate(currentWeekMonday.getDate() + 6);
+  currentWeekSunday.setHours(23, 59, 59, 999);
+
+  const mondayTime = currentWeekMonday.getTime();
+  const sundayTime = currentWeekSunday.getTime();
+
+  // Start of current month (1st of month at 00:00:00)
+  const monthStartTime = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0, 0).getTime();
 
   let todaySales = 0, todayBuys = 0, todayCount = 0;
   let weekSales = 0, weekBuys = 0, weekCount = 0;
@@ -415,16 +430,19 @@ function renderTradeSummaryMetrics(profileData) {
       }
     }
 
+    const isThisWeek = time >= mondayTime && time <= sundayTime;
+    const isThisMonth = time >= monthStartTime;
+
     if (isSeller) {
       totalSales += sfl;
       if (isToday) { todaySales += sfl; todayCount++; }
-      if (time >= sevenDaysAgo) { weekSales += sfl; weekCount++; }
-      if (time >= thirtyDaysAgo) { monthSales += sfl; monthCount++; }
+      if (isThisWeek) { weekSales += sfl; weekCount++; }
+      if (isThisMonth) { monthSales += sfl; monthCount++; }
     } else {
       totalBuys += sfl;
       if (isToday) { todayBuys += sfl; todayCount++; }
-      if (time >= sevenDaysAgo) { weekBuys += sfl; weekCount++; }
-      if (time >= thirtyDaysAgo) { monthBuys += sfl; monthCount++; }
+      if (isThisWeek) { weekBuys += sfl; weekCount++; }
+      if (isThisMonth) { monthBuys += sfl; monthCount++; }
     }
   });
 
@@ -663,16 +681,17 @@ function buildTradesDateMap(trades, farmId) {
 
 function getWeekRange(offset = 0) {
   const now = new Date();
-  const currentDayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon ...
-  const sunday = new Date(now);
-  sunday.setDate(now.getDate() - currentDayOfWeek + (offset * 7));
-  sunday.setHours(0, 0, 0, 0);
+  const day = now.getDay(); // 0 = Sun, 1 = Mon ...
+  const diffToMonday = (day === 0 ? -6 : 1 - day) + (offset * 7);
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
 
-  const saturday = new Date(sunday);
-  saturday.setDate(sunday.getDate() + 6);
-  saturday.setHours(23, 59, 59, 999);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
 
-  return { sunday, saturday };
+  return { monday, sunday };
 }
 
 // ----------------------------------------------------
@@ -937,16 +956,16 @@ function renderByDayView(mountEl, tradesMap, farmId, topModeBarHtml) {
 // 2️⃣ BY WEEK VIEW (< > SWIPE WEEKS)
 // ----------------------------------------------------
 function renderByWeekView(mountEl, tradesMap, farmId, topModeBarHtml) {
-  const { sunday, saturday } = getWeekRange(calendarWeekOffset);
-  const weekTitle = `${sunday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${saturday.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const { monday, sunday } = getWeekRange(calendarWeekOffset);
+  const weekTitle = `${monday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${sunday.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
   const weekDays = [];
   let weekSales = 0;
   let weekSpend = 0;
 
   for (let i = 0; i < 7; i++) {
-    const d = new Date(sunday);
-    d.setDate(sunday.getDate() + i);
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const dayData = tradesMap.get(key) || {
       dateKey: key,
