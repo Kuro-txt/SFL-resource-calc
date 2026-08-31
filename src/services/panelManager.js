@@ -1,12 +1,38 @@
 const panels = {};
 let activePanelId = null;
 
+const TAB_TO_HASH = {
+  calc: 'daily',
+  croptracker: 'crops',
+  tradehistory: 'trades',
+  npc: 'npc',
+  wishlist: 'wishlist'
+};
+
+const HASH_TO_TAB = {
+  daily: 'calc',
+  calc: 'calc',
+  'daily-tracker': 'calc',
+  crops: 'croptracker',
+  croptracker: 'croptracker',
+  'crop-tracker': 'croptracker',
+  trades: 'tradehistory',
+  tradehistory: 'tradehistory',
+  'trade-history': 'tradehistory',
+  npc: 'npc',
+  'npc-gifts': 'npc',
+  gifts: 'npc',
+  wishlist: 'wishlist',
+  nfts: 'wishlist',
+  'nft-wishlist': 'wishlist'
+};
+
 export const PanelManager = {
   register(id, { onMount, onUnmount } = {}) {
     panels[id] = { onMount, onUnmount };
   },
 
-  switch(targetId) {
+  switch(targetId, updateUrlHash = true) {
     const validTabs = ['calc', 'croptracker', 'tradehistory', 'npc', 'wishlist'];
     if (!validTabs.includes(targetId)) {
       targetId = 'calc';
@@ -41,9 +67,23 @@ export const PanelManager = {
     activePanelId = targetId;
     localStorage.setItem('sfl_active_tab', targetId);
 
+    // Sync URL hash for bookmarking & browser back/forward buttons
+    if (updateUrlHash) {
+      const targetHash = `#${TAB_TO_HASH[targetId] || targetId}`;
+      if (window.location.hash !== targetHash) {
+        history.pushState(null, '', targetHash);
+      }
+    }
+
     if (panels[targetId]?.onMount) {
       panels[targetId].onMount();
     }
+  },
+
+  getTabFromUrlHash() {
+    const rawHash = (window.location.hash || '').replace(/^#/, '').toLowerCase().trim();
+    if (!rawHash) return null;
+    return HASH_TO_TAB[rawHash] || null;
   },
 
   initTabs() {
@@ -53,8 +93,29 @@ export const PanelManager = {
     document.getElementById('tab-npc-btn')?.addEventListener('click', () => this.switch('npc'));
     document.getElementById('tab-wishlist-btn')?.addEventListener('click', () => this.switch('wishlist'));
 
-    // Restore the last opened tab or default to 'calc'
-    const savedTab = localStorage.getItem('sfl_active_tab') || 'calc';
-    this.switch(savedTab);
+    // Listen to browser Back/Forward navigation or direct hash changes
+    window.addEventListener('hashchange', () => {
+      const tabFromHash = this.getTabFromUrlHash();
+      if (tabFromHash && tabFromHash !== activePanelId) {
+        this.switch(tabFromHash, false);
+      }
+    });
+
+    window.addEventListener('popstate', () => {
+      const tabFromHash = this.getTabFromUrlHash();
+      if (tabFromHash && tabFromHash !== activePanelId) {
+        this.switch(tabFromHash, false);
+      }
+    });
+
+    // 1. Initial Priority: URL Hash (e.g. /#trades, /#crops)
+    const urlTab = this.getTabFromUrlHash();
+    if (urlTab) {
+      this.switch(urlTab, false);
+    } else {
+      // 2. Fallback: Last opened tab from localStorage or default 'calc'
+      const savedTab = localStorage.getItem('sfl_active_tab') || 'calc';
+      this.switch(savedTab, true);
+    }
   }
 };
