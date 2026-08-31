@@ -14,23 +14,39 @@ function getTiDBConfig() {
   if (!rawUrl) return null;
   const cleanUrl = rawUrl.trim().replace(/^['"]|['"]$/g, '');
 
+  const match = cleanUrl.match(/^mysql(?:2)?:\/\/(.*?):(.*?)@([^:/]+)(?::(\d+))?(?:\/([^?]*))?(?:\?(.*))?$/);
+  if (match) {
+    const [, user, password, host, portStr, dbName] = match;
+    let database = dbName || 'test';
+    if (!database || ['sys', 'information_schema', 'performance_schema'].includes(database)) {
+      database = 'test';
+    }
+    return {
+      host,
+      port: parseInt(portStr || '4000', 10),
+      user: decodeURIComponent(user),
+      password: decodeURIComponent(password),
+      database,
+      ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false }
+    };
+  }
+
   try {
     const parsed = new URL(cleanUrl);
     let dbName = parsed.pathname.replace(/^\//, '').split('?')[0] || 'test';
-    if (!dbName || dbName === 'sys' || dbName === 'information_schema' || dbName === 'performance_schema') {
+    if (!dbName || ['sys', 'information_schema', 'performance_schema'].includes(dbName)) {
       dbName = 'test';
     }
-
     return {
       host: parsed.hostname,
       port: parseInt(parsed.port || '4000', 10),
       user: decodeURIComponent(parsed.username || ''),
       password: decodeURIComponent(parsed.password || ''),
       database: dbName,
-      cleanUrl
+      ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false }
     };
   } catch {
-    return { cleanUrl, database: 'test' };
+    return { uri: cleanUrl, database: 'test', ssl: { rejectUnauthorized: false } };
   }
 }
 

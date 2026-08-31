@@ -13,24 +13,61 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
+function parseMySqlUrl(rawUrl) {
+  if (!rawUrl) return null;
+  const cleanUrl = rawUrl.trim().replace(/^['"]|['"]$/g, '');
+
+  const match = cleanUrl.match(/^mysql(?:2)?:\/\/(.*?):(.*?)@([^:/]+)(?::(\d+))?(?:\/([^?]*))?(?:\?(.*))?$/);
+  if (match) {
+    const [, user, password, host, portStr, dbName] = match;
+    let database = dbName || 'test';
+    if (!database || ['sys', 'information_schema', 'performance_schema'].includes(database)) {
+      database = 'test';
+    }
+    return {
+      host,
+      port: parseInt(portStr || '4000', 10),
+      user: decodeURIComponent(user),
+      password: decodeURIComponent(password),
+      database,
+      ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false }
+    };
+  }
+
+  try {
+    const parsed = new URL(cleanUrl);
+    let dbName = parsed.pathname.replace(/^\//, '').split('?')[0] || 'test';
+    if (!dbName || ['sys', 'information_schema', 'performance_schema'].includes(dbName)) {
+      dbName = 'test';
+    }
+    return {
+      host: parsed.hostname,
+      port: parseInt(parsed.port || '4000', 10),
+      user: decodeURIComponent(parsed.username || ''),
+      password: decodeURIComponent(parsed.password || ''),
+      database: dbName,
+      ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false }
+    };
+  } catch {
+    return { uri: cleanUrl, database: 'test', ssl: { rejectUnauthorized: false } };
+  }
+}
+
 let tidbPool = null;
 function getTiDBPool() {
   const rawUrl = process.env.TIDB_DATABASE_URL || process.env.DATABASE_URL || process.env.TIDB_URL || process.env.MYSQL_URL || '';
   if (!rawUrl) return null;
   if (!tidbPool) {
-    const cleanUrl = rawUrl.trim().replace(/^['"]|['"]$/g, '');
-    try {
-      const parsed = new URL(cleanUrl);
-      let dbName = parsed.pathname.replace(/^\//, '').split('?')[0] || 'test';
-      if (!dbName || dbName === 'sys' || dbName === 'information_schema' || dbName === 'performance_schema') {
-        dbName = 'test';
-      }
+    const config = parseMySqlUrl(rawUrl);
+    if (!config) return null;
+
+    if (config.host && config.user) {
       tidbPool = mysql.createPool({
-        host: parsed.hostname,
-        port: parseInt(parsed.port || '4000', 10),
-        user: decodeURIComponent(parsed.username || ''),
-        password: decodeURIComponent(parsed.password || ''),
-        database: dbName,
+        host: config.host,
+        port: config.port || 4000,
+        user: config.user,
+        password: config.password,
+        database: config.database || 'test',
         ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false },
         waitForConnections: true,
         connectionLimit: 4,
@@ -38,8 +75,8 @@ function getTiDBPool() {
         idleTimeout: 30000,
         queueLimit: 0
       });
-    } catch {
-      tidbPool = mysql.createPool({ uri: cleanUrl, database: 'test', ssl: { rejectUnauthorized: false } });
+    } else {
+      tidbPool = mysql.createPool({ uri: config.uri || rawUrl, database: 'test', ssl: { rejectUnauthorized: false } });
     }
   }
   return tidbPool;
@@ -575,19 +612,19 @@ async function processAutoSyncTrades() {
   
   const farmMap = new Map();
 
-  // 1. Fetch registered users from Supabase
+  // 1. Fetch registered users from Supabase profiles
   try {
-    const { data: users, error: userError } = await supabase.from('users').select('farm_id, api_key');
-    if (!userError && Array.isArray(users)) {
-      users.forEach(u => {
-        if (u.farm_id) {
-          const cleanId = String(u.farm_id).trim();
-          if (cleanId) farmMap.set(cleanId, u.api_key || '');
+    const { data: profiles, error: pErr } = await supabase.from('profiles').select('id, farm_id');
+    if (!pErr && Array.isArray(profiles)) {
+      profiles.forEach(p => {
+        if (p.farm_id) {
+          const cleanId = String(p.farm_id).trim();
+          if (cleanId) farmMap.set(cleanId, '');
         }
       });
     }
   } catch (e) {
-    console.warn("Notice: Supabase users query:", e.message);
+    console.warn("Notice: Supabase profiles query:", e.message);
   }
 
   // 2. Fetch distinct farms from TiDB Cloud
