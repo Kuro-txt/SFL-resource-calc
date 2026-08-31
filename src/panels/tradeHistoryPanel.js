@@ -20,10 +20,10 @@ export function renderTradeHistoryTemplate() {
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
         <div>
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
-            <span>📜</span> Marketplace Trade History & TiDB Cloud Ledger
+            <span>📜</span> Marketplace Trade History
           </h3>
           <p id="trade-user-summary" class="text-[11px] text-sfl-woodLight font-semibold">
-            tracks completed sales, purchases, active listings & permanent cloud archives
+            tracks completed sales, purchases, active listings & top trading partners
           </p>
         </div>
         
@@ -39,28 +39,24 @@ export function renderTradeHistoryTemplate() {
 
       <!-- METRIC CARDS (TOTAL STATS) -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs text-center">
+        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs text-center">
           <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">🟢 Total Sales Volume</span>
           <span id="trade-metric-sales-volume" class="text-base sm:text-lg font-black text-sfl-green font-mono">0.000 ${FLOWER_IMG_SMALL_HTML}</span>
-          <span id="trade-metric-sales-count" class="text-[10px] text-sfl-woodLight block mt-0.5">0 items sold</span>
         </div>
 
-        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs text-center">
+        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs text-center">
           <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">🔵 Total Purchases Volume</span>
           <span id="trade-metric-buys-volume" class="text-base sm:text-lg font-black text-sfl-wood font-mono">0.000 ${FLOWER_IMG_SMALL_HTML}</span>
-          <span id="trade-metric-buys-count" class="text-[10px] text-sfl-woodLight block mt-0.5">0 items bought</span>
         </div>
 
-        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs text-center">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">💸 Weekly Spent / Earned</span>
+        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs text-center">
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">💸 Weekly Flower Spent</span>
           <span id="trade-metric-weekly-spent" class="text-base sm:text-lg font-black text-sfl-accent font-mono">0.000 ${FLOWER_IMG_SMALL_HTML}</span>
-          <span id="trade-metric-weekly-earned" class="text-[10px] text-sfl-green font-bold block mt-0.5">Earned: 0.000 ${FLOWER_IMG_SMALL_HTML}</span>
         </div>
 
-        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs text-center">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">☁️ TiDB Cloud Ledger</span>
+        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs text-center">
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">🏆 Total Completed Trades</span>
           <span id="trade-metric-total-trades" class="text-base sm:text-lg font-black text-sfl-dirt font-mono">0</span>
-          <span id="trade-metric-cloud-status" class="text-[10px] text-sfl-green font-bold block mt-0.5">Archive Ready</span>
         </div>
       </div>
 
@@ -334,22 +330,14 @@ function renderTradeSummaryMetrics(profileData) {
   }
 
   const salesVolEl = document.getElementById('trade-metric-sales-volume');
-  const salesCountEl = document.getElementById('trade-metric-sales-count');
   const buysVolEl = document.getElementById('trade-metric-buys-volume');
-  const buysCountEl = document.getElementById('trade-metric-buys-count');
   const weeklySpentEl = document.getElementById('trade-metric-weekly-spent');
-  const weeklyEarnedEl = document.getElementById('trade-metric-weekly-earned');
   const totalTradesEl = document.getElementById('trade-metric-total-trades');
-  const cloudStatusEl = document.getElementById('trade-metric-cloud-status');
 
   if (salesVolEl) salesVolEl.innerHTML = `${totalSoldVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-  if (salesCountEl) salesCountEl.textContent = `${totalSoldCount.toLocaleString()} items sold in ledger`;
   if (buysVolEl) buysVolEl.innerHTML = `${totalBoughtVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-  if (buysCountEl) buysCountEl.textContent = `${totalBoughtCount.toLocaleString()} items bought in ledger`;
-  if (weeklySpentEl) weeklySpentEl.innerHTML = `-${weeklySpent.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-  if (weeklyEarnedEl) weeklyEarnedEl.innerHTML = `Earned: +${weeklyEarned.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-  if (totalTradesEl) totalTradesEl.textContent = `${trades.length} Trades`;
-  if (cloudStatusEl) cloudStatusEl.textContent = `☁️ TiDB 25GB Synced`;
+  if (weeklySpentEl) weeklySpentEl.innerHTML = `${weeklySpent.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
+  if (totalTradesEl) totalTradesEl.textContent = `${totalTradesCount.toLocaleString()}`;
 
   document.getElementById('subtab-trades-count').textContent = trades.length;
   document.getElementById('subtab-listings-count').textContent = listings.length;
@@ -420,7 +408,8 @@ function renderTradesTableView(mountEl, farmId) {
   let rowsHtml = '';
   filtered.forEach(t => {
     const isSeller = isUserSeller(t, farmId);
-    const itemName = t.itemName || getItemNameById(t.itemId);
+    const isEconomy = t.collection === 'economies' || Boolean(t.economy);
+    const itemName = isEconomy ? '?' : (t.itemName || getItemNameById(t.itemId));
     const qty = parseFloat(t.quantity || 1);
     const sfl = parseFloat(t.sfl || 0);
     const unitPrice = qty > 0 ? (sfl / qty) : sfl;
@@ -495,11 +484,14 @@ function renderListingsView(mountEl) {
       dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : String(rawDate);
     }
 
+    const isEconomy = listData.collection === 'economies' || Boolean(listData.economy);
     const itemsMap = listData.items || {};
-    const itemNames = Object.entries(itemsMap).map(([rawId, q]) => {
-      const name = getItemNameById(rawId);
-      return `${q}x ${name}`;
-    }).join(', ');
+    const itemNames = isEconomy 
+      ? '?' 
+      : Object.entries(itemsMap).map(([rawId, q]) => {
+          const name = getItemNameById(rawId);
+          return `${q}x ${name}`;
+        }).join(', ') || '?';
 
     const sfl = parseFloat(listData.sfl || 0);
     const tax = parseFloat(listData.tax || 0);
@@ -507,7 +499,7 @@ function renderListingsView(mountEl) {
     rowsHtml += `
       <tr class="hover:bg-amber-50/50 transition">
         <td class="px-3 py-2.5 font-mono text-sfl-wood font-medium whitespace-nowrap">${dateStr}</td>
-        <td class="px-3 py-2.5 font-bold text-sfl-dirt">${itemNames || 'Listing Item'}</td>
+        <td class="px-3 py-2.5 font-bold text-sfl-dirt">${itemNames}</td>
         <td class="px-2 py-2.5 uppercase font-bold text-[10px] text-amber-800">${listData.collection || 'collectibles'}</td>
         <td class="px-2.5 py-2.5 font-mono text-sfl-accent font-bold">-${tax.toFixed(3)}</td>
         <td class="px-3 py-2.5 font-mono font-bold text-sfl-green text-right">${sfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</td>
@@ -551,18 +543,21 @@ function renderOffersView(mountEl) {
       dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : String(rawDate);
     }
 
+    const isEconomy = offData.collection === 'economies' || Boolean(offData.economy);
     const itemsMap = offData.items || {};
-    const itemNames = Object.entries(itemsMap).map(([rawId, q]) => {
-      const name = getItemNameById(rawId);
-      return `${q}x ${name}`;
-    }).join(', ');
+    const itemNames = isEconomy 
+      ? '?' 
+      : Object.entries(itemsMap).map(([rawId, q]) => {
+          const name = getItemNameById(rawId);
+          return `${q}x ${name}`;
+        }).join(', ') || '?';
 
     const sfl = parseFloat(offData.sfl || 0);
 
     rowsHtml += `
       <tr class="hover:bg-amber-50/50 transition">
         <td class="px-3 py-2.5 font-mono text-sfl-wood font-medium whitespace-nowrap">${dateStr}</td>
-        <td class="px-3 py-2.5 font-bold text-sfl-dirt">${itemNames || 'Offer Item'}</td>
+        <td class="px-3 py-2.5 font-bold text-sfl-dirt">${itemNames}</td>
         <td class="px-2 py-2.5 uppercase font-bold text-[10px] text-amber-800">${offData.collection || 'collectibles'}</td>
         <td class="px-3 py-2.5 font-mono font-bold text-sfl-wood text-right">${sfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</td>
       </tr>
