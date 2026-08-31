@@ -1,5 +1,4 @@
 import mysql from 'mysql2/promise';
-import https from 'https';
 
 let pool = null;
 let isTableReady = false;
@@ -17,12 +16,17 @@ function getTiDBConfig() {
 
   try {
     const parsed = new URL(cleanUrl);
+    let dbName = parsed.pathname.replace(/^\//, '').split('?')[0] || 'test';
+    if (!dbName || dbName === 'sys' || dbName === 'information_schema' || dbName === 'performance_schema') {
+      dbName = 'test';
+    }
+
     return {
       host: parsed.hostname,
       port: parseInt(parsed.port || '4000', 10),
       user: decodeURIComponent(parsed.username || ''),
       password: decodeURIComponent(parsed.password || ''),
-      database: parsed.pathname.replace(/^\//, '') || 'test',
+      database: dbName,
       cleanUrl
     };
   } catch {
@@ -35,61 +39,36 @@ function getTiDBPool() {
   if (!config) return null;
 
   if (!pool) {
-    try {
+    const db = config.database || 'test';
+    if (config.host && config.user) {
       pool = mysql.createPool({
-        uri: config.cleanUrl,
+        host: config.host,
+        port: config.port || 4000,
+        user: config.user,
+        password: config.password,
+        database: db,
         ssl: {
           minVersion: 'TLSv1.2',
           rejectUnauthorized: false
         },
         waitForConnections: true,
-        connectionLimit: 3,
+        connectionLimit: 4,
         maxIdle: 2,
         idleTimeout: 30000,
         queueLimit: 0
       });
-    } catch (e) {
-      if (config.host && config.user) {
-        pool = mysql.createPool({
-          host: config.host,
-          port: config.port || 4000,
-          user: config.user,
-          password: config.password,
-          database: config.database || 'test',
-          ssl: { rejectUnauthorized: false }
-        });
-      }
+    } else {
+      pool = mysql.createPool({
+        uri: config.cleanUrl,
+        database: db,
+        ssl: { rejectUnauthorized: false }
+      });
     }
   }
   return pool;
 }
 
-// Fallback: TiDB Cloud Serverless HTTP REST API
-async function executeHttpSql(sql, database = 'test') {
-  const config = getTiDBConfig();
-  if (!config || !config.host || !config.user) return null;
-
-  const auth = Buffer.from(`${config.user}:${config.password}`).toString('base64');
-  const endpoint = `https://${config.host}/v1beta1/sql`;
-
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${auth}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ database, sql })
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`HTTP SQL failed (${res.status}): ${errText}`);
-  }
-
-  return await res.json();
-}
-
-async function ensureTableCreated(pool) {
+async function ensureTableCreated(pool, dbName = 'test') {
   if (isTableReady) return;
   const schemaSql = `
     CREATE TABLE IF NOT EXISTS user_trades (
@@ -113,6 +92,8 @@ async function ensureTableCreated(pool) {
   `;
   try {
     if (pool) {
+      await pool.query(`CREATE DATABASE IF NOT EXISTS ${dbName}`);
+      await pool.query(`USE ${dbName}`);
       await pool.query(schemaSql);
     }
     isTableReady = true;
@@ -140,9 +121,10 @@ export default async function handler(req, res) {
   }
 
   const pool = getTiDBPool();
+  const dbName = config.database || 'test';
 
   try {
-    await ensureTableCreated(pool);
+    await ensureTableCreated(pool, dbName);
 
     if (req.method === 'POST') {
       const { farmId, trades } = req.body || {};
@@ -207,7 +189,7 @@ export default async function handler(req, res) {
         savedNewTrades: insertedCount,
         totalArchivedTrades: totalInCloud,
         debugErrors: errors.length > 0 ? errors : undefined,
-        db: config.database
+        db: dbName
       });
     }
 
