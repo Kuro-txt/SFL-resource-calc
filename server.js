@@ -682,6 +682,8 @@ async function processAutoSyncTrades() {
             const itemName = isEconomy ? `#${itemId}` : String(t.itemName || t.name || `Item #${itemId}`).substring(0, 128);
             const quantity = parseFloat(t.quantity || 1);
             const sfl = parseFloat(t.sfl || 0);
+            const tax = isSeller ? parseFloat(t.tax || 0) : 0;
+            const netSfl = isSeller ? Math.max(0, sfl - tax) : sfl;
             const unitPrice = quantity > 0 ? (sfl / quantity) : sfl;
             const tradeType = isSeller ? 'sold' : 'bought';
             const source = String(t.source || 'listing').toLowerCase();
@@ -690,17 +692,19 @@ async function processAutoSyncTrades() {
 
             const insertSql = `
               INSERT INTO user_trades 
-              (id, farm_id, item_id, item_name, quantity, sfl, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (id, farm_id, item_id, item_name, quantity, sfl, tax, net_sfl, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON DUPLICATE KEY UPDATE 
                 item_name = VALUES(item_name),
                 quantity = VALUES(quantity),
                 sfl = VALUES(sfl),
+                tax = VALUES(tax),
+                net_sfl = VALUES(net_sfl),
                 unit_price = VALUES(unit_price)
             `;
 
             await pool.query(insertSql, [
-              id, farmId, itemId, itemName, quantity, sfl, unitPrice, tradeType, source, otherId, otherName, fulfilledAt, fulfilledDate
+              id, farmId, itemId, itemName, quantity, sfl, tax, netSfl, unitPrice, tradeType, source, otherId, otherName, fulfilledAt, fulfilledDate
             ]);
           }
         }

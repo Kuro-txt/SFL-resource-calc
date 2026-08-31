@@ -383,10 +383,8 @@ export function getTradeAmounts(trade, farmId) {
   const grossSfl = parseFloat(trade.sfl || 0);
 
   if (isSeller) {
-    // Deduct marketplace tax (burn tax: 7.5% or explicit trade.tax)
-    const tax = (trade.tax !== undefined && trade.tax !== null)
-      ? parseFloat(trade.tax || 0)
-      : (grossSfl * 0.075);
+    // Subtract the exact tax that the API returns (trade.tax)
+    const tax = parseFloat(trade.tax || 0);
     const netSfl = Math.max(0, grossSfl - tax);
     return {
       isSeller: true,

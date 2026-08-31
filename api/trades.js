@@ -94,6 +94,8 @@ async function ensureTableCreated(pool, dbName = 'test') {
       item_name VARCHAR(128) NOT NULL,
       quantity DECIMAL(20, 4) NOT NULL,
       sfl DECIMAL(20, 4) NOT NULL,
+      tax DECIMAL(20, 6) DEFAULT 0,
+      net_sfl DECIMAL(20, 6) DEFAULT 0,
       unit_price DECIMAL(20, 6) NOT NULL,
       trade_type VARCHAR(16) NOT NULL,
       source VARCHAR(16) NOT NULL,
@@ -111,6 +113,8 @@ async function ensureTableCreated(pool, dbName = 'test') {
       await pool.query(`CREATE DATABASE IF NOT EXISTS ${dbName}`);
       await pool.query(`USE ${dbName}`);
       await pool.query(schemaSql);
+      await pool.query(`ALTER TABLE user_trades ADD COLUMN IF NOT EXISTS tax DECIMAL(20, 6) DEFAULT 0;`).catch(() => {});
+      await pool.query(`ALTER TABLE user_trades ADD COLUMN IF NOT EXISTS net_sfl DECIMAL(20, 6) DEFAULT 0;`).catch(() => {});
     }
     isTableReady = true;
   } catch (err) {
@@ -159,8 +163,10 @@ export default async function handler(req, res) {
         const itemName = String(t.itemName || t.name || `Item #${itemId}`).substring(0, 128);
         const quantity = parseFloat(t.quantity || 1);
         const sfl = parseFloat(t.sfl || 0);
-        const unitPrice = quantity > 0 ? (sfl / quantity) : sfl;
+        const tax = parseFloat(t.tax || 0);
         const tradeType = String(t.tradeType || 'sold').toLowerCase();
+        const netSfl = tradeType === 'sold' ? Math.max(0, sfl - tax) : sfl;
+        const unitPrice = quantity > 0 ? (sfl / quantity) : sfl;
         const source = String(t.source || 'listing').toLowerCase();
         const counterpartyId = t.counterpartyId ? String(t.counterpartyId).trim() : null;
         const counterpartyName = t.counterpartyName ? String(t.counterpartyName).substring(0, 128) : null;
@@ -169,18 +175,20 @@ export default async function handler(req, res) {
 
         const insertSql = `
           INSERT INTO user_trades 
-          (id, farm_id, item_id, item_name, quantity, sfl, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, farm_id, item_id, item_name, quantity, sfl, tax, net_sfl, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE 
             item_name = VALUES(item_name),
             quantity = VALUES(quantity),
             sfl = VALUES(sfl),
+            tax = VALUES(tax),
+            net_sfl = VALUES(net_sfl),
             unit_price = VALUES(unit_price)
         `;
 
         try {
           const [result] = await pool.query(insertSql, [
-            id, farmId, itemId, itemName, quantity, sfl, unitPrice, tradeType, source, counterpartyId, counterpartyName, fulfilledAt, fulfilledDate
+            id, farmId, itemId, itemName, quantity, sfl, tax, netSfl, unitPrice, tradeType, source, counterpartyId, counterpartyName, fulfilledAt, fulfilledDate
           ]);
           if (result && (result.affectedRows > 0 || result.insertId !== undefined)) {
             insertedCount++;
