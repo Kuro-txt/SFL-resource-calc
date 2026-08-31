@@ -1022,24 +1022,31 @@ function renderByMonthView(mountEl, tradesMap, farmId, topModeBarHtml) {
     </div>
   `;
 
-  const graphHtml = generateSvgChart(monthDailyPoints, 105);
-  const calendarGridHtml = renderSingleMonthGrid(calendarCurrentYear, calendarCurrentMonth, tradesMap);
+  const graphHtml = generateSvgChart(monthDailyPoints, 110);
 
-  const selectedDayData = tradesMap.get(selectedCalendarDateKey) || { totalSold: 0, totalBought: 0, trades: [] };
-  let selectedTitle = selectedCalendarDateKey;
-  if (selectedDayData?.dateObj) {
-    selectedTitle = selectedDayData.dateObj.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  // Render all trades in this month
+  const monthTrades = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(calendarCurrentMonth + 1).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    const key = `${calendarCurrentYear}-${mm}-${dd}`;
+    const dayData = tradesMap.get(key);
+    if (dayData && dayData.trades.length > 0) {
+      monthTrades.push(...dayData.trades);
+    }
   }
-  const tradesTableHtml = renderSelectedDayTradesTable(selectedTitle, selectedDayData, farmId);
+
+  const monthTradesData = {
+    trades: monthTrades.sort((a, b) => (b.fulfilledAt || 0) - (a.fulfilledAt || 0))
+  };
+
+  const tradesTableHtml = renderSelectedDayTradesTable(`Month of ${monthName}`, monthTradesData, farmId);
 
   mountEl.innerHTML = `
     ${topModeBarHtml}
     ${monthNavHtml}
     ${monthMetricsHtml}
     ${graphHtml}
-    <div class="p-2 sm:p-3 bg-white/60">
-      ${calendarGridHtml}
-    </div>
     ${tradesTableHtml}
   `;
 
@@ -1067,6 +1074,7 @@ function renderBy3MonthView(mountEl, tradesMap, farmId, topModeBarHtml) {
   let qSpend = 0;
   let qTrades = 0;
   const qPoints = [];
+  const allQuarterTrades = [];
 
   // Group by 12 weekly buckets for clean graph
   for (let w = 11; w >= 0; w--) {
@@ -1082,6 +1090,7 @@ function renderBy3MonthView(mountEl, tradesMap, farmId, topModeBarHtml) {
         wS += dayData.totalSold || 0;
         wB += dayData.totalBought || 0;
         qTrades += dayData.trades.length;
+        allQuarterTrades.push(...dayData.trades);
       }
     }
     qSales += wS;
@@ -1144,44 +1153,19 @@ function renderBy3MonthView(mountEl, tradesMap, farmId, topModeBarHtml) {
     </div>
   `;
 
-  const graphHtml = generateSvgChart(qPoints, 105);
+  const graphHtml = generateSvgChart(qPoints, 110);
 
-  const month1Grid = renderSingleMonthGrid(y1, m1, tradesMap);
-  const month2Grid = renderSingleMonthGrid(y2, m2, tradesMap);
-  const month3Grid = renderSingleMonthGrid(y3, m3, tradesMap);
+  const quarterTradesData = {
+    trades: Array.from(new Map(allQuarterTrades.map(t => [t.id, t])).values()).sort((a, b) => (b.fulfilledAt || 0) - (a.fulfilledAt || 0))
+  };
 
-  const selectedDayData = tradesMap.get(selectedCalendarDateKey) || { totalSold: 0, totalBought: 0, trades: [] };
-  let selectedTitle = selectedCalendarDateKey;
-  if (selectedDayData?.dateObj) {
-    selectedTitle = selectedDayData.dateObj.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
-  }
-  const tradesTableHtml = renderSelectedDayTradesTable(selectedTitle, selectedDayData, farmId);
+  const tradesTableHtml = renderSelectedDayTradesTable(`${quarterTitle}`, quarterTradesData, farmId);
 
   mountEl.innerHTML = `
     ${topModeBarHtml}
     ${qNavHtml}
     ${qMetricsHtml}
     ${graphHtml}
-    <div class="p-3 space-y-4 bg-white/50">
-      <div>
-        <div class="font-bold text-xs text-sfl-wood uppercase mb-1 flex items-center gap-1">
-          <span>📅</span> ${new Date(y1, m1, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
-        </div>
-        ${month1Grid}
-      </div>
-      <div>
-        <div class="font-bold text-xs text-sfl-wood uppercase mb-1 flex items-center gap-1">
-          <span>📅</span> ${new Date(y2, m2, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
-        </div>
-        ${month2Grid}
-      </div>
-      <div>
-        <div class="font-bold text-xs text-sfl-wood uppercase mb-1 flex items-center gap-1">
-          <span>📅</span> ${new Date(y3, m3, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
-        </div>
-        ${month3Grid}
-      </div>
-    </div>
     ${tradesTableHtml}
   `;
 
