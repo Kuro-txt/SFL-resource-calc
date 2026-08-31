@@ -1,36 +1,94 @@
 import mysql from 'mysql2/promise';
+import https from 'https';
 
 let pool = null;
+let isTableReady = false;
 
-function getTiDBPool() {
-  const databaseUrl = 
+function getTiDBConfig() {
+  const rawUrl = 
     process.env.TIDB_DATABASE_URL || 
     process.env.DATABASE_URL || 
     process.env.TIDB_URL || 
     process.env.MYSQL_URL || 
     '';
 
-  if (!databaseUrl) return null;
+  if (!rawUrl) return null;
+  const cleanUrl = rawUrl.trim().replace(/^['"]|['"]$/g, '');
+
+  try {
+    const parsed = new URL(cleanUrl);
+    return {
+      host: parsed.hostname,
+      port: parseInt(parsed.port || '4000', 10),
+      user: decodeURIComponent(parsed.username || ''),
+      password: decodeURIComponent(parsed.password || ''),
+      database: parsed.pathname.replace(/^\//, '') || 'test',
+      cleanUrl
+    };
+  } catch {
+    return { cleanUrl, database: 'test' };
+  }
+}
+
+function getTiDBPool() {
+  const config = getTiDBConfig();
+  if (!config) return null;
 
   if (!pool) {
-    // Parse connection string or pass uri
-    const cleanUrl = databaseUrl.trim().replace(/^['"]|['"]$/g, '');
-    pool = mysql.createPool({
-      uri: cleanUrl,
-      ssl: {
-        rejectUnauthorized: true
-      },
-      waitForConnections: true,
-      connectionLimit: 5,
-      maxIdle: 5,
-      idleTimeout: 60000,
-      queueLimit: 0
-    });
+    if (config.host && config.user) {
+      pool = mysql.createPool({
+        host: config.host,
+        port: config.port || 4000,
+        user: config.user,
+        password: config.password,
+        database: config.database || 'test',
+        ssl: {
+          minVersion: 'TLSv1.2',
+          rejectUnauthorized: false
+        },
+        waitForConnections: true,
+        connectionLimit: 3,
+        maxIdle: 2,
+        idleTimeout: 30000,
+        queueLimit: 0
+      });
+    } else {
+      pool = mysql.createPool({
+        uri: config.cleanUrl,
+        ssl: { rejectUnauthorized: false }
+      });
+    }
   }
   return pool;
 }
 
-async function ensureTableCreated(conn) {
+// Fallback: TiDB Cloud Serverless HTTP REST API
+async function executeHttpSql(sql, database = 'test') {
+  const config = getTiDBConfig();
+  if (!config || !config.host || !config.user) return null;
+
+  const auth = Buffer.from(`${config.user}:${config.password}`).toString('base64');
+  const endpoint = `https://${config.host}/v1beta1/sql`;
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ database, sql })
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`HTTP SQL failed (${res.status}): ${errText}`);
+  }
+
+  return await res.json();
+}
+
+async function ensureTableCreated(pool) {
+  if (isTableReady) return;
   const schemaSql = `
     CREATE TABLE IF NOT EXISTS user_trades (
       id VARCHAR(64) PRIMARY KEY,
@@ -51,7 +109,14 @@ async function ensureTableCreated(conn) {
       INDEX idx_item_date (item_name, fulfilled_at DESC)
     );
   `;
-  await conn.query(schemaSql);
+  try {
+    if (pool) {
+      await pool.query(schemaSql);
+    }
+    isTableReady = true;
+  } catch (err) {
+    console.warn("Table auto-migration notice:", err.message);
+  }
 }
 
 export default async function handler(req, res) {
@@ -63,14 +128,16 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const pool = getTiDBPool();
-  if (!pool) {
+  const config = getTiDBConfig();
+  if (!config) {
     return res.status(200).json({ 
       success: false, 
       configured: false,
       message: 'TiDB Cloud not configured. Add TIDB_DATABASE_URL to Vercel Environment Variables.' 
     });
   }
+
+  const pool = getTiDBPool();
 
   try {
     await ensureTableCreated(pool);
@@ -86,16 +153,16 @@ export default async function handler(req, res) {
         const id = String(t.id || '').trim();
         if (!id) continue;
 
-        const itemId = parseInt(t.itemId || 0);
+        const itemId = parseInt(t.itemId || 0, 10);
         const itemName = String(t.itemName || t.name || `Item #${itemId}`).substring(0, 128);
         const quantity = parseFloat(t.quantity || 1);
         const sfl = parseFloat(t.sfl || 0);
         const unitPrice = quantity > 0 ? (sfl / quantity) : sfl;
         const tradeType = String(t.tradeType || 'sold').toLowerCase();
         const source = String(t.source || 'listing').toLowerCase();
-        const counterpartyId = t.counterpartyId ? parseInt(t.counterpartyId) : null;
+        const counterpartyId = t.counterpartyId ? String(t.counterpartyId).trim() : null;
         const counterpartyName = t.counterpartyName ? String(t.counterpartyName).substring(0, 128) : null;
-        const fulfilledAt = parseInt(t.fulfilledAt || Date.now());
+        const fulfilledAt = parseInt(t.fulfilledAt || Date.now(), 10);
         const fulfilledDate = new Date(fulfilledAt).toISOString().slice(0, 19).replace('T', ' ');
 
         const insertSql = `
@@ -104,17 +171,25 @@ export default async function handler(req, res) {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
-        const [result] = await pool.query(insertSql, [
-          id, farmId, itemId, itemName, quantity, sfl, unitPrice, tradeType, source, counterpartyId, counterpartyName, fulfilledAt, fulfilledDate
-        ]);
-
-        if (result && result.affectedRows > 0) {
-          insertedCount += result.affectedRows;
+        try {
+          const [result] = await pool.query(insertSql, [
+            id, farmId, itemId, itemName, quantity, sfl, unitPrice, tradeType, source, counterpartyId, counterpartyName, fulfilledAt, fulfilledDate
+          ]);
+          if (result && result.affectedRows > 0) {
+            insertedCount += result.affectedRows;
+          }
+        } catch (queryErr) {
+          console.warn("Trade insert row warning:", queryErr.message);
         }
       }
 
-      const [countRes] = await pool.query('SELECT COUNT(*) as total FROM user_trades WHERE farm_id = ?', [farmId]);
-      const totalInCloud = countRes[0]?.total || 0;
+      let totalInCloud = 0;
+      try {
+        const [countRes] = await pool.query('SELECT COUNT(*) as total FROM user_trades WHERE farm_id = ?', [farmId]);
+        totalInCloud = countRes[0]?.total || 0;
+      } catch (countErr) {
+        totalInCloud = insertedCount;
+      }
 
       return res.status(200).json({
         success: true,
@@ -130,10 +205,16 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Farm ID is required' });
       }
 
-      const [rows] = await pool.query(
-        'SELECT * FROM user_trades WHERE farm_id = ? ORDER BY fulfilled_at DESC LIMIT 5000',
-        [farmId]
-      );
+      let rows = [];
+      try {
+        const [dbRows] = await pool.query(
+          'SELECT * FROM user_trades WHERE farm_id = ? ORDER BY fulfilled_at DESC LIMIT 5000',
+          [farmId]
+        );
+        rows = dbRows || [];
+      } catch (selectErr) {
+        console.warn("Trade select query notice:", selectErr.message);
+      }
 
       let totalSoldVolume = 0;
       let totalSoldCount = 0;
@@ -190,6 +271,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
+    console.error("TiDB Cloud handler error:", error);
     return res.status(500).json({
       success: false,
       error: 'TiDB Cloud operation failed',

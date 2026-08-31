@@ -125,7 +125,10 @@ export const ApiService = {
 
   async syncTradesToCloud(farmId, trades) {
     if (!farmId || !Array.isArray(trades) || trades.length === 0) return null;
-    const endpoints = [`/api/trades`, `${BACKEND_URL}/api/trades`];
+    const endpoints = ['/api/trades'];
+    if (typeof BACKEND_URL !== 'undefined' && BACKEND_URL && typeof window !== 'undefined' && BACKEND_URL !== window.location.origin) {
+      endpoints.push(`${BACKEND_URL}/api/trades`);
+    }
 
     for (const url of endpoints) {
       try {
@@ -147,10 +150,10 @@ export const ApiService = {
 
   async getCloudTrades(farmId) {
     if (!farmId) return null;
-    const endpoints = [
-      `/api/trades?farmId=${encodeURIComponent(farmId)}`,
-      `${BACKEND_URL}/api/trades?farmId=${encodeURIComponent(farmId)}`
-    ];
+    const endpoints = [`/api/trades?farmId=${encodeURIComponent(farmId)}`];
+    if (typeof BACKEND_URL !== 'undefined' && BACKEND_URL && typeof window !== 'undefined' && BACKEND_URL !== window.location.origin) {
+      endpoints.push(`${BACKEND_URL}/api/trades?farmId=${encodeURIComponent(farmId)}`);
+    }
 
     for (const url of endpoints) {
       try {
