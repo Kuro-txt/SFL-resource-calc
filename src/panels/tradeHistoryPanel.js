@@ -10,9 +10,10 @@ let searchQuery = '';
 let cloudArchivedCount = 0;
 
 // Calendar State
+let calendarViewMode = 'day'; // 'day' | 'week'
 let calendarCurrentMonth = new Date().getMonth();
 let calendarCurrentYear = new Date().getFullYear();
-let calendarViewMode = 'month'; // 'month' | '3month' | 'week'
+let calendarWeekOffset = 0; // 0 = current week, -1 = last week, etc.
 let selectedCalendarDateKey = null; // 'YYYY-MM-DD'
 
 export function renderTradeHistoryTemplate() {
@@ -325,7 +326,7 @@ function renderTradeSummaryMetrics(profileData) {
       totalSoldVolume += sfl;
     } else {
       totalBoughtVolume += sfl;
-      // Calculate true weekly flower spent from actual purchases in the last 7 days
+      // Calculate accurate weekly flower spent from purchases made in the last 7 days
       if (time >= sevenDaysAgo) {
         weeklySpent += sfl;
       }
@@ -376,8 +377,8 @@ function renderCurrentView() {
     if (titleEl) titleEl.textContent = "📜 Completed Trade Ledger (Archived in TiDB Cloud)";
     renderTradesTableView(mountEl, farmId);
   } else if (currentView === 'calendar') {
-    if (titleEl) titleEl.textContent = "📅 Trade Calendar Grid & Daily Net Flow";
-    renderCalendarGridView(mountEl, farmId);
+    if (titleEl) titleEl.textContent = "📅 Trade Calendar & Daily Profit Inspector";
+    renderCalendarMainView(mountEl, farmId);
   } else if (currentView === 'listings') {
     if (titleEl) titleEl.textContent = "🏷️ Active Marketplace Listings";
     renderListingsView(mountEl);
@@ -475,7 +476,7 @@ function renderTradesTableView(mountEl, farmId) {
 }
 
 // ----------------------------------------------------
-// 📅 ELEGANT CALENDAR GRID & DAILY PROFIT INSPECTOR
+// 📅 DUAL-MODE CALENDAR: BY DAY & BY WEEK
 // ----------------------------------------------------
 
 function buildTradesDateMap(trades, farmId) {
@@ -525,11 +526,25 @@ function buildTradesDateMap(trades, farmId) {
   return map;
 }
 
-function renderCalendarGridView(mountEl, farmId) {
+function getWeekRange(offset = 0) {
+  const now = new Date();
+  const currentDayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon ...
+  const sunday = new Date(now);
+  sunday.setDate(now.getDate() - currentDayOfWeek + (offset * 7));
+  sunday.setHours(0, 0, 0, 0);
+
+  const saturday = new Date(sunday);
+  saturday.setDate(sunday.getDate() + 6);
+  saturday.setHours(23, 59, 59, 999);
+
+  return { sunday, saturday };
+}
+
+function renderCalendarMainView(mountEl, farmId) {
   const trades = tradeHistoryData?.trades || [];
   const tradesMap = buildTradesDateMap(trades, farmId);
 
-  // If no day selected, pick most recent active trade date or today
+  // Set default selected date if empty
   if (!selectedCalendarDateKey) {
     const sortedKeys = Array.from(tradesMap.keys()).sort().reverse();
     if (sortedKeys.length > 0) {
@@ -545,117 +560,275 @@ function renderCalendarGridView(mountEl, farmId) {
     }
   }
 
+  // Top Mode Switcher Bar (By Day vs By Week)
+  let topModeBarHtml = `
+    <div class="p-3 bg-amber-50/90 border-b-2 border-sfl-cardBorder flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-bold text-sfl-woodLight uppercase tracking-wider">Calendar Mode:</span>
+        <button id="cal-mode-day" class="cal-mode-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'day' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          📅 By Day
+        </button>
+        <button id="cal-mode-week" class="cal-mode-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'week' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          📊 By Week
+        </button>
+      </div>
+
+      <div class="text-[11px] font-bold text-sfl-woodLight">
+        Click any day to inspect completed trades and exact net flow
+      </div>
+    </div>
+  `;
+
+  if (calendarViewMode === 'day') {
+    renderByDayView(mountEl, tradesMap, farmId, topModeBarHtml);
+  } else {
+    renderByWeekView(mountEl, tradesMap, farmId, topModeBarHtml);
+  }
+}
+
+// ----------------------------------------------------
+// 1️⃣ BY DAY VIEW
+// ----------------------------------------------------
+function renderByDayView(mountEl, tradesMap, farmId, topModeBarHtml) {
+  const selectedDayData = tradesMap.get(selectedCalendarDateKey) || {
+    totalSold: 0,
+    totalBought: 0,
+    trades: []
+  };
+
+  const daySold = selectedDayData.totalSold || 0;
+  const daySpend = selectedDayData.totalBought || 0;
+  const dayNet = daySold - daySpend;
+  const netSign = dayNet >= 0 ? '+' : '';
+  const netColor = dayNet > 0 ? 'text-sfl-green' : (dayNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
+
+  let dayDisplayTitle = selectedCalendarDateKey;
+  if (selectedDayData?.dateObj) {
+    dayDisplayTitle = selectedDayData.dateObj.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+  } else if (selectedCalendarDateKey) {
+    const parts = selectedCalendarDateKey.split('-');
+    if (parts.length === 3) {
+      const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+      if (!isNaN(d.getTime())) {
+        dayDisplayTitle = d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+      }
+    }
+  }
+
+  // 1. TOP METRICS ROW FOR SELECTED DAY
+  const dayMetricsHtml = `
+    <div class="p-4 bg-white/90 border-b-2 border-sfl-cardBorder">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
+        <span class="text-xs sm:text-sm font-bold text-sfl-dirt flex items-center gap-1.5">
+          <span>📅</span> Selected Day: <strong>${dayDisplayTitle}</strong>
+        </span>
+        <span class="bg-amber-100 text-sfl-wood text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-amber-300">
+          ${selectedDayData.trades.length} ${selectedDayData.trades.length === 1 ? 'trade' : 'trades'}
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">🟢 Flower from Sales</span>
+          <span class="text-base sm:text-lg font-black text-sfl-green font-mono">+${daySold.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">🔵 Flower Spent</span>
+          <span class="text-base sm:text-lg font-black text-sfl-wood font-mono">-${daySpend.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">⚖️ Net Flower</span>
+          <span class="text-base sm:text-lg font-black ${netColor} font-mono">${netSign}${dayNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // 2. INTERACTIVE CALENDAR MONTH GRID VIEW
   const monthDate = new Date(calendarCurrentYear, calendarCurrentMonth, 1);
   const monthName = monthDate.toLocaleString(undefined, { month: 'long', year: 'numeric' });
 
-  // Calculate monthly stats for the active month
-  let monthSold = 0;
-  let monthBought = 0;
-  let monthTradeCount = 0;
-
-  tradesMap.forEach((dayData) => {
-    if (dayData.year === calendarCurrentYear && dayData.month === calendarCurrentMonth) {
-      monthSold += dayData.totalSold;
-      monthBought += dayData.totalBought;
-      monthTradeCount += dayData.trades.length;
-    }
-  });
-  const monthNet = monthSold - monthBought;
-
-  let viewControlsHtml = `
-    <div class="p-3.5 bg-amber-50/70 border-b-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+  const monthGridNavHtml = `
+    <div class="p-3 bg-amber-100/60 border-b-2 border-sfl-cardBorder flex justify-between items-center">
       <div class="flex items-center gap-2">
-        <button id="cal-prev-month" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
-          ◀ Prev
+        <button id="cal-prev-month" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
+          ◀ Prev Month
         </button>
-        <span class="font-bold text-sfl-wood text-sm sm:text-base tracking-wide flex items-center gap-1.5 px-2">
-          <span>📅</span> ${monthName}
+        <span class="font-bold text-sfl-wood text-sm sm:text-base px-2">
+          ${monthName}
         </span>
-        <button id="cal-next-month" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
-          Next ▶
-        </button>
-        <button id="cal-today-btn" class="bg-amber-200/70 border border-sfl-cardBorder hover:bg-amber-300 px-2.5 py-1 rounded-md text-[11px] font-bold text-sfl-dirt cursor-pointer transition ml-1">
-          Today
+        <button id="cal-next-month" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
+          Next Month ▶
         </button>
       </div>
 
-      <!-- Quick Month Net Summary Pill -->
-      <div class="flex items-center gap-2 text-xs font-mono">
-        <span class="bg-white/80 border border-sfl-cardBorder px-2.5 py-1 rounded-lg text-sfl-wood font-bold">
-          ${monthTradeCount} trades in ${monthDate.toLocaleString(undefined, { month: 'short' })}
+      <button id="cal-today-btn" class="bg-amber-200 border border-sfl-cardBorder hover:bg-amber-300 px-3 py-1 rounded-md text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
+        Today
+      </button>
+    </div>
+  `;
+
+  const calendarGridHtml = renderSingleMonthGrid(calendarCurrentYear, calendarCurrentMonth, tradesMap);
+
+  // 3. COMPLETED TRADES TABLE FOR SELECTED DAY
+  const tradesTableHtml = renderSelectedDayTradesTable(dayDisplayTitle, selectedDayData, farmId);
+
+  mountEl.innerHTML = `
+    ${topModeBarHtml}
+    ${dayMetricsHtml}
+    ${monthGridNavHtml}
+    <div class="p-3 sm:p-4 bg-white/60">
+      ${calendarGridHtml}
+    </div>
+    ${tradesTableHtml}
+  `;
+
+  bindDayViewEvents(mountEl, farmId);
+}
+
+// ----------------------------------------------------
+// 2️⃣ BY WEEK VIEW (< > SWIPE WEEKS)
+// ----------------------------------------------------
+function renderByWeekView(mountEl, tradesMap, farmId, topModeBarHtml) {
+  const { sunday, saturday } = getWeekRange(calendarWeekOffset);
+  const weekTitle = `${sunday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${saturday.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+  // Generate 7 days for the week
+  const weekDays = [];
+  let weekSales = 0;
+  let weekSpend = 0;
+  let weekTradesCount = 0;
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + i);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const dayData = tradesMap.get(key) || {
+      dateKey: key,
+      dateObj: d,
+      totalSold: 0,
+      totalBought: 0,
+      trades: []
+    };
+
+    weekSales += dayData.totalSold || 0;
+    weekSpend += dayData.totalBought || 0;
+    weekTradesCount += dayData.trades.length;
+
+    weekDays.push({ key, dateObj: d, dayData });
+  }
+
+  const weekNet = weekSales - weekSpend;
+  const netSign = weekNet >= 0 ? '+' : '';
+  const netColor = weekNet > 0 ? 'text-sfl-green' : (weekNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
+
+  // 1. WEEK NAVIGATION BAR
+  const weekNavHtml = `
+    <div class="p-3.5 bg-amber-100/60 border-b-2 border-sfl-cardBorder flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      <div class="flex items-center gap-2">
+        <button id="cal-prev-week" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs flex items-center gap-1">
+          ◀ Previous Week
+        </button>
+        <span class="font-bold text-sfl-wood text-xs sm:text-sm px-2">
+          <span>🗓️</span> ${weekTitle} ${calendarWeekOffset === 0 ? '<span class="ml-1 text-[10px] bg-amber-200 text-sfl-dirt px-2 py-0.5 rounded font-black">CURRENT</span>' : ''}
         </span>
-        <span class="bg-white/90 border border-sfl-cardBorder px-2.5 py-1 rounded-lg ${monthNet >= 0 ? 'text-sfl-green font-black' : 'text-sfl-accent font-black'}">
-          Net: ${monthNet >= 0 ? '+' : ''}${monthNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
-        </span>
+        <button id="cal-next-week" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs flex items-center gap-1">
+          Next Week ▶
+        </button>
       </div>
 
-      <div class="flex items-center gap-1.5 flex-wrap">
-        <button data-cal-view="month" class="cal-view-btn px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarViewMode === 'month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
-          📅 Month
-        </button>
-        <button data-cal-view="3month" class="cal-view-btn px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarViewMode === '3month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
-          🗓️ 3-Month View
-        </button>
-        <button data-cal-view="week" class="cal-view-btn px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarViewMode === 'week' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
-          📊 7-Day Strip
-        </button>
+      <button id="cal-current-week-btn" class="bg-amber-200 border border-sfl-cardBorder hover:bg-amber-300 px-3 py-1 rounded-md text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
+        This Week
+      </button>
+    </div>
+  `;
+
+  // 2. TOP METRICS ROW FOR THE WEEK
+  const weekMetricsHtml = `
+    <div class="p-4 bg-white/90 border-b-2 border-sfl-cardBorder">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">🟢 Weekly Sales</span>
+          <span class="text-base sm:text-lg font-black text-sfl-green font-mono">+${weekSales.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">🔵 Weekly Spent</span>
+          <span class="text-base sm:text-lg font-black text-sfl-wood font-mono">-${weekSpend.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">⚖️ Weekly Net Flower</span>
+          <span class="text-base sm:text-lg font-black ${netColor} font-mono">${netSign}${weekNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
       </div>
     </div>
   `;
 
-  let gridContentHtml = '';
+  // 3. 7-DAY CARDS BREAKDOWN STRIP
+  let dayCardsHtml = '';
+  weekDays.forEach(({ key, dateObj, dayData }) => {
+    const isSelected = selectedCalendarDateKey === key;
+    const dayName = dateObj.toLocaleDateString(undefined, { weekday: 'short' });
+    const dayNum = dateObj.getDate();
+    const count = dayData.trades.length;
+    const s = dayData.totalSold || 0;
+    const b = dayData.totalBought || 0;
+    const n = s - b;
+    const nColor = n > 0 ? 'text-sfl-green' : (n < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
 
-  if (calendarViewMode === 'month') {
-    gridContentHtml = renderSingleMonthGrid(calendarCurrentYear, calendarCurrentMonth, tradesMap);
-  } else if (calendarViewMode === '3month') {
-    const m1 = calendarCurrentMonth;
-    const y1 = calendarCurrentYear;
-    const m2 = (m1 - 1 + 12) % 12;
-    const y2 = m1 === 0 ? y1 - 1 : y1;
-    const m3 = (m1 - 2 + 12) % 12;
-    const y3 = m1 < 2 ? y1 - 1 : y1;
-
-    gridContentHtml = `
-      <div class="space-y-6">
-        <div>
-          <div class="font-bold text-xs text-sfl-wood uppercase mb-2 flex items-center gap-1.5">
-            <span>📅</span> ${new Date(y1, m1, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
-          </div>
-          ${renderSingleMonthGrid(y1, m1, tradesMap)}
+    dayCardsHtml += `
+      <div data-day-key="${key}" class="cal-day-cell flex-1 min-w-[135px] p-3 rounded-xl border-2 transition cursor-pointer shadow-xs ${isSelected ? 'border-sfl-gold bg-amber-100 dark:bg-amber-950/60 ring-2 ring-sfl-gold' : 'border-sfl-cardBorder bg-white hover:bg-amber-50'}">
+        <div class="flex justify-between items-center mb-1">
+          <span class="font-black text-xs text-sfl-wood">${dayName} ${dayNum}</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-sfl-dirt border border-amber-300">
+            ${count}t
+          </span>
         </div>
-        <div>
-          <div class="font-bold text-xs text-sfl-wood uppercase mb-2 flex items-center gap-1.5">
-            <span>📅</span> ${new Date(y2, m2, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
-          </div>
-          ${renderSingleMonthGrid(y2, m2, tradesMap)}
-        </div>
-        <div>
-          <div class="font-bold text-xs text-sfl-wood uppercase mb-2 flex items-center gap-1.5">
-            <span>📅</span> ${new Date(y3, m3, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
-          </div>
-          ${renderSingleMonthGrid(y3, m3, tradesMap)}
+        <div class="mt-2 text-xs font-mono space-y-0.5">
+          <span class="block text-sfl-green font-semibold">🟢 +${s.toFixed(2)}</span>
+          <span class="block text-sfl-wood font-semibold">🔵 -${b.toFixed(2)}</span>
+          <span class="block ${nColor} font-black border-t border-sfl-cardBorder/40 pt-1">
+            Net: ${n >= 0 ? '+' : ''}${n.toFixed(2)}
+          </span>
         </div>
       </div>
     `;
-  } else if (calendarViewMode === 'week') {
-    gridContentHtml = renderWeekStripView(tradesMap, farmId);
-  }
+  });
 
-  // Selected Day Breakdown Panel
-  const selectedDayData = tradesMap.get(selectedCalendarDateKey) || null;
-  const selectedDayPanelHtml = renderSelectedDayInspector(selectedCalendarDateKey, selectedDayData, farmId);
-
-  mountEl.innerHTML = `
-    ${viewControlsHtml}
-    <div class="p-4">
-      ${gridContentHtml}
+  const weekStripHtml = `
+    <div class="p-3 sm:p-4 bg-amber-50/40 border-b-2 border-sfl-cardBorder">
+      <div class="flex gap-2.5 overflow-x-auto pb-2">
+        ${dayCardsHtml}
+      </div>
     </div>
-    ${selectedDayPanelHtml}
   `;
 
-  bindCalendarGridEvents(mountEl, farmId);
+  // 4. TRADES TABLE FOR THE SELECTED DAY OR ENTIRE WEEK
+  const selectedDayData = tradesMap.get(selectedCalendarDateKey) || { totalSold: 0, totalBought: 0, trades: [] };
+  let selectedTitle = selectedCalendarDateKey;
+  if (selectedDayData?.dateObj) {
+    selectedTitle = selectedDayData.dateObj.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  }
+
+  const tradesTableHtml = renderSelectedDayTradesTable(selectedTitle, selectedDayData, farmId);
+
+  mountEl.innerHTML = `
+    ${topModeBarHtml}
+    ${weekNavHtml}
+    ${weekMetricsHtml}
+    ${weekStripHtml}
+    ${tradesTableHtml}
+  `;
+
+  bindWeekViewEvents(mountEl, farmId);
 }
 
+// ----------------------------------------------------
+// SHARED MONTH GRID RENDERER
+// ----------------------------------------------------
 function renderSingleMonthGrid(year, month, tradesMap) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun, 1 = Mon ...
@@ -750,85 +923,22 @@ function renderSingleMonthGrid(year, month, tradesMap) {
   `;
 }
 
-function renderWeekStripView(tradesMap, farmId) {
-  const days = [];
-  const now = new Date();
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const key = `${yyyy}-${mm}-${dd}`;
-    days.push({ key, dateObj: d });
-  }
-
-  let cardsHtml = '';
-  days.forEach(({ key, dateObj }) => {
-    const dayData = tradesMap.get(key);
-    const dayName = dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-    const isSelected = selectedCalendarDateKey === key;
-
-    const count = dayData ? dayData.trades.length : 0;
-    const sold = dayData ? dayData.totalSold : 0;
-    const bought = dayData ? dayData.totalBought : 0;
-    const net = sold - bought;
-    const netColor = net > 0 ? 'text-sfl-green' : (net < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
-
-    cardsHtml += `
-      <div data-day-key="${key}" class="cal-day-cell p-3.5 rounded-xl border-2 transition cursor-pointer flex-1 min-w-[140px] shadow-xs ${isSelected ? 'border-sfl-gold bg-amber-100 dark:bg-amber-950/60 ring-2 ring-sfl-gold' : 'border-sfl-cardBorder bg-white hover:bg-amber-50'}">
-        <span class="font-bold text-xs text-sfl-wood block mb-1">${dayName}</span>
-        <span class="text-xs font-mono font-bold text-sfl-dirt block">${count} trades</span>
-        <div class="mt-2 text-xs font-mono space-y-0.5">
-          <span class="block text-sfl-green font-semibold">🟢 +${sold.toFixed(2)}</span>
-          <span class="block text-sfl-wood font-semibold">🔵 -${bought.toFixed(2)}</span>
-          <span class="block ${netColor} font-black border-t border-sfl-cardBorder/40 pt-1">
-            Net: ${net >= 0 ? '+' : ''}${net.toFixed(2)}
-          </span>
-        </div>
-      </div>
-    `;
-  });
-
-  return `
-    <div class="flex gap-2.5 overflow-x-auto pb-2">
-      ${cardsHtml}
-    </div>
-  `;
-}
-
-function renderSelectedDayInspector(dateKey, dayData, farmId) {
-  let displayTitle = dateKey;
-  if (dayData?.dateObj) {
-    displayTitle = dayData.dateObj.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  } else if (dateKey) {
-    const parts = dateKey.split('-');
-    if (parts.length === 3) {
-      const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-      if (!isNaN(d.getTime())) {
-        displayTitle = d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      }
-    }
-  }
-
+// ----------------------------------------------------
+// SHARED TRANSACTIONS TABLE
+// ----------------------------------------------------
+function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
   if (!dayData || dayData.trades.length === 0) {
     return `
-      <div class="border-t-2 border-sfl-cardBorder bg-white/90 p-6 text-center">
+      <div class="bg-white/90 p-8 text-center border-t-2 border-sfl-cardBorder">
         <span class="text-sm font-bold text-sfl-dirt flex items-center justify-center gap-1.5 mb-1">
           <span>📅</span> ${displayTitle}
         </span>
         <p class="text-xs text-sfl-woodLight italic">
-          No marketplace trades recorded on this date. Click on any active date in the calendar above to inspect trades.
+          No marketplace trades recorded on this date. Click on any date with trades in the calendar above.
         </p>
       </div>
     `;
   }
-
-  const sold = dayData.totalSold;
-  const bought = dayData.totalBought;
-  const net = sold - bought;
-  const netColor = net > 0 ? 'text-sfl-green' : (net < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
 
   let rowsHtml = '';
   dayData.trades.forEach(t => {
@@ -871,31 +981,15 @@ function renderSelectedDayInspector(dateKey, dayData, farmId) {
 
   return `
     <div class="border-t-2 border-sfl-cardBorder bg-white/90">
-      <!-- DAY SUMMARY BANNER -->
-      <div class="bg-amber-100/60 p-4 border-b border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-        <div>
-          <span class="text-sm font-bold text-sfl-dirt flex items-center gap-2">
-            <span>📅</span> Activity for <strong>${displayTitle}</strong>
-          </span>
-          <span class="text-[11px] text-sfl-woodLight font-semibold">
-            ${dayData.trades.length} completed transactions recorded
-          </span>
-        </div>
-
-        <div class="flex items-center gap-3 text-xs sm:text-sm font-mono flex-wrap">
-          <span class="bg-white/80 border border-sfl-cardBorder px-2.5 py-1 rounded-md text-sfl-green font-bold shadow-2xs">
-            🟢 Sales: +${sold.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
-          </span>
-          <span class="bg-white/80 border border-sfl-cardBorder px-2.5 py-1 rounded-md text-sfl-wood font-bold shadow-2xs">
-            🔵 Purchases: -${bought.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
-          </span>
-          <span class="bg-white/90 border-2 border-sfl-cardBorder px-3 py-1 rounded-md ${netColor} font-black shadow-xs">
-            ⚖️ Daily Net: ${net >= 0 ? '+' : ''}${net.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
-          </span>
-        </div>
+      <div class="bg-amber-100/60 px-4 py-2.5 border-b border-sfl-cardBorder flex justify-between items-center">
+        <span class="text-xs font-bold text-sfl-dirt uppercase tracking-wider flex items-center gap-1.5">
+          <span>📜</span> Completed Transactions on ${displayTitle}
+        </span>
+        <span class="text-[11px] font-bold text-sfl-wood font-mono">
+          ${dayData.trades.length} items traded
+        </span>
       </div>
 
-      <!-- DAY TRANSACTIONS TABLE -->
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs text-sfl-dirt">
           <thead class="text-[11px] uppercase bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood">
@@ -918,7 +1012,20 @@ function renderSelectedDayInspector(dateKey, dayData, farmId) {
   `;
 }
 
-function bindCalendarGridEvents(mountEl, farmId) {
+// ----------------------------------------------------
+// EVENT BINDINGS
+// ----------------------------------------------------
+function bindDayViewEvents(mountEl, farmId) {
+  // Mode switcher
+  mountEl.querySelector('#cal-mode-day')?.addEventListener('click', () => {
+    calendarViewMode = 'day';
+    renderCalendarMainView(mountEl, farmId);
+  });
+  mountEl.querySelector('#cal-mode-week')?.addEventListener('click', () => {
+    calendarViewMode = 'week';
+    renderCalendarMainView(mountEl, farmId);
+  });
+
   // Day Cell click
   const dayCells = mountEl.querySelectorAll('.cal-day-cell');
   dayCells.forEach(cell => {
@@ -926,7 +1033,7 @@ function bindCalendarGridEvents(mountEl, farmId) {
       const dayKey = e.currentTarget.getAttribute('data-day-key');
       if (dayKey) {
         selectedCalendarDateKey = dayKey;
-        renderCalendarGridView(mountEl, farmId);
+        renderCalendarMainView(mountEl, farmId);
       }
     });
   });
@@ -938,7 +1045,7 @@ function bindCalendarGridEvents(mountEl, farmId) {
       calendarCurrentMonth = 11;
       calendarCurrentYear--;
     }
-    renderCalendarGridView(mountEl, farmId);
+    renderCalendarMainView(mountEl, farmId);
   });
 
   mountEl.querySelector('#cal-next-month')?.addEventListener('click', () => {
@@ -947,7 +1054,7 @@ function bindCalendarGridEvents(mountEl, farmId) {
       calendarCurrentMonth = 0;
       calendarCurrentYear++;
     }
-    renderCalendarGridView(mountEl, farmId);
+    renderCalendarMainView(mountEl, farmId);
   });
 
   // Today button
@@ -956,17 +1063,46 @@ function bindCalendarGridEvents(mountEl, farmId) {
     calendarCurrentMonth = today.getMonth();
     calendarCurrentYear = today.getFullYear();
     selectedCalendarDateKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    renderCalendarGridView(mountEl, farmId);
+    renderCalendarMainView(mountEl, farmId);
+  });
+}
+
+function bindWeekViewEvents(mountEl, farmId) {
+  // Mode switcher
+  mountEl.querySelector('#cal-mode-day')?.addEventListener('click', () => {
+    calendarViewMode = 'day';
+    renderCalendarMainView(mountEl, farmId);
+  });
+  mountEl.querySelector('#cal-mode-week')?.addEventListener('click', () => {
+    calendarViewMode = 'week';
+    renderCalendarMainView(mountEl, farmId);
   });
 
-  // View Switcher (Month / 3-Month / Week)
-  const viewBtns = mountEl.querySelectorAll('.cal-view-btn');
-  viewBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const mode = e.currentTarget.getAttribute('data-cal-view');
-      if (mode) {
-        calendarViewMode = mode;
-        renderCalendarGridView(mountEl, farmId);
+  // Prev / Next Week
+  mountEl.querySelector('#cal-prev-week')?.addEventListener('click', () => {
+    calendarWeekOffset--;
+    renderCalendarMainView(mountEl, farmId);
+  });
+
+  mountEl.querySelector('#cal-next-week')?.addEventListener('click', () => {
+    calendarWeekOffset++;
+    renderCalendarMainView(mountEl, farmId);
+  });
+
+  // This Week button
+  mountEl.querySelector('#cal-current-week-btn')?.addEventListener('click', () => {
+    calendarWeekOffset = 0;
+    renderCalendarMainView(mountEl, farmId);
+  });
+
+  // Day Cell click in Week View
+  const dayCells = mountEl.querySelectorAll('.cal-day-cell');
+  dayCells.forEach(cell => {
+    cell.addEventListener('click', (e) => {
+      const dayKey = e.currentTarget.getAttribute('data-day-key');
+      if (dayKey) {
+        selectedCalendarDateKey = dayKey;
+        renderCalendarMainView(mountEl, farmId);
       }
     });
   });
