@@ -1,6 +1,8 @@
-import { connect } from '@tidbcloud/serverless';
+import mysql from 'mysql2/promise';
 
-function getTiDBConnection() {
+let pool = null;
+
+function getTiDBPool() {
   const databaseUrl = 
     process.env.TIDB_DATABASE_URL || 
     process.env.DATABASE_URL || 
@@ -9,7 +11,23 @@ function getTiDBConnection() {
     '';
 
   if (!databaseUrl) return null;
-  return connect({ url: databaseUrl });
+
+  if (!pool) {
+    // Parse connection string or pass uri
+    const cleanUrl = databaseUrl.trim().replace(/^['"]|['"]$/g, '');
+    pool = mysql.createPool({
+      uri: cleanUrl,
+      ssl: {
+        rejectUnauthorized: true
+      },
+      waitForConnections: true,
+      connectionLimit: 5,
+      maxIdle: 5,
+      idleTimeout: 60000,
+      queueLimit: 0
+    });
+  }
+  return pool;
 }
 
 async function ensureTableCreated(conn) {
@@ -33,7 +51,7 @@ async function ensureTableCreated(conn) {
       INDEX idx_item_date (item_name, fulfilled_at DESC)
     );
   `;
-  await conn.execute(schemaSql);
+  await conn.query(schemaSql);
 }
 
 export default async function handler(req, res) {
@@ -45,8 +63,8 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const conn = getTiDBConnection();
-  if (!conn) {
+  const pool = getTiDBPool();
+  if (!pool) {
     return res.status(200).json({ 
       success: false, 
       configured: false,
@@ -55,7 +73,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    await ensureTableCreated(conn);
+    await ensureTableCreated(pool);
 
     if (req.method === 'POST') {
       const { farmId, trades } = req.body || {};
@@ -86,16 +104,16 @@ export default async function handler(req, res) {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
-        const result = await conn.execute(insertSql, [
+        const [result] = await pool.query(insertSql, [
           id, farmId, itemId, itemName, quantity, sfl, unitPrice, tradeType, source, counterpartyId, counterpartyName, fulfilledAt, fulfilledDate
         ]);
 
-        if (result.rowsAffected > 0) {
-          insertedCount += result.rowsAffected;
+        if (result && result.affectedRows > 0) {
+          insertedCount += result.affectedRows;
         }
       }
 
-      const countRes = await conn.execute('SELECT COUNT(*) as total FROM user_trades WHERE farm_id = ?', [farmId]);
+      const [countRes] = await pool.query('SELECT COUNT(*) as total FROM user_trades WHERE farm_id = ?', [farmId]);
       const totalInCloud = countRes[0]?.total || 0;
 
       return res.status(200).json({
@@ -112,7 +130,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Farm ID is required' });
       }
 
-      const rows = await conn.execute(
+      const [rows] = await pool.query(
         'SELECT * FROM user_trades WHERE farm_id = ? ORDER BY fulfilled_at DESC LIMIT 5000',
         [farmId]
       );
