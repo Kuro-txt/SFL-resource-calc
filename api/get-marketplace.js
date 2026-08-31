@@ -5,7 +5,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Farm ID is required' });
   }
 
-  // Build request headers with key support
   const headers = {
     'Accept': 'application/json',
     'User-Agent': 'Mozilla/5.0'
@@ -27,20 +26,22 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await fetch(`https://api.sunflower-land.com/community/farms/${farmId}`, {
+    const url = `https://api.sunflower-land.com/community/data?type=marketplaceProfile&farmId=${encodeURIComponent(farmId)}`;
+    const response = await fetch(url, {
       method: 'GET',
       headers: headers
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
       return res.status(response.status).json({ 
-        error: `API returned status ${response.status}. Please check your Farm ID or API Key.` 
+        error: data.error || `API returned status ${response.status}. Please verify your VIP Community API Key.` 
       });
     }
 
-    const data = await response.json();
-    res.status(200).json({ success: true, farm: data });
+    res.status(200).json({ success: true, data: data });
   } catch (error) {
-    res.status(500).json({ error: 'Server connection failed', details: error.message });
+    res.status(500).json({ error: 'Failed to fetch marketplace data', details: error.message });
   }
 }

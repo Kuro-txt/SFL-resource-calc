@@ -6,6 +6,7 @@ import { initAuth } from './services/auth.js';
 import { PanelManager } from './services/panelManager.js';
 import { initCalculatorPanel } from './panels/calculatorPanel.js';
 import { initCropTrackerPanel } from './panels/cropTrackerPanel.js';
+import { initTradeHistoryPanel, fetchMarketplaceTrades } from './panels/tradeHistoryPanel.js';
 import { initNpcGiftsPanel, renderNpcCards } from './panels/npcGiftsPanel.js';
 import { initTrackerPanel } from './panels/trackerPanel.js';
 import { initWishlistPanel, renderWishlist } from './panels/wishlistPanel.js';
@@ -21,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   initCalculatorPanel();
   initCropTrackerPanel();
+  initTradeHistoryPanel();
   initNpcGiftsPanel();
   initTrackerPanel();
   initWishlistPanel();
@@ -33,6 +35,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   PanelManager.register('croptracker', {
     onMount: () => console.log("Crop Tracker V1 Active")
+  });
+
+  PanelManager.register('tradehistory', {
+    onMount: () => fetchMarketplaceTrades()
   });
 
   PanelManager.register('npc', {

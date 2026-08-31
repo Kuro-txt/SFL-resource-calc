@@ -10,6 +10,9 @@ export function renderNavTabs() {
       <button id="tab-croptracker-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
         <span>🌱</span> Crop Tracker V1
       </button>
+      <button id="tab-tradehistory-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
+        <span>📜</span> Trade History
+      </button>
       <button id="tab-npc-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
         <span>🎁</span> NPC Gifts
       </button>

@@ -16,7 +16,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABA
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
-const SFL_API_KEY = process.env.SFL_API_KEY || "";
+const SFL_API_KEY = process.env.SFL_API_KEY || process.env.COMMUNITY_API_KEY || process.env.API_KEY || process.env.SUNFLOWER_API_KEY || process.env.VITE_SFL_API_KEY || "";
 
 const SFL_PLOT_CROPS = new Set([
   // 23 Standard Plot Crops
@@ -235,6 +235,35 @@ app.get('/api/get-land', async (req, res) => {
     res.json({ success: true, land: response.data });
   } catch (err) {
     res.status(err.response?.status || 500).json({ error: 'Failed to fetch land data from sfl.world', details: err.message });
+  }
+});
+
+app.get('/api/get-marketplace', async (req, res) => {
+  const { farmId, apiKey } = req.query;
+  if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
+
+  const cleanFarmId = String(farmId).trim();
+  const cleanApiKey = apiKey ? String(apiKey).trim() : '';
+
+  try {
+    const response = await axios.get(`https://api.sunflower-land.com/community/data?type=marketplaceProfile&farmId=${encodeURIComponent(cleanFarmId)}`, {
+      headers: getSflHeaders(cleanApiKey),
+      timeout: 15000
+    });
+    res.json({ success: true, data: response.data });
+  } catch (err) {
+    const status = err.response?.status || 500;
+    const msg = err.response?.data?.error || err.message;
+    res.status(status).json({ error: msg });
+  }
+});
+
+app.all('/api/trades', async (req, res) => {
+  try {
+    const { default: tradesHandler } = await import('./api/trades.js');
+    return tradesHandler(req, res);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process trades request', details: err.message });
   }
 });
 
