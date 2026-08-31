@@ -10,10 +10,11 @@ let searchQuery = '';
 let cloudArchivedCount = 0;
 
 // Calendar State
-let calendarViewMode = 'day'; // 'day' | 'week'
+let calendarViewMode = 'day'; // 'day' | 'week' | 'month' | '3month'
 let calendarCurrentMonth = new Date().getMonth();
 let calendarCurrentYear = new Date().getFullYear();
 let calendarWeekOffset = 0; // 0 = current week, -1 = last week, etc.
+let calendarQuarterOffset = 0; // 0 = current quarter, -1 = last quarter, etc.
 let selectedCalendarDateKey = null; // 'YYYY-MM-DD'
 
 export function renderTradeHistoryTemplate() {
@@ -326,7 +327,7 @@ function renderTradeSummaryMetrics(profileData) {
       totalSoldVolume += sfl;
     } else {
       totalBoughtVolume += sfl;
-      // Calculate accurate weekly flower spent from purchases made in the last 7 days
+      // Calculate true weekly flower spent from actual purchases in the last 7 days
       if (time >= sevenDaysAgo) {
         weeklySpent += sfl;
       }
@@ -377,7 +378,7 @@ function renderCurrentView() {
     if (titleEl) titleEl.textContent = "📜 Completed Trade Ledger (Archived in TiDB Cloud)";
     renderTradesTableView(mountEl, farmId);
   } else if (currentView === 'calendar') {
-    if (titleEl) titleEl.textContent = "📅 Trade Calendar & Daily Profit Inspector";
+    if (titleEl) titleEl.textContent = "📅 Trade Calendar & Profit Trends";
     renderCalendarMainView(mountEl, farmId);
   } else if (currentView === 'listings') {
     if (titleEl) titleEl.textContent = "🏷️ Active Marketplace Listings";
@@ -476,7 +477,7 @@ function renderTradesTableView(mountEl, farmId) {
 }
 
 // ----------------------------------------------------
-// 📅 DUAL-MODE CALENDAR: BY DAY & BY WEEK
+// 📅 4-MODE CALENDAR: DAY, WEEK, MONTH, 3 MONTHS
 // ----------------------------------------------------
 
 function buildTradesDateMap(trades, farmId) {
@@ -540,6 +541,88 @@ function getWeekRange(offset = 0) {
   return { sunday, saturday };
 }
 
+// ----------------------------------------------------
+// 📈 PURE RESPONSIVE SVG TREND GRAPH
+// ----------------------------------------------------
+function generateSvgChart(dataPoints, height = 110) {
+  if (!dataPoints || dataPoints.length === 0) {
+    return `<div class="p-3 text-center text-sfl-woodLight text-xs italic">No trading activity data to plot in this period.</div>`;
+  }
+
+  const maxVal = Math.max(...dataPoints.map(d => Math.max(d.sold || 0, d.spent || 0, Math.abs(d.net || 0))), 1);
+  const chartW = 580;
+  const paddingX = 35;
+  const paddingY = 16;
+  const usableW = chartW - paddingX * 2;
+  const usableH = height - paddingY * 2;
+  const count = dataPoints.length;
+  const step = usableW / Math.max(count, 1);
+  const barW = Math.min(Math.max(step * 0.32, 4), 16);
+
+  let barsHtml = '';
+  let points = [];
+  let labelsHtml = '';
+
+  dataPoints.forEach((d, i) => {
+    const x = paddingX + i * step + step / 2;
+    const soldH = ((d.sold || 0) / maxVal) * usableH;
+    const spentH = ((d.spent || 0) / maxVal) * usableH;
+    
+    const soldY = (height - paddingY) - soldH;
+    const spentY = (height - paddingY) - spentH;
+    const netY = (height - paddingY) - (((d.net || 0) / maxVal) * usableH);
+
+    // Green Sales Bar
+    if (d.sold > 0) {
+      barsHtml += `<rect x="${x - barW - 1}" y="${soldY}" width="${barW}" height="${soldH}" rx="1.5" fill="#22c55e" opacity="0.85">
+        <title>${d.label}: +${d.sold.toFixed(3)} SFL Sales</title>
+      </rect>`;
+    }
+    // Blue Spend Bar
+    if (d.spent > 0) {
+      barsHtml += `<rect x="${x + 1}" y="${spentY}" width="${barW}" height="${spentH}" rx="1.5" fill="#3b82f6" opacity="0.85">
+        <title>${d.label}: -${d.spent.toFixed(3)} SFL Spent</title>
+      </rect>`;
+    }
+
+    // Line point for Net
+    points.push(`${x},${netY}`);
+
+    // X Axis Label
+    if (count <= 10 || i % Math.ceil(count / 8) === 0 || i === count - 1) {
+      labelsHtml += `<text x="${x}" y="${height - 2}" text-anchor="middle" font-size="8.5" font-family="monospace" font-weight="bold" fill="#8a5832">${d.label}</text>`;
+    }
+  });
+
+  const pathD = points.length > 1 ? `M ${points.join(' L ')}` : '';
+
+  return `
+    <div class="w-full bg-amber-50/60 dark:bg-amber-950/20 border-b border-sfl-cardBorder px-3 py-2">
+      <div class="flex items-center justify-between mb-1 text-[10px] font-bold text-sfl-wood">
+        <span class="flex items-center gap-3">
+          <span class="inline-flex items-center gap-1 text-sfl-green"><span class="w-2 h-2 rounded-xs bg-green-500 inline-block"></span> Sales</span>
+          <span class="inline-flex items-center gap-1 text-blue-500"><span class="w-2 h-2 rounded-xs bg-blue-500 inline-block"></span> Spent</span>
+          <span class="inline-flex items-center gap-1 text-amber-600"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span> Net Profit</span>
+        </span>
+        <span class="font-mono text-sfl-woodLight text-[9px]">Peak: ${maxVal.toFixed(2)} SFL</span>
+      </div>
+      <svg viewBox="0 0 ${chartW} ${height}" class="w-full h-24 select-none">
+        <line x1="${paddingX}" y1="${height - paddingY}" x2="${chartW - paddingX}" y2="${height - paddingY}" stroke="#d4a373" stroke-dasharray="3,3" stroke-width="1"/>
+        ${barsHtml}
+        ${pathD ? `<path d="${pathD}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+        ${points.map((pt, idx) => {
+          const d = dataPoints[idx];
+          const [px, py] = pt.split(',');
+          return `<circle cx="${px}" cy="${py}" r="2.5" fill="#f59e0b" stroke="#ffffff" stroke-width="1">
+            <title>${d.label} Net: ${d.net >= 0 ? '+' : ''}${d.net.toFixed(3)} SFL</title>
+          </circle>`;
+        }).join('')}
+        ${labelsHtml}
+      </svg>
+    </div>
+  `;
+}
+
 function renderCalendarMainView(mountEl, farmId) {
   const trades = tradeHistoryData?.trades || [];
   const tradesMap = buildTradesDateMap(trades, farmId);
@@ -560,16 +643,22 @@ function renderCalendarMainView(mountEl, farmId) {
     }
   }
 
-  // Top Mode Switcher Bar (By Day vs By Week)
+  // Top Mode Switcher Bar (By Day, By Week, By Month, By 3 Months)
   let topModeBarHtml = `
-    <div class="p-3 bg-amber-50/90 border-b-2 border-sfl-cardBorder flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-      <div class="flex items-center gap-2">
-        <span class="text-xs font-bold text-sfl-woodLight uppercase tracking-wider">Calendar Mode:</span>
-        <button id="cal-mode-day" class="cal-mode-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'day' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
-          📅 By Day
+    <div class="p-2.5 bg-amber-50/90 border-b-2 border-sfl-cardBorder flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <span class="text-xs font-bold text-sfl-woodLight uppercase mr-1">View:</span>
+        <button data-cal-mode="day" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'day' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          📅 Day
         </button>
-        <button id="cal-mode-week" class="cal-mode-btn px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'week' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
-          📊 By Week
+        <button data-cal-mode="week" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'week' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          📊 Week
+        </button>
+        <button data-cal-mode="month" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          🗓️ Month
+        </button>
+        <button data-cal-mode="3month" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === '3month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          📈 3 Months
         </button>
       </div>
 
@@ -581,8 +670,12 @@ function renderCalendarMainView(mountEl, farmId) {
 
   if (calendarViewMode === 'day') {
     renderByDayView(mountEl, tradesMap, farmId, topModeBarHtml);
-  } else {
+  } else if (calendarViewMode === 'week') {
     renderByWeekView(mountEl, tradesMap, farmId, topModeBarHtml);
+  } else if (calendarViewMode === 'month') {
+    renderByMonthView(mountEl, tradesMap, farmId, topModeBarHtml);
+  } else if (calendarViewMode === '3month') {
+    renderBy3MonthView(mountEl, tradesMap, farmId, topModeBarHtml);
   }
 }
 
@@ -615,56 +708,73 @@ function renderByDayView(mountEl, tradesMap, farmId, topModeBarHtml) {
     }
   }
 
-  // 1. TOP METRICS ROW FOR SELECTED DAY
+  // 1. TOP METRICS ROW
   const dayMetricsHtml = `
-    <div class="p-4 bg-white/90 border-b-2 border-sfl-cardBorder">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
-        <span class="text-xs sm:text-sm font-bold text-sfl-dirt flex items-center gap-1.5">
+    <div class="p-3 bg-white/90 border-b border-sfl-cardBorder">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
+        <span class="text-xs font-bold text-sfl-dirt flex items-center gap-1.5">
           <span>📅</span> Selected Day: <strong>${dayDisplayTitle}</strong>
         </span>
-        <span class="bg-amber-100 text-sfl-wood text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-amber-300">
+        <span class="bg-amber-100 text-sfl-wood text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-300">
           ${selectedDayData.trades.length} ${selectedDayData.trades.length === 1 ? 'trade' : 'trades'}
         </span>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">🟢 Flower from Sales</span>
-          <span class="text-base sm:text-lg font-black text-sfl-green font-mono">+${daySold.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🟢 Flower from Sales</span>
+          <span class="text-sm sm:text-base font-black text-sfl-green font-mono">+${daySold.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
         </div>
 
-        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">🔵 Flower Spent</span>
-          <span class="text-base sm:text-lg font-black text-sfl-wood font-mono">-${daySpend.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🔵 Flower Spent</span>
+          <span class="text-sm sm:text-base font-black text-sfl-wood font-mono">-${daySpend.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
         </div>
 
-        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">⚖️ Net Flower</span>
-          <span class="text-base sm:text-lg font-black ${netColor} font-mono">${netSign}${dayNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">⚖️ Net Flower</span>
+          <span class="text-sm sm:text-base font-black ${netColor} font-mono">${netSign}${dayNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
         </div>
       </div>
     </div>
   `;
 
-  // 2. INTERACTIVE CALENDAR MONTH GRID VIEW
+  // 2. 14-DAY GRAPH TREND
+  const recent14Days = [];
+  const now = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const item = tradesMap.get(key) || { totalSold: 0, totalBought: 0 };
+    recent14Days.push({
+      label: d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }),
+      sold: item.totalSold || 0,
+      spent: item.totalBought || 0,
+      net: (item.totalSold || 0) - (item.totalBought || 0)
+    });
+  }
+  const graphHtml = generateSvgChart(recent14Days, 100);
+
+  // 3. COMPACT MONTH GRID VIEW
   const monthDate = new Date(calendarCurrentYear, calendarCurrentMonth, 1);
   const monthName = monthDate.toLocaleString(undefined, { month: 'long', year: 'numeric' });
 
   const monthGridNavHtml = `
-    <div class="p-3 bg-amber-100/60 border-b-2 border-sfl-cardBorder flex justify-between items-center">
-      <div class="flex items-center gap-2">
-        <button id="cal-prev-month" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
-          ◀ Prev Month
+    <div class="p-2.5 bg-amber-100/60 border-b border-sfl-cardBorder flex justify-between items-center">
+      <div class="flex items-center gap-1.5">
+        <button id="cal-prev-month" class="bg-white border border-sfl-cardBorder hover:bg-amber-100 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
+          ◀ Prev
         </button>
-        <span class="font-bold text-sfl-wood text-sm sm:text-base px-2">
+        <span class="font-bold text-sfl-wood text-xs sm:text-sm px-2">
           ${monthName}
         </span>
-        <button id="cal-next-month" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
-          Next Month ▶
+        <button id="cal-next-month" class="bg-white border border-sfl-cardBorder hover:bg-amber-100 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
+          Next ▶
         </button>
       </div>
 
-      <button id="cal-today-btn" class="bg-amber-200 border border-sfl-cardBorder hover:bg-amber-300 px-3 py-1 rounded-md text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
+      <button id="cal-today-btn" class="bg-amber-200 border border-sfl-cardBorder hover:bg-amber-300 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
         Today
       </button>
     </div>
@@ -672,20 +782,21 @@ function renderByDayView(mountEl, tradesMap, farmId, topModeBarHtml) {
 
   const calendarGridHtml = renderSingleMonthGrid(calendarCurrentYear, calendarCurrentMonth, tradesMap);
 
-  // 3. COMPLETED TRADES TABLE FOR SELECTED DAY
+  // 4. COMPLETED TRADES TABLE
   const tradesTableHtml = renderSelectedDayTradesTable(dayDisplayTitle, selectedDayData, farmId);
 
   mountEl.innerHTML = `
     ${topModeBarHtml}
     ${dayMetricsHtml}
+    ${graphHtml}
     ${monthGridNavHtml}
-    <div class="p-3 sm:p-4 bg-white/60">
+    <div class="p-2 sm:p-3 bg-white/60">
       ${calendarGridHtml}
     </div>
     ${tradesTableHtml}
   `;
 
-  bindDayViewEvents(mountEl, farmId);
+  bindGenericCalendarEvents(mountEl, farmId);
 }
 
 // ----------------------------------------------------
@@ -695,11 +806,9 @@ function renderByWeekView(mountEl, tradesMap, farmId, topModeBarHtml) {
   const { sunday, saturday } = getWeekRange(calendarWeekOffset);
   const weekTitle = `${sunday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${saturday.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
-  // Generate 7 days for the week
   const weekDays = [];
   let weekSales = 0;
   let weekSpend = 0;
-  let weekTradesCount = 0;
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(sunday);
@@ -715,7 +824,6 @@ function renderByWeekView(mountEl, tradesMap, farmId, topModeBarHtml) {
 
     weekSales += dayData.totalSold || 0;
     weekSpend += dayData.totalBought || 0;
-    weekTradesCount += dayData.trades.length;
 
     weekDays.push({ key, dateObj: d, dayData });
   }
@@ -724,50 +832,59 @@ function renderByWeekView(mountEl, tradesMap, farmId, topModeBarHtml) {
   const netSign = weekNet >= 0 ? '+' : '';
   const netColor = weekNet > 0 ? 'text-sfl-green' : (weekNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
 
-  // 1. WEEK NAVIGATION BAR
+  // Week Navigation
   const weekNavHtml = `
-    <div class="p-3.5 bg-amber-100/60 border-b-2 border-sfl-cardBorder flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-      <div class="flex items-center gap-2">
-        <button id="cal-prev-week" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs flex items-center gap-1">
+    <div class="p-2.5 bg-amber-100/60 border-b border-sfl-cardBorder flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+      <div class="flex items-center gap-1.5">
+        <button id="cal-prev-week" class="bg-white border border-sfl-cardBorder hover:bg-amber-100 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
           ◀ Previous Week
         </button>
         <span class="font-bold text-sfl-wood text-xs sm:text-sm px-2">
-          <span>🗓️</span> ${weekTitle} ${calendarWeekOffset === 0 ? '<span class="ml-1 text-[10px] bg-amber-200 text-sfl-dirt px-2 py-0.5 rounded font-black">CURRENT</span>' : ''}
+          <span>🗓️</span> ${weekTitle} ${calendarWeekOffset === 0 ? '<span class="ml-1 text-[9px] bg-amber-200 text-sfl-dirt px-1.5 py-0.2 rounded font-black">THIS WEEK</span>' : ''}
         </span>
-        <button id="cal-next-week" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs flex items-center gap-1">
+        <button id="cal-next-week" class="bg-white border border-sfl-cardBorder hover:bg-amber-100 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
           Next Week ▶
         </button>
       </div>
 
-      <button id="cal-current-week-btn" class="bg-amber-200 border border-sfl-cardBorder hover:bg-amber-300 px-3 py-1 rounded-md text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
+      <button id="cal-current-week-btn" class="bg-amber-200 border border-sfl-cardBorder hover:bg-amber-300 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
         This Week
       </button>
     </div>
   `;
 
-  // 2. TOP METRICS ROW FOR THE WEEK
+  // Week Metrics
   const weekMetricsHtml = `
-    <div class="p-4 bg-white/90 border-b-2 border-sfl-cardBorder">
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">🟢 Weekly Sales</span>
-          <span class="text-base sm:text-lg font-black text-sfl-green font-mono">+${weekSales.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+    <div class="p-3 bg-white/90 border-b border-sfl-cardBorder">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🟢 Weekly Sales</span>
+          <span class="text-sm sm:text-base font-black text-sfl-green font-mono">+${weekSales.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
         </div>
 
-        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">🔵 Weekly Spent</span>
-          <span class="text-base sm:text-lg font-black text-sfl-wood font-mono">-${weekSpend.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🔵 Weekly Spent</span>
+          <span class="text-sm sm:text-base font-black text-sfl-wood font-mono">-${weekSpend.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
         </div>
 
-        <div class="bg-amber-50/70 border-2 border-sfl-cardBorder p-3 rounded-xl text-center shadow-2xs">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-0.5">⚖️ Weekly Net Flower</span>
-          <span class="text-base sm:text-lg font-black ${netColor} font-mono">${netSign}${weekNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">⚖️ Weekly Net Flower</span>
+          <span class="text-sm sm:text-base font-black ${netColor} font-mono">${netSign}${weekNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
         </div>
       </div>
     </div>
   `;
 
-  // 3. 7-DAY CARDS BREAKDOWN STRIP
+  // Weekly Graph
+  const weekGraphPoints = weekDays.map(({ key, dateObj, dayData }) => ({
+    label: dateObj.toLocaleDateString(undefined, { weekday: 'short' }),
+    sold: dayData.totalSold || 0,
+    spent: dayData.totalBought || 0,
+    net: (dayData.totalSold || 0) - (dayData.totalBought || 0)
+  }));
+  const graphHtml = generateSvgChart(weekGraphPoints, 100);
+
+  // 7-Day Compact Cards Strip
   let dayCardsHtml = '';
   weekDays.forEach(({ key, dateObj, dayData }) => {
     const isSelected = selectedCalendarDateKey === key;
@@ -780,18 +897,16 @@ function renderByWeekView(mountEl, tradesMap, farmId, topModeBarHtml) {
     const nColor = n > 0 ? 'text-sfl-green' : (n < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
 
     dayCardsHtml += `
-      <div data-day-key="${key}" class="cal-day-cell flex-1 min-w-[135px] p-3 rounded-xl border-2 transition cursor-pointer shadow-xs ${isSelected ? 'border-sfl-gold bg-amber-100 dark:bg-amber-950/60 ring-2 ring-sfl-gold' : 'border-sfl-cardBorder bg-white hover:bg-amber-50'}">
+      <div data-day-key="${key}" class="cal-day-cell flex-1 min-w-[105px] p-2 rounded-lg border transition cursor-pointer shadow-2xs ${isSelected ? 'border-sfl-gold bg-amber-100 dark:bg-amber-950/60 ring-2 ring-sfl-gold' : 'border-sfl-cardBorder bg-white hover:bg-amber-50'}">
         <div class="flex justify-between items-center mb-1">
           <span class="font-black text-xs text-sfl-wood">${dayName} ${dayNum}</span>
-          <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-sfl-dirt border border-amber-300">
-            ${count}t
-          </span>
+          ${count > 0 ? `<span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-sfl-dirt border border-amber-300">${count}t</span>` : ''}
         </div>
-        <div class="mt-2 text-xs font-mono space-y-0.5">
-          <span class="block text-sfl-green font-semibold">🟢 +${s.toFixed(2)}</span>
-          <span class="block text-sfl-wood font-semibold">🔵 -${b.toFixed(2)}</span>
-          <span class="block ${nColor} font-black border-t border-sfl-cardBorder/40 pt-1">
-            Net: ${n >= 0 ? '+' : ''}${n.toFixed(2)}
+        <div class="text-[10px] font-mono space-y-0.5">
+          <span class="block text-sfl-green font-semibold leading-tight">+${s.toFixed(1)}</span>
+          <span class="block text-sfl-wood font-semibold leading-tight">-${b.toFixed(1)}</span>
+          <span class="block ${nColor} font-black border-t border-sfl-cardBorder/40 pt-0.5 leading-tight">
+            ${n >= 0 ? '+' : ''}${n.toFixed(1)}
           </span>
         </div>
       </div>
@@ -799,35 +914,282 @@ function renderByWeekView(mountEl, tradesMap, farmId, topModeBarHtml) {
   });
 
   const weekStripHtml = `
-    <div class="p-3 sm:p-4 bg-amber-50/40 border-b-2 border-sfl-cardBorder">
-      <div class="flex gap-2.5 overflow-x-auto pb-2">
+    <div class="p-2 sm:p-3 bg-amber-50/40 border-b border-sfl-cardBorder">
+      <div class="flex gap-2 overflow-x-auto pb-1">
         ${dayCardsHtml}
       </div>
     </div>
   `;
 
-  // 4. TRADES TABLE FOR THE SELECTED DAY OR ENTIRE WEEK
+  // Selected Day Trades
   const selectedDayData = tradesMap.get(selectedCalendarDateKey) || { totalSold: 0, totalBought: 0, trades: [] };
   let selectedTitle = selectedCalendarDateKey;
   if (selectedDayData?.dateObj) {
     selectedTitle = selectedDayData.dateObj.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
   }
-
   const tradesTableHtml = renderSelectedDayTradesTable(selectedTitle, selectedDayData, farmId);
 
   mountEl.innerHTML = `
     ${topModeBarHtml}
     ${weekNavHtml}
     ${weekMetricsHtml}
+    ${graphHtml}
     ${weekStripHtml}
     ${tradesTableHtml}
   `;
 
-  bindWeekViewEvents(mountEl, farmId);
+  bindGenericCalendarEvents(mountEl, farmId);
 }
 
 // ----------------------------------------------------
-// SHARED MONTH GRID RENDERER
+// 3️⃣ BY MONTH VIEW
+// ----------------------------------------------------
+function renderByMonthView(mountEl, tradesMap, farmId, topModeBarHtml) {
+  const monthDate = new Date(calendarCurrentYear, calendarCurrentMonth, 1);
+  const monthName = monthDate.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  const daysInMonth = new Date(calendarCurrentYear, calendarCurrentMonth + 1, 0).getDate();
+
+  let monthSales = 0;
+  let monthSpend = 0;
+  let monthTradesCount = 0;
+  const monthDailyPoints = [];
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(calendarCurrentMonth + 1).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    const key = `${calendarCurrentYear}-${mm}-${dd}`;
+    const dayData = tradesMap.get(key) || { totalSold: 0, totalBought: 0, trades: [] };
+
+    monthSales += dayData.totalSold || 0;
+    monthSpend += dayData.totalBought || 0;
+    monthTradesCount += dayData.trades.length;
+
+    monthDailyPoints.push({
+      label: String(d),
+      sold: dayData.totalSold || 0,
+      spent: dayData.totalBought || 0,
+      net: (dayData.totalSold || 0) - (dayData.totalBought || 0)
+    });
+  }
+
+  const monthNet = monthSales - monthSpend;
+  const netSign = monthNet >= 0 ? '+' : '';
+  const netColor = monthNet > 0 ? 'text-sfl-green' : (monthNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
+
+  const monthNavHtml = `
+    <div class="p-2.5 bg-amber-100/60 border-b border-sfl-cardBorder flex justify-between items-center">
+      <div class="flex items-center gap-1.5">
+        <button id="cal-prev-month" class="bg-white border border-sfl-cardBorder hover:bg-amber-100 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
+          ◀ Prev Month
+        </button>
+        <span class="font-bold text-sfl-wood text-xs sm:text-sm px-2">
+          ${monthName}
+        </span>
+        <button id="cal-next-month" class="bg-white border border-sfl-cardBorder hover:bg-amber-100 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
+          Next Month ▶
+        </button>
+      </div>
+
+      <button id="cal-today-btn" class="bg-amber-200 border border-sfl-cardBorder hover:bg-amber-300 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
+        This Month
+      </button>
+    </div>
+  `;
+
+  const monthMetricsHtml = `
+    <div class="p-3 bg-white/90 border-b border-sfl-cardBorder">
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🟢 Monthly Sales</span>
+          <span class="text-sm sm:text-base font-black text-sfl-green font-mono">+${monthSales.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🔵 Monthly Spent</span>
+          <span class="text-sm sm:text-base font-black text-sfl-wood font-mono">-${monthSpend.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">⚖️ Monthly Net</span>
+          <span class="text-sm sm:text-base font-black ${netColor} font-mono">${netSign}${monthNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🏆 Month Trades</span>
+          <span class="text-sm sm:text-base font-black text-sfl-dirt font-mono">${monthTradesCount}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const graphHtml = generateSvgChart(monthDailyPoints, 105);
+  const calendarGridHtml = renderSingleMonthGrid(calendarCurrentYear, calendarCurrentMonth, tradesMap);
+
+  const selectedDayData = tradesMap.get(selectedCalendarDateKey) || { totalSold: 0, totalBought: 0, trades: [] };
+  let selectedTitle = selectedCalendarDateKey;
+  if (selectedDayData?.dateObj) {
+    selectedTitle = selectedDayData.dateObj.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  }
+  const tradesTableHtml = renderSelectedDayTradesTable(selectedTitle, selectedDayData, farmId);
+
+  mountEl.innerHTML = `
+    ${topModeBarHtml}
+    ${monthNavHtml}
+    ${monthMetricsHtml}
+    ${graphHtml}
+    <div class="p-2 sm:p-3 bg-white/60">
+      ${calendarGridHtml}
+    </div>
+    ${tradesTableHtml}
+  `;
+
+  bindGenericCalendarEvents(mountEl, farmId);
+}
+
+// ----------------------------------------------------
+// 4️⃣ BY 3 MONTHS VIEW
+// ----------------------------------------------------
+function renderBy3MonthView(mountEl, tradesMap, farmId, topModeBarHtml) {
+  const baseMonth = calendarCurrentMonth;
+  const baseY = calendarCurrentYear;
+
+  const m1 = baseMonth;
+  const y1 = baseY;
+  const m2 = (m1 - 1 + 12) % 12;
+  const y2 = m1 === 0 ? y1 - 1 : y1;
+  const m3 = (m1 - 2 + 12) % 12;
+  const y3 = m1 < 2 ? y1 - 1 : y1;
+
+  const quarterTitle = `${new Date(y3, m3, 1).toLocaleString(undefined, { month: 'short', year: 'numeric' })} – ${new Date(y1, m1, 1).toLocaleString(undefined, { month: 'short', year: 'numeric' })}`;
+
+  // Calculate 3-month metrics
+  let qSales = 0;
+  let qSpend = 0;
+  let qTrades = 0;
+  const qPoints = [];
+
+  // Group by 12 weekly buckets for clean graph
+  for (let w = 11; w >= 0; w--) {
+    const { sunday, saturday } = getWeekRange(-w);
+    let wS = 0;
+    let wB = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sunday);
+      d.setDate(sunday.getDate() + i);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const dayData = tradesMap.get(key);
+      if (dayData) {
+        wS += dayData.totalSold || 0;
+        wB += dayData.totalBought || 0;
+        qTrades += dayData.trades.length;
+      }
+    }
+    qSales += wS;
+    qSpend += wB;
+    qPoints.push({
+      label: sunday.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }),
+      sold: wS,
+      spent: wB,
+      net: wS - wB
+    });
+  }
+
+  const qNet = qSales - qSpend;
+  const netSign = qNet >= 0 ? '+' : '';
+  const netColor = qNet > 0 ? 'text-sfl-green' : (qNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
+
+  const qNavHtml = `
+    <div class="p-2.5 bg-amber-100/60 border-b border-sfl-cardBorder flex justify-between items-center">
+      <div class="flex items-center gap-1.5">
+        <button id="cal-prev-quarter" class="bg-white border border-sfl-cardBorder hover:bg-amber-100 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
+          ◀ Prev 3-Months
+        </button>
+        <span class="font-bold text-sfl-wood text-xs sm:text-sm px-2">
+          <span>📈</span> ${quarterTitle}
+        </span>
+        <button id="cal-next-quarter" class="bg-white border border-sfl-cardBorder hover:bg-amber-100 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
+          Next 3-Months ▶
+        </button>
+      </div>
+
+      <button id="cal-current-quarter-btn" class="bg-amber-200 border border-sfl-cardBorder hover:bg-amber-300 px-2.5 py-1 rounded text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-2xs">
+        Current Quarter
+      </button>
+    </div>
+  `;
+
+  const qMetricsHtml = `
+    <div class="p-3 bg-white/90 border-b border-sfl-cardBorder">
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🟢 3-Month Sales</span>
+          <span class="text-sm sm:text-base font-black text-sfl-green font-mono">+${qSales.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🔵 3-Month Spent</span>
+          <span class="text-sm sm:text-base font-black text-sfl-wood font-mono">-${qSpend.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">⚖️ 3-Month Net</span>
+          <span class="text-sm sm:text-base font-black ${netColor} font-mono">${netSign}${qNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🏆 Total Trades</span>
+          <span class="text-sm sm:text-base font-black text-sfl-dirt font-mono">${qTrades}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const graphHtml = generateSvgChart(qPoints, 105);
+
+  const month1Grid = renderSingleMonthGrid(y1, m1, tradesMap);
+  const month2Grid = renderSingleMonthGrid(y2, m2, tradesMap);
+  const month3Grid = renderSingleMonthGrid(y3, m3, tradesMap);
+
+  const selectedDayData = tradesMap.get(selectedCalendarDateKey) || { totalSold: 0, totalBought: 0, trades: [] };
+  let selectedTitle = selectedCalendarDateKey;
+  if (selectedDayData?.dateObj) {
+    selectedTitle = selectedDayData.dateObj.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  }
+  const tradesTableHtml = renderSelectedDayTradesTable(selectedTitle, selectedDayData, farmId);
+
+  mountEl.innerHTML = `
+    ${topModeBarHtml}
+    ${qNavHtml}
+    ${qMetricsHtml}
+    ${graphHtml}
+    <div class="p-3 space-y-4 bg-white/50">
+      <div>
+        <div class="font-bold text-xs text-sfl-wood uppercase mb-1 flex items-center gap-1">
+          <span>📅</span> ${new Date(y1, m1, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
+        </div>
+        ${month1Grid}
+      </div>
+      <div>
+        <div class="font-bold text-xs text-sfl-wood uppercase mb-1 flex items-center gap-1">
+          <span>📅</span> ${new Date(y2, m2, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
+        </div>
+        ${month2Grid}
+      </div>
+      <div>
+        <div class="font-bold text-xs text-sfl-wood uppercase mb-1 flex items-center gap-1">
+          <span>📅</span> ${new Date(y3, m3, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
+        </div>
+        ${month3Grid}
+      </div>
+    </div>
+    ${tradesTableHtml}
+  `;
+
+  bindGenericCalendarEvents(mountEl, farmId);
+}
+
+// ----------------------------------------------------
+// COMPACT MONTH GRID RENDERER
 // ----------------------------------------------------
 function renderSingleMonthGrid(year, month, tradesMap) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -836,7 +1198,7 @@ function renderSingleMonthGrid(year, month, tradesMap) {
 
   const dayHeaders = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
   let headersHtml = dayHeaders.map(d => `
-    <div class="text-center font-black text-[11px] text-sfl-wood uppercase py-2 bg-sfl-card/80 border-b-2 border-sfl-cardBorder">
+    <div class="text-center font-black text-[10px] text-sfl-wood uppercase py-1 bg-sfl-card/80 border-b border-sfl-cardBorder">
       ${d}
     </div>
   `).join('');
@@ -847,8 +1209,8 @@ function renderSingleMonthGrid(year, month, tradesMap) {
   for (let i = firstDayIndex - 1; i >= 0; i--) {
     const prevDayNum = daysInPrevMonth - i;
     cellsHtml += `
-      <div class="min-h-[64px] sm:min-h-[82px] p-2 bg-amber-50/20 text-sfl-woodLight/30 border border-sfl-cardBorder/20">
-        <span class="text-xs font-mono">${prevDayNum}</span>
+      <div class="min-h-[42px] sm:min-h-[54px] p-1 bg-amber-50/20 text-sfl-woodLight/30 border border-sfl-cardBorder/20">
+        <span class="text-[10px] font-mono">${prevDayNum}</span>
       </div>
     `;
   }
@@ -874,12 +1236,12 @@ function renderSingleMonthGrid(year, month, tradesMap) {
       const netSign = net >= 0 ? '+' : '';
 
       tradeBadgeHtml = `
-        <div class="mt-1.5 space-y-1">
-          <div class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-sfl-dirt border border-amber-300 shadow-2xs">
-            <span>📜</span> ${dayData.trades.length} ${dayData.trades.length === 1 ? 'trade' : 'trades'}
+        <div class="mt-0.5 space-y-0.5">
+          <div class="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-sfl-dirt border border-amber-300 shadow-2xs leading-none">
+            ${dayData.trades.length}t
           </div>
-          <div class="text-[10px] sm:text-[11px] font-mono font-black ${net >= 0 ? 'text-sfl-green bg-green-50/80 dark:bg-green-950/40 border-sfl-green/40' : 'text-sfl-accent bg-red-50/80 dark:bg-red-950/40 border-red-300'} px-1.5 py-0.5 rounded border">
-            Net: ${netSign}${net.toFixed(2)} ${FLOWER_IMG_SMALL_HTML}
+          <div class="text-[9px] sm:text-[10px] font-mono font-black ${net >= 0 ? 'text-sfl-green bg-green-50/80 dark:bg-green-950/40 border-sfl-green/40' : 'text-sfl-accent bg-red-50/80 dark:bg-red-950/40 border-red-300'} px-1 py-0.2 rounded border leading-none">
+            ${netSign}${net.toFixed(1)}
           </div>
         </div>
       `;
@@ -888,16 +1250,16 @@ function renderSingleMonthGrid(year, month, tradesMap) {
     }
 
     const activeRing = isSelected 
-      ? 'ring-2 ring-sfl-gold border-sfl-gold bg-amber-100 dark:bg-amber-950/60 shadow-md z-10 scale-[1.01]' 
-      : 'border-sfl-cardBorder/50';
+      ? 'ring-2 ring-sfl-gold border-sfl-gold bg-amber-100 dark:bg-amber-950/60 shadow-xs z-10' 
+      : 'border-sfl-cardBorder/40';
 
     cellsHtml += `
-      <div data-day-key="${dateKey}" class="cal-day-cell min-h-[64px] sm:min-h-[82px] p-2 border transition duration-150 relative cursor-pointer ${cellBg} ${activeRing}">
-        <div class="flex justify-between items-center">
-          <span class="text-xs font-mono font-bold ${isToday ? 'bg-sfl-wood text-amber-200 px-1.5 py-0.2 rounded-full shadow-2xs' : 'text-sfl-wood'}">
+      <div data-day-key="${dateKey}" class="cal-day-cell min-h-[42px] sm:min-h-[54px] p-1 border transition duration-100 relative cursor-pointer ${cellBg} ${activeRing}">
+        <div class="flex justify-between items-center leading-none">
+          <span class="text-[10px] sm:text-xs font-mono font-bold ${isToday ? 'bg-sfl-wood text-amber-200 px-1 py-0.2 rounded-full' : 'text-sfl-wood'}">
             ${d}
           </span>
-          ${dayData ? `<span class="w-2 h-2 rounded-full bg-sfl-green shadow-2xs inline-block"></span>` : ''}
+          ${dayData ? `<span class="w-1.5 h-1.5 rounded-full bg-sfl-green inline-block"></span>` : ''}
         </div>
         ${tradeBadgeHtml}
       </div>
@@ -909,14 +1271,14 @@ function renderSingleMonthGrid(year, month, tradesMap) {
   const remainingCells = (7 - (totalRendered % 7)) % 7;
   for (let i = 1; i <= remainingCells; i++) {
     cellsHtml += `
-      <div class="min-h-[64px] sm:min-h-[82px] p-2 bg-amber-50/20 text-sfl-woodLight/30 border border-sfl-cardBorder/20">
-        <span class="text-xs font-mono">${i}</span>
+      <div class="min-h-[42px] sm:min-h-[54px] p-1 bg-amber-50/20 text-sfl-woodLight/30 border border-sfl-cardBorder/20">
+        <span class="text-[10px] font-mono">${i}</span>
       </div>
     `;
   }
 
   return `
-    <div class="grid grid-cols-7 gap-0 border-2 border-sfl-cardBorder rounded-xl overflow-hidden bg-sfl-cardBorder/30 shadow-xs">
+    <div class="grid grid-cols-7 gap-0 border-2 border-sfl-cardBorder rounded-lg overflow-hidden bg-sfl-cardBorder/30 shadow-xs">
       ${headersHtml}
       ${cellsHtml}
     </div>
@@ -924,13 +1286,13 @@ function renderSingleMonthGrid(year, month, tradesMap) {
 }
 
 // ----------------------------------------------------
-// SHARED TRANSACTIONS TABLE
+// SHARED COMPACT TRANSACTIONS TABLE
 // ----------------------------------------------------
 function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
   if (!dayData || dayData.trades.length === 0) {
     return `
-      <div class="bg-white/90 p-8 text-center border-t-2 border-sfl-cardBorder">
-        <span class="text-sm font-bold text-sfl-dirt flex items-center justify-center gap-1.5 mb-1">
+      <div class="bg-white/90 p-6 text-center border-t-2 border-sfl-cardBorder">
+        <span class="text-xs sm:text-sm font-bold text-sfl-dirt flex items-center justify-center gap-1.5 mb-1">
           <span>📅</span> ${displayTitle}
         </span>
         <p class="text-xs text-sfl-woodLight italic">
@@ -959,20 +1321,20 @@ function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
       : (t.counterpartyName || t.initiatedBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Seller'));
 
     const badge = isSeller
-      ? `<span class="bg-green-100 text-sfl-green border border-sfl-green/40 px-2 py-0.5 rounded text-[10px] font-bold">🟢 SOLD</span>`
-      : `<span class="bg-blue-100 text-blue-800 border border-blue-400/40 px-2 py-0.5 rounded text-[10px] font-bold">🔵 BOUGHT</span>`;
+      ? `<span class="bg-green-100 text-sfl-green border border-sfl-green/40 px-1.5 py-0.2 rounded text-[9px] font-bold">🟢 SOLD</span>`
+      : `<span class="bg-blue-100 text-blue-800 border border-blue-400/40 px-1.5 py-0.2 rounded text-[9px] font-bold">🔵 BOUGHT</span>`;
 
     rowsHtml += `
       <tr class="hover:bg-amber-50/50 transition">
-        <td class="px-3 py-2.5 font-mono text-sfl-wood text-xs whitespace-nowrap">${timeStr}</td>
-        <td class="px-2 py-2.5 whitespace-nowrap">${badge}</td>
-        <td class="px-3 py-2.5 font-bold text-sfl-dirt">${itemName}</td>
-        <td class="px-2 py-2.5 font-mono font-bold text-sfl-wood">${qty.toLocaleString()}</td>
-        <td class="px-2 py-2.5 font-mono text-sfl-woodLight">${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</td>
-        <td class="px-3 py-2.5 font-medium text-sfl-wood text-xs">
+        <td class="px-3 py-2 font-mono text-sfl-wood text-xs whitespace-nowrap">${timeStr}</td>
+        <td class="px-2 py-2 whitespace-nowrap">${badge}</td>
+        <td class="px-3 py-2 font-bold text-sfl-dirt">${itemName}</td>
+        <td class="px-2 py-2 font-mono font-bold text-sfl-wood">${qty.toLocaleString()}</td>
+        <td class="px-2 py-2 font-mono text-sfl-woodLight text-xs">${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</td>
+        <td class="px-3 py-2 font-medium text-sfl-wood text-xs">
           ${isSeller ? 'To: ' : 'From: '}<strong>${otherUser}</strong>
         </td>
-        <td class="px-3 py-2.5 font-mono font-bold text-right ${isSeller ? 'text-sfl-green' : 'text-sfl-wood'}">
+        <td class="px-3 py-2 font-mono font-bold text-right ${isSeller ? 'text-sfl-green' : 'text-sfl-wood'}">
           ${isSeller ? '+' : '-'}${sfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
         </td>
       </tr>
@@ -981,7 +1343,7 @@ function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
 
   return `
     <div class="border-t-2 border-sfl-cardBorder bg-white/90">
-      <div class="bg-amber-100/60 px-4 py-2.5 border-b border-sfl-cardBorder flex justify-between items-center">
+      <div class="bg-amber-100/60 px-4 py-2 border-b border-sfl-cardBorder flex justify-between items-center">
         <span class="text-xs font-bold text-sfl-dirt uppercase tracking-wider flex items-center gap-1.5">
           <span>📜</span> Completed Transactions on ${displayTitle}
         </span>
@@ -992,15 +1354,15 @@ function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
 
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs text-sfl-dirt">
-          <thead class="text-[11px] uppercase bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood">
+          <thead class="text-[10px] uppercase bg-sfl-card border-b border-sfl-cardBorder text-sfl-wood">
             <tr>
-              <th class="px-3 py-2.5">Time</th>
-              <th class="px-2 py-2.5">Type</th>
-              <th class="px-3 py-2.5">Item Name</th>
-              <th class="px-2 py-2.5">Quantity</th>
-              <th class="px-2 py-2.5">Unit Price</th>
-              <th class="px-3 py-2.5">Counterparty</th>
-              <th class="px-3 py-2.5 text-right">Total SFL</th>
+              <th class="px-3 py-2">Time</th>
+              <th class="px-2 py-2">Type</th>
+              <th class="px-3 py-2">Item Name</th>
+              <th class="px-2 py-2">Quantity</th>
+              <th class="px-2 py-2">Unit Price</th>
+              <th class="px-3 py-2">Counterparty</th>
+              <th class="px-3 py-2 text-right">Total SFL</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-sfl-cardBorder/40 font-medium bg-white">
@@ -1013,17 +1375,19 @@ function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
 }
 
 // ----------------------------------------------------
-// EVENT BINDINGS
+// GENERIC CALENDAR EVENT BINDINGS
 // ----------------------------------------------------
-function bindDayViewEvents(mountEl, farmId) {
-  // Mode switcher
-  mountEl.querySelector('#cal-mode-day')?.addEventListener('click', () => {
-    calendarViewMode = 'day';
-    renderCalendarMainView(mountEl, farmId);
-  });
-  mountEl.querySelector('#cal-mode-week')?.addEventListener('click', () => {
-    calendarViewMode = 'week';
-    renderCalendarMainView(mountEl, farmId);
+function bindGenericCalendarEvents(mountEl, farmId) {
+  // Mode Switcher (Day / Week / Month / 3-Month)
+  const modeBtns = mountEl.querySelectorAll('.cal-mode-btn');
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const mode = e.currentTarget.getAttribute('data-cal-mode');
+      if (mode) {
+        calendarViewMode = mode;
+        renderCalendarMainView(mountEl, farmId);
+      }
+    });
   });
 
   // Day Cell click
@@ -1038,7 +1402,7 @@ function bindDayViewEvents(mountEl, farmId) {
     });
   });
 
-  // Prev / Next Month
+  // Month navigation
   mountEl.querySelector('#cal-prev-month')?.addEventListener('click', () => {
     calendarCurrentMonth--;
     if (calendarCurrentMonth < 0) {
@@ -1057,7 +1421,6 @@ function bindDayViewEvents(mountEl, farmId) {
     renderCalendarMainView(mountEl, farmId);
   });
 
-  // Today button
   mountEl.querySelector('#cal-today-btn')?.addEventListener('click', () => {
     const today = new Date();
     calendarCurrentMonth = today.getMonth();
@@ -1065,20 +1428,8 @@ function bindDayViewEvents(mountEl, farmId) {
     selectedCalendarDateKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     renderCalendarMainView(mountEl, farmId);
   });
-}
 
-function bindWeekViewEvents(mountEl, farmId) {
-  // Mode switcher
-  mountEl.querySelector('#cal-mode-day')?.addEventListener('click', () => {
-    calendarViewMode = 'day';
-    renderCalendarMainView(mountEl, farmId);
-  });
-  mountEl.querySelector('#cal-mode-week')?.addEventListener('click', () => {
-    calendarViewMode = 'week';
-    renderCalendarMainView(mountEl, farmId);
-  });
-
-  // Prev / Next Week
+  // Week navigation
   mountEl.querySelector('#cal-prev-week')?.addEventListener('click', () => {
     calendarWeekOffset--;
     renderCalendarMainView(mountEl, farmId);
@@ -1089,22 +1440,35 @@ function bindWeekViewEvents(mountEl, farmId) {
     renderCalendarMainView(mountEl, farmId);
   });
 
-  // This Week button
   mountEl.querySelector('#cal-current-week-btn')?.addEventListener('click', () => {
     calendarWeekOffset = 0;
     renderCalendarMainView(mountEl, farmId);
   });
 
-  // Day Cell click in Week View
-  const dayCells = mountEl.querySelectorAll('.cal-day-cell');
-  dayCells.forEach(cell => {
-    cell.addEventListener('click', (e) => {
-      const dayKey = e.currentTarget.getAttribute('data-day-key');
-      if (dayKey) {
-        selectedCalendarDateKey = dayKey;
-        renderCalendarMainView(mountEl, farmId);
-      }
-    });
+  // 3-Month / Quarter navigation
+  mountEl.querySelector('#cal-prev-quarter')?.addEventListener('click', () => {
+    calendarCurrentMonth -= 3;
+    if (calendarCurrentMonth < 0) {
+      calendarCurrentMonth += 12;
+      calendarCurrentYear--;
+    }
+    renderCalendarMainView(mountEl, farmId);
+  });
+
+  mountEl.querySelector('#cal-next-quarter')?.addEventListener('click', () => {
+    calendarCurrentMonth += 3;
+    if (calendarCurrentMonth > 11) {
+      calendarCurrentMonth -= 12;
+      calendarCurrentYear++;
+    }
+    renderCalendarMainView(mountEl, farmId);
+  });
+
+  mountEl.querySelector('#cal-current-quarter-btn')?.addEventListener('click', () => {
+    const today = new Date();
+    calendarCurrentMonth = today.getMonth();
+    calendarCurrentYear = today.getFullYear();
+    renderCalendarMainView(mountEl, farmId);
   });
 }
 
