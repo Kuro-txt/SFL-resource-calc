@@ -16,7 +16,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABA
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || "anubhav@877";
-const SFL_API_KEY = process.env.SFL_API_KEY || "";
+const SFL_API_KEY = process.env.SFL_API_KEY || process.env.COMMUNITY_API_KEY || process.env.API_KEY || process.env.SUNFLOWER_API_KEY || process.env.VITE_SFL_API_KEY || "";
 
 const SFL_PLOT_CROPS = new Set([
   // 23 Standard Plot Crops

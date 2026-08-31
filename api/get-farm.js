@@ -11,10 +11,19 @@ export default async function handler(req, res) {
     'User-Agent': 'Mozilla/5.0'
   };
 
-  if (apiKey) {
-    // Send key as x-api-key or Bearer token depending on key type
-    headers['x-api-key'] = apiKey;
-    headers['Authorization'] = `Bearer ${apiKey}`;
+  const envApiKey = 
+    process.env.SFL_API_KEY ||
+    process.env.COMMUNITY_API_KEY ||
+    process.env.API_KEY ||
+    process.env.SUNFLOWER_API_KEY ||
+    process.env.VITE_SFL_API_KEY ||
+    process.env.NEXT_PUBLIC_SFL_API_KEY ||
+    '';
+
+  const cleanKey = (apiKey && String(apiKey).trim()) || String(envApiKey).trim();
+  if (cleanKey) {
+    headers['x-api-key'] = cleanKey;
+    headers['Authorization'] = `Bearer ${cleanKey}`;
   }
 
   try {

@@ -10,7 +10,16 @@ export default async function handler(req, res) {
     'User-Agent': 'Mozilla/5.0'
   };
 
-  const cleanKey = apiKey ? String(apiKey).trim() : (process.env.SFL_API_KEY ? String(process.env.SFL_API_KEY).trim() : '');
+  const envApiKey = 
+    process.env.SFL_API_KEY ||
+    process.env.COMMUNITY_API_KEY ||
+    process.env.API_KEY ||
+    process.env.SUNFLOWER_API_KEY ||
+    process.env.VITE_SFL_API_KEY ||
+    process.env.NEXT_PUBLIC_SFL_API_KEY ||
+    '';
+
+  const cleanKey = (apiKey && String(apiKey).trim()) || String(envApiKey).trim();
   if (cleanKey) {
     headers['x-api-key'] = cleanKey;
     headers['Authorization'] = `Bearer ${cleanKey}`;
