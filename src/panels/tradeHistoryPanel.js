@@ -378,6 +378,35 @@ export async function fetchMarketplaceTrades() {
   }
 }
 
+export function getTradeAmounts(trade, farmId) {
+  const isSeller = isUserSeller(trade, farmId);
+  const grossSfl = parseFloat(trade.sfl || 0);
+
+  if (isSeller) {
+    // Deduct marketplace tax (burn tax: 7.5% or explicit trade.tax)
+    const tax = (trade.tax !== undefined && trade.tax !== null)
+      ? parseFloat(trade.tax || 0)
+      : (grossSfl * 0.075);
+    const netSfl = Math.max(0, grossSfl - tax);
+    return {
+      isSeller: true,
+      grossSfl,
+      tax,
+      netSfl,
+      amount: netSfl
+    };
+  } else {
+    // Buyer pays 100% of price
+    return {
+      isSeller: false,
+      grossSfl,
+      tax: 0,
+      netSfl: grossSfl,
+      amount: grossSfl
+    };
+  }
+}
+
 function renderTradeSummaryMetrics(profileData) {
   if (!profileData) return;
   const user = profileData.username || `Farm #${profileData.id || ''}`;
@@ -417,8 +446,7 @@ function renderTradeSummaryMetrics(profileData) {
   let totalSales = 0, totalBuys = 0;
 
   trades.forEach(t => {
-    const isSeller = isUserSeller(t, farmId);
-    const sfl = parseFloat(t.sfl || 0);
+    const { isSeller, netSfl, grossSfl } = getTradeAmounts(t, farmId);
     const time = Number(t.fulfilledAt || 0);
 
     let isToday = false;
@@ -434,15 +462,15 @@ function renderTradeSummaryMetrics(profileData) {
     const isThisMonth = time >= monthStartTime;
 
     if (isSeller) {
-      totalSales += sfl;
-      if (isToday) { todaySales += sfl; todayCount++; }
-      if (isThisWeek) { weekSales += sfl; weekCount++; }
-      if (isThisMonth) { monthSales += sfl; monthCount++; }
+      totalSales += netSfl;
+      if (isToday) { todaySales += netSfl; todayCount++; }
+      if (isThisWeek) { weekSales += netSfl; weekCount++; }
+      if (isThisMonth) { monthSales += netSfl; monthCount++; }
     } else {
-      totalBuys += sfl;
-      if (isToday) { todayBuys += sfl; todayCount++; }
-      if (isThisWeek) { weekBuys += sfl; weekCount++; }
-      if (isThisMonth) { monthBuys += sfl; monthCount++; }
+      totalBuys += grossSfl;
+      if (isToday) { todayBuys += grossSfl; todayCount++; }
+      if (isThisWeek) { weekBuys += grossSfl; weekCount++; }
+      if (isThisMonth) { monthBuys += grossSfl; monthCount++; }
     }
   });
 
@@ -569,12 +597,12 @@ function renderTradesTableView(mountEl, farmId) {
 
   let rowsHtml = '';
   filtered.forEach(t => {
-    const isSeller = isUserSeller(t, farmId);
+    const amounts = getTradeAmounts(t, farmId);
+    const isSeller = amounts.isSeller;
     const isEconomy = t.collection === 'economies' || Boolean(t.economy);
     const itemName = isEconomy ? `#${t.itemId || '?'}` : (t.itemName || getItemNameById(t.itemId));
     const qty = parseFloat(t.quantity || 1);
-    const sfl = parseFloat(t.sfl || 0);
-    const unitPrice = qty > 0 ? (sfl / qty) : sfl;
+    const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
 
     const rawDate = t.fulfilledAt;
     let dateStr = 'Recent';
@@ -602,7 +630,8 @@ function renderTradesTableView(mountEl, farmId) {
           ${isSeller ? 'To: ' : 'From: '}<strong>${otherUser}</strong>
         </td>
         <td class="px-3 py-2.5 font-mono font-bold text-right ${isSeller ? 'text-sfl-green' : 'text-sfl-wood'}">
-          ${isSeller ? '+' : '-'}${sfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+          <div>${isSeller ? '+' : '-'}${amounts.netSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</div>
+          ${isSeller && amounts.tax > 0 ? `<div class="text-[9px] font-normal text-sfl-woodLight">Gross: ${amounts.grossSfl.toFixed(3)} • Tax: -${amounts.tax.toFixed(3)}</div>` : ''}
         </td>
       </tr>
     `;
@@ -636,8 +665,10 @@ function buildTradesDateMap(trades, farmId) {
   const map = new Map();
 
   trades.forEach(t => {
-    if (!t.fulfilledAt) return;
-    const d = new Date(t.fulfilledAt);
+    const rawTime = t.fulfilledAt;
+    if (!rawTime) return;
+
+    const d = new Date(rawTime);
     if (isNaN(d.getTime())) return;
 
     const yyyy = d.getFullYear();
@@ -661,15 +692,16 @@ function buildTradesDateMap(trades, farmId) {
     }
 
     const dayObj = map.get(dateKey);
-    const isSeller = isUserSeller(t, farmId);
-    const sfl = parseFloat(t.sfl || 0);
+    const amounts = getTradeAmounts(t, farmId);
     const qty = parseFloat(t.quantity || 1);
 
-    if (isSeller) {
-      dayObj.totalSold += sfl;
+    if (amounts.isSeller) {
+      dayObj.totalSold += amounts.netSfl;
+      dayObj.grossSold = (dayObj.grossSold || 0) + amounts.grossSfl;
+      dayObj.totalTax = (dayObj.totalTax || 0) + amounts.tax;
       dayObj.soldCount += qty;
     } else {
-      dayObj.totalBought += sfl;
+      dayObj.totalBought += amounts.grossSfl;
       dayObj.boughtCount += qty;
     }
 
@@ -1231,12 +1263,12 @@ function renderBy3MonthView(mountEl, tradesMap, farmId, topModeBarHtml) {
 
   // Group by 12 weekly buckets for clean graph
   for (let w = 11; w >= 0; w--) {
-    const { sunday, saturday } = getWeekRange(-w);
+    const { monday } = getWeekRange(-w);
     let wS = 0;
     let wB = 0;
     for (let i = 0; i < 7; i++) {
-      const d = new Date(sunday);
-      d.setDate(sunday.getDate() + i);
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
       const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const dayData = tradesMap.get(key);
       if (dayData) {
@@ -1249,7 +1281,7 @@ function renderBy3MonthView(mountEl, tradesMap, farmId, topModeBarHtml) {
     qSales += wS;
     qSpend += wB;
     qPoints.push({
-      label: sunday.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }),
+      label: monday.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }),
       sold: wS,
       spent: wB,
       net: wS - wB
@@ -1441,12 +1473,12 @@ function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
 
   let rowsHtml = '';
   dayData.trades.forEach(t => {
-    const isSeller = isUserSeller(t, farmId);
+    const amounts = getTradeAmounts(t, farmId);
+    const isSeller = amounts.isSeller;
     const isEconomy = t.collection === 'economies' || Boolean(t.economy);
     const itemName = isEconomy ? `#${t.itemId || '?'}` : (t.itemName || getItemNameById(t.itemId));
     const qty = parseFloat(t.quantity || 1);
-    const sfl = parseFloat(t.sfl || 0);
-    const unitPrice = qty > 0 ? (sfl / qty) : sfl;
+    const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
 
     const dateObj = t.fulfilledAt ? new Date(t.fulfilledAt) : null;
     const timeStr = dateObj && !isNaN(dateObj.getTime())
@@ -1472,7 +1504,8 @@ function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
           ${isSeller ? 'To: ' : 'From: '}<strong>${otherUser}</strong>
         </td>
         <td class="px-3 py-2 font-mono font-bold text-right ${isSeller ? 'text-sfl-green' : 'text-sfl-wood'}">
-          ${isSeller ? '+' : '-'}${sfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+          <div>${isSeller ? '+' : '-'}${amounts.netSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</div>
+          ${isSeller && amounts.tax > 0 ? `<div class="text-[9px] font-normal text-sfl-woodLight">Net (-${amounts.tax.toFixed(3)} tax)</div>` : ''}
         </td>
       </tr>
     `;
@@ -1732,16 +1765,16 @@ function exportTradesToCsv() {
   }
 
   const farmId = String(tradeHistoryData.id || localStorage.getItem('sfl_farm_id') || '').trim();
-  const headers = ["Date", "Type", "Item Name", "Item ID", "Quantity", "Total SFL", "Unit Price", "Counterparty", "Source", "Trade ID"];
+  const headers = ["Date", "Type", "Item Name", "Item ID", "Quantity", "Gross SFL", "Tax", "Net SFL", "Unit Price", "Counterparty", "Source", "Trade ID"];
   
   const rows = trades.map(t => {
-    const isSeller = isUserSeller(t, farmId);
+    const amounts = getTradeAmounts(t, farmId);
+    const isSeller = amounts.isSeller;
     const rawDate = t.fulfilledAt ? new Date(t.fulfilledAt).toISOString() : '';
     const isEconomy = t.collection === 'economies' || Boolean(t.economy);
     const itemName = isEconomy ? `#${t.itemId || '?'}` : (t.itemName || getItemNameById(t.itemId));
     const qty = t.quantity || 1;
-    const sfl = t.sfl || 0;
-    const unitPrice = qty > 0 ? (sfl / qty) : sfl;
+    const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
     const counterparty = isSeller ? (t.counterpartyName || t.fulfilledBy?.username || '') : (t.counterpartyName || t.initiatedBy?.username || '');
 
     return [
@@ -1750,7 +1783,9 @@ function exportTradesToCsv() {
       `"${itemName}"`,
       `"${t.itemId || ''}"`,
       qty,
-      sfl,
+      amounts.grossSfl.toFixed(4),
+      amounts.tax.toFixed(4),
+      amounts.netSfl.toFixed(4),
       unitPrice.toFixed(4),
       `"${counterparty}"`,
       `"${t.source || 'listing'}"`,
