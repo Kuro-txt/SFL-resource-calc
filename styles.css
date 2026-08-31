@@ -89,22 +89,29 @@ input[type=number] {
 }
 
 .dark .bg-white,
+.dark .bg-white\/90,
 .dark .bg-white\/80,
 .dark .bg-white\/70,
 .dark .bg-white\/60 {
-  background-color: rgba(30, 20, 14, 0.95) !important;
-  color: #fef3c7;
+  background-color: #1e140e !important;
+  color: #fef3c7 !important;
 }
 
 .dark .bg-amber-50,
 .dark .bg-amber-50\/90,
+.dark .bg-amber-50\/80,
+.dark .bg-amber-50\/70,
+.dark .bg-amber-100,
 .dark .bg-amber-100\/90,
 .dark .bg-amber-100\/80,
 .dark .bg-amber-100\/70,
 .dark .bg-amber-100\/60,
+.dark .bg-amber-100\/50,
+.dark .bg-amber-200,
 .dark .bg-amber-200\/90,
-.dark .bg-amber-200\/80 {
-  background-color: rgba(43, 29, 20, 0.9) !important;
+.dark .bg-amber-200\/80,
+.dark .bg-amber-200\/60 {
+  background-color: #2b1b12 !important;
   color: #fde68a !important;
   border-color: #59351a !important;
 }
@@ -137,6 +144,64 @@ input[type=number] {
   color: #fbbf24 !important;
 }
 
+/* BLUE BADGES & PURCHASES CONTRAST BOOST */
+.dark .bg-blue-100,
+.dark .bg-blue-100\/90,
+.dark .bg-blue-200 {
+  background-color: rgba(30, 58, 138, 0.45) !important;
+  border-color: rgba(96, 165, 250, 0.4) !important;
+  color: #93c5fd !important;
+}
+
+.dark .text-blue-700,
+.dark .text-blue-800,
+.dark .text-blue-900 {
+  color: #93c5fd !important;
+}
+
+/* CALENDAR & TRADE TABLE HEADERS */
+.dark thead {
+  background-color: #241710 !important;
+  color: #fde68a !important;
+}
+
+.dark thead th {
+  color: #fde68a !important;
+}
+
+.dark tbody tr {
+  color: #fef3c7 !important;
+}
+
+.dark tbody tr:hover {
+  background-color: rgba(58, 38, 26, 0.7) !important;
+}
+
+/* CALENDAR DAILY CARDS & TIMELINES */
+.dark .cal-range-btn {
+  background-color: #2b1b12 !important;
+  color: #fef3c7 !important;
+  border-color: #59351a !important;
+}
+
+.dark .cal-range-btn.bg-sfl-wood {
+  background-color: #5c3317 !important;
+  color: #fde68a !important;
+  border-color: #8a5832 !important;
+}
+
+.dark .trade-filter-btn {
+  background-color: #2b1b12 !important;
+  color: #fef3c7 !important;
+  border-color: #59351a !important;
+}
+
+.dark .trade-filter-btn.bg-sfl-wood {
+  background-color: #5c3317 !important;
+  color: #fde68a !important;
+  border-color: #8a5832 !important;
+}
+
 /* TEXT COLOR READABILITY */
 .dark .text-sfl-dirt {
   color: #fef3c7 !important;
@@ -147,9 +212,10 @@ input[type=number] {
 }
 
 .dark .text-sfl-woodLight {
-  color: #d4a982 !important;
+  color: #e2c2a4 !important;
 }
 
+.dark .text-amber-800,
 .dark .text-amber-900,
 .dark .text-amber-950 {
   color: #fde68a !important;
@@ -169,6 +235,7 @@ input[type=number] {
   border-color: #4d2d17 !important;
 }
 
+.dark .divide-sfl-cardBorder > :not([hidden]) ~ :not([hidden]),
 .dark .divide-sfl-cardBorder\/30 > :not([hidden]) ~ :not([hidden]),
 .dark .divide-sfl-cardBorder\/40 > :not([hidden]) ~ :not([hidden]),
 .dark .divide-sfl-cardBorder\/50 > :not([hidden]) ~ :not([hidden]) {
