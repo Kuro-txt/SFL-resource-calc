@@ -1,4 +1,7 @@
 import { BACKEND_URL } from '../config/constants.js';
+import { fetchMarketplaceTrades } from '../panels/tradeHistoryPanel.js';
+import { renderNpcCards } from '../panels/npcGiftsPanel.js';
+import { renderWishlist } from '../panels/wishlistPanel.js';
 
 window.farmInventoryData = window.farmInventoryData || {};
 window.farmNpcData = window.farmNpcData || JSON.parse(localStorage.getItem('sfl_farm_npcs') || '{}');
@@ -36,7 +39,7 @@ export function renderAuthBar() {
       <!-- GLOBAL FARM SYNC PANEL -->
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder space-y-3 shadow-sm">
         <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
-          <span>🔑</span> SYNC INVENTORY & NPC GIFTS
+          <span>🔑</span> SYNC FARM, INVENTORY & TRADES
         </h3>
         <form onsubmit="return false;" class="space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -52,7 +55,7 @@ export function renderAuthBar() {
             </div>
           </div>
           <button type="button" id="import-farm-btn" class="w-full bg-sfl-wood text-amber-200 font-bold py-2.5 px-3 rounded-lg border-2 border-sfl-dirt text-sm hover:bg-sfl-woodLight transition flex items-center justify-center gap-2 cursor-pointer shadow-xs">
-            🔄 Sync Inventory & Gifts Now
+            🔄 Sync Farm, Inventory & Trades Now
           </button>
         </form>
         <p id="sync-status" class="text-xs text-center font-bold text-sfl-woodLight min-h-[16px]"></p>
@@ -88,7 +91,7 @@ function startSyncCooldown() {
     } else {
       clearInterval(window.syncCooldownTimer);
       syncBtn.disabled = false;
-      syncBtn.textContent = '🔄 Sync Inventory & Gifts Now';
+      syncBtn.textContent = '🔄 Sync Farm, Inventory & Trades Now';
     }
   }, 1000);
 }
@@ -106,7 +109,13 @@ export async function handleFarmSync() {
     return;
   }
 
-  if (status) status.textContent = '⏳ Fetching farm data...';
+  // Save latest entered Farm ID & API Key
+  localStorage.setItem('sfl_farm_id', farmId);
+  if (apiKey) {
+    localStorage.setItem('sfl_api_key', apiKey);
+  }
+
+  if (status) status.textContent = '⏳ Fetching farm data & marketplace profile...';
   
   window.syncCount++;
   if (window.syncCount >= 2) {
@@ -135,9 +144,17 @@ export async function handleFarmSync() {
       status.textContent = `✅ Synced ${totalItemsCount} items & ${totalNpcsCount} NPCs from Farm #${farmId}!`;
     }
 
-    if (typeof window.renderNpcCards === 'function') {
-      window.renderNpcCards();
+    // Trigger panel updates
+    renderNpcCards();
+    renderWishlist();
+
+    // Automatically trigger trade history sync in background
+    try {
+      await fetchMarketplaceTrades();
+    } catch (tradeErr) {
+      console.warn("Marketplace trade auto-sync warning:", tradeErr.message);
     }
+
   } catch (err) {
     if (status) status.textContent = err.message;
   }
