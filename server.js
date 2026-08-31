@@ -542,10 +542,36 @@ async function processYieldCalculation() {
 
 // ----------------------------------------------------
 // 🔄 AUTOMATED 4X DAILY MARKETPLACE TRADES AUTO-SYNC
-// Respects rate limits: 1 Farm per 12 seconds
+// Runs at 00:33, 06:33, 12:33, 18:33 UTC
+// Rate limit safe: 13s gap between requests, 3 retries
 // ----------------------------------------------------
+async function fetchMarketplaceTradesWithRetry(farmId, apiKey = '', maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await axios.get(`https://api.sunflower-land.com/community/data?type=marketplaceProfile&farmId=${encodeURIComponent(farmId)}`, {
+        headers: getSflHeaders(apiKey),
+        timeout: 15000
+      });
+      return response.data?.trades || [];
+    } catch (err) {
+      const status = err.response?.status;
+      if (status === 401) {
+        console.warn(`⚠️ [Farm #${farmId}] 401 Unauthorized (Check API key). Skipping retries.`);
+        throw err;
+      }
+      if (attempt < maxRetries) {
+        console.warn(`⚠️ [Farm #${farmId}] Trade fetch attempt ${attempt}/${maxRetries} failed (${err.message}). Retrying in 13s...`);
+        await delay(13000);
+      } else {
+        throw err;
+      }
+    }
+  }
+  return [];
+}
+
 async function processAutoSyncTrades() {
-  console.log("🚀 [Auto-Sync Trades] Starting 4x daily marketplace trades auto-sync...");
+  console.log("🚀 [Auto-Sync Trades] Starting 4x daily marketplace trades auto-sync (:33 UTC, 13s gap, 3 retries)...");
   
   const farmMap = new Map();
 
@@ -589,15 +615,10 @@ async function processAutoSyncTrades() {
 
   for (let i = 0; i < farmEntries.length; i++) {
     const [farmId, apiKey] = farmEntries[i];
-    console.log(`[${i + 1}/${farmEntries.length}] ⏳ Fetching trades for Farm #${farmId}...`);
+    console.log(`[${i + 1}/${farmEntries.length}] ⏳ Fetching trades for Farm #${farmId} (3 retries, 13s gap)...`);
 
     try {
-      const response = await axios.get(`https://api.sunflower-land.com/community/data?type=marketplaceProfile&farmId=${encodeURIComponent(farmId)}`, {
-        headers: getSflHeaders(apiKey),
-        timeout: 15000
-      });
-
-      const rawTrades = response.data?.trades || [];
+      const rawTrades = await fetchMarketplaceTradesWithRetry(farmId, apiKey, 3);
       if (rawTrades.length > 0) {
         const pool = getTiDBPool();
         if (pool) {
@@ -649,10 +670,10 @@ async function processAutoSyncTrades() {
       console.warn(`⚠️ [Auto-Sync Trades] Error syncing Farm #${farmId}: ${err.message}`);
     }
 
-    // Strict 12-second delay between farms to comply with SFL rate limits
+    // Strict 13-second gap between farms to comply with SFL rate limits
     if (i < farmEntries.length - 1) {
-      console.log(`⏳ Waiting 12s before next farm (rate limit safe)...`);
-      await delay(12000);
+      console.log(`⏳ Waiting 13s before next farm (rate limit safe)...`);
+      await delay(13000);
     }
   }
 
@@ -696,7 +717,7 @@ app.get('/api/cron/22utc-yield', async (req, res) => {
 
 app.get('/api/cron/sync-trades', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
-  res.status(200).json({ success: true, message: "Marketplace trades auto-sync initiated (1 farm per 12s)." });
+  res.status(200).json({ success: true, message: "Marketplace trades auto-sync initiated (13s gap, 3 retries)." });
   processAutoSyncTrades().catch((err) => console.error("Auto-sync trades Error:", err.message));
 });
 
@@ -713,9 +734,9 @@ cron.schedule('0 22 * * *', () => {
   processYieldCalculation().catch(err => console.error("Yield error:", err.message));
 });
 
-// 3. Trade Auto-Sync: 4 times a day (00:00, 06:00, 12:00, 18:00 UTC) with 12s rate-limit delay
-cron.schedule('0 0,6,12,18 * * *', () => {
-  console.log('⏰ [Cron] Starting 4x daily scheduled trade auto-sync...');
+// 3. Trade Auto-Sync: 4 times a day at minute 33 (00:33, 06:33, 12:33, 18:33 UTC) with 13s rate-limit gap & 3 retries
+cron.schedule('33 0,6,12,18 * * *', () => {
+  console.log('⏰ [Cron] Starting 4x daily scheduled trade auto-sync at :33 UTC (13s gap, 3 retries)...');
   processAutoSyncTrades().catch(err => console.error("Auto-sync trades error:", err.message));
 });
 
