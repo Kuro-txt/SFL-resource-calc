@@ -48,12 +48,12 @@ export function renderTradeHistoryTemplate() {
       <!-- METRIC CARDS (TOTAL STATS) -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="bg-white/80 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs text-center">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">🟢 Total Sales Volume</span>
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">🟢 Today's Sales Volume</span>
           <span id="trade-metric-sales-volume" class="text-base sm:text-lg font-black text-sfl-green font-mono">0.000 ${FLOWER_IMG_SMALL_HTML}</span>
         </div>
 
         <div class="bg-white/80 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs text-center">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">🔵 Total Purchases Volume</span>
+          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">🔵 Today's Purchases Volume</span>
           <span id="trade-metric-buys-volume" class="text-base sm:text-lg font-black text-sfl-wood font-mono">0.000 ${FLOWER_IMG_SMALL_HTML}</span>
         </div>
 
@@ -312,6 +312,11 @@ function renderTradeSummaryMetrics(profileData) {
 
   const farmId = String(profileData.id || localStorage.getItem('sfl_farm_id') || '').trim();
 
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  let todaySoldVolume = 0;
+  let todayBoughtVolume = 0;
   let totalSoldVolume = 0;
   let totalBoughtVolume = 0;
   let weeklySpent = 0;
@@ -323,10 +328,21 @@ function renderTradeSummaryMetrics(profileData) {
     const sfl = parseFloat(t.sfl || 0);
     const time = Number(t.fulfilledAt || 0);
 
+    let isToday = false;
+    if (time > 0) {
+      const d = new Date(time);
+      if (!isNaN(d.getTime())) {
+        const dKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (dKey === todayKey) isToday = true;
+      }
+    }
+
     if (isSeller) {
       totalSoldVolume += sfl;
+      if (isToday) todaySoldVolume += sfl;
     } else {
       totalBoughtVolume += sfl;
+      if (isToday) todayBoughtVolume += sfl;
       // Calculate true weekly flower spent from actual purchases in the last 7 days
       if (time >= sevenDaysAgo) {
         weeklySpent += sfl;
@@ -344,8 +360,8 @@ function renderTradeSummaryMetrics(profileData) {
   const weeklySpentEl = document.getElementById('trade-metric-weekly-spent');
   const totalTradesEl = document.getElementById('trade-metric-total-trades');
 
-  if (salesVolEl) salesVolEl.innerHTML = `${totalSoldVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-  if (buysVolEl) buysVolEl.innerHTML = `${totalBoughtVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
+  if (salesVolEl) salesVolEl.innerHTML = `${todaySoldVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
+  if (buysVolEl) buysVolEl.innerHTML = `${todayBoughtVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
   if (weeklySpentEl) weeklySpentEl.innerHTML = `${weeklySpent.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
   if (totalTradesEl) totalTradesEl.textContent = `${trades.length.toLocaleString()}`;
 
