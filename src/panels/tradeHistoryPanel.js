@@ -4,10 +4,11 @@ import { roundUpToThreeDecimals } from '../utils/formatters.js';
 import { ApiService } from '../services/api.js';
 
 let tradeHistoryData = null;
-let currentView = 'trades'; // 'trades' | 'listings' | 'offers' | 'friends'
+let currentView = 'trades'; // 'trades' | 'calendar' | 'listings' | 'offers'
 let currentFilter = 'all'; // 'all' | 'sold' | 'bought'
 let searchQuery = '';
 let cloudArchivedCount = 0;
+let calendarTimeRange = 'month'; // 'week' | 'month' | '3month' | 'all'
 
 export function renderTradeHistoryTemplate() {
   const container = document.getElementById('trade-history-section');
@@ -23,7 +24,7 @@ export function renderTradeHistoryTemplate() {
             <span>📜</span> Marketplace Trade History
           </h3>
           <p id="trade-user-summary" class="text-[11px] text-sfl-woodLight font-semibold">
-            tracks completed sales, purchases, active listings & top trading partners
+            tracks completed sales, purchases, daily calendar breakdown & active listings
           </p>
         </div>
         
@@ -60,20 +61,20 @@ export function renderTradeHistoryTemplate() {
         </div>
       </div>
 
-      <!-- NAVIGATION SUB-TABS (TRADES / LISTINGS / OFFERS / FRIENDS) -->
+      <!-- NAVIGATION SUB-TABS (TRADES / CALENDAR / LISTINGS / OFFERS) -->
       <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-sfl-cardBorder pb-2">
         <div class="flex items-center gap-1.5 flex-wrap">
           <button id="subtab-trades-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-sfl-dirt bg-sfl-wood text-amber-200 shadow-xs">
             📜 Trade History (<span id="subtab-trades-count">0</span>)
+          </button>
+          <button id="subtab-calendar-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 text-sfl-woodLight hover:bg-amber-200/60">
+            📅 Trade Calendar
           </button>
           <button id="subtab-listings-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 text-sfl-woodLight hover:bg-amber-200/60">
             🏷️ Active Listings (<span id="subtab-listings-count">0</span>)
           </button>
           <button id="subtab-offers-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 text-sfl-woodLight hover:bg-amber-200/60">
             🎯 Open Offers (<span id="subtab-offers-count">0</span>)
-          </button>
-          <button id="subtab-friends-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 text-sfl-woodLight hover:bg-amber-200/60">
-            👥 Trade Partners (<span id="subtab-friends-count">0</span>)
           </button>
         </div>
 
@@ -138,9 +139,9 @@ export function initTradeHistoryPanel() {
   document.getElementById('export-trades-csv-btn')?.addEventListener('click', exportTradesToCsv);
 
   document.getElementById('subtab-trades-btn')?.addEventListener('click', () => switchSubTab('trades'));
+  document.getElementById('subtab-calendar-btn')?.addEventListener('click', () => switchSubTab('calendar'));
   document.getElementById('subtab-listings-btn')?.addEventListener('click', () => switchSubTab('listings'));
   document.getElementById('subtab-offers-btn')?.addEventListener('click', () => switchSubTab('offers'));
-  document.getElementById('subtab-friends-btn')?.addEventListener('click', () => switchSubTab('friends'));
 
   document.getElementById('trade-filter-all')?.addEventListener('click', () => setTradeFilter('all'));
   document.getElementById('trade-filter-sold')?.addEventListener('click', () => setTradeFilter('sold'));
@@ -167,7 +168,7 @@ function switchSubTab(tab) {
 
   const filterBar = document.getElementById('trade-filters-bar');
   if (filterBar) {
-    if (tab === 'trades') filterBar.classList.remove('hidden');
+    if (tab === 'trades' || tab === 'calendar') filterBar.classList.remove('hidden');
     else filterBar.classList.add('hidden');
   }
 
@@ -298,31 +299,24 @@ function renderTradeSummaryMetrics(profileData) {
   const level = profileData.level || '-';
   const totalTradesCount = profileData.totalTrades || 0;
   const weeklySpent = parseFloat(profileData.weeklyFlowerSpent || 0);
-  const weeklyEarned = parseFloat(profileData.weeklyFlowerEarned || 0);
 
   const trades = profileData.trades || [];
   const listings = Object.values(profileData.listings || {});
   const offers = Object.values(profileData.offers || {});
-  const friends = profileData.friends || [];
 
   const farmId = String(profileData.id || localStorage.getItem('sfl_farm_id') || '').trim();
 
   let totalSoldVolume = 0;
-  let totalSoldCount = 0;
   let totalBoughtVolume = 0;
-  let totalBoughtCount = 0;
 
   trades.forEach(t => {
     const isSeller = isUserSeller(t, farmId);
     const sfl = parseFloat(t.sfl || 0);
-    const qty = parseFloat(t.quantity || 1);
 
     if (isSeller) {
       totalSoldVolume += sfl;
-      totalSoldCount += qty;
     } else {
       totalBoughtVolume += sfl;
-      totalBoughtCount += qty;
     }
   });
 
@@ -344,7 +338,6 @@ function renderTradeSummaryMetrics(profileData) {
   document.getElementById('subtab-trades-count').textContent = trades.length;
   document.getElementById('subtab-listings-count').textContent = listings.length;
   document.getElementById('subtab-offers-count').textContent = offers.length;
-  document.getElementById('subtab-friends-count').textContent = friends.length;
 }
 
 function isUserSeller(trade, myFarmId) {
@@ -370,15 +363,15 @@ function renderCurrentView() {
   if (currentView === 'trades') {
     if (titleEl) titleEl.textContent = "📜 Completed Trade Ledger (Archived in TiDB Cloud)";
     renderTradesTableView(mountEl, farmId);
+  } else if (currentView === 'calendar') {
+    if (titleEl) titleEl.textContent = "📅 Trade Calendar & Daily Activity Breakdown";
+    renderCalendarView(mountEl, farmId);
   } else if (currentView === 'listings') {
     if (titleEl) titleEl.textContent = "🏷️ Active Marketplace Listings";
     renderListingsView(mountEl);
   } else if (currentView === 'offers') {
     if (titleEl) titleEl.textContent = "🎯 Open Buy Offers";
     renderOffersView(mountEl);
-  } else if (currentView === 'friends') {
-    if (titleEl) titleEl.textContent = "👥 Top Trading Partners";
-    renderFriendsView(mountEl);
   }
 }
 
@@ -391,7 +384,8 @@ function renderTradesTableView(mountEl, farmId) {
     if (currentFilter === 'bought' && isSeller) return false;
 
     if (searchQuery) {
-      const itemName = (t.itemName || getItemNameById(t.itemId)).toLowerCase();
+      const isEconomy = t.collection === 'economies' || Boolean(t.economy);
+      const itemName = isEconomy ? `#${t.itemId}` : (t.itemName || getItemNameById(t.itemId)).toLowerCase();
       const otherUser = isSeller ? (t.counterpartyName || t.fulfilledBy?.username || '').toLowerCase() : (t.counterpartyName || t.initiatedBy?.username || '').toLowerCase();
       if (!itemName.includes(searchQuery) && !otherUser.includes(searchQuery)) return false;
     }
@@ -466,6 +460,207 @@ function renderTradesTableView(mountEl, farmId) {
       </tbody>
     </table>
   `;
+}
+
+function renderCalendarView(mountEl, farmId) {
+  const trades = tradeHistoryData?.trades || [];
+  const now = Date.now();
+
+  let cutoff = 0;
+  if (calendarTimeRange === 'week') {
+    cutoff = now - 7 * 24 * 60 * 60 * 1000;
+  } else if (calendarTimeRange === 'month') {
+    cutoff = now - 30 * 24 * 60 * 60 * 1000;
+  } else if (calendarTimeRange === '3month') {
+    cutoff = now - 90 * 24 * 60 * 60 * 1000;
+  }
+
+  const inRangeTrades = trades.filter(t => {
+    const time = Number(t.fulfilledAt || 0);
+    if (cutoff > 0 && time < cutoff) return false;
+
+    const isSeller = isUserSeller(t, farmId);
+    if (currentFilter === 'sold' && !isSeller) return false;
+    if (currentFilter === 'bought' && isSeller) return false;
+
+    if (searchQuery) {
+      const isEconomy = t.collection === 'economies' || Boolean(t.economy);
+      const itemName = isEconomy ? `#${t.itemId}` : (t.itemName || getItemNameById(t.itemId)).toLowerCase();
+      const otherUser = isSeller ? (t.counterpartyName || t.fulfilledBy?.username || '').toLowerCase() : (t.counterpartyName || t.initiatedBy?.username || '').toLowerCase();
+      if (!itemName.includes(searchQuery) && !otherUser.includes(searchQuery)) return false;
+    }
+    return true;
+  });
+
+  // Group by date
+  const daysMap = new Map();
+  inRangeTrades.forEach(t => {
+    const dateObj = t.fulfilledAt ? new Date(t.fulfilledAt) : new Date();
+    const dateKey = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('en-CA') : 'Unknown Date';
+    const displayDate = !isNaN(dateObj.getTime()) 
+      ? dateObj.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
+      : 'Recent Date';
+
+    if (!daysMap.has(dateKey)) {
+      daysMap.set(dateKey, {
+        dateKey,
+        displayDate,
+        timestamp: dateObj.getTime() || 0,
+        trades: []
+      });
+    }
+    daysMap.get(dateKey).trades.push(t);
+  });
+
+  const sortedDays = Array.from(daysMap.values()).sort((a, b) => b.timestamp - a.timestamp);
+
+  // Time Range Tabs Header
+  let timeRangeButtonsHtml = `
+    <div class="p-3 bg-amber-50/70 border-b-2 border-sfl-cardBorder flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs font-bold text-sfl-wood mr-1">📅 Time Horizon:</span>
+        <button data-range="week" class="cal-range-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarTimeRange === 'week' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          1 Week (7d)
+        </button>
+        <button data-range="month" class="cal-range-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarTimeRange === 'month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          1 Month (30d)
+        </button>
+        <button data-range="3month" class="cal-range-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarTimeRange === '3month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          3 Months (90d)
+        </button>
+        <button data-range="all" class="cal-range-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarTimeRange === 'all' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          All Time
+        </button>
+      </div>
+      <div class="text-[11px] font-bold text-sfl-woodLight">
+        Showing ${inRangeTrades.length} trades across ${sortedDays.length} active days
+      </div>
+    </div>
+  `;
+
+  if (sortedDays.length === 0) {
+    mountEl.innerHTML = `
+      ${timeRangeButtonsHtml}
+      <div class="p-8 text-center text-sfl-woodLight italic">
+        No completed trades found in the selected time range.
+      </div>
+    `;
+    bindCalendarEvents(mountEl, farmId);
+    return;
+  }
+
+  let daysHtml = '';
+  sortedDays.forEach(day => {
+    let daySold = 0;
+    let dayBought = 0;
+
+    let tradeRows = '';
+    day.trades.forEach(t => {
+      const isSeller = isUserSeller(t, farmId);
+      const isEconomy = t.collection === 'economies' || Boolean(t.economy);
+      const itemName = isEconomy ? `#${t.itemId || '?'}` : (t.itemName || getItemNameById(t.itemId));
+      const qty = parseFloat(t.quantity || 1);
+      const sfl = parseFloat(t.sfl || 0);
+      const unitPrice = qty > 0 ? (sfl / qty) : sfl;
+
+      if (isSeller) daySold += sfl;
+      else dayBought += sfl;
+
+      const dateObj = t.fulfilledAt ? new Date(t.fulfilledAt) : null;
+      const timeStr = dateObj && !isNaN(dateObj.getTime())
+        ? dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+        : 'Recent';
+
+      const otherUser = isSeller
+        ? (t.counterpartyName || t.fulfilledBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Buyer'))
+        : (t.counterpartyName || t.initiatedBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Seller'));
+
+      const badge = isSeller
+        ? `<span class="bg-green-100 text-sfl-green border border-sfl-green/40 px-2 py-0.5 rounded text-[10px] font-bold">🟢 SOLD</span>`
+        : `<span class="bg-blue-100 text-blue-800 border border-blue-400/40 px-2 py-0.5 rounded text-[10px] font-bold">🔵 BOUGHT</span>`;
+
+      tradeRows += `
+        <tr class="hover:bg-amber-50/50 transition">
+          <td class="px-3 py-2 font-mono text-sfl-woodLight text-[11px] whitespace-nowrap">${timeStr}</td>
+          <td class="px-2 py-2 whitespace-nowrap">${badge}</td>
+          <td class="px-3 py-2 font-bold text-sfl-dirt">${itemName}</td>
+          <td class="px-2 py-2 font-mono font-bold text-sfl-wood">${qty.toLocaleString()}</td>
+          <td class="px-2 py-2 font-mono text-sfl-woodLight text-[11px]">${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</td>
+          <td class="px-3 py-2 font-medium text-sfl-wood text-xs">
+            ${isSeller ? 'To: ' : 'From: '}<strong>${otherUser}</strong>
+          </td>
+          <td class="px-3 py-2 font-mono font-bold text-right ${isSeller ? 'text-sfl-green' : 'text-sfl-wood'}">
+            ${isSeller ? '+' : '-'}${sfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+          </td>
+        </tr>
+      `;
+    });
+
+    const dayNet = daySold - dayBought;
+    const netColor = dayNet > 0 ? 'text-sfl-green' : (dayNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
+
+    daysHtml += `
+      <div class="border-b-2 border-sfl-cardBorder last:border-b-0">
+        <div class="bg-amber-100/50 px-4 py-2.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-sfl-dirt text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span>📅</span> ${day.displayDate}
+            </span>
+            <span class="bg-white border border-sfl-cardBorder text-sfl-wood text-[10px] font-bold px-2 py-0.5 rounded-full">
+              ${day.trades.length} ${day.trades.length === 1 ? 'trade' : 'trades'}
+            </span>
+          </div>
+
+          <div class="flex items-center gap-3 text-xs font-mono">
+            <span class="text-sfl-green font-bold">🟢 +${daySold.toFixed(3)}</span>
+            <span class="text-sfl-wood font-bold">🔵 -${dayBought.toFixed(3)}</span>
+            <span class="${netColor} font-black">Net: ${dayNet >= 0 ? '+' : ''}${dayNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-sfl-dirt">
+            <thead class="text-[10px] uppercase bg-white/70 border-b border-sfl-cardBorder/60 text-sfl-woodLight font-semibold">
+              <tr>
+                <th class="px-3 py-1.5">Time</th>
+                <th class="px-2 py-1.5">Type</th>
+                <th class="px-3 py-1.5">Item</th>
+                <th class="px-2 py-1.5">Qty</th>
+                <th class="px-2 py-1.5">Unit Price</th>
+                <th class="px-3 py-1.5">Counterparty</th>
+                <th class="px-3 py-1.5 text-right">Total SFL</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-sfl-cardBorder/30 bg-white/90">
+              ${tradeRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  });
+
+  mountEl.innerHTML = `
+    ${timeRangeButtonsHtml}
+    <div class="divide-y divide-sfl-cardBorder">
+      ${daysHtml}
+    </div>
+  `;
+
+  bindCalendarEvents(mountEl, farmId);
+}
+
+function bindCalendarEvents(mountEl, farmId) {
+  const rangeBtns = mountEl.querySelectorAll('.cal-range-btn');
+  rangeBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const range = e.currentTarget.getAttribute('data-range');
+      if (range) {
+        calendarTimeRange = range;
+        renderCalendarView(mountEl, farmId);
+      }
+    });
+  });
 }
 
 function renderListingsView(mountEl) {
@@ -583,37 +778,6 @@ function renderOffersView(mountEl) {
   `;
 }
 
-function renderFriendsView(mountEl) {
-  const friends = tradeHistoryData?.friends || [];
-
-  if (friends.length === 0) {
-    mountEl.innerHTML = `<div class="p-8 text-center text-sfl-woodLight italic">No top trade partners recorded.</div>`;
-    return;
-  }
-
-  let cardsHtml = '';
-  friends.forEach(f => {
-    cardsHtml += `
-      <div class="bg-white/90 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs flex items-center justify-between">
-        <div>
-          <span class="font-bold text-sfl-dirt text-sm block">${f.username || `Farm #${f.id}`}</span>
-          <span class="text-[10px] text-sfl-woodLight font-mono">Farm ID: ${f.id}</span>
-        </div>
-        <div class="text-right">
-          <span class="text-sm font-black text-sfl-green font-mono block">${f.trades || 0} Trades</span>
-          <span class="text-[10px] text-sfl-woodLight">Partner Trade Volume</span>
-        </div>
-      </div>
-    `;
-  });
-
-  mountEl.innerHTML = `
-    <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      ${cardsHtml}
-    </div>
-  `;
-}
-
 function exportTradesToCsv() {
   const trades = tradeHistoryData?.trades || [];
   if (trades.length === 0) {
@@ -627,7 +791,8 @@ function exportTradesToCsv() {
   const rows = trades.map(t => {
     const isSeller = isUserSeller(t, farmId);
     const rawDate = t.fulfilledAt ? new Date(t.fulfilledAt).toISOString() : '';
-    const itemName = t.itemName || getItemNameById(t.itemId);
+    const isEconomy = t.collection === 'economies' || Boolean(t.economy);
+    const itemName = isEconomy ? `#${t.itemId || '?'}` : (t.itemName || getItemNameById(t.itemId));
     const qty = t.quantity || 1;
     const sfl = t.sfl || 0;
     const unitPrice = qty > 0 ? (sfl / qty) : sfl;
