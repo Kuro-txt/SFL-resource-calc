@@ -115,7 +115,7 @@ export async function handleFarmSync() {
     localStorage.setItem('sfl_api_key', apiKey);
   }
 
-  if (status) status.textContent = '⏳ Fetching farm data & marketplace profile...';
+  if (status) status.textContent = '⏳ Syncing farm inventory, NPCs & saving trades to cloud...';
   
   window.syncCount++;
   if (window.syncCount >= 2) {
@@ -140,19 +140,23 @@ export async function handleFarmSync() {
     let totalItemsCount = Object.keys(window.farmInventoryData).length;
     let totalNpcsCount = Object.keys(window.farmNpcData).length;
 
-    if (status) {
-      status.textContent = `✅ Synced ${totalItemsCount} items & ${totalNpcsCount} NPCs from Farm #${farmId}!`;
-    }
-
-    // Trigger panel updates
+    // Trigger panel updates for NPC & Wishlist
     renderNpcCards();
     renderWishlist();
 
-    // Automatically trigger trade history sync in background
+    // Automatically trigger trade history sync and cloud archiving in background
+    let tradeMsg = '';
     try {
-      await fetchMarketplaceTrades();
+      const tradeRes = await fetchMarketplaceTrades();
+      if (tradeRes && tradeRes.success) {
+        tradeMsg = ` & saved ${tradeRes.count} trades to cloud`;
+      }
     } catch (tradeErr) {
       console.warn("Marketplace trade auto-sync warning:", tradeErr.message);
+    }
+
+    if (status) {
+      status.textContent = `✅ Synced ${totalItemsCount} items, ${totalNpcsCount} NPCs${tradeMsg} (Farm #${farmId})!`;
     }
 
   } catch (err) {

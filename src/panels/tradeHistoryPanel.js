@@ -258,6 +258,7 @@ export async function fetchMarketplaceTrades() {
     renderTradeSummaryMetrics(tradeHistoryData);
     renderCurrentView();
     if (statusEl) statusEl.textContent = `✅ Synced & Archived (${cloudArchivedCount || tradeHistoryData.trades?.length || 0} Total)`;
+    return { success: true, count: cloudArchivedCount || tradeHistoryData.trades?.length || 0 };
   } catch (err) {
     const isAuthErr = err.message.includes('401') || err.message.toLowerCase().includes('api key');
     if (statusEl) statusEl.textContent = isAuthErr ? "⚠️ VIP Key Required" : `❌ Error: ${err.message}`;
@@ -287,6 +288,7 @@ export async function fetchMarketplaceTrades() {
         mountEl.innerHTML = `<div class="p-8 text-center text-sfl-accent italic font-semibold">❌ ${err.message}</div>`;
       }
     }
+    return { success: false, error: err.message };
   }
 }
 
