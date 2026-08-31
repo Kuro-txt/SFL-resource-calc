@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
+const cron = require('node-cron');
+const mysql = require('mysql2/promise');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
@@ -10,6 +12,38 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
+
+let tidbPool = null;
+function getTiDBPool() {
+  const rawUrl = process.env.TIDB_DATABASE_URL || process.env.DATABASE_URL || process.env.TIDB_URL || process.env.MYSQL_URL || '';
+  if (!rawUrl) return null;
+  if (!tidbPool) {
+    const cleanUrl = rawUrl.trim().replace(/^['"]|['"]$/g, '');
+    try {
+      const parsed = new URL(cleanUrl);
+      let dbName = parsed.pathname.replace(/^\//, '').split('?')[0] || 'test';
+      if (!dbName || dbName === 'sys' || dbName === 'information_schema' || dbName === 'performance_schema') {
+        dbName = 'test';
+      }
+      tidbPool = mysql.createPool({
+        host: parsed.hostname,
+        port: parseInt(parsed.port || '4000', 10),
+        user: decodeURIComponent(parsed.username || ''),
+        password: decodeURIComponent(parsed.password || ''),
+        database: dbName,
+        ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false },
+        waitForConnections: true,
+        connectionLimit: 4,
+        maxIdle: 2,
+        idleTimeout: 30000,
+        queueLimit: 0
+      });
+    } catch {
+      tidbPool = mysql.createPool({ uri: cleanUrl, database: 'test', ssl: { rejectUnauthorized: false } });
+    }
+  }
+  return tidbPool;
+}
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://gtvglgeoznnrsdcfazpc.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo";
@@ -506,6 +540,125 @@ async function processYieldCalculation() {
   }
 }
 
+// ----------------------------------------------------
+// 🔄 AUTOMATED 4X DAILY MARKETPLACE TRADES AUTO-SYNC
+// Respects rate limits: 1 Farm per 12 seconds
+// ----------------------------------------------------
+async function processAutoSyncTrades() {
+  console.log("🚀 [Auto-Sync Trades] Starting 4x daily marketplace trades auto-sync...");
+  
+  const farmMap = new Map();
+
+  // 1. Fetch registered users from Supabase
+  try {
+    const { data: users, error: userError } = await supabase.from('users').select('farm_id, api_key');
+    if (!userError && Array.isArray(users)) {
+      users.forEach(u => {
+        if (u.farm_id) {
+          const cleanId = String(u.farm_id).trim();
+          if (cleanId) farmMap.set(cleanId, u.api_key || '');
+        }
+      });
+    }
+  } catch (e) {
+    console.warn("Notice: Supabase users query:", e.message);
+  }
+
+  // 2. Fetch distinct farms from TiDB Cloud
+  try {
+    const pool = getTiDBPool();
+    if (pool) {
+      const [rows] = await pool.query("SELECT DISTINCT farm_id FROM user_trades;");
+      if (Array.isArray(rows)) {
+        rows.forEach(r => {
+          if (r.farm_id) {
+            const cleanId = String(r.farm_id).trim();
+            if (!farmMap.has(cleanId)) farmMap.set(cleanId, '');
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("Notice: TiDB user_trades query:", e.message);
+  }
+
+  const farmEntries = Array.from(farmMap.entries());
+  console.log(`📋 [Auto-Sync Trades] Found ${farmEntries.length} registered farms to sync.`);
+
+  let totalSynced = 0;
+
+  for (let i = 0; i < farmEntries.length; i++) {
+    const [farmId, apiKey] = farmEntries[i];
+    console.log(`[${i + 1}/${farmEntries.length}] ⏳ Fetching trades for Farm #${farmId}...`);
+
+    try {
+      const response = await axios.get(`https://api.sunflower-land.com/community/data?type=marketplaceProfile&farmId=${encodeURIComponent(farmId)}`, {
+        headers: getSflHeaders(apiKey),
+        timeout: 15000
+      });
+
+      const rawTrades = response.data?.trades || [];
+      if (rawTrades.length > 0) {
+        const pool = getTiDBPool();
+        if (pool) {
+          for (const t of rawTrades) {
+            const id = String(t.id || '').trim();
+            if (!id) continue;
+
+            const isListing = t.source === 'listing';
+            const initId = String(t.initiatedBy?.id || '');
+            const fulfId = String(t.fulfilledBy?.id || '');
+            const isSeller = isListing ? (initId === farmId) : (fulfId !== farmId);
+
+            const otherName = isSeller ? (t.fulfilledBy?.username || '') : (t.initiatedBy?.username || '');
+            const otherId = isSeller ? (t.fulfilledBy?.id || null) : (t.initiatedBy?.id || null);
+
+            const itemId = parseInt(t.itemId || 0, 10);
+            const isEconomy = t.collection === 'economies' || Boolean(t.economy);
+            const itemName = isEconomy ? `#${itemId}` : String(t.itemName || t.name || `Item #${itemId}`).substring(0, 128);
+            const quantity = parseFloat(t.quantity || 1);
+            const sfl = parseFloat(t.sfl || 0);
+            const unitPrice = quantity > 0 ? (sfl / quantity) : sfl;
+            const tradeType = isSeller ? 'sold' : 'bought';
+            const source = String(t.source || 'listing').toLowerCase();
+            const fulfilledAt = parseInt(t.fulfilledAt || Date.now(), 10);
+            const fulfilledDate = new Date(fulfilledAt).toISOString().slice(0, 19).replace('T', ' ');
+
+            const insertSql = `
+              INSERT INTO user_trades 
+              (id, farm_id, item_id, item_name, quantity, sfl, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON DUPLICATE KEY UPDATE 
+                item_name = VALUES(item_name),
+                quantity = VALUES(quantity),
+                sfl = VALUES(sfl),
+                unit_price = VALUES(unit_price)
+            `;
+
+            await pool.query(insertSql, [
+              id, farmId, itemId, itemName, quantity, sfl, unitPrice, tradeType, source, otherId, otherName, fulfilledAt, fulfilledDate
+            ]);
+          }
+        }
+        console.log(`✅ [Auto-Sync Trades] Farm #${farmId}: Synced ${rawTrades.length} trades.`);
+        totalSynced += rawTrades.length;
+      } else {
+        console.log(`ℹ️ [Auto-Sync Trades] Farm #${farmId}: 0 trades found.`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ [Auto-Sync Trades] Error syncing Farm #${farmId}: ${err.message}`);
+    }
+
+    // Strict 12-second delay between farms to comply with SFL rate limits
+    if (i < farmEntries.length - 1) {
+      console.log(`⏳ Waiting 12s before next farm (rate limit safe)...`);
+      await delay(12000);
+    }
+  }
+
+  console.log(`🎉 [Auto-Sync Trades] Finished auto-sync batch for ${farmEntries.length} farms. Total trades: ${totalSynced}.`);
+}
+
 function verifyCronAuth(req) {
   const key = req.query.key || (req.headers.authorization ? req.headers.authorization.replace(/^Bearer\s+/i, '') : '');
   return key === CRON_SECRET_KEY;
@@ -521,8 +674,11 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
   } else if (type === 'yield') {
     res.status(200).json({ success: true, message: "Yield started." });
     processYieldCalculation().catch((err) => console.error("Yield Error:", err.message));
+  } else if (type === 'trades') {
+    res.status(200).json({ success: true, message: "Trades auto-sync started." });
+    processAutoSyncTrades().catch((err) => console.error("Trades Error:", err.message));
   } else {
-    res.status(400).json({ error: "Invalid type parameter. Use 'type=baseline' or 'type=yield'." });
+    res.status(400).json({ error: "Invalid type parameter. Use 'type=baseline', 'type=yield', or 'type=trades'." });
   }
 });
 
@@ -536,6 +692,31 @@ app.get('/api/cron/22utc-yield', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
   res.status(200).json({ success: true });
   processYieldCalculation().catch((err) => console.error("Yield Error:", err.message));
+});
+
+app.get('/api/cron/sync-trades', async (req, res) => {
+  if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
+  res.status(200).json({ success: true, message: "Marketplace trades auto-sync initiated (1 farm per 12s)." });
+  processAutoSyncTrades().catch((err) => console.error("Auto-sync trades Error:", err.message));
+});
+
+// ⏰ AUTOMATED INTERNAL CRON JOBS:
+// 1. Snapshot: Daily at 21:50 UTC
+cron.schedule('50 21 * * *', () => {
+  console.log('⏰ [Cron] Starting 21:50 UTC Snapshot...');
+  processBaselineSnapshot().catch(err => console.error("Snapshot error:", err.message));
+});
+
+// 2. Yield: Daily at 22:00 UTC
+cron.schedule('0 22 * * *', () => {
+  console.log('⏰ [Cron] Starting 22:00 UTC Daily Yield Calculation...');
+  processYieldCalculation().catch(err => console.error("Yield error:", err.message));
+});
+
+// 3. Trade Auto-Sync: 4 times a day (00:00, 06:00, 12:00, 18:00 UTC) with 12s rate-limit delay
+cron.schedule('0 0,6,12,18 * * *', () => {
+  console.log('⏰ [Cron] Starting 4x daily scheduled trade auto-sync...');
+  processAutoSyncTrades().catch(err => console.error("Auto-sync trades error:", err.message));
 });
 
 app.get('*', (req, res) => {
