@@ -45,27 +45,105 @@ export function renderTradeHistoryTemplate() {
         </div>
       </div>
 
-      <!-- METRIC CARDS (TOTAL STATS) -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs text-center">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">🟢 Today's Sales Volume</span>
-          <span id="trade-metric-sales-volume" class="text-base sm:text-lg font-black text-sfl-green font-mono">0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+      <!-- 4 TIME-HORIZON SUMMARY CARDS (TODAY / WEEK / MONTH / CLOUD LEDGER) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        
+        <!-- CARD 1: TODAY -->
+        <div class="bg-white/90 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 pb-1.5 mb-2">
+            <span class="text-xs font-bold text-sfl-wood flex items-center gap-1">
+              <span>📅</span> Today's Trading
+            </span>
+            <span id="trade-metric-today-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-sfl-dirt border border-amber-300">0 trades</span>
+          </div>
+          <div class="mb-2">
+            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">Today Net Profit</span>
+            <span id="trade-metric-today-net" class="text-lg font-black text-sfl-wood font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40">
+            <div>
+              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Sales</span>
+              <span id="trade-metric-today-sales" class="font-bold text-sfl-green font-mono">+0.000</span>
+            </div>
+            <div>
+              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Purchases</span>
+              <span id="trade-metric-today-buys" class="font-bold text-sfl-wood font-mono">-0.000</span>
+            </div>
+          </div>
         </div>
 
-        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs text-center">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">🔵 Today's Purchases Volume</span>
-          <span id="trade-metric-buys-volume" class="text-base sm:text-lg font-black text-sfl-wood font-mono">0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+        <!-- CARD 2: WEEK -->
+        <div class="bg-white/90 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 pb-1.5 mb-2">
+            <span class="text-xs font-bold text-sfl-wood flex items-center gap-1">
+              <span>📊</span> Weekly Trading
+            </span>
+            <span id="trade-metric-week-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-sfl-dirt border border-amber-300">0 trades</span>
+          </div>
+          <div class="mb-2">
+            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">7-Day Net Profit</span>
+            <span id="trade-metric-week-net" class="text-lg font-black text-sfl-wood font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40">
+            <div>
+              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Sales</span>
+              <span id="trade-metric-week-sales" class="font-bold text-sfl-green font-mono">+0.000</span>
+            </div>
+            <div>
+              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Purchases</span>
+              <span id="trade-metric-week-buys" class="font-bold text-sfl-wood font-mono">-0.000</span>
+            </div>
+          </div>
         </div>
 
-        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs text-center">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">💸 Weekly Flower Spent</span>
-          <span id="trade-metric-weekly-spent" class="text-base sm:text-lg font-black text-sfl-accent font-mono">0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+        <!-- CARD 3: MONTH -->
+        <div class="bg-white/90 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 pb-1.5 mb-2">
+            <span class="text-xs font-bold text-sfl-wood flex items-center gap-1">
+              <span>🗓️</span> Monthly Trading
+            </span>
+            <span id="trade-metric-month-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-sfl-dirt border border-amber-300">0 trades</span>
+          </div>
+          <div class="mb-2">
+            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">30-Day Net Profit</span>
+            <span id="trade-metric-month-net" class="text-lg font-black text-sfl-wood font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40">
+            <div>
+              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Sales</span>
+              <span id="trade-metric-month-sales" class="font-bold text-sfl-green font-mono">+0.000</span>
+            </div>
+            <div>
+              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Purchases</span>
+              <span id="trade-metric-month-buys" class="font-bold text-sfl-wood font-mono">-0.000</span>
+            </div>
+          </div>
         </div>
 
-        <div class="bg-white/80 border-2 border-sfl-cardBorder p-3.5 rounded-xl shadow-xs text-center">
-          <span class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider block mb-1">☁️ Trades Saved in Cloud</span>
-          <span id="trade-metric-total-trades" class="text-base sm:text-lg font-black text-sfl-dirt font-mono">0</span>
+        <!-- CARD 4: CLOUD ARCHIVE -->
+        <div class="bg-white/90 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 pb-1.5 mb-2">
+            <span class="text-xs font-bold text-sfl-wood flex items-center gap-1">
+              <span>☁️</span> Cloud Ledger
+            </span>
+            <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-green-100 text-sfl-green border border-green-300">TiDB Synced</span>
+          </div>
+          <div class="mb-2">
+            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">Trades Saved</span>
+            <span id="trade-metric-total-trades" class="text-lg font-black text-sfl-dirt font-mono">0</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40">
+            <div>
+              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Total Sales</span>
+              <span id="trade-metric-lifetime-sales" class="font-bold text-sfl-green font-mono">+0.000</span>
+            </div>
+            <div>
+              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Total Buys</span>
+              <span id="trade-metric-lifetime-buys" class="font-bold text-sfl-wood font-mono">-0.000</span>
+            </div>
+          </div>
         </div>
+
       </div>
 
       <!-- NAVIGATION SUB-TABS (TRADES / CALENDAR / LISTINGS / OFFERS) -->
@@ -312,16 +390,16 @@ function renderTradeSummaryMetrics(profileData) {
 
   const farmId = String(profileData.id || localStorage.getItem('sfl_farm_id') || '').trim();
 
+  const now = Date.now();
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+  const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
 
-  let todaySoldVolume = 0;
-  let todayBoughtVolume = 0;
-  let totalSoldVolume = 0;
-  let totalBoughtVolume = 0;
-  let weeklySpent = 0;
-
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  let todaySales = 0, todayBuys = 0, todayCount = 0;
+  let weekSales = 0, weekBuys = 0, weekCount = 0;
+  let monthSales = 0, monthBuys = 0, monthCount = 0;
+  let totalSales = 0, totalBuys = 0;
 
   trades.forEach(t => {
     const isSeller = isUserSeller(t, farmId);
@@ -338,15 +416,15 @@ function renderTradeSummaryMetrics(profileData) {
     }
 
     if (isSeller) {
-      totalSoldVolume += sfl;
-      if (isToday) todaySoldVolume += sfl;
+      totalSales += sfl;
+      if (isToday) { todaySales += sfl; todayCount++; }
+      if (time >= sevenDaysAgo) { weekSales += sfl; weekCount++; }
+      if (time >= thirtyDaysAgo) { monthSales += sfl; monthCount++; }
     } else {
-      totalBoughtVolume += sfl;
-      if (isToday) todayBoughtVolume += sfl;
-      // Calculate true weekly flower spent from actual purchases in the last 7 days
-      if (time >= sevenDaysAgo) {
-        weeklySpent += sfl;
-      }
+      totalBuys += sfl;
+      if (isToday) { todayBuys += sfl; todayCount++; }
+      if (time >= sevenDaysAgo) { weekBuys += sfl; weekCount++; }
+      if (time >= thirtyDaysAgo) { monthBuys += sfl; monthCount++; }
     }
   });
 
@@ -355,15 +433,55 @@ function renderTradeSummaryMetrics(profileData) {
     userSummaryEl.textContent = `Player: ${user} • Level: ${level} • Lifetime Market Volume: ${totalTradesCount.toLocaleString()} trades`;
   }
 
-  const salesVolEl = document.getElementById('trade-metric-sales-volume');
-  const buysVolEl = document.getElementById('trade-metric-buys-volume');
-  const weeklySpentEl = document.getElementById('trade-metric-weekly-spent');
-  const totalTradesEl = document.getElementById('trade-metric-total-trades');
+  // 1. TODAY
+  const todayNet = todaySales - todayBuys;
+  const todayNetEl = document.getElementById('trade-metric-today-net');
+  if (todayNetEl) {
+    todayNetEl.className = `text-lg font-black font-mono ${todayNet > 0 ? 'text-sfl-green' : (todayNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood')}`;
+    todayNetEl.innerHTML = `${todayNet >= 0 ? '+' : ''}${todayNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
+  }
+  const todayCountEl = document.getElementById('trade-metric-today-count');
+  if (todayCountEl) todayCountEl.textContent = `${todayCount} ${todayCount === 1 ? 'trade' : 'trades'}`;
+  const todaySalesEl = document.getElementById('trade-metric-today-sales');
+  if (todaySalesEl) todaySalesEl.textContent = `+${todaySales.toFixed(3)}`;
+  const todayBuysEl = document.getElementById('trade-metric-today-buys');
+  if (todayBuysEl) todayBuysEl.textContent = `-${todayBuys.toFixed(3)}`;
 
-  if (salesVolEl) salesVolEl.innerHTML = `${todaySoldVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-  if (buysVolEl) buysVolEl.innerHTML = `${todayBoughtVolume.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-  if (weeklySpentEl) weeklySpentEl.innerHTML = `${weeklySpent.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
+  // 2. WEEK
+  const weekNet = weekSales - weekBuys;
+  const weekNetEl = document.getElementById('trade-metric-week-net');
+  if (weekNetEl) {
+    weekNetEl.className = `text-lg font-black font-mono ${weekNet > 0 ? 'text-sfl-green' : (weekNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood')}`;
+    weekNetEl.innerHTML = `${weekNet >= 0 ? '+' : ''}${weekNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
+  }
+  const weekCountEl = document.getElementById('trade-metric-week-count');
+  if (weekCountEl) weekCountEl.textContent = `${weekCount} ${weekCount === 1 ? 'trade' : 'trades'}`;
+  const weekSalesEl = document.getElementById('trade-metric-week-sales');
+  if (weekSalesEl) weekSalesEl.textContent = `+${weekSales.toFixed(3)}`;
+  const weekBuysEl = document.getElementById('trade-metric-week-buys');
+  if (weekBuysEl) weekBuysEl.textContent = `-${weekBuys.toFixed(3)}`;
+
+  // 3. MONTH
+  const monthNet = monthSales - monthBuys;
+  const monthNetEl = document.getElementById('trade-metric-month-net');
+  if (monthNetEl) {
+    monthNetEl.className = `text-lg font-black font-mono ${monthNet > 0 ? 'text-sfl-green' : (monthNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood')}`;
+    monthNetEl.innerHTML = `${monthNet >= 0 ? '+' : ''}${monthNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
+  }
+  const monthCountEl = document.getElementById('trade-metric-month-count');
+  if (monthCountEl) monthCountEl.textContent = `${monthCount} ${monthCount === 1 ? 'trade' : 'trades'}`;
+  const monthSalesEl = document.getElementById('trade-metric-month-sales');
+  if (monthSalesEl) monthSalesEl.textContent = `+${monthSales.toFixed(3)}`;
+  const monthBuysEl = document.getElementById('trade-metric-month-buys');
+  if (monthBuysEl) monthBuysEl.textContent = `-${monthBuys.toFixed(3)}`;
+
+  // 4. CLOUD ARCHIVE
+  const totalTradesEl = document.getElementById('trade-metric-total-trades');
   if (totalTradesEl) totalTradesEl.textContent = `${trades.length.toLocaleString()}`;
+  const lifetimeSalesEl = document.getElementById('trade-metric-lifetime-sales');
+  if (lifetimeSalesEl) lifetimeSalesEl.textContent = `+${totalSales.toFixed(3)}`;
+  const lifetimeBuysEl = document.getElementById('trade-metric-lifetime-buys');
+  if (lifetimeBuysEl) lifetimeBuysEl.textContent = `-${totalBuys.toFixed(3)}`;
 
   document.getElementById('subtab-trades-count').textContent = trades.length;
   document.getElementById('subtab-listings-count').textContent = listings.length;
