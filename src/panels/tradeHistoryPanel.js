@@ -303,7 +303,6 @@ function renderTradeSummaryMetrics(profileData) {
   const user = profileData.username || `Farm #${profileData.id || ''}`;
   const level = profileData.level || '-';
   const totalTradesCount = profileData.totalTrades || 0;
-  const weeklySpent = parseFloat(profileData.weeklyFlowerSpent || 0);
 
   const trades = profileData.trades || [];
   const listings = Object.values(profileData.listings || {});
@@ -313,15 +312,23 @@ function renderTradeSummaryMetrics(profileData) {
 
   let totalSoldVolume = 0;
   let totalBoughtVolume = 0;
+  let weeklySpent = 0;
+
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
   trades.forEach(t => {
     const isSeller = isUserSeller(t, farmId);
     const sfl = parseFloat(t.sfl || 0);
+    const time = Number(t.fulfilledAt || 0);
 
     if (isSeller) {
       totalSoldVolume += sfl;
     } else {
       totalBoughtVolume += sfl;
+      // Calculate true weekly flower spent from actual purchases in the last 7 days
+      if (time >= sevenDaysAgo) {
+        weeklySpent += sfl;
+      }
     }
   });
 
@@ -369,7 +376,7 @@ function renderCurrentView() {
     if (titleEl) titleEl.textContent = "📜 Completed Trade Ledger (Archived in TiDB Cloud)";
     renderTradesTableView(mountEl, farmId);
   } else if (currentView === 'calendar') {
-    if (titleEl) titleEl.textContent = "📅 Trade Calendar Grid & Daily Net Profit";
+    if (titleEl) titleEl.textContent = "📅 Trade Calendar Grid & Daily Net Flow";
     renderCalendarGridView(mountEl, farmId);
   } else if (currentView === 'listings') {
     if (titleEl) titleEl.textContent = "🏷️ Active Marketplace Listings";
@@ -468,7 +475,7 @@ function renderTradesTableView(mountEl, farmId) {
 }
 
 // ----------------------------------------------------
-// 📅 INTERACTIVE CALENDAR GRID & DAILY PROFIT INSPECTOR
+// 📅 ELEGANT CALENDAR GRID & DAILY PROFIT INSPECTOR
 // ----------------------------------------------------
 
 function buildTradesDateMap(trades, farmId) {
@@ -538,36 +545,59 @@ function renderCalendarGridView(mountEl, farmId) {
     }
   }
 
-  // Header controls (Month Switcher, View Switcher: Month / 3 Months / Week)
-  const monthName = new Date(calendarCurrentYear, calendarCurrentMonth, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  const monthDate = new Date(calendarCurrentYear, calendarCurrentMonth, 1);
+  const monthName = monthDate.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+
+  // Calculate monthly stats for the active month
+  let monthSold = 0;
+  let monthBought = 0;
+  let monthTradeCount = 0;
+
+  tradesMap.forEach((dayData) => {
+    if (dayData.year === calendarCurrentYear && dayData.month === calendarCurrentMonth) {
+      monthSold += dayData.totalSold;
+      monthBought += dayData.totalBought;
+      monthTradeCount += dayData.trades.length;
+    }
+  });
+  const monthNet = monthSold - monthBought;
 
   let viewControlsHtml = `
     <div class="p-3.5 bg-amber-50/70 border-b-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
       <div class="flex items-center gap-2">
-        <button id="cal-prev-month" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-2.5 py-1 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
+        <button id="cal-prev-month" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
           ◀ Prev
         </button>
         <span class="font-bold text-sfl-wood text-sm sm:text-base tracking-wide flex items-center gap-1.5 px-2">
           <span>📅</span> ${monthName}
         </span>
-        <button id="cal-next-month" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-2.5 py-1 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
+        <button id="cal-next-month" class="bg-white border-2 border-sfl-cardBorder hover:bg-amber-100 px-3 py-1.5 rounded-lg text-xs font-bold text-sfl-dirt cursor-pointer transition shadow-xs">
           Next ▶
         </button>
-        <button id="cal-today-btn" class="bg-amber-200/70 border border-sfl-cardBorder hover:bg-amber-300 px-2 py-1 rounded-md text-[11px] font-bold text-sfl-dirt cursor-pointer transition ml-1">
+        <button id="cal-today-btn" class="bg-amber-200/70 border border-sfl-cardBorder hover:bg-amber-300 px-2.5 py-1 rounded-md text-[11px] font-bold text-sfl-dirt cursor-pointer transition ml-1">
           Today
         </button>
       </div>
 
+      <!-- Quick Month Net Summary Pill -->
+      <div class="flex items-center gap-2 text-xs font-mono">
+        <span class="bg-white/80 border border-sfl-cardBorder px-2.5 py-1 rounded-lg text-sfl-wood font-bold">
+          ${monthTradeCount} trades in ${monthDate.toLocaleString(undefined, { month: 'short' })}
+        </span>
+        <span class="bg-white/90 border border-sfl-cardBorder px-2.5 py-1 rounded-lg ${monthNet >= 0 ? 'text-sfl-green font-black' : 'text-sfl-accent font-black'}">
+          Net: ${monthNet >= 0 ? '+' : ''}${monthNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+        </span>
+      </div>
+
       <div class="flex items-center gap-1.5 flex-wrap">
-        <span class="text-xs font-bold text-sfl-woodLight mr-1">View:</span>
-        <button data-cal-view="month" class="cal-view-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarViewMode === 'month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
-          📅 Month View
+        <button data-cal-view="month" class="cal-view-btn px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarViewMode === 'month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          📅 Month
         </button>
-        <button data-cal-view="3month" class="cal-view-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarViewMode === '3month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
-          🗓️ 3-Month Overview
+        <button data-cal-view="3month" class="cal-view-btn px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarViewMode === '3month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          🗓️ 3-Month View
         </button>
-        <button data-cal-view="week" class="cal-view-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarViewMode === 'week' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
-          📊 Week Strip
+        <button data-cal-view="week" class="cal-view-btn px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer border ${calendarViewMode === 'week' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+          📊 7-Day Strip
         </button>
       </div>
     </div>
@@ -578,7 +608,6 @@ function renderCalendarGridView(mountEl, farmId) {
   if (calendarViewMode === 'month') {
     gridContentHtml = renderSingleMonthGrid(calendarCurrentYear, calendarCurrentMonth, tradesMap);
   } else if (calendarViewMode === '3month') {
-    // Render 3 consecutive months
     const m1 = calendarCurrentMonth;
     const y1 = calendarCurrentYear;
     const m2 = (m1 - 1 + 12) % 12;
@@ -587,26 +616,24 @@ function renderCalendarGridView(mountEl, farmId) {
     const y3 = m1 < 2 ? y1 - 1 : y1;
 
     gridContentHtml = `
-      <div class="p-3 space-y-6">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div class="border-2 border-sfl-cardBorder rounded-xl overflow-hidden shadow-xs bg-white/70">
-            <div class="bg-sfl-card p-2 text-center font-bold text-xs text-sfl-wood uppercase border-b border-sfl-cardBorder">
-              ${new Date(y3, m3, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
-            </div>
-            ${renderSingleMonthGrid(y3, m3, tradesMap, true)}
+      <div class="space-y-6">
+        <div>
+          <div class="font-bold text-xs text-sfl-wood uppercase mb-2 flex items-center gap-1.5">
+            <span>📅</span> ${new Date(y1, m1, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
           </div>
-          <div class="border-2 border-sfl-cardBorder rounded-xl overflow-hidden shadow-xs bg-white/70">
-            <div class="bg-sfl-card p-2 text-center font-bold text-xs text-sfl-wood uppercase border-b border-sfl-cardBorder">
-              ${new Date(y2, m2, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
-            </div>
-            ${renderSingleMonthGrid(y2, m2, tradesMap, true)}
+          ${renderSingleMonthGrid(y1, m1, tradesMap)}
+        </div>
+        <div>
+          <div class="font-bold text-xs text-sfl-wood uppercase mb-2 flex items-center gap-1.5">
+            <span>📅</span> ${new Date(y2, m2, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
           </div>
-          <div class="border-2 border-sfl-cardBorder rounded-xl overflow-hidden shadow-xs bg-white/70">
-            <div class="bg-sfl-card p-2 text-center font-bold text-xs text-sfl-wood uppercase border-b border-sfl-cardBorder">
-              ${new Date(y1, m1, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
-            </div>
-            ${renderSingleMonthGrid(y1, m1, tradesMap, true)}
+          ${renderSingleMonthGrid(y2, m2, tradesMap)}
+        </div>
+        <div>
+          <div class="font-bold text-xs text-sfl-wood uppercase mb-2 flex items-center gap-1.5">
+            <span>📅</span> ${new Date(y3, m3, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' })}
           </div>
+          ${renderSingleMonthGrid(y3, m3, tradesMap)}
         </div>
       </div>
     `;
@@ -620,7 +647,7 @@ function renderCalendarGridView(mountEl, farmId) {
 
   mountEl.innerHTML = `
     ${viewControlsHtml}
-    <div class="p-3">
+    <div class="p-4">
       ${gridContentHtml}
     </div>
     ${selectedDayPanelHtml}
@@ -629,13 +656,17 @@ function renderCalendarGridView(mountEl, farmId) {
   bindCalendarGridEvents(mountEl, farmId);
 }
 
-function renderSingleMonthGrid(year, month, tradesMap, isCompact = false) {
+function renderSingleMonthGrid(year, month, tradesMap) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun, 1 = Mon ...
   const daysInPrevMonth = new Date(year, month, 0).getDate();
 
-  const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  let headersHtml = dayHeaders.map(d => `<div class="text-center font-bold text-[10px] sm:text-xs text-sfl-wood uppercase py-1.5 bg-sfl-card/70 border-b border-sfl-cardBorder">${d}</div>`).join('');
+  const dayHeaders = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  let headersHtml = dayHeaders.map(d => `
+    <div class="text-center font-black text-[11px] text-sfl-wood uppercase py-2 bg-sfl-card/80 border-b-2 border-sfl-cardBorder">
+      ${d}
+    </div>
+  `).join('');
 
   let cellsHtml = '';
 
@@ -643,8 +674,8 @@ function renderSingleMonthGrid(year, month, tradesMap, isCompact = false) {
   for (let i = firstDayIndex - 1; i >= 0; i--) {
     const prevDayNum = daysInPrevMonth - i;
     cellsHtml += `
-      <div class="min-h-[50px] sm:min-h-[72px] p-1 sm:p-1.5 bg-amber-50/20 text-sfl-woodLight/30 border border-sfl-cardBorder/30">
-        <span class="text-[10px] font-mono block">${prevDayNum}</span>
+      <div class="min-h-[64px] sm:min-h-[82px] p-2 bg-amber-50/20 text-sfl-woodLight/30 border border-sfl-cardBorder/20">
+        <span class="text-xs font-mono">${prevDayNum}</span>
       </div>
     `;
   }
@@ -667,45 +698,33 @@ function renderSingleMonthGrid(year, month, tradesMap, isCompact = false) {
 
     if (dayData && dayData.trades.length > 0) {
       const net = dayData.totalSold - dayData.totalBought;
-      const netColor = net > 0 ? 'text-sfl-green bg-green-50 dark:bg-green-950/40 border-sfl-green/30' : (net < 0 ? 'text-sfl-accent bg-red-50 dark:bg-red-950/40 border-red-300' : 'text-sfl-wood bg-amber-50 border-amber-300');
       const netSign = net >= 0 ? '+' : '';
 
-      if (isCompact) {
-        tradeBadgeHtml = `
-          <div class="mt-1 space-y-0.5">
-            <span class="block text-[9px] font-bold text-sfl-dirt leading-none">${dayData.trades.length}t</span>
-            <span class="block text-[9px] font-mono font-black ${net > 0 ? 'text-sfl-green' : (net < 0 ? 'text-sfl-accent' : 'text-sfl-wood')} leading-none">
-              ${netSign}${net.toFixed(1)}
-            </span>
+      tradeBadgeHtml = `
+        <div class="mt-1.5 space-y-1">
+          <div class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-sfl-dirt border border-amber-300 shadow-2xs">
+            <span>📜</span> ${dayData.trades.length} ${dayData.trades.length === 1 ? 'trade' : 'trades'}
           </div>
-        `;
-      } else {
-        tradeBadgeHtml = `
-          <div class="mt-1 space-y-1">
-            <div class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100/80 text-sfl-dirt border border-amber-300 shadow-2xs">
-              <span>📜</span> ${dayData.trades.length} ${dayData.trades.length === 1 ? 'trade' : 'trades'}
-            </div>
-            <div class="text-[10px] sm:text-[11px] font-mono font-black ${netColor} px-1.5 py-0.5 rounded border">
-              Net: ${netSign}${net.toFixed(2)} ${FLOWER_IMG_SMALL_HTML}
-            </div>
+          <div class="text-[10px] sm:text-[11px] font-mono font-black ${net >= 0 ? 'text-sfl-green bg-green-50/80 dark:bg-green-950/40 border-sfl-green/40' : 'text-sfl-accent bg-red-50/80 dark:bg-red-950/40 border-red-300'} px-1.5 py-0.5 rounded border">
+            Net: ${netSign}${net.toFixed(2)} ${FLOWER_IMG_SMALL_HTML}
           </div>
-        `;
-      }
+        </div>
+      `;
 
-      cellBg = 'bg-amber-50/60 hover:bg-amber-100/80 cursor-pointer';
+      cellBg = 'bg-amber-50/80 hover:bg-amber-100 cursor-pointer';
     }
 
-    const ringStyle = isSelected 
-      ? 'ring-2 ring-sfl-gold border-sfl-gold bg-amber-100/90 dark:bg-amber-950/60 shadow-xs z-10' 
-      : 'border-sfl-cardBorder/60';
+    const activeRing = isSelected 
+      ? 'ring-2 ring-sfl-gold border-sfl-gold bg-amber-100 dark:bg-amber-950/60 shadow-md z-10 scale-[1.01]' 
+      : 'border-sfl-cardBorder/50';
 
     cellsHtml += `
-      <div data-day-key="${dateKey}" class="cal-day-cell min-h-[50px] sm:min-h-[72px] p-1 sm:p-1.5 border transition relative cursor-pointer ${cellBg} ${ringStyle}">
+      <div data-day-key="${dateKey}" class="cal-day-cell min-h-[64px] sm:min-h-[82px] p-2 border transition duration-150 relative cursor-pointer ${cellBg} ${activeRing}">
         <div class="flex justify-between items-center">
-          <span class="text-[10px] sm:text-xs font-mono font-bold ${isToday ? 'bg-sfl-wood text-amber-200 px-1.5 py-0.2 rounded-full' : 'text-sfl-wood'}">
+          <span class="text-xs font-mono font-bold ${isToday ? 'bg-sfl-wood text-amber-200 px-1.5 py-0.2 rounded-full shadow-2xs' : 'text-sfl-wood'}">
             ${d}
           </span>
-          ${dayData ? `<span class="w-1.5 h-1.5 rounded-full bg-sfl-green inline-block"></span>` : ''}
+          ${dayData ? `<span class="w-2 h-2 rounded-full bg-sfl-green shadow-2xs inline-block"></span>` : ''}
         </div>
         ${tradeBadgeHtml}
       </div>
@@ -717,14 +736,14 @@ function renderSingleMonthGrid(year, month, tradesMap, isCompact = false) {
   const remainingCells = (7 - (totalRendered % 7)) % 7;
   for (let i = 1; i <= remainingCells; i++) {
     cellsHtml += `
-      <div class="min-h-[50px] sm:min-h-[72px] p-1 sm:p-1.5 bg-amber-50/20 text-sfl-woodLight/30 border border-sfl-cardBorder/30">
-        <span class="text-[10px] font-mono block">${i}</span>
+      <div class="min-h-[64px] sm:min-h-[82px] p-2 bg-amber-50/20 text-sfl-woodLight/30 border border-sfl-cardBorder/20">
+        <span class="text-xs font-mono">${i}</span>
       </div>
     `;
   }
 
   return `
-    <div class="grid grid-cols-7 gap-0 border-2 border-sfl-cardBorder rounded-xl overflow-hidden bg-sfl-cardBorder/40">
+    <div class="grid grid-cols-7 gap-0 border-2 border-sfl-cardBorder rounded-xl overflow-hidden bg-sfl-cardBorder/30 shadow-xs">
       ${headersHtml}
       ${cellsHtml}
     </div>
@@ -758,10 +777,10 @@ function renderWeekStripView(tradesMap, farmId) {
     const netColor = net > 0 ? 'text-sfl-green' : (net < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
 
     cardsHtml += `
-      <div data-day-key="${key}" class="cal-day-cell p-3 rounded-xl border-2 transition cursor-pointer flex-1 min-w-[130px] ${isSelected ? 'border-sfl-gold bg-amber-100 dark:bg-amber-950/60 ring-2 ring-sfl-gold' : 'border-sfl-cardBorder bg-white hover:bg-amber-50'}">
+      <div data-day-key="${key}" class="cal-day-cell p-3.5 rounded-xl border-2 transition cursor-pointer flex-1 min-w-[140px] shadow-xs ${isSelected ? 'border-sfl-gold bg-amber-100 dark:bg-amber-950/60 ring-2 ring-sfl-gold' : 'border-sfl-cardBorder bg-white hover:bg-amber-50'}">
         <span class="font-bold text-xs text-sfl-wood block mb-1">${dayName}</span>
         <span class="text-xs font-mono font-bold text-sfl-dirt block">${count} trades</span>
-        <div class="mt-2 text-[11px] font-mono space-y-0.5">
+        <div class="mt-2 text-xs font-mono space-y-0.5">
           <span class="block text-sfl-green font-semibold">🟢 +${sold.toFixed(2)}</span>
           <span class="block text-sfl-wood font-semibold">🔵 -${bought.toFixed(2)}</span>
           <span class="block ${netColor} font-black border-t border-sfl-cardBorder/40 pt-1">
@@ -773,7 +792,7 @@ function renderWeekStripView(tradesMap, farmId) {
   });
 
   return `
-    <div class="flex gap-2 overflow-x-auto pb-2">
+    <div class="flex gap-2.5 overflow-x-auto pb-2">
       ${cardsHtml}
     </div>
   `;
@@ -800,7 +819,7 @@ function renderSelectedDayInspector(dateKey, dayData, farmId) {
           <span>📅</span> ${displayTitle}
         </span>
         <p class="text-xs text-sfl-woodLight italic">
-          No marketplace trades recorded on this date. Click on any date in the calendar above to inspect trades.
+          No marketplace trades recorded on this date. Click on any active date in the calendar above to inspect trades.
         </p>
       </div>
     `;
@@ -822,7 +841,7 @@ function renderSelectedDayInspector(dateKey, dayData, farmId) {
 
     const dateObj = t.fulfilledAt ? new Date(t.fulfilledAt) : null;
     const timeStr = dateObj && !isNaN(dateObj.getTime())
-      ? dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      ? dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
       : 'Recent';
 
     const otherUser = isSeller
