@@ -36,7 +36,7 @@ export function renderHeader() {
       <div class="bg-amber-50/90 border-2 border-sfl-cardBorder rounded-xl p-2.5 sm:p-3 text-xs text-sfl-wood space-y-2 shadow-xs">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 border-b border-sfl-cardBorder/50 pb-1.5">
           <p class="font-bold flex items-center gap-1.5 text-sfl-wood text-xs sm:text-sm">
-            <span>📖</span> Quick Start & Automated Schedule
+            <span>📖</span> How to Use SFL Calculator
           </p>
           <span class="bg-amber-200/90 text-amber-900 border border-amber-400 text-[10px] font-bold px-2 py-0.2 rounded-full flex items-center gap-1">
             <span>🖥️</span> <strong>Tip:</strong> Desktop Mode recommended on mobile
@@ -46,15 +46,15 @@ export function renderHeader() {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-medium text-sfl-woodLight">
           <div class="bg-white/70 dark:bg-amber-950/30 p-2 rounded-lg border border-sfl-cardBorder/40 space-y-0.5">
             <span class="font-bold text-sfl-dirt block text-xs">1. Link Farm & Sign In</span>
-            <p>Enter your <strong>Farm ID</strong> and sign in to activate automated cloud tracking & trade archiving.</p>
+            <p>Enter your <strong>Farm ID</strong> and sign in to save your targets & enable cloud tracking.</p>
           </div>
           <div class="bg-white/70 dark:bg-amber-950/30 p-2 rounded-lg border border-sfl-cardBorder/40 space-y-0.5">
-            <span class="font-bold text-sfl-dirt block text-xs">2. Daily Crop Tracker</span>
-            <p>Snapshot at <strong>21:50 UTC</strong>; daily yields calculate at <strong>22:00 UTC</strong> with live multipliers.</p>
+            <span class="font-bold text-sfl-dirt block text-xs">2. Set Targets & Yields</span>
+            <p>Select items under <strong class="text-amber-800 dark:text-amber-300">"⚙️ Manage Targets"</strong> and adjust your plot crop multipliers.</p>
           </div>
-          <div class="bg-amber-100/80 dark:bg-amber-900/40 p-2 rounded-lg border border-amber-300 dark:border-amber-700/50 space-y-0.5">
-            <span class="font-bold text-amber-950 dark:text-amber-200 block text-xs">3. Trade Auto-Sync (4x Daily)</span>
-            <p class="text-amber-900 dark:text-amber-300">Syncs at <strong>00:33, 06:33, 12:33, 18:33 UTC</strong> with exact API tax-deducted net profit.</p>
+          <div class="bg-white/70 dark:bg-amber-950/30 p-2 rounded-lg border border-sfl-cardBorder/40 space-y-0.5">
+            <span class="font-bold text-sfl-dirt block text-xs">3. Automatic Daily Tracking</span>
+            <p>Daily harvest yields, Flower profits, and marketplace trade history update automatically.</p>
           </div>
         </div>
       </div>
