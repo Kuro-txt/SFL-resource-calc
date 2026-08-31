@@ -68,14 +68,58 @@ export const ApiService = {
 
   async getMarketplaceProfile(farmId, apiKey = '') {
     if (!farmId) throw new Error('Farm ID is required.');
-    const url = `${BACKEND_URL}/api/get-marketplace?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`;
-    const response = await fetch(url);
-    const result = await response.json();
+    const endpoints = [
+      `/api/get-marketplace?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`,
+      `${BACKEND_URL}/api/get-marketplace?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`
+    ];
 
-    if (!response.ok) {
-      throw new Error(result.error || `HTTP Error ${response.status}`);
+    let lastError = null;
+
+    for (const url of endpoints) {
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+
+        // Guard against HTML error pages
+        if (text.trim().startsWith('<') || text.includes('<!DOCTYPE')) {
+          continue;
+        }
+
+        const result = JSON.parse(text);
+        if (!response.ok) {
+          throw new Error(result.error || `HTTP Error ${response.status}`);
+        }
+
+        return result.data?.data || result.data || result;
+      } catch (err) {
+        lastError = err;
+        if (err.message && (err.message.includes('API key') || err.message.includes('401'))) {
+          throw err;
+        }
+      }
     }
 
-    return result.data || result;
+    // Direct fallback to Sunflower Land Community API if direct browser request works
+    if (apiKey) {
+      try {
+        const directRes = await fetch(`https://api.sunflower-land.com/community/data?type=marketplaceProfile&farmId=${encodeURIComponent(farmId)}`, {
+          headers: {
+            'x-api-key': apiKey,
+            'Authorization': `Bearer ${apiKey}`,
+            'Accept': 'application/json'
+          }
+        });
+        const directText = await directRes.text();
+        if (!directText.trim().startsWith('<')) {
+          const directData = JSON.parse(directText);
+          if (!directRes.ok) throw new Error(directData.error || `HTTP Error ${directRes.status}`);
+          return directData.data || directData;
+        }
+      } catch (e) {
+        if (e.message && (e.message.includes('API key') || e.message.includes('401'))) throw e;
+      }
+    }
+
+    throw lastError || new Error("Failed to load marketplace profile. Please check your Farm ID and VIP API Key.");
   }
 };
