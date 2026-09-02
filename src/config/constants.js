@@ -57,17 +57,43 @@ export function getCropCategory(cleanKey) {
   return 'Plot Crop';
 }
 
-export const BETTY_SHOP_PRICES = {
-  "sunflower": 0.02, "potato": 0.14, "rhubarb": 0.24, "pumpkin": 0.4,
-  "zucchini": 0.4, "carrot": 0.8, "yam": 0.8, "cabbage": 1.5,
-  "broccoli": 1.5, "soybean": 2.3, "beetroot": 2.8, "pepper": 3,
-  "cauliflower": 4.25, "parsnip": 6.5, "eggplant": 8, "corn": 9,
-  "onion": 10, "radish": 9.5, "wheat": 7, "turnip": 8, "kale": 10,
-  "artichoke": 12, "barley": 12, "saltwort": 50, "tomato": 2,
-  "lemon": 6, "blueberry": 12, "orange": 18, "apple": 25,
-  "banana": 25, "celestine": 200, "lunara": 500, "duskberry": 1000,
-  "grape": 240, "rice": 320, "olive": 400
+export const CROP_FLOWER_PRICES = {
+  "sunflower": 0.0003,
+  "potato": 0.00031,
+  "pumpkin": 0.0010,
+  "carrot": 0.00186,
+  "cabbage": 0.00146,
+  "beetroot": 0.0060,
+  "cauliflower": 0.00675,
+  "parsnip": 0.0120,
+  "eggplant": 0.0080,
+  "corn": 0.0111,
+  "radish": 0.00859,
+  "wheat": 0.01866,
+  "kale": 0.0185,
+  "soybean": 0.0018,
+  "barley": 0.0200,
+  "rhubarb": 0.00058,
+  "zucchini": 0.00061,
+  "yam": 0.00251,
+  "broccoli": 0.00363,
+  "pepper": 0.00697,
+  "onion": 0.01214,
+  "turnip": 0.01061,
+  "artichoke": 0.00983,
+  "grape": 0.23666,
+  "rice": 0.25658,
+  "olive": 0.29894,
+  "tomato": 0.00478,
+  "lemon": 0.00986,
+  "blueberry": 0.01384,
+  "orange": 0.01399,
+  "apple": 0.01830,
+  "banana": 0.01998
 };
+
+// Exported as BETTY_SHOP_PRICES for backward-compatibility with all imports
+export const BETTY_SHOP_PRICES = CROP_FLOWER_PRICES;
 
 if (typeof window !== 'undefined') {
   window.BACKEND_URL = BACKEND_URL;

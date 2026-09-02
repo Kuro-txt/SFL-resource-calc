@@ -1,5 +1,40 @@
 import mysql from 'mysql2/promise';
 
+const CROP_FLOWER_PRICES = {
+  "sunflower": 0.0003,
+  "potato": 0.00031,
+  "pumpkin": 0.0010,
+  "carrot": 0.00186,
+  "cabbage": 0.00146,
+  "beetroot": 0.0060,
+  "cauliflower": 0.00675,
+  "parsnip": 0.0120,
+  "eggplant": 0.0080,
+  "corn": 0.0111,
+  "radish": 0.00859,
+  "wheat": 0.01866,
+  "kale": 0.0185,
+  "soybean": 0.0018,
+  "barley": 0.0200,
+  "rhubarb": 0.00058,
+  "zucchini": 0.00061,
+  "yam": 0.00251,
+  "broccoli": 0.00363,
+  "pepper": 0.00697,
+  "onion": 0.01214,
+  "turnip": 0.01061,
+  "artichoke": 0.00983,
+  "grape": 0.23666,
+  "rice": 0.25658,
+  "olive": 0.29894,
+  "tomato": 0.00478,
+  "lemon": 0.00986,
+  "blueberry": 0.01384,
+  "orange": 0.01399,
+  "apple": 0.01830,
+  "banana": 0.01998
+};
+
 let pool = null;
 let isTableReady = false;
 
@@ -156,10 +191,30 @@ export default async function handler(req, res) {
           }));
         }
 
+        crops = crops.map(c => {
+          const cropName = c.name || c.item || 'Crop';
+          const cleanKey = cropName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const qty = parseFloat(c.qty || 0);
+          let fl = parseFloat(c.flowers || 0);
+          if (fl > (qty * 1.5) || fl <= 0) {
+            const fallbackP = CROP_FLOWER_PRICES[cleanKey] || 0.01;
+            fl = Math.ceil(fallbackP * qty * 0.9 * 1000) / 1000;
+          }
+          return {
+            name: cropName,
+            qty: qty,
+            flowers: fl
+          };
+        });
+
+        const totalNetFlowers = crops.length > 0 
+          ? crops.reduce((sum, c) => sum + (parseFloat(c.flowers) || 0), 0)
+          : parseFloat(r.net_flowers || 0);
+
         return {
           date: r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
           totalCount: parseFloat(r.total_count || 0),
-          netFlowers: parseFloat(r.net_flowers || 0).toFixed(3),
+          netFlowers: totalNetFlowers.toFixed(3),
           crops: crops,
           cropActivityYields: cropActivityYields
         };

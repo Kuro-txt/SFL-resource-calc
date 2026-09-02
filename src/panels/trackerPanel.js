@@ -1,4 +1,4 @@
-import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals } from '../utils/formatters.js';
+import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, getBettyUnitPrice } from '../utils/formatters.js';
 import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
 
 window.editingSnapshotDate = window.editingSnapshotDate || null;
@@ -10,13 +10,17 @@ export function initTrackerPanel() {
 }
 
 function getItemUnitPriceInFlowers(cleanName) {
-  if (!window.allPrices) return 0;
   let cleanTarget = normalizeItemKey(cleanName);
-  let matchedKey = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanTarget);
-  if (!matchedKey) return 0;
-
-  let price = parseFloat(window.allPrices[matchedKey]) || 0;
-  return price > 100 ? price / 1000 : price;
+  if (window.allPrices) {
+    let matchedKey = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanTarget);
+    if (matchedKey) {
+      let price = parseFloat(window.allPrices[matchedKey]) || 0;
+      if (price > 0) return price > 100 ? price / 1000 : price;
+    }
+  }
+  let betty = getBettyUnitPrice(cleanTarget);
+  if (betty !== null && betty > 0) return betty;
+  return 0.01;
 }
 
 export async function updatePreHarvestUI() {
@@ -97,8 +101,8 @@ export function renderSnapshotHistory() {
         const cropName = crop.name || crop.item || 'Item';
         const cleanK = normalizeItemKey(cropName);
 
-        if ((cropFlowers <= 0 || cropFlowers > 50000) && cropQty > 0) {
-          let unitPrice = getItemUnitPriceInFlowers(cleanK);
+        let unitPrice = getItemUnitPriceInFlowers(cleanK);
+        if (cropFlowers <= 0 || cropFlowers > (cropQty * 1.5) || unitPrice > 0) {
           cropFlowers = roundUpToThreeDecimals((unitPrice * cropQty) * (1 - taxRate));
         }
 
@@ -139,7 +143,9 @@ export function renderSnapshotHistory() {
       : cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0);
 
     let recordedNet = parseFloat(entry.netFlowers || entry.net_flowers || 0);
-    let finalNetFlowers = calculatedRowNetFlowers > 0 ? calculatedRowNetFlowers : recordedNet;
+    let finalNetFlowers = calculatedRowNetFlowers > 0 
+      ? calculatedRowNetFlowers 
+      : (recordedNet < 500 ? recordedNet : 0);
 
     let tr = document.createElement('tr');
     tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
