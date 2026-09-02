@@ -130,25 +130,40 @@ export default async function handler(req, res) {
       let query = 'SELECT * FROM user_daily_yields WHERE 1=1';
       const params = [];
 
-      if (farmId) {
+      if (farmId && userId) {
+        query += ' AND (farm_id = ? OR user_id = ?)';
+        params.push(farmId, userId);
+      } else if (farmId) {
         query += ' AND farm_id = ?';
         params.push(farmId);
-      }
-      if (userId) {
+      } else if (userId) {
         query += ' AND user_id = ?';
         params.push(userId);
       }
 
-      query += ' ORDER BY yield_date DESC LIMIT 31';
+      query += ' ORDER BY yield_date DESC LIMIT 100';
       const [rows] = await pool.query(query, params);
 
-      const formatted = (rows || []).map(r => ({
-        date: r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
-        totalCount: parseFloat(r.total_count || 0),
-        netFlowers: parseFloat(r.net_flowers || 0).toFixed(3),
-        crops: typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : (r.crops || []),
-        cropActivityYields: typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : (r.crop_activity_yields || [])
-      }));
+      const formatted = (rows || []).map(r => {
+        let crops = typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : (r.crops || []);
+        const cropActivityYields = typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : (r.crop_activity_yields || []);
+
+        if ((!crops || crops.length === 0) && Array.isArray(cropActivityYields) && cropActivityYields.length > 0) {
+          crops = cropActivityYields.map(c => ({
+            name: c.crop || c.name || 'Crop',
+            qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
+            flowers: parseFloat(c.netFlowers || c.flowers || 0)
+          }));
+        }
+
+        return {
+          date: r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
+          totalCount: parseFloat(r.total_count || 0),
+          netFlowers: parseFloat(r.net_flowers || 0).toFixed(3),
+          crops: crops,
+          cropActivityYields: cropActivityYields
+        };
+      });
 
       return res.status(200).json({ success: true, data: formatted });
     }

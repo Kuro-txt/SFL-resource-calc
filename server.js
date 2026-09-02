@@ -671,6 +671,7 @@ async function backfillDailyYields() {
       const startAct = startRecord.farm_activity || {};
       const endAct = endRecord.farm_activity || {};
 
+      let cropsList = [];
       let cropActivityYields = [];
       let totalHarvestCount = 0;
       let totalNetFlowers = 0;
@@ -699,6 +700,13 @@ async function backfillDailyYields() {
               unitPrice: unitPrice,
               netFlowers: netFlowers
             });
+
+            cropsList.push({
+              name: cropName,
+              qty: totalProduced,
+              flowers: netFlowers
+            });
+
             totalHarvestCount += totalProduced;
             totalNetFlowers += netFlowers;
           }
@@ -712,7 +720,7 @@ async function backfillDailyYields() {
           yield_date: targetDate,
           total_count: Math.ceil(totalHarvestCount * 10) / 10,
           net_flowers: Math.ceil(totalNetFlowers * 1000) / 1000,
-          crops: [],
+          crops: cropsList,
           crop_activity_yields: cropActivityYields
         }, { onConflict: 'user_id,yield_date' });
 
@@ -737,7 +745,7 @@ async function backfillDailyYields() {
               tidbId, user.id, user.farm_id, targetDate,
               Math.ceil(totalHarvestCount * 10) / 10,
               Math.ceil(totalNetFlowers * 1000) / 1000,
-              JSON.stringify([]),
+              JSON.stringify(cropsList),
               JSON.stringify(cropActivityYields)
             ]);
           } catch (e) {
@@ -984,25 +992,40 @@ app.get('/api/yields', async (req, res) => {
     let query = 'SELECT * FROM user_daily_yields WHERE 1=1';
     const params = [];
 
-    if (farmId) {
+    if (farmId && userId) {
+      query += ' AND (farm_id = ? OR user_id = ?)';
+      params.push(farmId, userId);
+    } else if (farmId) {
       query += ' AND farm_id = ?';
       params.push(farmId);
-    }
-    if (userId) {
+    } else if (userId) {
       query += ' AND user_id = ?';
       params.push(userId);
     }
 
-    query += ' ORDER BY yield_date DESC LIMIT 31';
+    query += ' ORDER BY yield_date DESC LIMIT 100';
     const [rows] = await pool.query(query, params);
 
-    const formatted = (rows || []).map(r => ({
-      date: r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
-      totalCount: parseFloat(r.total_count || 0),
-      netFlowers: parseFloat(r.net_flowers || 0).toFixed(3),
-      crops: typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : (r.crops || []),
-      cropActivityYields: typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : (r.crop_activity_yields || [])
-    }));
+    const formatted = (rows || []).map(r => {
+      let crops = typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : (r.crops || []);
+      const cropActivityYields = typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : (r.crop_activity_yields || []);
+
+      if ((!crops || crops.length === 0) && Array.isArray(cropActivityYields) && cropActivityYields.length > 0) {
+        crops = cropActivityYields.map(c => ({
+          name: c.crop || c.name || 'Crop',
+          qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
+          flowers: parseFloat(c.netFlowers || c.flowers || 0)
+        }));
+      }
+
+      return {
+        date: r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
+        totalCount: parseFloat(r.total_count || 0),
+        netFlowers: parseFloat(r.net_flowers || 0).toFixed(3),
+        crops: crops,
+        cropActivityYields: cropActivityYields
+      };
+    });
 
     res.status(200).json({ success: true, data: formatted });
   } catch (err) {

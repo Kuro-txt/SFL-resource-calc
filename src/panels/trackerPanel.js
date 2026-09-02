@@ -79,7 +79,15 @@ export function renderSnapshotHistory() {
     let isEditing = window.editingSnapshotDate === entryDate;
     let cleanDateId = entryDate.replace(/[^a-zA-Z0-9]/g, '');
 
-    let cropsList = Array.isArray(entry.crops) ? entry.crops : [];
+    // Support both entry.crops and entry.cropActivityYields so items are ALWAYS displayed
+    let cropsList = (Array.isArray(entry.crops) && entry.crops.length > 0)
+      ? entry.crops
+      : (Array.isArray(entry.cropActivityYields) ? entry.cropActivityYields.map(c => ({
+          name: c.crop || c.name || 'Crop',
+          qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
+          flowers: parseFloat(c.netFlowers || c.flowers || 0)
+        })) : []);
+
     let calculatedRowNetFlowers = 0;
 
     let cropBadges = cropsList
@@ -89,7 +97,7 @@ export function renderSnapshotHistory() {
         const cropName = crop.name || crop.item || 'Item';
         const cleanK = normalizeItemKey(cropName);
 
-        if ((cropFlowers <= 0 || cropFlowers > 500) && cropQty > 0) {
+        if ((cropFlowers <= 0 || cropFlowers > 50000) && cropQty > 0) {
           let unitPrice = getItemUnitPriceInFlowers(cleanK);
           cropFlowers = roundUpToThreeDecimals((unitPrice * cropQty) * (1 - taxRate));
         }
@@ -130,7 +138,8 @@ export function renderSnapshotHistory() {
       ? rawTotalCount 
       : cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0);
 
-    let finalNetFlowers = calculatedRowNetFlowers;
+    let recordedNet = parseFloat(entry.netFlowers || entry.net_flowers || 0);
+    let finalNetFlowers = calculatedRowNetFlowers > 0 ? calculatedRowNetFlowers : recordedNet;
 
     let tr = document.createElement('tr');
     tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
@@ -283,14 +292,53 @@ export async function loadCloudYieldHistory() {
   }
 
   if (cloudYields.length > 0) {
-    const cloudHistory = cloudYields.map(item => ({
-      date: item.yield_date || item.date,
-      totalCount: parseFloat(item.total_count || item.totalCount || 0),
-      crops: item.crops || [],
-      cropActivityYields: item.crop_activity_yields || item.cropActivityYields || [],
-      netFlowers: parseFloat(item.net_flowers || item.netFlowers || 0).toFixed(3)
-    }));
-    localStorage.setItem('sfl_daily_snapshots', JSON.stringify(cloudHistory));
+    let existingLocal = [];
+    try {
+      existingLocal = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+    } catch(e) { existingLocal = []; }
+
+    const mergedMap = new Map();
+    // 1. Keep existing local records so older snapshots are never lost
+    if (Array.isArray(existingLocal)) {
+      existingLocal.forEach(item => {
+        const d = item.date || item.yield_date;
+        if (d) mergedMap.set(d, item);
+      });
+    }
+
+    // 2. Overlay cloud yields and guarantee crops details are filled
+    cloudYields.forEach(item => {
+      const d = item.yield_date || item.date;
+      if (!d) return;
+
+      const existing = mergedMap.get(d) || {};
+      const cloudCrops = Array.isArray(item.crops) && item.crops.length > 0 ? item.crops : [];
+      const cloudActs = Array.isArray(item.crop_activity_yields) ? item.crop_activity_yields : (item.cropActivityYields || []);
+
+      let effectiveCrops = cloudCrops;
+      if (effectiveCrops.length === 0 && cloudActs.length > 0) {
+        effectiveCrops = cloudActs.map(c => ({
+          name: c.crop || c.name || 'Crop',
+          qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
+          flowers: parseFloat(c.netFlowers || c.flowers || 0)
+        }));
+      }
+
+      if (effectiveCrops.length === 0 && Array.isArray(existing.crops) && existing.crops.length > 0) {
+        effectiveCrops = existing.crops;
+      }
+
+      mergedMap.set(d, {
+        date: d,
+        totalCount: parseFloat(item.total_count || item.totalCount || existing.totalCount || 0),
+        crops: effectiveCrops,
+        cropActivityYields: cloudActs.length > 0 ? cloudActs : (existing.cropActivityYields || []),
+        netFlowers: parseFloat(item.net_flowers || item.netFlowers || existing.netFlowers || 0).toFixed(3)
+      });
+    });
+
+    const finalHistory = Array.from(mergedMap.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    localStorage.setItem('sfl_daily_snapshots', JSON.stringify(finalHistory));
     renderSnapshotHistory();
   }
 }

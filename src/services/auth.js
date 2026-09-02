@@ -145,14 +145,51 @@ export async function loadCloudUserData() {
   }
 
   if (yields && yields.length > 0) {
-    let history = yields.map(y => ({
-      date: y.yield_date || y.date,
-      totalCount: parseFloat(y.total_count || y.totalCount || 0),
-      netFlowers: y.net_flowers || y.netFlowers,
-      crops: y.crops || [],
-      cropActivityYields: y.crop_activity_yields || y.cropActivityYields || []
-    }));
-    localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
+    let existingLocal = [];
+    try {
+      existingLocal = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+    } catch(e) { existingLocal = []; }
+
+    const mergedMap = new Map();
+    if (Array.isArray(existingLocal)) {
+      existingLocal.forEach(item => {
+        const d = item.date || item.yield_date;
+        if (d) mergedMap.set(d, item);
+      });
+    }
+
+    yields.forEach(y => {
+      const d = y.yield_date || y.date;
+      if (!d) return;
+
+      const existing = mergedMap.get(d) || {};
+      const cloudCrops = Array.isArray(y.crops) && y.crops.length > 0 ? y.crops : [];
+      const cloudActs = Array.isArray(y.crop_activity_yields) ? y.crop_activity_yields : (y.cropActivityYields || []);
+
+      let effectiveCrops = cloudCrops;
+      if (effectiveCrops.length === 0 && cloudActs.length > 0) {
+        effectiveCrops = cloudActs.map(c => ({
+          name: c.crop || c.name || 'Crop',
+          qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
+          flowers: parseFloat(c.netFlowers || c.flowers || 0)
+        }));
+      }
+
+      if (effectiveCrops.length === 0 && Array.isArray(existing.crops) && existing.crops.length > 0) {
+        effectiveCrops = existing.crops;
+      }
+
+      mergedMap.set(d, {
+        date: d,
+        totalCount: parseFloat(y.total_count || y.totalCount || existing.totalCount || 0),
+        crops: effectiveCrops,
+        cropActivityYields: cloudActs.length > 0 ? cloudActs : (existing.cropActivityYields || []),
+        netFlowers: parseFloat(y.net_flowers || y.netFlowers || existing.netFlowers || 0).toFixed(3)
+      });
+    });
+
+    const finalHistory = Array.from(mergedMap.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    localStorage.setItem('sfl_daily_snapshots', JSON.stringify(finalHistory));
   }
 
   if (typeof window.renderSnapshotHistory === 'function') window.renderSnapshotHistory();
