@@ -573,8 +573,185 @@ async function processYieldCalculation() {
       console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
     }
 
+    // Also persist in TiDB Cloud Serverless (immune to Supabase RLS policies)
+    try {
+      const pool = getTiDBPool();
+      if (pool) {
+        await ensureYieldsTableCreated(pool);
+        const tidbId = `yield_${user.id}_${todayDate}`;
+        const insertYieldSql = `
+          INSERT INTO user_daily_yields 
+          (id, user_id, farm_id, yield_date, total_count, net_flowers, crops, crop_activity_yields)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            total_count = VALUES(total_count),
+            net_flowers = VALUES(net_flowers),
+            crops = VALUES(crops),
+            crop_activity_yields = VALUES(crop_activity_yields)
+        `;
+        await pool.query(insertYieldSql, [
+          tidbId,
+          user.id,
+          cleanFarmId,
+          todayDate,
+          Math.ceil(totalHarvestCount * 10) / 10,
+          Math.ceil(totalNetFlowers * 1000) / 1000,
+          JSON.stringify(yieldsList),
+          JSON.stringify(cropActivityYields)
+        ]);
+        console.log(`☁️ [TiDB Cloud] Yield archived for Farm #${cleanFarmId} on ${todayDate}`);
+      }
+    } catch (tidbErr) {
+      console.warn(`⚠️ TiDB daily yield notice for Farm #${cleanFarmId}: ${tidbErr.message}`);
+    }
+
     await delay(4500);
   }
+}
+
+let isYieldsTableReady = false;
+async function ensureYieldsTableCreated(pool) {
+  if (isYieldsTableReady || !pool) return;
+  const createTableSql = `
+    CREATE TABLE IF NOT EXISTS user_daily_yields (
+      id VARCHAR(64) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      farm_id BIGINT NOT NULL,
+      yield_date DATE NOT NULL,
+      total_count DECIMAL(20, 4) NOT NULL,
+      net_flowers DECIMAL(20, 4) NOT NULL,
+      crops JSON,
+      crop_activity_yields JSON,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_user_date (user_id, yield_date),
+      INDEX idx_farm_date (farm_id, yield_date)
+    );
+  `;
+  try {
+    await pool.query(createTableSql);
+    isYieldsTableReady = true;
+  } catch (err) {
+    console.warn("user_daily_yields auto-migration notice:", err.message);
+  }
+}
+
+async function backfillDailyYields() {
+  console.log("🔄 Starting daily yields backfill from preharvest_baselines...");
+  const { data: users, error: uErr } = await supabase.from('profiles').select('id, farm_id, tracked_items, crop_base_yields');
+  if (uErr || !users || users.length === 0) return { success: false, error: "No user profiles found: " + uErr?.message };
+
+  const { data: baselines, error: bErr } = await supabase
+    .from('preharvest_baselines')
+    .select('user_id, farm_id, snapshot_date, stock, farm_activity')
+    .order('snapshot_date', { ascending: true });
+
+  if (bErr || !baselines || baselines.length === 0) return { success: false, error: "No baselines found: " + bErr?.message };
+
+  const userBaselines = new Map();
+  baselines.forEach(b => {
+    if (!userBaselines.has(b.user_id)) userBaselines.set(b.user_id, []);
+    userBaselines.get(b.user_id).push(b);
+  });
+
+  let totalBackfilled = 0;
+  const pool = getTiDBPool();
+  if (pool) await ensureYieldsTableCreated(pool);
+
+  for (const user of users) {
+    const list = userBaselines.get(user.id);
+    if (!list || list.length < 2) continue;
+
+    const baseYields = user.crop_base_yields || {};
+
+    for (let i = 0; i < list.length - 1; i++) {
+      const startRecord = list[i];
+      const endRecord = list[i + 1];
+      const targetDate = startRecord.snapshot_date;
+
+      const startAct = startRecord.farm_activity || {};
+      const endAct = endRecord.farm_activity || {};
+
+      let cropActivityYields = [];
+      let totalHarvestCount = 0;
+      let totalNetFlowers = 0;
+
+      for (let actKey in endAct) {
+        if (actKey.toLowerCase().includes('harvested')) {
+          let cropName = actKey.replace(/harvested/i, '').trim();
+          let cleanCropKey = cropName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (!SFL_PLOT_CROPS.has(cleanCropKey)) continue;
+
+          let startCount = parseFloat(startAct[actKey] || 0);
+          let endCount = parseFloat(endAct[actKey] || 0);
+          let harvestCycles = endCount - startCount;
+
+          if (harvestCycles > 0) {
+            let baseYield = parseFloat(baseYields[cleanCropKey] || baseYields['_global']) || 1.0;
+            let totalProduced = Math.ceil((harvestCycles * baseYield) * 10) / 10;
+            let unitPrice = BETTY_SHOP_PRICES[cleanCropKey] || 0;
+            let netFlowers = Math.ceil((unitPrice * totalProduced * 0.9) * 1000) / 1000;
+
+            cropActivityYields.push({
+              crop: cropName,
+              harvestCount: harvestCycles,
+              baseYield: baseYield,
+              totalProduced: totalProduced,
+              unitPrice: unitPrice,
+              netFlowers: netFlowers
+            });
+            totalHarvestCount += totalProduced;
+            totalNetFlowers += netFlowers;
+          }
+        }
+      }
+
+      if (cropActivityYields.length > 0) {
+        // 1. Supabase upsert
+        const { error: dbErr } = await supabase.from('daily_yields').upsert({
+          user_id: user.id,
+          yield_date: targetDate,
+          total_count: Math.ceil(totalHarvestCount * 10) / 10,
+          net_flowers: Math.ceil(totalNetFlowers * 1000) / 1000,
+          crops: [],
+          crop_activity_yields: cropActivityYields
+        }, { onConflict: 'user_id,yield_date' });
+
+        if (dbErr) {
+          console.warn(`Supabase backfill notice for Farm #${user.farm_id} (${targetDate}): ${dbErr.message}`);
+        }
+
+        // 2. TiDB Cloud upsert
+        if (pool) {
+          try {
+            const tidbId = `yield_${user.id}_${targetDate}`;
+            await pool.query(`
+              INSERT INTO user_daily_yields 
+              (id, user_id, farm_id, yield_date, total_count, net_flowers, crops, crop_activity_yields)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              ON DUPLICATE KEY UPDATE
+                total_count = VALUES(total_count),
+                net_flowers = VALUES(net_flowers),
+                crops = VALUES(crops),
+                crop_activity_yields = VALUES(crop_activity_yields)
+            `, [
+              tidbId, user.id, user.farm_id, targetDate,
+              Math.ceil(totalHarvestCount * 10) / 10,
+              Math.ceil(totalNetFlowers * 1000) / 1000,
+              JSON.stringify([]),
+              JSON.stringify(cropActivityYields)
+            ]);
+          } catch (e) {
+            console.warn("TiDB backfill error:", e.message);
+          }
+        }
+
+        totalBackfilled++;
+      }
+    }
+  }
+
+  console.log(`🎉 Backfill finished: restored ${totalBackfilled} daily yield records.`);
+  return { success: true, backfilledRecords: totalBackfilled };
 }
 
 // ----------------------------------------------------
@@ -785,6 +962,52 @@ cron.schedule('0 22 * * *', () => {
 cron.schedule('33 0,6,12,18 * * *', () => {
   console.log('⏰ [Cron] Starting 4x daily scheduled trade auto-sync at :33 UTC (13s gap, 3 retries)...');
   processAutoSyncTrades().catch(err => console.error("Auto-sync trades error:", err.message));
+});
+
+app.get('/api/cron/backfill-yields', async (req, res) => {
+  if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
+  const result = await backfillDailyYields();
+  res.status(200).json(result);
+});
+
+app.get('/api/yields', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const { farmId, userId } = req.query;
+
+  const pool = getTiDBPool();
+  if (!pool) {
+    return res.status(200).json({ success: false, data: [], message: 'TiDB not configured' });
+  }
+
+  try {
+    await ensureYieldsTableCreated(pool);
+    let query = 'SELECT * FROM user_daily_yields WHERE 1=1';
+    const params = [];
+
+    if (farmId) {
+      query += ' AND farm_id = ?';
+      params.push(farmId);
+    }
+    if (userId) {
+      query += ' AND user_id = ?';
+      params.push(userId);
+    }
+
+    query += ' ORDER BY yield_date DESC LIMIT 31';
+    const [rows] = await pool.query(query, params);
+
+    const formatted = (rows || []).map(r => ({
+      date: r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
+      totalCount: parseFloat(r.total_count || 0),
+      netFlowers: parseFloat(r.net_flowers || 0).toFixed(3),
+      crops: typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : (r.crops || []),
+      cropActivityYields: typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : (r.crop_activity_yields || [])
+    }));
+
+    res.status(200).json({ success: true, data: formatted });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('*', (req, res) => {

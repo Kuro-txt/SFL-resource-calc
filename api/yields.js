@@ -1,0 +1,192 @@
+import mysql from 'mysql2/promise';
+
+let pool = null;
+let isTableReady = false;
+
+function getTiDBConfig() {
+  const rawUrl = 
+    process.env.TIDB_DATABASE_URL || 
+    process.env.DATABASE_URL || 
+    process.env.TIDB_URL || 
+    process.env.MYSQL_URL || 
+    '';
+
+  if (!rawUrl) return null;
+  const cleanUrl = rawUrl.trim().replace(/^['"]|['"]$/g, '');
+
+  const match = cleanUrl.match(/^mysql(?:2)?:\/\/(.*?):(.*?)@([^:/]+)(?::(\d+))?(?:\/([^?]*))?(?:\?(.*))?$/);
+  if (match) {
+    const [, user, password, host, portStr, dbName] = match;
+    let database = dbName || 'test';
+    if (!database || ['sys', 'information_schema', 'performance_schema'].includes(database)) {
+      database = 'test';
+    }
+    return {
+      host,
+      port: parseInt(portStr || '4000', 10),
+      user: decodeURIComponent(user),
+      password: decodeURIComponent(password),
+      database,
+      ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false }
+    };
+  }
+
+  try {
+    const parsed = new URL(cleanUrl);
+    let dbName = parsed.pathname.replace(/^\//, '').split('?')[0] || 'test';
+    if (!dbName || ['sys', 'information_schema', 'performance_schema'].includes(dbName)) {
+      dbName = 'test';
+    }
+    return {
+      host: parsed.hostname,
+      port: parseInt(parsed.port || '4000', 10),
+      user: decodeURIComponent(parsed.username || ''),
+      password: decodeURIComponent(parsed.password || ''),
+      database: dbName,
+      ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false }
+    };
+  } catch {
+    return { uri: cleanUrl, database: 'test', ssl: { rejectUnauthorized: false } };
+  }
+}
+
+function getTiDBPool() {
+  const config = getTiDBConfig();
+  if (!config) return null;
+
+  if (!pool) {
+    const db = config.database || 'test';
+    if (config.host && config.user) {
+      pool = mysql.createPool({
+        host: config.host,
+        port: config.port || 4000,
+        user: config.user,
+        password: config.password,
+        database: db,
+        ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false },
+        waitForConnections: true,
+        connectionLimit: 4,
+        maxIdle: 2,
+        idleTimeout: 30000,
+        queueLimit: 0
+      });
+    } else {
+      pool = mysql.createPool({ uri: config.cleanUrl, database: db, ssl: { rejectUnauthorized: false } });
+    }
+  }
+  return pool;
+}
+
+async function ensureYieldsTableCreated(pool, dbName = 'test') {
+  if (isTableReady || !pool) return;
+  const createTableSql = `
+    CREATE TABLE IF NOT EXISTS user_daily_yields (
+      id VARCHAR(64) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      farm_id BIGINT NOT NULL,
+      yield_date DATE NOT NULL,
+      total_count DECIMAL(20, 4) NOT NULL,
+      net_flowers DECIMAL(20, 4) NOT NULL,
+      crops JSON,
+      crop_activity_yields JSON,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_user_date (user_id, yield_date),
+      INDEX idx_farm_date (farm_id, yield_date)
+    );
+  `;
+  try {
+    await pool.query(`CREATE DATABASE IF NOT EXISTS ${dbName}`);
+    await pool.query(`USE ${dbName}`);
+    await pool.query(createTableSql);
+    isTableReady = true;
+  } catch (err) {
+    console.warn("user_daily_yields auto-migration notice:", err.message);
+  }
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  const config = getTiDBConfig();
+  if (!config) {
+    return res.status(200).json({ success: false, data: [], message: 'TiDB not configured' });
+  }
+
+  const pool = getTiDBPool();
+  const dbName = config.database || 'test';
+
+  try {
+    await ensureYieldsTableCreated(pool, dbName);
+
+    if (req.method === 'GET') {
+      const { farmId, userId } = req.query;
+
+      let query = 'SELECT * FROM user_daily_yields WHERE 1=1';
+      const params = [];
+
+      if (farmId) {
+        query += ' AND farm_id = ?';
+        params.push(farmId);
+      }
+      if (userId) {
+        query += ' AND user_id = ?';
+        params.push(userId);
+      }
+
+      query += ' ORDER BY yield_date DESC LIMIT 31';
+      const [rows] = await pool.query(query, params);
+
+      const formatted = (rows || []).map(r => ({
+        date: r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
+        totalCount: parseFloat(r.total_count || 0),
+        netFlowers: parseFloat(r.net_flowers || 0).toFixed(3),
+        crops: typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : (r.crops || []),
+        cropActivityYields: typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : (r.crop_activity_yields || [])
+      }));
+
+      return res.status(200).json({ success: true, data: formatted });
+    }
+
+    if (req.method === 'POST') {
+      const { userId, farmId, date, totalCount, netFlowers, crops, cropActivityYields } = req.body || {};
+      if (!userId || !date) {
+        return res.status(400).json({ error: 'userId and date required' });
+      }
+
+      const tidbId = `yield_${userId}_${date}`;
+      const insertSql = `
+        INSERT INTO user_daily_yields 
+        (id, user_id, farm_id, yield_date, total_count, net_flowers, crops, crop_activity_yields)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          total_count = VALUES(total_count),
+          net_flowers = VALUES(net_flowers),
+          crops = VALUES(crops),
+          crop_activity_yields = VALUES(crop_activity_yields)
+      `;
+
+      await pool.query(insertSql, [
+        tidbId,
+        userId,
+        farmId || 0,
+        date,
+        parseFloat(totalCount || 0),
+        parseFloat(netFlowers || 0),
+        JSON.stringify(crops || []),
+        JSON.stringify(cropActivityYields || [])
+      ]);
+
+      return res.status(200).json({ success: true, saved: true });
+    }
+
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}

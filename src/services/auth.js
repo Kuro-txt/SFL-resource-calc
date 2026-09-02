@@ -117,19 +117,40 @@ export async function loadCloudUserData() {
   await window.supabaseClient.from('daily_yields').delete().eq('user_id', window.currentUser.id).lt('yield_date', cutoffDateStr);
   await window.supabaseClient.from('preharvest_baselines').delete().eq('user_id', window.currentUser.id).lt('snapshot_date', cutoffDateStr);
 
-  const { data: yields } = await window.supabaseClient
-    .from('daily_yields')
-    .select('*')
-    .eq('user_id', window.currentUser.id)
-    .order('yield_date', { ascending: false });
+  let yields = [];
+  try {
+    const { data } = await window.supabaseClient
+      .from('daily_yields')
+      .select('*')
+      .eq('user_id', window.currentUser.id)
+      .order('yield_date', { ascending: false });
+    yields = data || [];
+  } catch (e) {
+    console.warn("Supabase yields fetch notice:", e.message);
+  }
+
+  // If Supabase returned 0 records (e.g. blocked by RLS), fallback to TiDB Cloud API
+  if (yields.length === 0) {
+    try {
+      const farmId = profile?.farm_id || localStorage.getItem('sfl_farm_id') || '';
+      const backend = window.BACKEND_URL || '';
+      const res = await fetch(`${backend}/api/yields?farmId=${encodeURIComponent(farmId)}&userId=${encodeURIComponent(window.currentUser.id)}`);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        yields = json.data;
+      }
+    } catch (e) {
+      console.warn("TiDB yields fallback fetch notice:", e.message);
+    }
+  }
 
   if (yields && yields.length > 0) {
     let history = yields.map(y => ({
-      date: y.yield_date,
-      totalCount: parseFloat(y.total_count),
-      netFlowers: y.net_flowers,
-      crops: y.crops,
-      cropActivityYields: y.crop_activity_yields || []
+      date: y.yield_date || y.date,
+      totalCount: parseFloat(y.total_count || y.totalCount || 0),
+      netFlowers: y.net_flowers || y.netFlowers,
+      crops: y.crops || [],
+      cropActivityYields: y.crop_activity_yields || y.cropActivityYields || []
     }));
     localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
   }

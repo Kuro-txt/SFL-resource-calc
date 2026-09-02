@@ -247,6 +247,9 @@ export async function deleteSnapshotRow(date) {
 export async function loadCloudYieldHistory() {
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
   const activeUser = window.currentUser;
+  const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim() || '';
+
+  let cloudYields = [];
 
   if (activeUser && client) {
     try {
@@ -257,19 +260,38 @@ export async function loadCloudYieldHistory() {
         .order('yield_date', { ascending: false });
 
       if (!error && Array.isArray(data) && data.length > 0) {
-        const cloudHistory = data.map(item => ({
-          date: item.yield_date || item.date,
-          totalCount: parseFloat(item.total_count || item.totalCount || 0),
-          crops: item.crops || [],
-          cropActivityYields: item.crop_activity_yields || [],
-          netFlowers: parseFloat(item.net_flowers || item.netFlowers || 0).toFixed(3)
-        }));
-        localStorage.setItem('sfl_daily_snapshots', JSON.stringify(cloudHistory));
-        renderSnapshotHistory();
+        cloudYields = data;
       }
     } catch (err) {
-      console.warn("Cloud yield fetch skipped:", err.message);
+      console.warn("Supabase yield fetch notice:", err.message);
     }
+  }
+
+  // Fallback to TiDB Cloud API (immune to Supabase RLS restrictions)
+  if (cloudYields.length === 0 && (farmId || activeUser?.id)) {
+    try {
+      const backend = window.BACKEND_URL || '';
+      const url = `${backend}/api/yields?farmId=${encodeURIComponent(farmId)}&userId=${encodeURIComponent(activeUser?.id || '')}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        cloudYields = json.data;
+      }
+    } catch (err) {
+      console.warn("TiDB yield fallback notice:", err.message);
+    }
+  }
+
+  if (cloudYields.length > 0) {
+    const cloudHistory = cloudYields.map(item => ({
+      date: item.yield_date || item.date,
+      totalCount: parseFloat(item.total_count || item.totalCount || 0),
+      crops: item.crops || [],
+      cropActivityYields: item.crop_activity_yields || item.cropActivityYields || [],
+      netFlowers: parseFloat(item.net_flowers || item.netFlowers || 0).toFixed(3)
+    }));
+    localStorage.setItem('sfl_daily_snapshots', JSON.stringify(cloudHistory));
+    renderSnapshotHistory();
   }
 }
 
