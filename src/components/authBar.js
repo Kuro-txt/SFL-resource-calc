@@ -1,6 +1,6 @@
 import { BACKEND_URL } from '../config/constants.js';
-import { fetchMarketplaceTrades } from '../panels/tradeHistoryPanel.js';
-import { renderNpcCards } from '../panels/npcGiftsPanel.js';
+import { fetchMarketplaceTrades } from '../panels/tradeHistory/index.js';
+import { renderNpcCards } from '../panels/npc/npcGiftsPanel.js';
 import { renderWishlist } from '../panels/wishlistPanel.js';
 
 window.farmInventoryData = window.farmInventoryData || {};
