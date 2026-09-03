@@ -214,12 +214,83 @@ app.get('/api/cron/backfill-yields', async (req, res) => {
   res.status(200).json(result);
 });
 
-// ── /api/yields — Serve daily yield history from TiDB Cloud ───────────────
+// ── /api/yields — Serve daily yield history from Supabase (with TiDB fallback) ───────────────
 app.get('/api/yields', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const { farmId, userId } = req.query;
+
+  // 1. Try Supabase daily_yields first
+  try {
+    let targetUserId = userId ? String(userId).trim() : '';
+    if (!targetUserId && farmId) {
+      const cleanFarmId = String(farmId).trim();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('farm_id', cleanFarmId)
+        .maybeSingle();
+      if (profile?.id) targetUserId = profile.id;
+    }
+
+    if (targetUserId) {
+      const { data: supaRows, error: sErr } = await supabase
+        .from('daily_yields')
+        .select('*')
+        .eq('user_id', targetUserId)
+        .gt('total_count', 0)
+        .order('yield_date', { ascending: false })
+        .limit(100);
+
+      if (!sErr && Array.isArray(supaRows) && supaRows.length > 0) {
+        const formatted = supaRows.map(r => {
+          let crops = Array.isArray(r.crops) ? r.crops : (typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : []);
+          const acts = Array.isArray(r.crop_activity_yields) ? r.crop_activity_yields : (typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : []);
+
+          if (!crops.length && acts.length) {
+            crops = acts.map(c => ({
+              name: c.crop || c.name || 'Crop',
+              qty:     parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
+              flowers: parseFloat(c.netFlowers    || c.flowers || 0)
+            }));
+          }
+
+          crops = crops.map(c => {
+            const name = c.name || c.item || 'Crop';
+            const key  = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const qty  = parseFloat(c.qty || 0);
+            let fl     = parseFloat(c.flowers || 0);
+            if (fl > qty * 1.5 || fl <= 0) {
+              fl = Math.ceil((CROP_FLOWER_PRICES[key] || 0.01) * qty * 0.9 * 1000) / 1000;
+            }
+            return { name, qty, flowers: fl };
+          });
+
+          const netFlowers = crops.length
+            ? crops.reduce((s, c) => s + (parseFloat(c.flowers) || 0), 0)
+            : parseFloat(r.net_flowers || 0);
+
+          return {
+            date:               r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
+            totalCount:         parseFloat(r.total_count || 0),
+            netFlowers:         netFlowers.toFixed(3),
+            crops,
+            cropActivityYields: acts
+          };
+        });
+
+        const valid = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
+        if (valid.length > 0) {
+          return res.status(200).json({ success: true, source: 'supabase', data: valid });
+        }
+      }
+    }
+  } catch (supaErr) {
+    console.warn("Supabase /api/yields notice:", supaErr.message);
+  }
+
+  // 2. Fallback to TiDB Cloud if Supabase is unavailable or returned empty
   const pool = getTiDBPool();
-  if (!pool) return res.status(200).json({ success: false, data: [], message: 'TiDB not configured' });
+  if (!pool) return res.status(200).json({ success: false, data: [], message: 'No yield records found' });
 
   try {
     await ensureYieldsTableCreated(pool);

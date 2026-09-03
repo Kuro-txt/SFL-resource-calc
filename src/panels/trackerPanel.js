@@ -278,16 +278,29 @@ export async function loadCloudYieldHistory() {
 
   let cloudYields = [];
 
-  if (activeUser && client) {
+  if (client && (activeUser?.id || farmId)) {
     try {
-      const { data, error } = await client
-        .from('daily_yields')
-        .select('*')
-        .eq('user_id', activeUser.id)
-        .order('yield_date', { ascending: false });
+      let targetUserId = activeUser?.id;
+      if (!targetUserId && farmId) {
+        const { data: profile } = await client
+          .from('profiles')
+          .select('id')
+          .eq('farm_id', farmId)
+          .maybeSingle();
+        if (profile?.id) targetUserId = profile.id;
+      }
 
-      if (!error && Array.isArray(data) && data.length > 0) {
-        cloudYields = data;
+      if (targetUserId) {
+        const { data, error } = await client
+          .from('daily_yields')
+          .select('*')
+          .eq('user_id', targetUserId)
+          .gt('total_count', 0)
+          .order('yield_date', { ascending: false });
+
+        if (!error && Array.isArray(data) && data.length > 0) {
+          cloudYields = data;
+        }
       }
     } catch (err) {
       console.warn("Supabase yield fetch notice:", err.message);
