@@ -81,18 +81,18 @@ window.renderCropTrackerRows = renderCropTrackerRows;
 window.renderCropWeeklySummary = renderCropWeeklySummary;
 window.loadCloudBaseYields = loadCloudBaseYields;
 
-export { 
-  initCropTrackerPanel, 
-  renderCropTrackerRows, 
+export {
+  renderCropTrackerRows,
   renderCropTrackerTemplate,
-  fetchAndApplyLandYields, 
-  fetchLiveCropDiff, 
+  fetchAndApplyLandYields,
+  fetchLiveCropDiff,
   saveCurrentActivityAsBaseline,
-  loadCloudBaseYields, 
-  saveBaseYieldSettings, 
+  loadCloudBaseYields,
+  saveBaseYieldSettings,
   updateCropBaseYield,
-  updateDailyCropHistoricalYield, 
-  applyGlobalYieldToAll, 
+  updateDailyCropHistoricalYield,
+  applyGlobalYieldToAll,
   applyWeeklyGlobalYieldToAll,
-  renderCropWeeklySummary 
+  renderCropWeeklySummary
 };
+

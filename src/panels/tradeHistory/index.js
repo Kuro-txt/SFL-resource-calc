@@ -56,4 +56,5 @@ window.switchSubTab = switchSubTab;
 window.setTradeFilter = setTradeFilter;
 window.exportTradesToCsv = exportTradesToCsv;
 
-export { initTradeHistoryPanel, fetchMarketplaceTrades, getTradeAmounts, renderTradeHistoryTemplate };
+export { fetchMarketplaceTrades, getTradeAmounts, renderTradeHistoryTemplate };
+
