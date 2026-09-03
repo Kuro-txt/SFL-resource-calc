@@ -84,13 +84,30 @@ export function renderSnapshotHistory() {
     let cleanDateId = entryDate.replace(/[^a-zA-Z0-9]/g, '');
 
     // Support both entry.crops and entry.cropActivityYields so items are ALWAYS displayed
-    let cropsList = (Array.isArray(entry.crops) && entry.crops.length > 0)
-      ? entry.crops
-      : (Array.isArray(entry.cropActivityYields) ? entry.cropActivityYields.map(c => ({
+    let rawCrops = entry.crops;
+    if (typeof rawCrops === 'string') {
+      try { rawCrops = JSON.parse(rawCrops); } catch(e) { rawCrops = []; }
+    }
+    let rawActs = entry.cropActivityYields || entry.crop_activity_yields;
+    if (typeof rawActs === 'string') {
+      try { rawActs = JSON.parse(rawActs); } catch(e) { rawActs = []; }
+    }
+
+    let cropsList = (Array.isArray(rawCrops) && rawCrops.length > 0)
+      ? rawCrops
+      : (Array.isArray(rawActs) ? rawActs.map(c => ({
           name: c.crop || c.name || 'Crop',
           qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
           flowers: parseFloat(c.netFlowers || c.flowers || 0)
         })) : []);
+
+    let rawTotalCount = parseFloat(entry.totalCount || entry.total_count);
+    let totalYieldCount = !isNaN(rawTotalCount) 
+      ? rawTotalCount 
+      : cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0);
+
+    // Skip empty dummy rows with 0 harvests and no crops (e.g. inactive baseline days)
+    if (totalYieldCount <= 0 && cropsList.length === 0) return;
 
     let calculatedRowNetFlowers = 0;
 
@@ -136,11 +153,6 @@ export function renderSnapshotHistory() {
         <button onclick="editSnapshotRow('${entryDate}')" class="bg-amber-600 text-amber-100 px-2 py-1 rounded text-[10px] font-bold hover:bg-amber-700 mr-1 shadow-sm cursor-pointer">✏️ Edit</button>
         <button onclick="deleteSnapshotRow('${entryDate}')" class="bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 shadow-sm cursor-pointer">🗑️</button>
       `;
-
-    let rawTotalCount = parseFloat(entry.totalCount || entry.total_count);
-    let totalYieldCount = !isNaN(rawTotalCount) 
-      ? rawTotalCount 
-      : cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0);
 
     let recordedNet = parseFloat(entry.netFlowers || entry.net_flowers || 0);
     let finalNetFlowers = calculatedRowNetFlowers > 0 
@@ -286,7 +298,8 @@ export async function loadCloudYieldHistory() {
   if (cloudYields.length === 0 && (farmId || activeUser?.id)) {
     try {
       const backend = window.BACKEND_URL || '';
-      const url = `${backend}/api/yields?farmId=${encodeURIComponent(farmId)}&userId=${encodeURIComponent(activeUser?.id || '')}`;
+      const cacheBuster = Date.now();
+      const url = `${backend}/api/yields?farmId=${encodeURIComponent(farmId)}&userId=${encodeURIComponent(activeUser?.id || '')}&_t=${cacheBuster}`;
       const res = await fetch(url);
       const json = await res.json();
       if (json.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -318,11 +331,18 @@ export async function loadCloudYieldHistory() {
       if (!d) return;
 
       const existing = mergedMap.get(d) || {};
-      const cloudCrops = Array.isArray(item.crops) && item.crops.length > 0 ? item.crops : [];
-      const cloudActs = Array.isArray(item.crop_activity_yields) ? item.crop_activity_yields : (item.cropActivityYields || []);
+      let cloudCrops = Array.isArray(item.crops) ? item.crops : [];
+      if (typeof item.crops === 'string') {
+        try { cloudCrops = JSON.parse(item.crops); } catch(e) { cloudCrops = []; }
+      }
 
-      let effectiveCrops = cloudCrops;
-      if (effectiveCrops.length === 0 && cloudActs.length > 0) {
+      let cloudActs = Array.isArray(item.crop_activity_yields) ? item.crop_activity_yields : (item.cropActivityYields || []);
+      if (typeof cloudActs === 'string') {
+        try { cloudActs = JSON.parse(cloudActs); } catch(e) { cloudActs = []; }
+      }
+
+      let effectiveCrops = cloudCrops.length > 0 ? cloudCrops : [];
+      if (effectiveCrops.length === 0 && Array.isArray(cloudActs) && cloudActs.length > 0) {
         effectiveCrops = cloudActs.map(c => ({
           name: c.crop || c.name || 'Crop',
           qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
@@ -334,9 +354,14 @@ export async function loadCloudYieldHistory() {
         effectiveCrops = existing.crops;
       }
 
+      const totalCount = parseFloat(item.total_count || item.totalCount || existing.totalCount || 0);
+
+      // Skip 0-yield blank days with no crops
+      if (totalCount <= 0 && effectiveCrops.length === 0) return;
+
       mergedMap.set(d, {
         date: d,
-        totalCount: parseFloat(item.total_count || item.totalCount || existing.totalCount || 0),
+        totalCount: totalCount,
         crops: effectiveCrops,
         cropActivityYields: cloudActs.length > 0 ? cloudActs : (existing.cropActivityYields || []),
         netFlowers: parseFloat(item.net_flowers || item.netFlowers || existing.netFlowers || 0).toFixed(3)
@@ -355,3 +380,4 @@ window.saveEditedSnapshot = saveEditedSnapshot;
 window.deleteSnapshotRow = deleteSnapshotRow;
 window.renderSnapshotHistory = renderSnapshotHistory;
 window.updatePreHarvestUI = updatePreHarvestUI;
+window.loadCloudYieldHistory = loadCloudYieldHistory;

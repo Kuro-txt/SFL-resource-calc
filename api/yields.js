@@ -133,6 +133,8 @@ async function ensureYieldsTableCreated(pool, dbName = 'test') {
     await pool.query(`CREATE DATABASE IF NOT EXISTS ${dbName}`);
     await pool.query(`USE ${dbName}`);
     await pool.query(createTableSql);
+    // Auto-clean any 0-yield blank rows from previous runs
+    await pool.query("DELETE FROM user_daily_yields WHERE total_count <= 0 AND (crops = '[]' OR crops IS NULL)");
     isTableReady = true;
   } catch (err) {
     console.warn("user_daily_yields auto-migration notice:", err.message);
@@ -176,6 +178,7 @@ export default async function handler(req, res) {
         params.push(userId);
       }
 
+      query += ' AND total_count > 0';
       query += ' ORDER BY yield_date DESC LIMIT 100';
       const [rows] = await pool.query(query, params);
 
@@ -220,7 +223,8 @@ export default async function handler(req, res) {
         };
       });
 
-      return res.status(200).json({ success: true, data: formatted });
+      const validRows = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
+      return res.status(200).json({ success: true, data: validRows });
     }
 
     if (req.method === 'POST') {

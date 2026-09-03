@@ -179,9 +179,12 @@ export async function loadCloudUserData() {
         effectiveCrops = existing.crops;
       }
 
+      const totalCount = parseFloat(y.total_count || y.totalCount || existing.totalCount || 0);
+      if (totalCount <= 0 && effectiveCrops.length === 0) return;
+
       mergedMap.set(d, {
         date: d,
-        totalCount: parseFloat(y.total_count || y.totalCount || existing.totalCount || 0),
+        totalCount: totalCount,
         crops: effectiveCrops,
         cropActivityYields: cloudActs.length > 0 ? cloudActs : (existing.cropActivityYields || []),
         netFlowers: parseFloat(y.net_flowers || y.netFlowers || existing.netFlowers || 0).toFixed(3)
@@ -261,10 +264,17 @@ function bindAuthEventListeners() {
     }
   }, 400);
 
+  const debouncedYieldSync = debounce((farmId) => {
+    if (farmId && typeof window.loadCloudYieldHistory === 'function') {
+      window.loadCloudYieldHistory(true);
+    }
+  }, 700);
+
   document.getElementById('farm-id')?.addEventListener('input', (e) => {
     const farmId = e.target.value.trim();
     localStorage.setItem('sfl_farm_id', farmId);
     syncFarmIdToCloud(farmId);
+    debouncedYieldSync(farmId);
   });
 
   document.getElementById('api-key')?.addEventListener('input', (e) => {

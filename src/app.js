@@ -8,7 +8,7 @@ import { initCalculatorPanel } from './panels/calculatorPanel.js';
 import { initCropTrackerPanel } from './panels/cropTrackerPanel.js';
 import { initTradeHistoryPanel, fetchMarketplaceTrades } from './panels/tradeHistoryPanel.js';
 import { initNpcGiftsPanel, renderNpcCards } from './panels/npcGiftsPanel.js';
-import { initTrackerPanel } from './panels/trackerPanel.js';
+import { initTrackerPanel, loadCloudYieldHistory } from './panels/trackerPanel.js';
 import { initWishlistPanel, renderWishlist } from './panels/wishlistPanel.js';
 import { initTrackingModal } from './modals/trackingModal.js';
 import { initWeeklySummaryModal } from './modals/weeklyModal.js';
@@ -30,7 +30,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   initWeeklySummaryModal();
 
   PanelManager.register('calc', {
-    onMount: () => console.log("Daily Tracker Panel Active")
+    onMount: () => {
+      console.log("Daily Tracker Panel Active");
+      loadCloudYieldHistory();
+    }
   });
 
   PanelManager.register('croptracker', {

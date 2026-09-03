@@ -11,6 +11,16 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+app.use((req, res, next) => {
+  if (req.url.endsWith('.html') || req.url.endsWith('.js') || req.url === '/') {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname)));
 
 function parseMySqlUrl(rawUrl) {
@@ -586,6 +596,12 @@ async function processYieldCalculation() {
       }
     }
 
+    if (totalHarvestCount <= 0 && yieldsList.length === 0 && cropActivityYields.length === 0) {
+      console.log(`ℹ️ [Yield Calculation] No harvest activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
+      await delay(2000);
+      continue;
+    }
+
     const { error: dbError } = await supabase.from('daily_yields').upsert({
       user_id: user.id,
       yield_date: todayDate,
@@ -657,6 +673,8 @@ async function ensureYieldsTableCreated(pool) {
   `;
   try {
     await pool.query(createTableSql);
+    // Auto-clean any 0-yield blank rows from previous runs
+    await pool.query("DELETE FROM user_daily_yields WHERE total_count <= 0 AND (crops = '[]' OR crops IS NULL)");
     isYieldsTableReady = true;
   } catch (err) {
     console.warn("user_daily_yields auto-migration notice:", err.message);
@@ -1031,6 +1049,7 @@ app.get('/api/yields', async (req, res) => {
       params.push(userId);
     }
 
+    query += ' AND total_count > 0';
     query += ' ORDER BY yield_date DESC LIMIT 100';
     const [rows] = await pool.query(query, params);
 
@@ -1076,7 +1095,8 @@ app.get('/api/yields', async (req, res) => {
       };
     });
 
-    res.status(200).json({ success: true, data: formatted });
+    const validRows = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
+    res.status(200).json({ success: true, data: validRows });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

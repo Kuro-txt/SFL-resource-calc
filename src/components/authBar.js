@@ -144,6 +144,11 @@ export async function handleFarmSync() {
     renderNpcCards();
     renderWishlist();
 
+    // Automatically trigger daily snapshots & yields sync from cloud
+    if (typeof window.loadCloudYieldHistory === 'function') {
+      window.loadCloudYieldHistory(true).catch(e => console.warn("Yield sync notice:", e.message));
+    }
+
     // Automatically trigger trade history sync and cloud archiving in background
     let tradeMsg = '';
     try {
