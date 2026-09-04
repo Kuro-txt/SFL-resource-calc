@@ -4,6 +4,14 @@ import { getTradeAmounts, isUserSeller, tradeHistoryData } from './tradeData.js'
 import { currentFilter } from './tradeFilters.js';
 import { searchQuery } from './index.js';
 
+export function getTradeItemName(t) {
+  const isEconomy = t.collection === 'economies' || Boolean(t.economy);
+  if (isEconomy) return `#${t.itemId || '?'}`;
+  const raw = t.itemName;
+  if (raw && !raw.startsWith('Item #')) return raw;
+  return getItemNameById(t.itemId || raw);
+}
+
 export function renderTradesTableView(mountEl, farmId) {
   const trades = tradeHistoryData?.trades || [];
 
@@ -13,8 +21,7 @@ export function renderTradesTableView(mountEl, farmId) {
     if (currentFilter === 'bought' && isSeller) return false;
 
     if (searchQuery) {
-      const isEconomy = t.collection === 'economies' || Boolean(t.economy);
-      const itemName = isEconomy ? `#${t.itemId}` : (t.itemName || getItemNameById(t.itemId)).toLowerCase();
+      const itemName = getTradeItemName(t).toLowerCase();
       const otherUser = isSeller ? (t.counterpartyName || t.fulfilledBy?.username || '').toLowerCase() : (t.counterpartyName || t.initiatedBy?.username || '').toLowerCase();
       if (!itemName.includes(searchQuery) && !otherUser.includes(searchQuery)) return false;
     }
@@ -35,7 +42,7 @@ export function renderTradesTableView(mountEl, farmId) {
     const amounts = getTradeAmounts(t, farmId);
     const isSeller = amounts.isSeller;
     const isEconomy = t.collection === 'economies' || Boolean(t.economy);
-    const itemName = isEconomy ? `#${t.itemId || '?'}` : (t.itemName || getItemNameById(t.itemId));
+    const itemName = getTradeItemName(t);
     const qty = parseFloat(t.quantity || 1);
     const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
 
@@ -111,7 +118,7 @@ export function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
     const amounts = getTradeAmounts(t, farmId);
     const isSeller = amounts.isSeller;
     const isEconomy = t.collection === 'economies' || Boolean(t.economy);
-    const itemName = isEconomy ? `#${t.itemId || '?'}` : (t.itemName || getItemNameById(t.itemId));
+    const itemName = getTradeItemName(t);
     const qty = parseFloat(t.quantity || 1);
     const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
 

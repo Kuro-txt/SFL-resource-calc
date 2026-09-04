@@ -16,7 +16,9 @@ export function exportTradesToCsv() {
     const isSeller = amounts.isSeller;
     const rawDate = t.fulfilledAt ? new Date(t.fulfilledAt).toISOString() : '';
     const isEconomy = t.collection === 'economies' || Boolean(t.economy);
-    const itemName = isEconomy ? `#${t.itemId || '?'}` : (t.itemName || getItemNameById(t.itemId));
+    const rawName = t.itemName;
+    const resolvedName = (rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName);
+    const itemName = isEconomy ? `#${t.itemId || '?'}` : resolvedName;
     const qty = t.quantity || 1;
     const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
     const counterparty = isSeller ? (t.counterpartyName || t.fulfilledBy?.username || '') : (t.counterpartyName || t.initiatedBy?.username || '');

@@ -27,7 +27,8 @@ export async function fetchMarketplaceTrades() {
     const rawTrades = data.trades || [];
     const formattedForCloud = rawTrades.map(t => {
       const isSeller = isUserSeller(t, farmId);
-      const itemName = getItemNameById(t.itemId);
+      const rawName = t.itemName;
+      const itemName = (rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName);
       const otherUser = isSeller ? (t.fulfilledBy?.username || '') : (t.initiatedBy?.username || '');
       const otherId = isSeller ? (t.fulfilledBy?.id || null) : (t.initiatedBy?.id || null);
 
@@ -62,8 +63,18 @@ export async function fetchMarketplaceTrades() {
       if (cloudRes?.trades && Array.isArray(cloudRes.trades) && cloudRes.trades.length > 0) {
         // Merge cloud historical trades with live trades
         const tradesMap = new Map();
-        cloudRes.trades.forEach(t => tradesMap.set(t.id, t));
-        formattedForCloud.forEach(t => tradesMap.set(t.id, t));
+        cloudRes.trades.forEach(t => {
+          if (!t.itemName || t.itemName.startsWith('Item #')) {
+            t.itemName = getItemNameById(t.itemId || t.itemName);
+          }
+          tradesMap.set(t.id, t);
+        });
+        formattedForCloud.forEach(t => {
+          if (!t.itemName || t.itemName.startsWith('Item #')) {
+            t.itemName = getItemNameById(t.itemId || t.itemName);
+          }
+          tradesMap.set(t.id, t);
+        });
 
         tradeHistoryData.trades = Array.from(tradesMap.values()).sort((a, b) => (b.fulfilledAt || 0) - (a.fulfilledAt || 0));
         cloudArchivedCount = tradeHistoryData.trades.length;

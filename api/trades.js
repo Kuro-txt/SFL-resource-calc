@@ -1,4 +1,5 @@
 import mysql from 'mysql2/promise';
+import { getItemNameById } from '../src/data/knownIds.js';
 
 let pool = null;
 let isTableReady = false;
@@ -115,6 +116,19 @@ async function ensureTableCreated(pool, dbName = 'test') {
       await pool.query(schemaSql);
       await pool.query(`ALTER TABLE user_trades ADD COLUMN IF NOT EXISTS tax DECIMAL(20, 6) DEFAULT 0;`).catch(() => {});
       await pool.query(`ALTER TABLE user_trades ADD COLUMN IF NOT EXISTS net_sfl DECIMAL(20, 6) DEFAULT 0;`).catch(() => {});
+
+      // Auto-clean legacy Item # placeholders to official names
+      await pool.query(`UPDATE user_trades SET item_name = 'Crimson Baitfish' WHERE item_id = 2988 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET item_name = 'Moonfur' WHERE item_id = 2634 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET item_name = 'Ruffroot' WHERE item_id = 2631 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET item_name = 'Chewed Bone' WHERE item_id = 2632 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET item_name = 'Heart leaf' WHERE item_id = 2633 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET item_name = 'Ribbon' WHERE item_id = 2636 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET item_name = 'Dewberry' WHERE item_id = 2637 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET item_name = 'Wild Grass' WHERE item_id = 2638 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET item_name = 'Frost Pebble' WHERE item_id = 2639 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET item_name = 'Capsule Bait' WHERE item_id = 2986 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET item_name = 'Umbrella Bait' WHERE item_id = 2987 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
     }
     isTableReady = true;
   } catch (err) {
@@ -160,7 +174,10 @@ export default async function handler(req, res) {
         if (!id) continue;
 
         const itemId = parseInt(t.itemId || 0, 10);
-        const itemName = String(t.itemName || t.name || `Item #${itemId}`).substring(0, 128);
+        const resolvedName = (t.itemName && !t.itemName.startsWith('Item #'))
+          ? t.itemName
+          : (t.name && !t.name.startsWith('Item #') ? t.name : getItemNameById(itemId || t.itemId));
+        const itemName = String(resolvedName || `Item #${itemId}`).substring(0, 128);
         const quantity = parseFloat(t.quantity || 1);
         const sfl = parseFloat(t.sfl || 0);
         const tax = parseFloat(t.tax || 0);
@@ -252,11 +269,16 @@ export default async function handler(req, res) {
           totalBoughtCount += qty;
         }
 
+        const rawDbName = r.item_name;
+        const resolvedName = (!rawDbName || rawDbName.startsWith('Item #'))
+          ? (getItemNameById(r.item_id || rawDbName) || rawDbName)
+          : rawDbName;
+
         return {
           id: r.id,
           farmId: r.farm_id,
           itemId: r.item_id,
-          itemName: r.item_name,
+          itemName: resolvedName,
           quantity: qty,
           sfl: sfl,
           unitPrice: parseFloat(r.unit_price || 0),

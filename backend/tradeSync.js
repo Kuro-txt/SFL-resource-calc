@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { getSflHeaders } = require('./farmApi');
 const { getTiDBPool } = require('./db');
+const { getItemNameById } = require('./knownIds');
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -101,7 +102,10 @@ async function processAutoSyncTrades(supabase) {
 
             const itemId = parseInt(t.itemId || 0, 10);
             const isEconomy = t.collection === 'economies' || Boolean(t.economy);
-            const itemName = isEconomy ? `#${itemId}` : String(t.itemName || t.name || `Item #${itemId}`).substring(0, 128);
+            const resolvedName = (t.itemName && !t.itemName.startsWith('Item #'))
+              ? t.itemName
+              : (t.name && !t.name.startsWith('Item #') ? t.name : getItemNameById(itemId || t.itemId));
+            const itemName = isEconomy ? `#${itemId}` : String(resolvedName || `Item #${itemId}`).substring(0, 128);
             const quantity = parseFloat(t.quantity || 1);
             const sfl = parseFloat(t.sfl || 0);
             const tax = isSeller ? parseFloat(t.tax || 0) : 0;

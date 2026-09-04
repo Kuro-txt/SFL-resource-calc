@@ -1,5 +1,5 @@
 // KNOWN_IDS and KNOWN_ITEMS mapped from Sunflower Land Official ID Registry
-export const KNOWN_IDS = {
+const KNOWN_IDS = {
   "Sunflower Seed": 101,
   "Potato Seed": 102,
   "Pumpkin Seed": 103,
@@ -1497,7 +1497,7 @@ export const KNOWN_IDS = {
 };
 
 // Comprehensive reverse ID map (supports numbers, string IDs, and collection-prefixed IDs)
-export const KNOWN_ITEMS = {};
+const KNOWN_ITEMS = {};
 
 // Populate both numeric and string keys, plus collection-prefixed variants
 for (const [name, id] of Object.entries(KNOWN_IDS)) {
@@ -1508,7 +1508,7 @@ for (const [name, id] of Object.entries(KNOWN_IDS)) {
   KNOWN_ITEMS[`buds-${id}`] = name;
 }
 
-export function getItemNameById(id) {
+function getItemNameById(id) {
   if (id === undefined || id === null) return 'Unknown Item';
   if (KNOWN_ITEMS[id]) return KNOWN_ITEMS[id];
 
@@ -1533,3 +1533,9 @@ export function getItemNameById(id) {
   const num = String(id).replace(/[^0-9]/g, '');
   return num ? `Item #${num}` : String(id);
 }
+
+module.exports = {
+  KNOWN_IDS,
+  KNOWN_ITEMS,
+  getItemNameById
+};
