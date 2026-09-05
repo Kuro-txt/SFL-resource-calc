@@ -1,5 +1,4 @@
 const axios = require('axios');
-const { getTiDBPool, ensureYieldsTableCreated } = require('./db');
 const { CROP_FLOWER_PRICES, getFlowerUnitPrice } = require('./prices');
 const { fetchFarmFullDataWithRetry, getStockAmount } = require('./farmApi');
 
@@ -68,7 +67,7 @@ async function processYieldCalculation(supabase) {
 
   if (error || !users || users.length === 0) {
     console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
-    return;
+    return { success: false, error: error?.message || 'No user profiles found' };
   }
 
   let flatPrices = {};
@@ -94,6 +93,8 @@ async function processYieldCalculation(supabase) {
     return 0.01;
   }
 
+  let savedYieldsCount = 0;
+
   for (const user of users) {
     if (!user.farm_id) continue;
     const cleanFarmId = String(user.farm_id).trim();
@@ -103,15 +104,35 @@ async function processYieldCalculation(supabase) {
       try { targets = JSON.parse(targets); } catch (e) { targets = []; }
     }
 
-    const { data: baselineRecord, error: baselineErr } = await supabase
+    let baselineRecord = null;
+    const { data: exactBaseline, error: baselineErr } = await supabase
       .from('preharvest_baselines')
-      .select('stock, farm_activity')
+      .select('stock, farm_activity, snapshot_date')
       .eq('user_id', user.id)
       .eq('snapshot_date', todayDate)
       .maybeSingle();
 
-    if (baselineErr || !baselineRecord || !baselineRecord.farm_activity || Object.keys(baselineRecord.farm_activity).length === 0) {
-      console.warn(`⚠️ Skipped 22:00 UTC calculation for Farm #${cleanFarmId}: Baseline for ${todayDate} not found.`);
+    if (!baselineErr && exactBaseline?.farm_activity && Object.keys(exactBaseline.farm_activity).length > 0) {
+      baselineRecord = exactBaseline;
+    } else {
+      // Fallback: look for the most recent baseline before todayDate (e.g. yesterday if midnight snapshot was missed)
+      const { data: fallbackRecord } = await supabase
+        .from('preharvest_baselines')
+        .select('stock, farm_activity, snapshot_date')
+        .eq('user_id', user.id)
+        .lt('snapshot_date', todayDate)
+        .order('snapshot_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fallbackRecord?.farm_activity && Object.keys(fallbackRecord.farm_activity).length > 0) {
+        baselineRecord = fallbackRecord;
+        console.log(`ℹ️ [Yield Calculation] Farm #${cleanFarmId}: Using fallback baseline from ${fallbackRecord.snapshot_date}`);
+      }
+    }
+
+    if (!baselineRecord || !baselineRecord.farm_activity || Object.keys(baselineRecord.farm_activity).length === 0) {
+      console.warn(`⚠️ Skipped 22:00 UTC calculation for Farm #${cleanFarmId}: No baseline found for ${todayDate} or earlier.`);
       continue;
     }
 
@@ -202,43 +223,15 @@ async function processYieldCalculation(supabase) {
     if (dbError) {
       console.error(`❌ [Supabase DB Error] Yield save failed for Farm #${cleanFarmId}: ${dbError.message}`);
     } else {
+      savedYieldsCount++;
       console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
-    }
-
-    // Also persist in TiDB Cloud Serverless (immune to Supabase RLS policies)
-    try {
-      const pool = getTiDBPool();
-      if (pool) {
-        await ensureYieldsTableCreated(pool);
-        const tidbId = `yield_${user.id}_${todayDate}`;
-        const insertYieldSql = `
-          INSERT INTO user_daily_yields 
-          (id, user_id, farm_id, yield_date, total_count, net_flowers, crops, crop_activity_yields)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            total_count = VALUES(total_count),
-            net_flowers = VALUES(net_flowers),
-            crops = VALUES(crops),
-            crop_activity_yields = VALUES(crop_activity_yields)
-        `;
-        await pool.query(insertYieldSql, [
-          tidbId,
-          user.id,
-          cleanFarmId,
-          todayDate,
-          Math.ceil(totalHarvestCount * 10) / 10,
-          Math.ceil(totalNetFlowers * 1000) / 1000,
-          JSON.stringify(yieldsList),
-          JSON.stringify(cropActivityYields)
-        ]);
-        console.log(`☁️ [TiDB Cloud] Yield archived for Farm #${cleanFarmId} on ${todayDate}`);
-      }
-    } catch (tidbErr) {
-      console.warn(`⚠️ TiDB daily yield notice for Farm #${cleanFarmId}: ${tidbErr.message}`);
     }
 
     await delay(4500);
   }
+
+  console.log(`🏁 [Yield Calculation] Completed: ${savedYieldsCount} farm yields saved to Supabase.`);
+  return { success: true, processed: users.length, saved: savedYieldsCount };
 }
 
 async function backfillDailyYields(supabase) {
@@ -260,8 +253,6 @@ async function backfillDailyYields(supabase) {
   });
 
   let totalBackfilled = 0;
-  const pool = getTiDBPool();
-  if (pool) await ensureYieldsTableCreated(pool);
 
   for (const user of users) {
     const list = userBaselines.get(user.id);
@@ -320,7 +311,7 @@ async function backfillDailyYields(supabase) {
       }
 
       if (cropActivityYields.length > 0) {
-        // 1. Supabase upsert
+        // Pure Supabase daily_yields upsert
         const { error: dbErr } = await supabase.from('daily_yields').upsert({
           user_id: user.id,
           yield_date: targetDate,
@@ -332,34 +323,9 @@ async function backfillDailyYields(supabase) {
 
         if (dbErr) {
           console.warn(`Supabase backfill notice for Farm #${user.farm_id} (${targetDate}): ${dbErr.message}`);
+        } else {
+          totalBackfilled++;
         }
-
-        // 2. TiDB Cloud upsert
-        if (pool) {
-          try {
-            const tidbId = `yield_${user.id}_${targetDate}`;
-            await pool.query(`
-              INSERT INTO user_daily_yields 
-              (id, user_id, farm_id, yield_date, total_count, net_flowers, crops, crop_activity_yields)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-              ON DUPLICATE KEY UPDATE
-                total_count = VALUES(total_count),
-                net_flowers = VALUES(net_flowers),
-                crops = VALUES(crops),
-                crop_activity_yields = VALUES(crop_activity_yields)
-            `, [
-              tidbId, user.id, user.farm_id, targetDate,
-              Math.ceil(totalHarvestCount * 10) / 10,
-              Math.ceil(totalNetFlowers * 1000) / 1000,
-              JSON.stringify(cropsList),
-              JSON.stringify(cropActivityYields)
-            ]);
-          } catch (e) {
-            console.warn("TiDB backfill error:", e.message);
-          }
-        }
-
-        totalBackfilled++;
       }
     }
   }

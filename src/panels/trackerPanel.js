@@ -307,7 +307,7 @@ export async function loadCloudYieldHistory() {
     }
   }
 
-  // Fallback to TiDB Cloud API (immune to Supabase RLS restrictions)
+  // Fallback to Backend /api/yields endpoint (backed by Supabase)
   if (cloudYields.length === 0 && (farmId || activeUser?.id)) {
     try {
       const backend = window.BACKEND_URL || '';
@@ -319,7 +319,7 @@ export async function loadCloudYieldHistory() {
         cloudYields = json.data;
       }
     } catch (err) {
-      console.warn("TiDB yield fallback notice:", err.message);
+      console.warn("Backend /api/yields fetch notice:", err.message);
     }
   }
 

@@ -18,7 +18,7 @@ const cron    = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
 
 // ── Backend service modules ────────────────────────────────────────────────
-const { getTiDBPool, ensureYieldsTableCreated } = require('./backend/db');
+// Note: TiDB is used exclusively for marketplace trades in backend/tradeSync.js & api/trades.js
 const { CROP_FLOWER_PRICES }                     = require('./backend/prices');
 const { fetchFarmFullDataWithRetry, getSflHeaders, formatNftItem } = require('./backend/farmApi');
 const { processBaselineSnapshot }                = require('./backend/baselineService');
@@ -176,50 +176,74 @@ app.get('/api/nfts', async (_req, res) => {
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
   const { type } = req.query;
-  if (type === 'baseline') {
-    res.status(200).json({ success: true, message: 'Baseline started.' });
-    processBaselineSnapshot(supabase).catch(err => console.error('Baseline Error:', err.message));
-  } else if (type === 'yield') {
-    res.status(200).json({ success: true, message: 'Yield started.' });
-    processYieldCalculation(supabase).catch(err => console.error('Yield Error:', err.message));
-  } else if (type === 'trades') {
-    res.status(200).json({ success: true, message: 'Trades auto-sync started.' });
-    processAutoSyncTrades(supabase).catch(err => console.error('Trades Error:', err.message));
-  } else {
-    res.status(400).json({ error: "Invalid type. Use 'type=baseline', 'type=yield', or 'type=trades'." });
+  try {
+    if (type === 'baseline') {
+      const result = await processBaselineSnapshot(supabase);
+      return res.status(200).json({ success: true, message: 'Baseline snapshot completed.', result });
+    } else if (type === 'yield') {
+      const result = await processYieldCalculation(supabase);
+      return res.status(200).json({ success: true, message: 'Yield calculation completed.', result });
+    } else if (type === 'trades') {
+      const result = await processAutoSyncTrades(supabase);
+      return res.status(200).json({ success: true, message: 'Trades auto-sync completed.', result });
+    } else {
+      return res.status(400).json({ error: "Invalid type. Use 'type=baseline', 'type=yield', or 'type=trades'." });
+    }
+  } catch (err) {
+    console.error(`Manual trigger error (${type}):`, err.message);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
-app.get('/api/cron/snapshot', (req, res) => {
+app.get('/api/cron/snapshot', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
-  res.status(200).json({ success: true });
-  processBaselineSnapshot(supabase).catch(err => console.error('Snapshot Error:', err.message));
+  try {
+    const result = await processBaselineSnapshot(supabase);
+    res.status(200).json({ success: true, message: 'Baseline snapshot completed.', result });
+  } catch (err) {
+    console.error('Snapshot Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-app.get('/api/cron/22utc-yield', (req, res) => {
+app.get('/api/cron/22utc-yield', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
-  res.status(200).json({ success: true });
-  processYieldCalculation(supabase).catch(err => console.error('Yield Error:', err.message));
+  try {
+    const result = await processYieldCalculation(supabase);
+    res.status(200).json({ success: true, message: 'Yield calculation completed.', result });
+  } catch (err) {
+    console.error('Yield Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-app.get('/api/cron/sync-trades', (req, res) => {
+app.get('/api/cron/sync-trades', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
-  res.status(200).json({ success: true, message: 'Marketplace trades auto-sync initiated.' });
-  processAutoSyncTrades(supabase).catch(err => console.error('Auto-sync trades Error:', err.message));
+  try {
+    const result = await processAutoSyncTrades(supabase);
+    res.status(200).json({ success: true, message: 'Marketplace trades auto-sync completed.', result });
+  } catch (err) {
+    console.error('Auto-sync trades Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.get('/api/cron/backfill-yields', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
-  const result = await backfillDailyYields(supabase);
-  res.status(200).json(result);
+  try {
+    const result = await backfillDailyYields(supabase);
+    res.status(200).json(result);
+  } catch (err) {
+    console.error('Backfill Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// ── /api/yields — Serve daily yield history from Supabase (with TiDB fallback) ───────────────
+// ── /api/yields — Serve daily yield history exclusively from Supabase ─────────
 app.get('/api/yields', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const { farmId, userId } = req.query;
 
-  // 1. Try Supabase daily_yields first
   try {
     let targetUserId = userId ? String(userId).trim() : '';
     if (!targetUserId && farmId) {
@@ -279,97 +303,38 @@ app.get('/api/yields', async (req, res) => {
         });
 
         const valid = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
-        if (valid.length > 0) {
-          return res.status(200).json({ success: true, source: 'supabase', data: valid });
-        }
+        return res.status(200).json({ success: true, source: 'supabase', data: valid });
       }
     }
+
+    return res.status(200).json({ success: true, source: 'supabase', data: [] });
   } catch (supaErr) {
     console.warn("Supabase /api/yields notice:", supaErr.message);
-  }
-
-  // 2. Fallback to TiDB Cloud if Supabase is unavailable or returned empty
-  const pool = getTiDBPool();
-  if (!pool) return res.status(200).json({ success: false, data: [], message: 'No yield records found' });
-
-  try {
-    await ensureYieldsTableCreated(pool);
-    let query  = 'SELECT * FROM user_daily_yields WHERE 1=1';
-    const params = [];
-
-    if (farmId && userId) {
-      query += ' AND (farm_id = ? OR user_id = ?)'; params.push(farmId, userId);
-    } else if (farmId) {
-      query += ' AND farm_id = ?'; params.push(farmId);
-    } else if (userId) {
-      query += ' AND user_id = ?'; params.push(userId);
-    }
-    query += ' AND total_count > 0 ORDER BY yield_date DESC LIMIT 100';
-
-    const [rows] = await pool.query(query, params);
-
-    const formatted = (rows || []).map(r => {
-      let crops = typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : (r.crops || []);
-      const acts = typeof r.crop_activity_yields === 'string'
-        ? JSON.parse(r.crop_activity_yields || '[]') : (r.crop_activity_yields || []);
-
-      if (!crops.length && acts.length) {
-        crops = acts.map(c => ({
-          name: c.crop || c.name || 'Crop',
-          qty:     parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
-          flowers: parseFloat(c.netFlowers    || c.flowers || 0)
-        }));
-      }
-
-      crops = crops.map(c => {
-        const name = c.name || c.item || 'Crop';
-        const key  = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const qty  = parseFloat(c.qty || 0);
-        let fl     = parseFloat(c.flowers || 0);
-        if (fl > qty * 1.5 || fl <= 0) {
-          fl = Math.ceil((CROP_FLOWER_PRICES[key] || 0.01) * qty * 0.9 * 1000) / 1000;
-        }
-        return { name, qty, flowers: fl };
-      });
-
-      const netFlowers = crops.length
-        ? crops.reduce((s, c) => s + (parseFloat(c.flowers) || 0), 0)
-        : parseFloat(r.net_flowers || 0);
-
-      return {
-        date:               r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
-        totalCount:         parseFloat(r.total_count || 0),
-        netFlowers:         netFlowers.toFixed(3),
-        crops,
-        cropActivityYields: acts
-      };
-    });
-
-    const valid = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
-    res.status(200).json({ success: true, data: valid });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ success: false, error: supaErr.message, data: [] });
   }
 });
 
 // ── Fallback: serve index.html for any unknown route (SPA) ────────────────
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
-// ── Internal cron schedule ─────────────────────────────────────────────────
-cron.schedule('50 21 * * *', () => {
-  console.log('⏰ [Cron] 21:50 UTC — Snapshot...');
+// ── Internal cron schedule (UTC timezone) ──────────────────────────────────
+// 1. Daily snapshot at 00:01 UTC (start of day post-midnight SFL reset)
+cron.schedule('1 0 * * *', () => {
+  console.log('⏰ [Cron] 00:01 UTC — Baseline Snapshot...');
   processBaselineSnapshot(supabase).catch(err => console.error('Snapshot error:', err.message));
-});
+}, { scheduled: true, timezone: "UTC" });
 
+// 2. Daily yield calculation at 22:00 UTC (tallies day harvests against 00:01 baseline)
 cron.schedule('0 22 * * *', () => {
   console.log('⏰ [Cron] 22:00 UTC — Daily yield calculation...');
   processYieldCalculation(supabase).catch(err => console.error('Yield error:', err.message));
-});
+}, { scheduled: true, timezone: "UTC" });
 
+// 3. Marketplace trades auto-sync 4x daily (:33 UTC)
 cron.schedule('33 0,6,12,18 * * *', () => {
   console.log('⏰ [Cron] Trade auto-sync (4x daily)...');
   processAutoSyncTrades(supabase).catch(err => console.error('Trade sync error:', err.message));
-});
+}, { scheduled: true, timezone: "UTC" });
 
 app.listen(PORT, () => {
   console.log(`🚀 SFL Resource Calculator Backend listening on port ${PORT}`);

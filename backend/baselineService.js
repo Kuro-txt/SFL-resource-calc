@@ -1,14 +1,13 @@
-const { getTiDBPool, ensureYieldsTableCreated } = require('./db');
-const { getSflHeaders, fetchFarmFullDataWithRetry, getStockAmount } = require('./farmApi');
+const { fetchFarmFullDataWithRetry } = require('./farmApi');
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function processBaselineSnapshot(supabase) {
-  console.log("🔍 [CRON 00:00 UTC] Starting baseline snapshot process...");
+  console.log("🔍 [CRON 00:01 UTC] Starting baseline snapshot process...");
   const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
   if (error || !users || users.length === 0) {
     console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
-    return;
+    return { success: false, error: error?.message || 'No user profiles found' };
   }
 
   const todayDate = new Date().toISOString().split('T')[0];
@@ -41,6 +40,7 @@ async function processBaselineSnapshot(supabase) {
 
     await delay(4500);
   }
+  return { success: true, processed: users.length };
 }
 
 module.exports = { processBaselineSnapshot };

@@ -69,32 +69,10 @@ function getTiDBPool() {
   return tidbPool;
 }
 
-let isYieldsTableReady = false;
-async function ensureYieldsTableCreated(pool) {
-  if (isYieldsTableReady || !pool) return;
-  const createTableSql = `
-    CREATE TABLE IF NOT EXISTS user_daily_yields (
-      id VARCHAR(64) PRIMARY KEY,
-      user_id VARCHAR(64) NOT NULL,
-      farm_id BIGINT NOT NULL,
-      yield_date DATE NOT NULL,
-      total_count DECIMAL(20, 4) NOT NULL,
-      net_flowers DECIMAL(20, 4) NOT NULL,
-      crops JSON,
-      crop_activity_yields JSON,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uk_user_date (user_id, yield_date),
-      INDEX idx_farm_date (farm_id, yield_date)
-    );
-  `;
-  try {
-    await pool.query(createTableSql);
-    // Auto-clean any 0-yield blank rows from previous runs
-    await pool.query("DELETE FROM user_daily_yields WHERE total_count <= 0 AND (crops = '[]' OR crops IS NULL)");
-    isYieldsTableReady = true;
-  } catch (err) {
-    console.warn("user_daily_yields auto-migration notice:", err.message);
-  }
+// Yields are stored exclusively in Supabase (daily_yields).
+// TiDB Cloud is reserved exclusively for marketplace trades (user_trades).
+async function ensureYieldsTableCreated() {
+  // No-op: user_daily_yields in TiDB is deprecated
 }
 
 module.exports = {

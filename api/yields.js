@@ -1,4 +1,3 @@
-import mysql from 'mysql2/promise';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://gtvglgeoznnrsdcfazpc.supabase.co";
@@ -40,112 +39,6 @@ const CROP_FLOWER_PRICES = {
   "banana": 0.01998
 };
 
-let pool = null;
-let isTableReady = false;
-
-function getTiDBConfig() {
-  const rawUrl = 
-    process.env.TIDB_DATABASE_URL || 
-    process.env.DATABASE_URL || 
-    process.env.TIDB_URL || 
-    process.env.MYSQL_URL || 
-    '';
-
-  if (!rawUrl) return null;
-  const cleanUrl = rawUrl.trim().replace(/^['"]|['"]$/g, '');
-
-  const match = cleanUrl.match(/^mysql(?:2)?:\/\/(.*?):(.*?)@([^:/]+)(?::(\d+))?(?:\/([^?]*))?(?:\?(.*))?$/);
-  if (match) {
-    const [, user, password, host, portStr, dbName] = match;
-    let database = dbName || 'test';
-    if (!database || ['sys', 'information_schema', 'performance_schema'].includes(database)) {
-      database = 'test';
-    }
-    return {
-      host,
-      port: parseInt(portStr || '4000', 10),
-      user: decodeURIComponent(user),
-      password: decodeURIComponent(password),
-      database,
-      ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false }
-    };
-  }
-
-  try {
-    const parsed = new URL(cleanUrl);
-    let dbName = parsed.pathname.replace(/^\//, '').split('?')[0] || 'test';
-    if (!dbName || ['sys', 'information_schema', 'performance_schema'].includes(dbName)) {
-      dbName = 'test';
-    }
-    return {
-      host: parsed.hostname,
-      port: parseInt(parsed.port || '4000', 10),
-      user: decodeURIComponent(parsed.username || ''),
-      password: decodeURIComponent(parsed.password || ''),
-      database: dbName,
-      ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false }
-    };
-  } catch {
-    return { uri: cleanUrl, database: 'test', ssl: { rejectUnauthorized: false } };
-  }
-}
-
-function getTiDBPool() {
-  const config = getTiDBConfig();
-  if (!config) return null;
-
-  if (!pool) {
-    const db = config.database || 'test';
-    if (config.host && config.user) {
-      pool = mysql.createPool({
-        host: config.host,
-        port: config.port || 4000,
-        user: config.user,
-        password: config.password,
-        database: db,
-        ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false },
-        waitForConnections: true,
-        connectionLimit: 4,
-        maxIdle: 2,
-        idleTimeout: 30000,
-        queueLimit: 0
-      });
-    } else {
-      pool = mysql.createPool({ uri: config.cleanUrl, database: db, ssl: { rejectUnauthorized: false } });
-    }
-  }
-  return pool;
-}
-
-async function ensureYieldsTableCreated(pool, dbName = 'test') {
-  if (isTableReady || !pool) return;
-  const createTableSql = `
-    CREATE TABLE IF NOT EXISTS user_daily_yields (
-      id VARCHAR(64) PRIMARY KEY,
-      user_id VARCHAR(64) NOT NULL,
-      farm_id BIGINT NOT NULL,
-      yield_date DATE NOT NULL,
-      total_count DECIMAL(20, 4) NOT NULL,
-      net_flowers DECIMAL(20, 4) NOT NULL,
-      crops JSON,
-      crop_activity_yields JSON,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uk_user_date (user_id, yield_date),
-      INDEX idx_farm_date (farm_id, yield_date)
-    );
-  `;
-  try {
-    await pool.query(`CREATE DATABASE IF NOT EXISTS ${dbName}`);
-    await pool.query(`USE ${dbName}`);
-    await pool.query(createTableSql);
-    // Auto-clean any 0-yield blank rows from previous runs
-    await pool.query("DELETE FROM user_daily_yields WHERE total_count <= 0 AND (crops = '[]' OR crops IS NULL)");
-    isTableReady = true;
-  } catch (err) {
-    console.warn("user_daily_yields auto-migration notice:", err.message);
-  }
-}
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -155,183 +48,95 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const config = getTiDBConfig();
-  if (!config) {
-    return res.status(200).json({ success: false, data: [], message: 'TiDB not configured' });
-  }
-
-  const pool = getTiDBPool();
-  const dbName = config.database || 'test';
-
   try {
-    await ensureYieldsTableCreated(pool, dbName);
-
     if (req.method === 'GET') {
       const { farmId, userId } = req.query;
 
-      // 1. Try Supabase daily_yields first
-      try {
-        let targetUserId = userId ? String(userId).trim() : '';
-        if (!targetUserId && farmId) {
-          const cleanFarmId = String(farmId).trim();
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('farm_id', cleanFarmId)
-            .maybeSingle();
-          if (profile?.id) targetUserId = profile.id;
-        }
+      let targetUserId = userId ? String(userId).trim() : '';
+      if (!targetUserId && farmId) {
+        const cleanFarmId = String(farmId).trim();
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('farm_id', cleanFarmId)
+          .maybeSingle();
+        if (profile?.id) targetUserId = profile.id;
+      }
 
-        if (targetUserId) {
-          const { data: supaRows, error: sErr } = await supabase
-            .from('daily_yields')
-            .select('*')
-            .eq('user_id', targetUserId)
-            .gt('total_count', 0)
-            .order('yield_date', { ascending: false })
-            .limit(100);
+      if (targetUserId) {
+        const { data: supaRows, error: sErr } = await supabase
+          .from('daily_yields')
+          .select('*')
+          .eq('user_id', targetUserId)
+          .gt('total_count', 0)
+          .order('yield_date', { ascending: false })
+          .limit(100);
 
-          if (!sErr && Array.isArray(supaRows) && supaRows.length > 0) {
-            const formatted = supaRows.map(r => {
-              let crops = Array.isArray(r.crops) ? r.crops : (typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : []);
-              const acts = Array.isArray(r.crop_activity_yields) ? r.crop_activity_yields : (typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : []);
+        if (!sErr && Array.isArray(supaRows) && supaRows.length > 0) {
+          const formatted = supaRows.map(r => {
+            let crops = Array.isArray(r.crops) ? r.crops : (typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : []);
+            const acts = Array.isArray(r.crop_activity_yields) ? r.crop_activity_yields : (typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : []);
 
-              if (!crops.length && acts.length) {
-                crops = acts.map(c => ({
-                  name: c.crop || c.name || 'Crop',
-                  qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
-                  flowers: parseFloat(c.netFlowers || c.flowers || 0)
-                }));
+            if (!crops.length && acts.length) {
+              crops = acts.map(c => ({
+                name: c.crop || c.name || 'Crop',
+                qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
+                flowers: parseFloat(c.netFlowers || c.flowers || 0)
+              }));
+            }
+
+            crops = crops.map(c => {
+              const name = c.name || c.item || 'Crop';
+              const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              const qty = parseFloat(c.qty || 0);
+              let fl = parseFloat(c.flowers || 0);
+              if (fl > (qty * 1.5) || fl <= 0) {
+                fl = Math.ceil((CROP_FLOWER_PRICES[key] || 0.01) * qty * 0.9 * 1000) / 1000;
               }
-
-              crops = crops.map(c => {
-                const name = c.name || c.item || 'Crop';
-                const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-                const qty = parseFloat(c.qty || 0);
-                let fl = parseFloat(c.flowers || 0);
-                if (fl > (qty * 1.5) || fl <= 0) {
-                  fl = Math.ceil((CROP_FLOWER_PRICES[key] || 0.01) * qty * 0.9 * 1000) / 1000;
-                }
-                return { name, qty, flowers: fl };
-              });
-
-              const netFlowers = crops.length > 0
-                ? crops.reduce((sum, c) => sum + (parseFloat(c.flowers) || 0), 0)
-                : parseFloat(r.net_flowers || 0);
-
-              return {
-                date: r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
-                totalCount: parseFloat(r.total_count || 0),
-                netFlowers: netFlowers.toFixed(3),
-                crops,
-                cropActivityYields: acts
-              };
+              return { name, qty, flowers: fl };
             });
 
-            const validRows = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
-            if (validRows.length > 0) {
-              return res.status(200).json({ success: true, source: 'supabase', data: validRows });
-            }
-          }
+            const netFlowers = crops.length > 0
+              ? crops.reduce((sum, c) => sum + (parseFloat(c.flowers) || 0), 0)
+              : parseFloat(r.net_flowers || 0);
+
+            return {
+              date: r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
+              totalCount: parseFloat(r.total_count || 0),
+              netFlowers: netFlowers.toFixed(3),
+              crops,
+              cropActivityYields: acts
+            };
+          });
+
+          const validRows = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
+          return res.status(200).json({ success: true, source: 'supabase', data: validRows });
         }
-      } catch (supaErr) {
-        console.warn("Supabase /api/yields notice:", supaErr.message);
       }
 
-      // 2. Fallback to TiDB Cloud
-      let query = 'SELECT * FROM user_daily_yields WHERE 1=1';
-      const params = [];
-
-      if (farmId && userId) {
-        query += ' AND (farm_id = ? OR user_id = ?)';
-        params.push(farmId, userId);
-      } else if (farmId) {
-        query += ' AND farm_id = ?';
-        params.push(farmId);
-      } else if (userId) {
-        query += ' AND user_id = ?';
-        params.push(userId);
-      }
-
-      query += ' AND total_count > 0';
-      query += ' ORDER BY yield_date DESC LIMIT 100';
-      const [rows] = await pool.query(query, params);
-
-      const formatted = (rows || []).map(r => {
-        let crops = typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : (r.crops || []);
-        const cropActivityYields = typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : (r.crop_activity_yields || []);
-
-        if ((!crops || crops.length === 0) && Array.isArray(cropActivityYields) && cropActivityYields.length > 0) {
-          crops = cropActivityYields.map(c => ({
-            name: c.crop || c.name || 'Crop',
-            qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
-            flowers: parseFloat(c.netFlowers || c.flowers || 0)
-          }));
-        }
-
-        crops = crops.map(c => {
-          const cropName = c.name || c.item || 'Crop';
-          const cleanKey = cropName.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const qty = parseFloat(c.qty || 0);
-          let fl = parseFloat(c.flowers || 0);
-          if (fl > (qty * 1.5) || fl <= 0) {
-            const fallbackP = CROP_FLOWER_PRICES[cleanKey] || 0.01;
-            fl = Math.ceil(fallbackP * qty * 0.9 * 1000) / 1000;
-          }
-          return {
-            name: cropName,
-            qty: qty,
-            flowers: fl
-          };
-        });
-
-        const totalNetFlowers = crops.length > 0 
-          ? crops.reduce((sum, c) => sum + (parseFloat(c.flowers) || 0), 0)
-          : parseFloat(r.net_flowers || 0);
-
-        return {
-          date: r.yield_date ? new Date(r.yield_date).toISOString().split('T')[0] : '',
-          totalCount: parseFloat(r.total_count || 0),
-          netFlowers: totalNetFlowers.toFixed(3),
-          crops: crops,
-          cropActivityYields: cropActivityYields
-        };
-      });
-
-      const validRows = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
-      return res.status(200).json({ success: true, data: validRows });
+      return res.status(200).json({ success: true, source: 'supabase', data: [] });
     }
 
     if (req.method === 'POST') {
-      const { userId, farmId, date, totalCount, netFlowers, crops, cropActivityYields } = req.body || {};
+      const { userId, date, totalCount, netFlowers, crops, cropActivityYields } = req.body || {};
       if (!userId || !date) {
         return res.status(400).json({ error: 'userId and date required' });
       }
 
-      const tidbId = `yield_${userId}_${date}`;
-      const insertSql = `
-        INSERT INTO user_daily_yields 
-        (id, user_id, farm_id, yield_date, total_count, net_flowers, crops, crop_activity_yields)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          total_count = VALUES(total_count),
-          net_flowers = VALUES(net_flowers),
-          crops = VALUES(crops),
-          crop_activity_yields = VALUES(crop_activity_yields)
-      `;
+      const { error: dbErr } = await supabase.from('daily_yields').upsert({
+        user_id: userId,
+        yield_date: date,
+        total_count: parseFloat(totalCount || 0),
+        net_flowers: parseFloat(netFlowers || 0),
+        crops: crops || [],
+        crop_activity_yields: cropActivityYields || []
+      }, { onConflict: 'user_id,yield_date' });
 
-      await pool.query(insertSql, [
-        tidbId,
-        userId,
-        farmId || 0,
-        date,
-        parseFloat(totalCount || 0),
-        parseFloat(netFlowers || 0),
-        JSON.stringify(crops || []),
-        JSON.stringify(cropActivityYields || [])
-      ]);
+      if (dbErr) {
+        return res.status(500).json({ error: dbErr.message });
+      }
 
-      return res.status(200).json({ success: true, saved: true });
+      return res.status(200).json({ success: true, saved: true, source: 'supabase' });
     }
 
     return res.status(405).json({ error: 'Method Not Allowed' });
