@@ -172,71 +172,152 @@ app.get('/api/nfts', async (_req, res) => {
   }
 });
 
+// ── Concurrency locks for background cron tasks ────────────────────────────
+let isSnapshotRunning = false;
+let isYieldRunning = false;
+let isTradesSyncRunning = false;
+let isBackfillRunning = false;
+
 // ── Cron trigger routes ────────────────────────────────────────────────────
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
-  const { type } = req.query;
-  try {
-    if (type === 'baseline') {
-      const result = await processBaselineSnapshot(supabase);
-      return res.status(200).json({ success: true, message: 'Baseline snapshot completed.', result });
-    } else if (type === 'yield') {
-      const result = await processYieldCalculation(supabase);
-      return res.status(200).json({ success: true, message: 'Yield calculation completed.', result });
-    } else if (type === 'trades') {
-      const result = await processAutoSyncTrades(supabase);
-      return res.status(200).json({ success: true, message: 'Trades auto-sync completed.', result });
-    } else {
-      return res.status(400).json({ error: "Invalid type. Use 'type=baseline', 'type=yield', or 'type=trades'." });
+  const { type, sync } = req.query;
+
+  if (sync === 'true') {
+    try {
+      if (type === 'baseline') {
+        const result = await processBaselineSnapshot(supabase);
+        return res.status(200).json({ success: true, message: 'Baseline snapshot completed.', result });
+      } else if (type === 'yield') {
+        const result = await processYieldCalculation(supabase);
+        return res.status(200).json({ success: true, message: 'Yield calculation completed.', result });
+      } else if (type === 'trades') {
+        const result = await processAutoSyncTrades(supabase);
+        return res.status(200).json({ success: true, message: 'Trades auto-sync completed.', result });
+      } else {
+        return res.status(400).json({ error: "Invalid type. Use 'type=baseline', 'type=yield', or 'type=trades'." });
+      }
+    } catch (err) {
+      console.error(`Manual trigger error (${type}):`, err.message);
+      return res.status(500).json({ success: false, error: err.message });
     }
-  } catch (err) {
-    console.error(`Manual trigger error (${type}):`, err.message);
-    return res.status(500).json({ success: false, error: err.message });
+  }
+
+  // Non-blocking trigger (fire and return immediately with concurrency guard)
+  if (type === 'baseline') {
+    if (isSnapshotRunning) return res.status(200).json({ success: true, status: 'already_running', message: 'Baseline snapshot already in progress.' });
+    isSnapshotRunning = true;
+    res.status(200).json({ success: true, status: 'started', message: 'Baseline snapshot triggered in background.' });
+    processBaselineSnapshot(supabase).catch(err => console.error('Snapshot Error:', err.message)).finally(() => { isSnapshotRunning = false; });
+  } else if (type === 'yield') {
+    if (isYieldRunning) return res.status(200).json({ success: true, status: 'already_running', message: 'Yield calculation already in progress.' });
+    isYieldRunning = true;
+    res.status(200).json({ success: true, status: 'started', message: 'Yield calculation triggered in background.' });
+    processYieldCalculation(supabase).catch(err => console.error('Yield Error:', err.message)).finally(() => { isYieldRunning = false; });
+  } else if (type === 'trades') {
+    if (isTradesSyncRunning) return res.status(200).json({ success: true, status: 'already_running', message: 'Trades auto-sync already in progress.' });
+    isTradesSyncRunning = true;
+    res.status(200).json({ success: true, status: 'started', message: 'Trades auto-sync triggered in background.' });
+    processAutoSyncTrades(supabase).catch(err => console.error('Trades Error:', err.message)).finally(() => { isTradesSyncRunning = false; });
+  } else {
+    return res.status(400).json({ error: "Invalid type. Use 'type=baseline', 'type=yield', or 'type=trades'." });
   }
 });
 
 app.get('/api/cron/snapshot', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
-  try {
-    const result = await processBaselineSnapshot(supabase);
-    res.status(200).json({ success: true, message: 'Baseline snapshot completed.', result });
-  } catch (err) {
-    console.error('Snapshot Error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+
+  if (req.query.sync === 'true') {
+    try {
+      const result = await processBaselineSnapshot(supabase);
+      return res.status(200).json({ success: true, message: 'Baseline snapshot completed.', result });
+    } catch (err) {
+      console.error('Snapshot Error:', err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
   }
+
+  if (isSnapshotRunning) {
+    return res.status(200).json({ success: true, status: 'already_running', message: 'Baseline snapshot already in progress.' });
+  }
+
+  isSnapshotRunning = true;
+  res.status(200).json({ success: true, status: 'started', message: 'Baseline snapshot started in background.' });
+  processBaselineSnapshot(supabase)
+    .catch(err => console.error('Snapshot Error:', err.message))
+    .finally(() => { isSnapshotRunning = false; });
 });
 
 app.get('/api/cron/22utc-yield', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
-  try {
-    const result = await processYieldCalculation(supabase);
-    res.status(200).json({ success: true, message: 'Yield calculation completed.', result });
-  } catch (err) {
-    console.error('Yield Error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+
+  if (req.query.sync === 'true') {
+    try {
+      const result = await processYieldCalculation(supabase);
+      return res.status(200).json({ success: true, message: 'Yield calculation completed.', result });
+    } catch (err) {
+      console.error('Yield Error:', err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
   }
+
+  if (isYieldRunning) {
+    return res.status(200).json({ success: true, status: 'already_running', message: 'Yield calculation already in progress.' });
+  }
+
+  isYieldRunning = true;
+  res.status(200).json({ success: true, status: 'started', message: 'Yield calculation started in background.' });
+  processYieldCalculation(supabase)
+    .catch(err => console.error('Yield Error:', err.message))
+    .finally(() => { isYieldRunning = false; });
 });
 
 app.get('/api/cron/sync-trades', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
-  try {
-    const result = await processAutoSyncTrades(supabase);
-    res.status(200).json({ success: true, message: 'Marketplace trades auto-sync completed.', result });
-  } catch (err) {
-    console.error('Auto-sync trades Error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+
+  if (req.query.sync === 'true') {
+    try {
+      const result = await processAutoSyncTrades(supabase);
+      return res.status(200).json({ success: true, message: 'Marketplace trades auto-sync completed.', result });
+    } catch (err) {
+      console.error('Auto-sync trades Error:', err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
   }
+
+  if (isTradesSyncRunning) {
+    return res.status(200).json({ success: true, status: 'already_running', message: 'Marketplace trades auto-sync already in progress.' });
+  }
+
+  isTradesSyncRunning = true;
+  res.status(200).json({ success: true, status: 'started', message: 'Marketplace trades auto-sync started in background.' });
+  processAutoSyncTrades(supabase)
+    .catch(err => console.error('Auto-sync trades Error:', err.message))
+    .finally(() => { isTradesSyncRunning = false; });
 });
 
 app.get('/api/cron/backfill-yields', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
-  try {
-    const result = await backfillDailyYields(supabase);
-    res.status(200).json(result);
-  } catch (err) {
-    console.error('Backfill Error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+
+  if (req.query.sync === 'true') {
+    try {
+      const result = await backfillDailyYields(supabase);
+      return res.status(200).json(result);
+    } catch (err) {
+      console.error('Backfill Error:', err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
   }
+
+  if (isBackfillRunning) {
+    return res.status(200).json({ success: true, status: 'already_running', message: 'Yield backfill already in progress.' });
+  }
+
+  isBackfillRunning = true;
+  res.status(200).json({ success: true, status: 'started', message: 'Yield backfill started in background.' });
+  backfillDailyYields(supabase)
+    .catch(err => console.error('Backfill Error:', err.message))
+    .finally(() => { isBackfillRunning = false; });
 });
 
 // ── /api/yields — Serve daily yield history exclusively from Supabase ─────────
