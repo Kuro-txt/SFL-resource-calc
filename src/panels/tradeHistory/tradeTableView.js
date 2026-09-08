@@ -23,64 +23,82 @@ export function renderTradesTableView(mountEl, farmId) {
       if (metrics && metrics.totalTrades > 0) {
         summaryMount.classList.remove('hidden');
         summaryMount.innerHTML = `
-          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white/95 border-2 border-amber-300/80 rounded-xl p-3 shadow-xs">
-            <div class="flex items-center gap-2.5">
-              <div class="w-10 h-10 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-xl shadow-xs shrink-0">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 bg-white/95 dark:bg-amber-950/40 border-2 border-amber-300/80 dark:border-amber-700/60 rounded-xl p-3.5 shadow-sm">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-900/60 border border-amber-300 dark:border-amber-700/60 flex items-center justify-center text-2xl shadow-2xs shrink-0">
                 📦
               </div>
               <div>
                 <div class="flex items-center gap-2 flex-wrap">
-                  <h4 class="text-sm font-black text-sfl-wood">${metrics.itemName}</h4>
-                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-sfl-dirt border border-amber-300">
+                  <h4 class="text-sm font-black text-sfl-wood dark:text-amber-200">${metrics.itemName}</h4>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">
                     ${metrics.totalTrades} ${metrics.totalTrades === 1 ? 'transaction' : 'transactions'}
                   </span>
                 </div>
-                <p class="text-[11px] font-semibold text-sfl-woodLight">
+                <p class="text-[11px] font-semibold text-sfl-woodLight dark:text-amber-300/70">
                   Individual item sales, purchases & net flow summary
                 </p>
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono w-full lg:w-auto">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs font-mono w-full lg:w-auto">
               <!-- SALES STATS -->
-              <div class="bg-green-50/80 border border-green-200 rounded-lg p-2 flex flex-col justify-between">
-                <span class="text-[9px] font-sans font-bold text-sfl-green uppercase flex items-center gap-1">
-                  🟢 Sold (${metrics.soldCount})
-                </span>
-                <div class="font-black text-sfl-green text-sm mt-0.5">
+              <div class="bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-300/80 dark:border-emerald-700/60 rounded-xl p-2.5 flex flex-col justify-between shadow-2xs">
+                <div class="flex items-center justify-between gap-1 mb-1">
+                  <span class="text-[10px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-700/50 flex items-center gap-1">
+                    🟢 Sold
+                  </span>
+                  <span class="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300">
+                    ${metrics.soldCount} ${metrics.soldCount === 1 ? 'sale' : 'sales'}
+                  </span>
+                </div>
+                <div class="font-black text-emerald-700 dark:text-emerald-400 text-base font-mono flex items-center gap-1">
                   +${metrics.soldNetSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
                 </div>
-                ${metrics.soldTax > 0 ? `<div class="text-[9px] font-sans text-sfl-woodLight">Gross: ${metrics.soldGrossSfl.toFixed(3)} • Tax: -${metrics.soldTax.toFixed(3)}</div>` : ''}
-                <div class="text-[10px] text-sfl-woodLight mt-1 font-sans">
-                  <span class="font-bold font-mono text-sfl-wood">${metrics.soldQty.toLocaleString()}</span> units
-                  ${metrics.soldQty > 0 ? `• <span class="font-mono text-[9px]">~${metrics.avgSellPrice.toFixed(4)}/ea</span>` : ''}
+                ${metrics.soldTax > 0 ? `<div class="text-[9.5px] font-mono text-emerald-800/80 dark:text-emerald-300/70">Gross: +${metrics.soldGrossSfl.toFixed(3)} • Tax: -${metrics.soldTax.toFixed(3)}</div>` : ''}
+                <div class="text-[11px] text-sfl-wood dark:text-amber-200 mt-1.5 pt-1.5 border-t border-emerald-200/70 dark:border-emerald-800/50 flex items-center justify-between font-sans">
+                  <span>📦 <strong class="font-mono">${metrics.soldQty.toLocaleString()}</strong> units</span>
+                  ${metrics.soldQty > 0 ? `<span class="text-[10px] font-mono font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-100/60 dark:bg-emerald-900/40 px-1 rounded">~${metrics.avgSellPrice.toFixed(4)}/ea</span>` : ''}
                 </div>
               </div>
 
               <!-- BUYS STATS -->
-              <div class="bg-blue-50/80 border border-blue-200 rounded-lg p-2 flex flex-col justify-between">
-                <span class="text-[9px] font-sans font-bold text-blue-800 uppercase flex items-center gap-1">
-                  🔵 Bought (${metrics.boughtCount})
-                </span>
-                <div class="font-black text-sfl-wood text-sm mt-0.5">
+              <div class="bg-blue-50/90 dark:bg-blue-950/40 border border-blue-300/80 dark:border-blue-700/60 rounded-xl p-2.5 flex flex-col justify-between shadow-2xs">
+                <div class="flex items-center justify-between gap-1 mb-1">
+                  <span class="text-[10px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 border border-blue-300/60 dark:border-blue-700/50 flex items-center gap-1">
+                    🔵 Bought
+                  </span>
+                  <span class="text-[10px] font-mono font-bold text-blue-700 dark:text-blue-300">
+                    ${metrics.boughtCount} ${metrics.boughtCount === 1 ? 'buy' : 'buys'}
+                  </span>
+                </div>
+                <div class="font-black text-blue-700 dark:text-blue-300 text-base font-mono flex items-center gap-1">
                   -${metrics.boughtSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
                 </div>
-                <div class="text-[10px] text-sfl-woodLight mt-1 font-sans">
-                  <span class="font-bold font-mono text-sfl-wood">${metrics.boughtQty.toLocaleString()}</span> units
-                  ${metrics.boughtQty > 0 ? `• <span class="font-mono text-[9px]">~${metrics.avgBuyPrice.toFixed(4)}/ea</span>` : ''}
+                <div class="text-[9.5px] font-mono text-blue-800/80 dark:text-blue-300/70">Total Cost (0% buyer fee)</div>
+                <div class="text-[11px] text-sfl-wood dark:text-amber-200 mt-1.5 pt-1.5 border-t border-blue-200/70 dark:border-blue-800/50 flex items-center justify-between font-sans">
+                  <span>📦 <strong class="font-mono">${metrics.boughtQty.toLocaleString()}</strong> units</span>
+                  ${metrics.boughtQty > 0 ? `<span class="text-[10px] font-mono font-semibold text-blue-800 dark:text-blue-300 bg-blue-100/60 dark:bg-blue-900/40 px-1 rounded">~${metrics.avgBuyPrice.toFixed(4)}/ea</span>` : ''}
                 </div>
               </div>
 
               <!-- NET SFL & FLOW -->
-              <div class="bg-amber-100/50 border border-amber-300 rounded-lg p-2 flex flex-col justify-between">
-                <span class="text-[9px] font-sans font-bold text-sfl-wood uppercase flex items-center gap-1">
-                  ⚖️ Net Flow
-                </span>
-                <div class="font-black text-sm mt-0.5 font-mono ${metrics.netSfl >= 0 ? 'text-sfl-green' : 'text-sfl-accent'}">
+              <div class="bg-amber-50/90 dark:bg-amber-950/50 border border-amber-300/90 dark:border-amber-700/60 rounded-xl p-2.5 flex flex-col justify-between shadow-2xs">
+                <div class="flex items-center justify-between gap-1 mb-1">
+                  <span class="text-[10px] font-sans font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300/60 dark:border-amber-700/50 flex items-center gap-1">
+                    ⚖️ Net Flow
+                  </span>
+                  <span class="text-[10px] font-mono font-bold ${metrics.netSfl >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}">
+                    ${metrics.netSfl >= 0 ? 'Profit' : 'Loss'}
+                  </span>
+                </div>
+                <div class="font-black text-base font-mono flex items-center gap-1 ${metrics.netSfl >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}">
                   ${metrics.netSfl >= 0 ? '+' : ''}${metrics.netSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
                 </div>
-                <div class="text-[10px] text-sfl-woodLight mt-1 font-sans">
-                  Net Qty: <span class="font-bold font-mono ${metrics.netQty >= 0 ? 'text-sfl-wood' : 'text-sfl-dirt'}">${metrics.netQty >= 0 ? '+' : ''}${metrics.netQty.toLocaleString()}</span>
+                <div class="text-[9.5px] font-mono text-sfl-woodLight dark:text-amber-300/70">Net Revenue minus Cost</div>
+                <div class="text-[11px] text-sfl-wood dark:text-amber-200 mt-1.5 pt-1.5 border-t border-amber-200/70 dark:border-amber-800/50 flex items-center justify-between font-sans">
+                  <span>📦 Net Qty:</span>
+                  <span class="font-mono font-bold px-1.5 py-0.2 rounded ${metrics.netQty >= 0 ? 'bg-amber-100 dark:bg-amber-900/40 text-sfl-wood dark:text-amber-200' : 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300'}">${metrics.netQty >= 0 ? '+' : ''}${metrics.netQty.toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -147,30 +165,30 @@ export function renderTradesTableView(mountEl, farmId) {
       : (t.counterpartyName || t.initiatedBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Seller'));
 
     const badge = isSeller
-      ? `<span class="bg-green-100 text-sfl-green border border-sfl-green/40 px-2 py-0.5 rounded text-[10px] font-bold">🟢 SOLD</span>`
-      : `<span class="bg-blue-100 text-blue-800 border border-blue-400/40 px-2 py-0.5 rounded text-[10px] font-bold">🔵 BOUGHT</span>`;
+      ? `<span class="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-700/60 px-2 py-0.5 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs">🟢 SOLD</span>`
+      : `<span class="bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-300/80 dark:border-blue-700/60 px-2 py-0.5 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs">🔵 BOUGHT</span>`;
 
     rowsHtml += `
-      <tr class="hover:bg-amber-50/50 transition">
-        <td class="px-3 py-2.5 font-mono text-sfl-wood font-medium whitespace-nowrap">${dateStr}</td>
+      <tr class="hover:bg-amber-50/50 dark:hover:bg-amber-950/30 transition">
+        <td class="px-3 py-2.5 font-mono text-sfl-wood dark:text-amber-200 font-medium whitespace-nowrap">${dateStr}</td>
         <td class="px-2 py-2.5 whitespace-nowrap">${badge}</td>
-        <td class="px-3 py-2.5 font-bold text-sfl-dirt">${itemName}</td>
-        <td class="px-2 py-2.5 font-mono font-bold text-sfl-wood">${qty.toLocaleString()}</td>
-        <td class="px-2 py-2.5 font-mono text-sfl-woodLight">${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</td>
-        <td class="px-3 py-2.5 font-medium text-sfl-wood">
+        <td class="px-3 py-2.5 font-bold text-sfl-dirt dark:text-amber-100">${itemName}</td>
+        <td class="px-2 py-2.5 font-mono font-bold text-sfl-wood dark:text-amber-200">${qty.toLocaleString()}</td>
+        <td class="px-2 py-2.5 font-mono text-sfl-woodLight dark:text-amber-300/70">${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</td>
+        <td class="px-3 py-2.5 font-medium text-sfl-wood dark:text-amber-200">
           ${isSeller ? 'To: ' : 'From: '}<strong>${otherUser}</strong>
         </td>
-        <td class="px-3 py-2.5 font-mono font-bold text-right ${isSeller ? 'text-sfl-green' : 'text-sfl-wood'}">
+        <td class="px-3 py-2.5 font-mono font-bold text-right ${isSeller ? 'text-emerald-600 dark:text-emerald-400' : 'text-sfl-wood dark:text-amber-200'}">
           <div>${isSeller ? '+' : '-'}${amounts.netSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</div>
-          ${isSeller && amounts.tax > 0 ? `<div class="text-[9px] font-normal text-sfl-woodLight">Gross: ${amounts.grossSfl.toFixed(3)} • Tax: -${amounts.tax.toFixed(3)}</div>` : ''}
+          ${isSeller && amounts.tax > 0 ? `<div class="text-[9px] font-normal text-sfl-woodLight dark:text-amber-300/60">Gross: ${amounts.grossSfl.toFixed(3)} • Tax: -${amounts.tax.toFixed(3)}</div>` : ''}
         </td>
       </tr>
     `;
   });
 
   mountEl.innerHTML = `
-    <table class="w-full text-left text-xs text-sfl-dirt">
-      <thead class="text-[11px] uppercase bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood">
+    <table class="w-full text-left text-xs text-sfl-dirt dark:text-amber-100">
+      <thead class="text-[11px] uppercase bg-sfl-card dark:bg-amber-950/50 border-b-2 border-sfl-cardBorder dark:border-amber-700/60 text-sfl-wood dark:text-amber-200">
         <tr>
           <th class="px-3 py-2.5">Date & Time</th>
           <th class="px-2 py-2.5">Type</th>

@@ -32,97 +32,97 @@ export function renderTradeHistoryTemplate() {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         
         <!-- CARD 1: TODAY -->
-        <div class="bg-white/90 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs flex flex-col justify-between">
-          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 pb-1.5 mb-2">
-            <span class="text-xs font-bold text-sfl-wood flex items-center gap-1">
+        <div class="bg-white/90 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 p-3 rounded-xl shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-2">
+            <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
               <span>📅</span> Today's Trading
             </span>
-            <span id="trade-metric-today-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-sfl-dirt border border-amber-300">0 trades</span>
+            <span id="trade-metric-today-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">0 trades</span>
           </div>
           <div class="mb-2">
-            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">Today Net Profit</span>
-            <span id="trade-metric-today-net" class="text-lg font-black text-sfl-wood font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+            <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">Today Net Profit</span>
+            <span id="trade-metric-today-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
-          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40">
+          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40 dark:border-amber-700/40">
             <div>
-              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Sales</span>
-              <span id="trade-metric-today-sales" class="font-bold text-sfl-green font-mono">+0.000</span>
+              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Sales</span>
+              <span id="trade-metric-today-sales" class="font-bold text-sfl-green dark:text-emerald-400 font-mono">+0.000</span>
             </div>
             <div>
-              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Purchases</span>
-              <span id="trade-metric-today-buys" class="font-bold text-sfl-wood font-mono">-0.000</span>
+              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Purchases</span>
+              <span id="trade-metric-today-buys" class="font-bold text-sfl-wood dark:text-amber-200 font-mono">-0.000</span>
             </div>
           </div>
         </div>
 
         <!-- CARD 2: WEEK -->
-        <div class="bg-white/90 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs flex flex-col justify-between">
-          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 pb-1.5 mb-2">
-            <span class="text-xs font-bold text-sfl-wood flex items-center gap-1">
+        <div class="bg-white/90 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 p-3 rounded-xl shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-2">
+            <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
               <span>📊</span> Weekly (Mon–Sun)
             </span>
-            <span id="trade-metric-week-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-sfl-dirt border border-amber-300">0 trades</span>
+            <span id="trade-metric-week-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">0 trades</span>
           </div>
           <div class="mb-2">
-            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">Mon – Sun Net Profit</span>
-            <span id="trade-metric-week-net" class="text-lg font-black text-sfl-wood font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+            <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">Mon – Sun Net Profit</span>
+            <span id="trade-metric-week-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
-          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40">
+          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40 dark:border-amber-700/40">
             <div>
-              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Sales</span>
-              <span id="trade-metric-week-sales" class="font-bold text-sfl-green font-mono">+0.000</span>
+              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Sales</span>
+              <span id="trade-metric-week-sales" class="font-bold text-sfl-green dark:text-emerald-400 font-mono">+0.000</span>
             </div>
             <div>
-              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Purchases</span>
-              <span id="trade-metric-week-buys" class="font-bold text-sfl-wood font-mono">-0.000</span>
+              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Purchases</span>
+              <span id="trade-metric-week-buys" class="font-bold text-sfl-wood dark:text-amber-200 font-mono">-0.000</span>
             </div>
           </div>
         </div>
 
         <!-- CARD 3: MONTH -->
-        <div class="bg-white/90 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs flex flex-col justify-between">
-          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 pb-1.5 mb-2">
-            <span class="text-xs font-bold text-sfl-wood flex items-center gap-1">
+        <div class="bg-white/90 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 p-3 rounded-xl shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-2">
+            <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
               <span>🗓️</span> Monthly Trading
             </span>
-            <span id="trade-metric-month-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-sfl-dirt border border-amber-300">0 trades</span>
+            <span id="trade-metric-month-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">0 trades</span>
           </div>
           <div class="mb-2">
-            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">This Month Net Profit</span>
-            <span id="trade-metric-month-net" class="text-lg font-black text-sfl-wood font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+            <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">This Month Net Profit</span>
+            <span id="trade-metric-month-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
-          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40">
+          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40 dark:border-amber-700/40">
             <div>
-              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Sales</span>
-              <span id="trade-metric-month-sales" class="font-bold text-sfl-green font-mono">+0.000</span>
+              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Sales</span>
+              <span id="trade-metric-month-sales" class="font-bold text-sfl-green dark:text-emerald-400 font-mono">+0.000</span>
             </div>
             <div>
-              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Purchases</span>
-              <span id="trade-metric-month-buys" class="font-bold text-sfl-wood font-mono">-0.000</span>
+              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Purchases</span>
+              <span id="trade-metric-month-buys" class="font-bold text-sfl-wood dark:text-amber-200 font-mono">-0.000</span>
             </div>
           </div>
         </div>
 
-        <!-- CARD 4: CLOUD ARCHIVE -->
-        <div class="bg-white/90 border-2 border-sfl-cardBorder p-3 rounded-xl shadow-xs flex flex-col justify-between">
-          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 pb-1.5 mb-2">
-            <span class="text-xs font-bold text-sfl-wood flex items-center gap-1">
-              <span>☁️</span> Cloud Ledger
+        <!-- CARD 4: ALL-TIME CLOUD LEDGER -->
+        <div class="bg-white/90 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 p-3 rounded-xl shadow-xs flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-2">
+            <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
+              <span>☁️</span> All-Time (TiDB)
             </span>
-            <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-green-100 text-sfl-green border border-green-300">TiDB Synced</span>
+            <span id="trade-metric-cloud-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">0 trades</span>
           </div>
           <div class="mb-2">
-            <span class="text-[9px] font-bold text-sfl-woodLight uppercase block">Trades Saved</span>
-            <span id="trade-metric-total-trades" class="text-lg font-black text-sfl-dirt font-mono">0</span>
+            <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">Total Net Profit</span>
+            <span id="trade-metric-cloud-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
-          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40">
+          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40 dark:border-amber-700/40">
             <div>
-              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Total Sales</span>
-              <span id="trade-metric-lifetime-sales" class="font-bold text-sfl-green font-mono">+0.000</span>
+              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Sales</span>
+              <span id="trade-metric-cloud-sales" class="font-bold text-sfl-green dark:text-emerald-400 font-mono">+0.000</span>
             </div>
             <div>
-              <span class="text-[9px] text-sfl-woodLight block font-sans font-bold">Total Buys</span>
-              <span id="trade-metric-lifetime-buys" class="font-bold text-sfl-wood font-mono">-0.000</span>
+              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Purchases</span>
+              <span id="trade-metric-cloud-buys" class="font-bold text-sfl-wood dark:text-amber-200 font-mono">-0.000</span>
             </div>
           </div>
         </div>
@@ -130,50 +130,50 @@ export function renderTradeHistoryTemplate() {
       </div>
 
       <!-- NAVIGATION SUB-TABS (TRADES / CALENDAR / LISTINGS / OFFERS) -->
-      <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-sfl-cardBorder pb-2">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-sfl-cardBorder dark:border-amber-700/60 pb-2">
         <div class="flex items-center gap-1.5 flex-wrap">
-          <button id="subtab-trades-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-sfl-dirt bg-sfl-wood text-amber-200 shadow-xs">
+          <button id="subtab-trades-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-200 shadow-xs">
             📜 Trade History (<span id="subtab-trades-count">0</span>)
           </button>
-          <button id="subtab-calendar-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 text-sfl-woodLight hover:bg-amber-200/60">
+          <button id="subtab-calendar-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 dark:bg-amber-950/40 text-sfl-woodLight dark:text-amber-300/80 hover:bg-amber-200/60">
             📅 Trade Calendar
           </button>
-          <button id="subtab-listings-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 text-sfl-woodLight hover:bg-amber-200/60">
+          <button id="subtab-listings-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 dark:bg-amber-950/40 text-sfl-woodLight dark:text-amber-300/80 hover:bg-amber-200/60">
             🏷️ Active Listings (<span id="subtab-listings-count">0</span>)
           </button>
-          <button id="subtab-offers-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 text-sfl-woodLight hover:bg-amber-200/60">
+          <button id="subtab-offers-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 dark:bg-amber-950/40 text-sfl-woodLight dark:text-amber-300/80 hover:bg-amber-200/60">
             🎯 Open Offers (<span id="subtab-offers-count">0</span>)
           </button>
         </div>
 
         <div id="trade-search-container" class="relative w-full sm:w-60">
           <input type="text" id="trade-search-input" placeholder="🔍 Search item name or user..." 
-            class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt focus:ring-1 focus:ring-sfl-gold">
+            class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-200 dark:bg-amber-950/60 dark:border-amber-700/60 focus:ring-1 focus:ring-sfl-gold">
         </div>
       </div>
 
       <!-- FILTER CONTROLS FOR TRADES VIEW (SOLD / BOUGHT + SPECIFIC ITEM DROPDOWN) -->
-      <div id="trade-filters-bar" class="flex flex-wrap items-center justify-between gap-2">
+      <div id="trade-filters-bar" class="flex flex-wrap items-center justify-between gap-2.5">
         <div class="flex items-center gap-1.5 flex-wrap">
-          <button id="trade-filter-all" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs">
+          <button id="trade-filter-all" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-100 shadow-xs">
             All
           </button>
-          <button id="trade-filter-sold" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-50">
+          <button id="trade-filter-sold" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder dark:border-amber-700/60 bg-white dark:bg-amber-950/40 text-sfl-wood dark:text-amber-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-800 dark:hover:text-emerald-300">
             🟢 Sold (Sales)
           </button>
-          <button id="trade-filter-bought" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-50">
+          <button id="trade-filter-bought" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder dark:border-amber-700/60 bg-white dark:bg-amber-950/40 text-sfl-wood dark:text-amber-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-800 dark:hover:text-blue-300">
             🔵 Bought (Purchases)
           </button>
         </div>
 
         <div class="flex items-center gap-1.5 flex-wrap">
-          <label for="trade-item-filter" class="text-xs font-bold text-sfl-wood flex items-center gap-1">
+          <label for="trade-item-filter" class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
             <span>📦</span> Item:
           </label>
-          <select id="trade-item-filter" class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt cursor-pointer bg-white border border-sfl-cardBorder hover:border-sfl-dirt focus:ring-1 focus:ring-sfl-gold max-w-[200px] truncate shadow-xs">
+          <select id="trade-item-filter" class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-200 cursor-pointer bg-white dark:bg-amber-950/60 border border-sfl-cardBorder dark:border-amber-700/60 hover:border-sfl-dirt dark:hover:border-amber-500 focus:ring-1 focus:ring-sfl-gold max-w-[200px] truncate shadow-xs">
             <option value="all">📦 All Items</option>
           </select>
-          <button id="trade-item-clear-btn" class="hidden px-2 py-1 rounded-md text-[10px] font-bold text-sfl-woodLight bg-amber-100 hover:bg-amber-200 border border-amber-300 transition cursor-pointer shadow-xs" title="Reset item filter">
+          <button id="trade-item-clear-btn" class="hidden px-2 py-1 rounded-md text-[10px] font-bold text-sfl-woodLight dark:text-amber-200 bg-amber-100 dark:bg-amber-900/60 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition cursor-pointer shadow-xs" title="Reset item filter">
             ✕ Clear
           </button>
         </div>
