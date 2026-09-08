@@ -5,6 +5,8 @@
  * Inspects raw JSON from all 8 backend & third-party endpoints.
  */
 
+import { BACKEND_URL } from '../../config/constants.js';
+
 export const API_ENDPOINTS = [
   {
     id: 'farm',
@@ -128,6 +130,20 @@ export function initApiViewerPanel() {
 
       <!-- REQUEST CONTROLS & QUERY PARAMS -->
       <div class="bg-white/80 border-2 border-sfl-cardBorder p-4 rounded-xl shadow-xs space-y-3">
+        <!-- BACKEND SERVER SELECTOR -->
+        <div class="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between bg-amber-50/60 p-2.5 rounded-lg border border-amber-200 text-xs">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+            <span class="font-bold text-sfl-wood text-[11px] shrink-0">Backend Host:</span>
+            <input type="text" id="api-viewer-base-url" value="${BACKEND_URL}" 
+              placeholder="https://sfl-calculator-backend.onrender.com" 
+              class="sfl-input rounded px-2.5 py-1 text-xs font-mono text-sfl-dirt w-full sm:w-80 bg-white">
+          </div>
+          <div class="flex items-center gap-1.5 text-[11px] self-end sm:self-auto shrink-0">
+            <button type="button" id="api-viewer-preset-render" class="px-2 py-0.5 rounded bg-amber-200 hover:bg-amber-300 font-bold text-sfl-dirt cursor-pointer transition text-[10px]">Render (Live)</button>
+            <button type="button" id="api-viewer-preset-local" class="px-2 py-0.5 rounded bg-gray-200 hover:bg-gray-300 font-bold text-gray-700 cursor-pointer transition text-[10px]">Localhost:3000</button>
+          </div>
+        </div>
+
         <div class="flex flex-col sm:flex-row gap-3 items-end">
           <div id="api-param-farm-container" class="w-full sm:w-1/3 space-y-1">
             <label class="text-[11px] font-bold text-sfl-wood block">Farm ID:</label>
@@ -150,9 +166,15 @@ export function initApiViewerPanel() {
         </div>
 
         <!-- URL PREVIEW BAR -->
-        <div class="flex items-center gap-2 bg-amber-50/70 border border-amber-300/80 px-3 py-1.5 rounded-lg text-xs font-mono text-sfl-wood overflow-x-auto">
-          <span class="text-[10px] font-bold uppercase bg-amber-200 text-sfl-dirt px-1.5 py-0.5 rounded shrink-0">GET</span>
-          <span id="api-viewer-url-preview" class="truncate select-all text-[11px]">/api/get-farm</span>
+        <div class="flex items-center justify-between gap-2 bg-amber-50/70 border border-amber-300/80 px-3 py-1.5 rounded-lg text-xs font-mono text-sfl-wood overflow-x-auto">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[10px] font-bold uppercase bg-amber-200 text-sfl-dirt px-1.5 py-0.5 rounded shrink-0">GET</span>
+            <span id="api-viewer-url-preview" class="truncate select-all text-[11px] font-semibold text-emerald-800"></span>
+          </div>
+          <a id="api-viewer-url-open" href="#" target="_blank" rel="noopener noreferrer" 
+             class="shrink-0 text-amber-800 hover:text-amber-950 hover:underline font-bold text-[11px] flex items-center gap-1" title="Open URL in new browser tab">
+            <span>Open ↗</span>
+          </a>
         </div>
       </div>
 
@@ -199,30 +221,39 @@ export function initApiViewerPanel() {
 function syncInputsWithStorage() {
   const farmInput = document.getElementById('api-viewer-farm-id');
   const keyInput = document.getElementById('api-viewer-api-key');
+  const baseInput = document.getElementById('api-viewer-base-url');
 
   const storedFarm = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value || '';
   const storedKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value || '';
+  const storedBase = localStorage.getItem('sfl_api_viewer_backend') || BACKEND_URL;
 
   if (farmInput && storedFarm) farmInput.value = storedFarm.trim();
   if (keyInput && storedKey) keyInput.value = storedKey.trim();
+  if (baseInput && storedBase) baseInput.value = storedBase.trim();
 }
 
-function getActiveUrl() {
+export function getActiveUrl() {
   const ep = API_ENDPOINTS.find(e => e.id === selectedEndpointId) || API_ENDPOINTS[0];
   const farmId = document.getElementById('api-viewer-farm-id')?.value.trim() || '';
   const apiKey = document.getElementById('api-viewer-api-key')?.value.trim() || '';
+  const baseUrlInput = document.getElementById('api-viewer-base-url')?.value.trim();
+  const baseUrl = (baseUrlInput !== undefined && baseUrlInput !== '' ? baseUrlInput : BACKEND_URL).replace(/\/+$/, '');
 
   const params = new URLSearchParams();
   if (ep.needsFarmId && farmId) params.append('farmId', farmId);
   if (ep.needsApiKey && apiKey) params.append('apiKey', apiKey);
 
   const queryStr = params.toString();
-  return queryStr ? `${ep.path}?${queryStr}` : ep.path;
+  return `${baseUrl}${ep.path}${queryStr ? '?' + queryStr : ''}`;
 }
 
 function updateUrlPreview() {
   const previewEl = document.getElementById('api-viewer-url-preview');
-  if (previewEl) previewEl.textContent = getActiveUrl();
+  const openLinkEl = document.getElementById('api-viewer-url-open');
+  const fullUrl = getActiveUrl();
+
+  if (previewEl) previewEl.textContent = fullUrl;
+  if (openLinkEl) openLinkEl.href = fullUrl;
 
   const ep = API_ENDPOINTS.find(e => e.id === selectedEndpointId);
   const farmContainer = document.getElementById('api-param-farm-container');
@@ -256,6 +287,31 @@ function setupApiViewerListeners() {
     });
   });
 
+  // Backend host input & presets
+  const baseInput = document.getElementById('api-viewer-base-url');
+  if (baseInput) {
+    baseInput.addEventListener('input', () => {
+      localStorage.setItem('sfl_api_viewer_backend', baseInput.value.trim());
+      updateUrlPreview();
+    });
+  }
+
+  document.getElementById('api-viewer-preset-render')?.addEventListener('click', () => {
+    if (baseInput) {
+      baseInput.value = BACKEND_URL;
+      localStorage.setItem('sfl_api_viewer_backend', BACKEND_URL);
+      updateUrlPreview();
+    }
+  });
+
+  document.getElementById('api-viewer-preset-local')?.addEventListener('click', () => {
+    if (baseInput) {
+      baseInput.value = 'http://localhost:3000';
+      localStorage.setItem('sfl_api_viewer_backend', 'http://localhost:3000');
+      updateUrlPreview();
+    }
+  });
+
   // Input changes update URL
   document.getElementById('api-viewer-farm-id')?.addEventListener('input', updateUrlPreview);
   document.getElementById('api-viewer-api-key')?.addEventListener('input', updateUrlPreview);
@@ -266,14 +322,34 @@ function setupApiViewerListeners() {
   // Copy button
   document.getElementById('api-viewer-copy-btn')?.addEventListener('click', () => {
     if (!lastRawJsonText) return;
-    navigator.clipboard.writeText(lastRawJsonText).then(() => {
+    const onSuccess = () => {
       const copyBtn = document.getElementById('api-viewer-copy-btn');
       if (copyBtn) {
         const oldText = copyBtn.textContent;
         copyBtn.textContent = "✅ Copied!";
         setTimeout(() => copyBtn.textContent = oldText, 2000);
       }
-    });
+    };
+
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(lastRawJsonText).then(onSuccess).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = lastRawJsonText;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        onSuccess();
+      });
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = lastRawJsonText;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      onSuccess();
+    }
   });
 
   // Download button
@@ -331,12 +407,16 @@ export async function fetchRawApi() {
     const rawText = await res.text();
     const sizeKb = (rawText.length / 1024).toFixed(1);
 
-    let parsed;
+    let parsed = null;
+    let isHtml = false;
     try {
       parsed = JSON.parse(rawText);
       lastRawJsonText = JSON.stringify(parsed, null, 2);
     } catch {
       lastRawJsonText = rawText;
+      if (rawText.trim().toLowerCase().startsWith('<!doctype') || rawText.trim().toLowerCase().startsWith('<html') || rawText.includes('<title>Site not found')) {
+        isHtml = true;
+      }
     }
     lastResponseData = parsed || rawText;
 
@@ -351,10 +431,15 @@ export async function fetchRawApi() {
     }
 
     if (outputEl) {
-      outputEl.className = `text-xs font-mono leading-relaxed whitespace-pre select-text ${
-        res.ok ? 'text-emerald-400' : 'text-red-400'
-      }`;
-      outputEl.textContent = lastRawJsonText;
+      if (isHtml) {
+        outputEl.className = "text-xs font-mono text-amber-300 leading-relaxed whitespace-pre select-text";
+        outputEl.textContent = `⚠️ WARNING: Received HTML instead of JSON (Status ${res.status}):\nTarget URL: ${url}\n\nReason: This endpoint was served as static HTML (e.g. GitHub Pages 404) rather than the Render backend.\nPlease make sure "Backend Host" is set to "${BACKEND_URL}".\n\n---\nRaw Content:\n` + rawText;
+      } else {
+        outputEl.className = `text-xs font-mono leading-relaxed whitespace-pre select-text ${
+          res.ok ? 'text-emerald-400' : 'text-red-400'
+        }`;
+        outputEl.textContent = lastRawJsonText;
+      }
     }
   } catch (err) {
     const endTime = performance.now();
@@ -366,7 +451,7 @@ export async function fetchRawApi() {
     }
     if (outputEl) {
       outputEl.className = "text-xs font-mono text-red-400 leading-relaxed whitespace-pre select-text";
-      outputEl.textContent = `❌ Failed to fetch ${url}:\n\n${err.message}`;
+      outputEl.textContent = `❌ Network Error fetching ${url}:\n\n${err.message}\n\nTroubleshooting tips:\n1. Ensure the Render backend is awake: ${BACKEND_URL}/api/health\n2. If Render is on free tier, it may take 30-50 seconds to spin up on cold start.\n3. Check browser console for CORS or network blocking.`;
     }
   } finally {
     if (fetchBtn) fetchBtn.disabled = false;
