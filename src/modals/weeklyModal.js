@@ -1,4 +1,4 @@
-import { FLOWER_IMG_HTML, FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
+import { FLOWER_IMG_HTML, FLOWER_IMG_SMALL_HTML, getItemTaxRate } from '../config/constants.js';
 import { formatDateYYYYMMDD, normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, getBettyUnitPrice } from '../utils/formatters.js';
 
 let currentWeekOffset = 0;
@@ -147,6 +147,7 @@ export function renderWeeklySummaryModal() {
   let snapshotCount = 0;
   let grandTotalItems = 0;
   let grandGrossFlowers = 0;
+  let grandTaxTotal = 0;
   let grandNetFlowers = 0;
 
   // Group by day without collapsing crops across days
@@ -184,7 +185,7 @@ export function renderWeeklySummaryModal() {
     if (itemsEl) itemsEl.textContent = '0.0 Items';
     if (flowersEl) flowersEl.innerHTML = `0.000 ${FLOWER_IMG_HTML}`;
     if (grossValEl) grossValEl.textContent = '0.000 Flowers';
-    if (taxValEl) taxValEl.textContent = `0.000 Flowers (0%)`;
+    if (taxValEl) taxValEl.textContent = `0.000 Flowers`;
     if (netValEl) netValEl.textContent = '0.000 Flowers';
     return;
   }
@@ -214,7 +215,8 @@ export function renderWeeklySummaryModal() {
 
       let unitPrice = getItemFlowerPrice(cleanKey);
       let grossTotal = unitPrice * qty;
-      let taxAmount = grossTotal * taxRate;
+      const effectiveTaxRate = getItemTaxRate(rawName || cleanName, taxRate);
+      let taxAmount = grossTotal * effectiveTaxRate;
       let netFlowers = roundUpToThreeDecimals(grossTotal - taxAmount);
 
       dayItemsCount += qty;
@@ -222,27 +224,28 @@ export function renderWeeklySummaryModal() {
 
       grandTotalItems += qty;
       grandGrossFlowers += grossTotal;
+      grandTaxTotal += taxAmount;
       grandNetFlowers += netFlowers;
 
       dayItemsHtml += `
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-2.5 bg-amber-50/70 dark:bg-amber-950/30 rounded-lg border border-amber-200/50 dark:border-amber-700/40 gap-2">
           <div class="flex flex-col">
-            <span class="font-bold text-sfl-dirt text-xs flex items-center gap-1">
+            <span class="font-bold text-sfl-dirt dark:text-amber-100 text-xs flex items-center gap-1">
               <span>🌾</span> ${cleanName}
             </span>
-            <span class="text-[10px] text-sfl-woodLight font-mono">Unit: ${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</span>
+            <span class="text-[10px] text-sfl-woodLight dark:text-amber-300/70 font-mono">Unit: ${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
           
           <div class="flex flex-wrap items-center gap-2 font-mono text-xs w-full sm:w-auto justify-between sm:justify-end">
-            <span class="text-sfl-wood font-bold bg-amber-100/90 dark:bg-amber-900/40 px-2 py-0.5 rounded border border-amber-300/60 dark:border-amber-700/50">
+            <span class="text-sfl-wood dark:text-amber-200 font-bold bg-amber-100/90 dark:bg-amber-900/40 px-2 py-0.5 rounded border border-amber-300/60 dark:border-amber-700/50">
               +${roundUpToOneDecimal(qty).toFixed(1)} qty
             </span>
 
             <div class="flex flex-col items-end">
-              <span class="text-xs text-sfl-green font-extrabold flex items-center gap-1 bg-green-100 dark:bg-green-950/50 border border-sfl-green/30 px-2 py-0.5 rounded">
+              <span class="text-xs text-sfl-green dark:text-emerald-400 font-extrabold flex items-center gap-1 bg-green-100 dark:bg-green-950/50 border border-sfl-green/30 px-2 py-0.5 rounded">
                 ${netFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
               </span>
-              <span class="text-[9px] text-sfl-accent font-mono">Tax: -${taxAmount.toFixed(3)}</span>
+              <span class="text-[9px] text-sfl-accent font-mono">Tax (${(effectiveTaxRate * 100).toFixed(0)}%): -${taxAmount.toFixed(3)}</span>
             </div>
           </div>
         </div>
@@ -250,35 +253,62 @@ export function renderWeeklySummaryModal() {
     });
 
     html += `
-      <div class="bg-white/90 dark:bg-amber-950/20 border-2 border-sfl-cardBorder/70 rounded-xl overflow-hidden shadow-xs">
-        <!-- DAY HEADER -->
-        <div class="bg-sfl-wood text-amber-200 px-3 py-1.5 text-xs font-bold flex justify-between items-center border-b border-sfl-dirt">
+      <details class="daily-harvest-day-details group bg-white/90 dark:bg-amber-950/20 border-2 border-sfl-cardBorder/70 rounded-xl overflow-hidden shadow-xs mb-3">
+        <!-- DAY HEADER (COLLAPSED BY DEFAULT) -->
+        <summary class="bg-sfl-wood text-amber-200 px-3 py-2 text-xs font-bold flex justify-between items-center border-b border-sfl-dirt cursor-pointer hover:bg-amber-900 transition list-none select-none">
           <span class="flex items-center gap-1.5">
-            <span>🗓️</span> ${formattedDateHeader}
+            <span class="transition-transform duration-200 group-open:rotate-90 inline-block text-[10px] text-amber-300">▶</span>
+            <span>🗓️</span>
+            <span>${formattedDateHeader}</span>
           </span>
-          <span class="font-mono text-[11px] text-amber-300 font-extrabold flex items-center gap-1">
-            Day Total: ${dayNetFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML} (${roundUpToOneDecimal(dayItemsCount).toFixed(1)} items)
-          </span>
-        </div>
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-[11px] text-amber-300 font-extrabold flex items-center gap-1">
+              Day Total: ${dayNetFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML} (${roundUpToOneDecimal(dayItemsCount).toFixed(1)} items)
+            </span>
+            <span class="text-[9.5px] text-amber-300/60 font-sans group-open:hidden">(Click to expand)</span>
+          </div>
+        </summary>
         <!-- ITEMS FOR THIS DAY -->
-        <div class="p-2.5 space-y-2">
+        <div class="p-2.5 space-y-2 border-t border-sfl-dirt/30">
           ${dayItemsHtml}
         </div>
-      </div>
+      </details>
     `;
   });
 
-  const grandTaxTotal = grandGrossFlowers * taxRate;
+  const topControlsHtml = `
+    <div class="flex justify-between items-center text-xs font-bold px-1 pb-1 mb-2 border-b border-amber-200/50 dark:border-amber-800/40">
+      <span class="text-sfl-dirt dark:text-amber-200 uppercase tracking-wide text-[11px]">
+        📅 Day-by-Day Harvest Log (${sortedDates.length} Days)
+      </span>
+      <div class="flex items-center gap-1.5">
+        <button id="weekly-expand-all-btn" type="button" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-800 cursor-pointer transition">
+          Expand All
+        </button>
+        <button id="weekly-collapse-all-btn" type="button" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-800 cursor-pointer transition">
+          Collapse All
+        </button>
+      </div>
+    </div>
+  `;
 
   if (snapshotsEl) snapshotsEl.textContent = `${snapshotCount} Log${snapshotCount === 1 ? '' : 's'}`;
   if (itemsEl) itemsEl.textContent = `${roundUpToOneDecimal(grandTotalItems).toFixed(1)} Items`;
   if (flowersEl) flowersEl.innerHTML = `${grandNetFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
 
   if (grossValEl) grossValEl.textContent = `${grandGrossFlowers.toFixed(3)} Flowers`;
-  if (taxValEl) taxValEl.textContent = `${grandTaxTotal.toFixed(3)} Flowers (${(taxRate * 100).toFixed(1)}%)`;
+  if (taxValEl) taxValEl.textContent = `${grandTaxTotal.toFixed(3)} Flowers`;
   if (netValEl) netValEl.textContent = `${grandNetFlowers.toFixed(3)} Flowers`;
 
-  if (breakdownContainer) breakdownContainer.innerHTML = html;
+  if (breakdownContainer) {
+    breakdownContainer.innerHTML = topControlsHtml + html;
+    document.getElementById('weekly-expand-all-btn')?.addEventListener('click', () => {
+      breakdownContainer.querySelectorAll('.daily-harvest-day-details').forEach(d => d.open = true);
+    });
+    document.getElementById('weekly-collapse-all-btn')?.addEventListener('click', () => {
+      breakdownContainer.querySelectorAll('.daily-harvest-day-details').forEach(d => d.open = false);
+    });
+  }
 }
 
 export function initWeeklySummaryModal() {

@@ -1,5 +1,5 @@
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, getBettyUnitPrice } from '../utils/formatters.js';
-import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML, getItemTaxRate } from '../config/constants.js';
 
 window.editingSnapshotDate = window.editingSnapshotDate || null;
 
@@ -120,7 +120,8 @@ export function renderSnapshotHistory() {
 
         let unitPrice = getItemUnitPriceInFlowers(cleanK);
         if (cropFlowers <= 0 || cropFlowers > (cropQty * 1.5) || unitPrice > 0) {
-          cropFlowers = roundUpToThreeDecimals((unitPrice * cropQty) * (1 - taxRate));
+          const effectiveTax = getItemTaxRate(cropName, taxRate);
+          cropFlowers = roundUpToThreeDecimals((unitPrice * cropQty) * (1 - effectiveTax));
         }
 
         calculatedRowNetFlowers += cropFlowers;
@@ -206,7 +207,8 @@ export async function saveEditedSnapshot(date) {
       if (newQty > 0) {
         let cleanK = normalizeItemKey(crop.name || crop.item || '');
         let unitPrice = getItemUnitPriceInFlowers(cleanK);
-        let itemNetFlowers = roundUpToThreeDecimals((unitPrice * newQty) * (1 - taxRate));
+        const effectiveTax = getItemTaxRate(crop.name || crop.item || '', taxRate);
+        let itemNetFlowers = roundUpToThreeDecimals((unitPrice * newQty) * (1 - effectiveTax));
 
         updatedCrops.push({
           name: crop.name || crop.item || 'Crop',

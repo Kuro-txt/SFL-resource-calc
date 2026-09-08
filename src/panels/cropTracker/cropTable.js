@@ -1,4 +1,4 @@
-import { FLOWER_IMG_SMALL_HTML, SFL_GREENHOUSE_CROPS, SFL_FRUITS } from '../../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML, SFL_GREENHOUSE_CROPS, SFL_FRUITS, getItemTaxRate } from '../../config/constants.js';
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, getBettyUnitPrice } from '../../utils/formatters.js';
 import { cropBaseYields, globalAvgYield, updateCropBaseYield } from './cropState.js';
 import { activeHarvestDiffs, hasBaselineForToday, isInitialCheckDone, saveCurrentActivityAsBaseline } from './cropSync.js';
@@ -239,7 +239,8 @@ export function renderCropTrackerRows() {
     const totalHarvested = roundUpToOneDecimal(entry.harvestCount * baseYield);
     const unitPrice = getItemFlowerPrice(entry.cleanKey);
     const grossFlowers = unitPrice * totalHarvested;
-    const taxDeduction = grossFlowers * taxRate;
+    const effectiveTaxRate = getItemTaxRate(entry.crop || entry.cleanKey, taxRate);
+    const taxDeduction = grossFlowers * effectiveTaxRate;
     const netFlowers = roundUpToThreeDecimals(grossFlowers - taxDeduction);
 
     grandCycles += entry.harvestCount;

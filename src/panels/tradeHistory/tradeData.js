@@ -2,6 +2,7 @@ import { getItemNameById } from '../../data/knownIds.js';
 import { ApiService } from '../../services/api.js';
 import { renderTradeSummaryMetrics } from './tradeMetrics.js';
 import { renderCurrentView, populateItemFilterDropdown } from './index.js';
+import { getItemTaxRate, isGlobalTaxItem } from '../../config/constants.js';
 
 export let tradeHistoryData = null;
 export let cloudArchivedCount = 0;
@@ -140,13 +141,15 @@ export function getTradeAmounts(trade, farmId) {
   const grossSfl = parseFloat(trade.sfl || 0);
 
   if (isSeller) {
-    let tax = parseFloat(trade.tax !== undefined && trade.tax !== null ? trade.tax : 0);
-    if (!tax || tax <= 0) {
-      const savedTax = typeof localStorage !== 'undefined' ? localStorage.getItem('sfl_tax_rate') : null;
-      const taxSelectEl = typeof document !== 'undefined' ? document.getElementById('tax-select') : null;
-      const taxRate = taxSelectEl ? (parseFloat(taxSelectEl.value) || 0) : (savedTax !== null ? parseFloat(savedTax) : 0.10);
-      tax = Math.round((grossSfl * taxRate) * 10000) / 10000;
+    let rawName = trade.itemName || trade.name || trade.item || '';
+    if (!rawName || rawName.startsWith('Item #')) {
+      rawName = getItemNameById(trade.itemId || trade.item_id || '') || rawName;
     }
+    const savedTax = typeof localStorage !== 'undefined' ? localStorage.getItem('sfl_tax_rate') : null;
+    const taxSelectEl = typeof document !== 'undefined' ? document.getElementById('tax-select') : null;
+    const globalTaxRate = taxSelectEl ? (parseFloat(taxSelectEl.value) || 0) : (savedTax !== null ? parseFloat(savedTax) : 0.10);
+    const effectiveTaxRate = getItemTaxRate(rawName, globalTaxRate);
+    const tax = Math.round((grossSfl * effectiveTaxRate) * 10000) / 10000;
     const netSfl = Math.max(0, grossSfl - tax);
     return {
       isSeller: true,

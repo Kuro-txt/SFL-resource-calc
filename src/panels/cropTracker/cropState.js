@@ -1,4 +1,4 @@
-import { SFL_PLOT_CROPS } from '../../config/constants.js';
+import { SFL_PLOT_CROPS, getItemTaxRate } from '../../config/constants.js';
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals } from '../../utils/formatters.js';
 import { activeHarvestDiffs } from './cropSync.js';
 import { renderCropTrackerRows, getItemFlowerPrice } from './cropTable.js';
@@ -121,7 +121,8 @@ export async function updateDailyCropHistoricalYield(dateStr, cleanCropKey, valu
         const unitPrice = getItemFlowerPrice(cleanCropKey);
         cropItem.unitPrice = unitPrice;
         const grossTotal = unitPrice * totalProduced;
-        const taxAmount = grossTotal * taxRate;
+        const effectiveTaxRate = getItemTaxRate(rawName || cleanCropKey, taxRate);
+        const taxAmount = grossTotal * effectiveTaxRate;
         cropItem.netFlowers = roundUpToThreeDecimals(grossTotal - taxAmount);
         cropItem.net_flowers = cropItem.netFlowers;
       }

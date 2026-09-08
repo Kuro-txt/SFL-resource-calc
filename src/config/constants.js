@@ -95,6 +95,53 @@ export const CROP_FLOWER_PRICES = {
 // Exported as BETTY_SHOP_PRICES for backward-compatibility with all imports
 export const BETTY_SHOP_PRICES = CROP_FLOWER_PRICES;
 
+// Whitelist of 64 items that use the global tax rate (from tax-select / sfl_tax_rate).
+// Everything else is taxed at a fixed 10% rate.
+export const RAW_GLOBAL_TAX_ITEMS = [
+  'Sunflower', 'Potato', 'Pumpkin', 'Carrot', 'Cabbage',
+  'Beetroot', 'Cauliflower', 'Parsnip', 'Radish', 'Wheat',
+  'Kale', 'Apple', 'Blueberry', 'Orange', 'Eggplant',
+  'Corn', 'Banana', 'Soybean', 'Grape', 'Rice',
+  'Olive', 'Tomato', 'Lemon', 'Barley', 'Rhubarb',
+  'Zucchini', 'Yam', 'Broccoli', 'Pepper', 'Onion',
+  'Turnip', 'Artichoke', 'Duskberry', 'Lunara', 'Celestine',
+  'Wood', 'Stone', 'Iron', 'Gold', 'Egg',
+  'Honey', 'Crimstone', 'Leather', 'Wool', 'Merino Wool',
+  'Feather', 'Milk', 'Salt', 'Goblin Emblem', 'Bumpkin Emblem',
+  'Sunflorian Emblem', 'Nightshade Emblem', 'Ruffroot', 'Chewed Bone', 'Heart Leaf',
+  'Moonfur', 'Ribbon', 'Dewberry', 'Wild Grass', 'Frost Pebble',
+  'Capsule Bait', 'Umbrella Bait', 'Crimson Baitfish', 'Saltwort'
+];
+
+export const GLOBAL_TAX_ITEMS = new Set();
+RAW_GLOBAL_TAX_ITEMS.forEach(name => {
+  const lower = name.toLowerCase().trim();
+  GLOBAL_TAX_ITEMS.add(lower);
+  GLOBAL_TAX_ITEMS.add(lower.replace(/\s+/g, '_'));
+  GLOBAL_TAX_ITEMS.add(lower.replace(/\s+/g, ''));
+});
+
+export function isGlobalTaxItem(itemName) {
+  if (!itemName) return false;
+  const clean = String(itemName)
+    .toLowerCase()
+    .replace(/^\[.*?\]\s*/, '')
+    .replace(/^(crop|item|resource)\s*#?/i, '')
+    .trim();
+  return GLOBAL_TAX_ITEMS.has(clean) ||
+         GLOBAL_TAX_ITEMS.has(clean.replace(/\s+/g, '_')) ||
+         GLOBAL_TAX_ITEMS.has(clean.replace(/\s+/g, ''));
+}
+
+export function getItemTaxRate(itemName, globalTaxRate = null) {
+  if (globalTaxRate === null || globalTaxRate === undefined || isNaN(globalTaxRate)) {
+    const savedTax = typeof localStorage !== 'undefined' ? localStorage.getItem('sfl_tax_rate') : null;
+    const taxSelectEl = typeof document !== 'undefined' ? document.getElementById('tax-select') : null;
+    globalTaxRate = taxSelectEl ? (parseFloat(taxSelectEl.value) || 0) : (savedTax !== null ? parseFloat(savedTax) : 0.10);
+  }
+  return isGlobalTaxItem(itemName) ? globalTaxRate : 0.10;
+}
+
 if (typeof window !== 'undefined') {
   window.BACKEND_URL = BACKEND_URL;
   window.SUPABASE_URL = SUPABASE_URL;
@@ -106,4 +153,7 @@ if (typeof window !== 'undefined') {
   window.SFL_GREENHOUSE_CROPS = SFL_GREENHOUSE_CROPS;
   window.SFL_FRUITS = SFL_FRUITS;
   window.getCropCategory = getCropCategory;
+  window.GLOBAL_TAX_ITEMS = GLOBAL_TAX_ITEMS;
+  window.isGlobalTaxItem = isGlobalTaxItem;
+  window.getItemTaxRate = getItemTaxRate;
 }
