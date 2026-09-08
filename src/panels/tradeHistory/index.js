@@ -1,6 +1,6 @@
 import { renderTradeHistoryTemplate } from './tradeTemplate.js';
 import { fetchMarketplaceTrades, getTradeAmounts, tradeHistoryData } from './tradeData.js';
-import { switchSubTab, setTradeFilter, currentView } from './tradeFilters.js';
+import { switchSubTab, setTradeFilter, setItemFilter, selectedItemFilter, getUniqueTradedItems, currentView } from './tradeFilters.js';
 import { exportTradesToCsv } from './tradeCsv.js';
 import { renderCalendarMainView } from './tradeCalendar.js';
 import { renderListingsView, renderOffersView } from './tradeListings.js';
@@ -23,11 +23,44 @@ export function initTradeHistoryPanel() {
   document.getElementById('trade-filter-sold')?.addEventListener('click', () => setTradeFilter('sold'));
   document.getElementById('trade-filter-bought')?.addEventListener('click', () => setTradeFilter('bought'));
 
+  const itemFilterEl = document.getElementById('trade-item-filter');
+  itemFilterEl?.addEventListener('change', (e) => {
+    setItemFilter(e.target.value);
+  });
+
+  const clearItemBtn = document.getElementById('trade-item-clear-btn');
+  clearItemBtn?.addEventListener('click', () => {
+    setItemFilter('all');
+  });
+
   const searchEl = document.getElementById('trade-search-input');
   searchEl?.addEventListener('input', (e) => {
     searchQuery = e.target.value.toLowerCase().trim();
     renderCurrentView();
   });
+}
+
+export function populateItemFilterDropdown() {
+  const selectEl = document.getElementById('trade-item-filter');
+  if (!selectEl) return;
+  const trades = tradeHistoryData?.trades || [];
+  const uniqueItems = getUniqueTradedItems(trades);
+  const currentVal = selectedItemFilter || 'all';
+
+  let html = `<option value="all">📦 All Items (${trades.length})</option>`;
+  uniqueItems.forEach(item => {
+    const isSel = (item.name.toLowerCase() === currentVal.toLowerCase());
+    html += `<option value="${item.name}" ${isSel ? 'selected' : ''}>${item.name} (${item.count})</option>`;
+  });
+
+  selectEl.innerHTML = html;
+  selectEl.value = currentVal;
+
+  const clearBtn = document.getElementById('trade-item-clear-btn');
+  if (clearBtn) {
+    if (currentVal !== 'all') clearBtn.classList.remove('hidden');
+    else clearBtn.classList.add('hidden');
+  }
 }
 
 export function renderCurrentView() {
@@ -54,7 +87,9 @@ export function renderCurrentView() {
 
 window.switchSubTab = switchSubTab;
 window.setTradeFilter = setTradeFilter;
+window.setItemFilter = setItemFilter;
 window.exportTradesToCsv = exportTradesToCsv;
 
-export { fetchMarketplaceTrades, getTradeAmounts, renderTradeHistoryTemplate };
+export { fetchMarketplaceTrades, getTradeAmounts, renderTradeHistoryTemplate, setItemFilter };
+
 

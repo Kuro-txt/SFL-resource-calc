@@ -1,8 +1,10 @@
 import { renderCurrentView } from './index.js';
 import { getTradeAmounts } from './tradeData.js';
+import { getItemNameById } from '../../data/knownIds.js';
 
 export let currentView = 'trades';
 export let currentFilter = 'all';
+export let selectedItemFilter = 'all';
 
 export function switchSubTab(tab) {
   currentView = tab;
@@ -38,6 +40,98 @@ export function setTradeFilter(filter) {
   }
 
   renderCurrentView();
+}
+
+export function setItemFilter(itemName) {
+  selectedItemFilter = itemName || 'all';
+  const itemSelect = document.getElementById('trade-item-filter');
+  if (itemSelect && itemSelect.value !== selectedItemFilter) {
+    itemSelect.value = selectedItemFilter;
+  }
+  const clearBtn = document.getElementById('trade-item-clear-btn');
+  if (clearBtn) {
+    if (selectedItemFilter !== 'all') clearBtn.classList.remove('hidden');
+    else clearBtn.classList.add('hidden');
+  }
+  renderCurrentView();
+}
+
+export function getUniqueTradedItems(trades) {
+  if (!Array.isArray(trades) || trades.length === 0) return [];
+  const map = new Map();
+  trades.forEach(t => {
+    let name = t.itemName;
+    if (!name || name.startsWith('Item #')) {
+      name = getItemNameById(t.itemId || name);
+    }
+    const cleanName = String(name || 'Unknown Item').trim();
+    map.set(cleanName, (map.get(cleanName) || 0) + 1);
+  });
+  return Array.from(map.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function calculateItemTradeMetrics(trades, itemName, farmId) {
+  if (!Array.isArray(trades)) return null;
+  const cleanTarget = String(itemName || '').trim().toLowerCase();
+
+  let soldCount = 0;
+  let soldQty = 0;
+  let soldGrossSfl = 0;
+  let soldNetSfl = 0;
+  let soldTax = 0;
+
+  let boughtCount = 0;
+  let boughtQty = 0;
+  let boughtSfl = 0;
+
+  trades.forEach(t => {
+    let name = t.itemName;
+    if (!name || name.startsWith('Item #')) {
+      name = getItemNameById(t.itemId || name);
+    }
+    const cleanName = String(name || '').trim().toLowerCase();
+    if (cleanTarget !== 'all' && cleanName !== cleanTarget) return;
+
+    const amounts = getTradeAmounts(t, farmId);
+    const qty = parseFloat(t.quantity || 1);
+
+    if (amounts.isSeller) {
+      soldCount++;
+      soldQty += qty;
+      soldGrossSfl += amounts.grossSfl;
+      soldNetSfl += amounts.netSfl;
+      soldTax += amounts.tax;
+    } else {
+      boughtCount++;
+      boughtQty += qty;
+      boughtSfl += amounts.grossSfl;
+    }
+  });
+
+  const totalTrades = soldCount + boughtCount;
+  const avgSellPrice = soldQty > 0 ? (soldGrossSfl / soldQty) : 0;
+  const avgBuyPrice = boughtQty > 0 ? (boughtSfl / boughtQty) : 0;
+  const netSfl = soldNetSfl - boughtSfl;
+  const netQty = boughtQty - soldQty;
+
+  return {
+    itemName,
+    totalTrades,
+    soldCount,
+    soldQty,
+    soldGrossSfl,
+    soldNetSfl,
+    soldTax,
+    avgSellPrice,
+    boughtCount,
+    boughtQty,
+    boughtSfl,
+    avgBuyPrice,
+    netSfl,
+    netQty
+  };
 }
 
 export function buildTradesDateMap(trades, farmId) {

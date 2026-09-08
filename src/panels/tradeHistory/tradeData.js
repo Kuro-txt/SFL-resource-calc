@@ -1,7 +1,7 @@
 import { getItemNameById } from '../../data/knownIds.js';
 import { ApiService } from '../../services/api.js';
 import { renderTradeSummaryMetrics } from './tradeMetrics.js';
-import { renderCurrentView } from './index.js';
+import { renderCurrentView, populateItemFilterDropdown } from './index.js';
 
 export let tradeHistoryData = null;
 export let cloudArchivedCount = 0;
@@ -83,6 +83,7 @@ export async function fetchMarketplaceTrades() {
       console.warn("TiDB Cloud fetch note:", err.message);
     }
 
+    populateItemFilterDropdown();
     renderTradeSummaryMetrics(tradeHistoryData);
     renderCurrentView();
     if (statusEl) statusEl.textContent = `✅ Synced & Archived (${cloudArchivedCount || tradeHistoryData.trades?.length || 0} Total)`;
