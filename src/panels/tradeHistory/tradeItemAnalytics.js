@@ -23,6 +23,11 @@ export let analyticsMetric = 'sfl';       // 'sfl' | 'qty'
 export let analyticsTradeType = 'all';    // 'all' | 'sold' | 'bought'
 export let selectedItems = new Set();
 export let itemSearchFilter = '';
+export let focusedItemSeries = null;      // itemName if focused or null
+export let lastMultiSeriesList = [];
+export let lastMultiBuckets = [];
+export let lastMultiMetric = 'sfl';
+export let lastMultiTradeType = 'all';
 
 export function setAnalyticsTimeHorizon(horizon) {
   analyticsTimeHorizon = horizon;
@@ -444,7 +449,15 @@ export function aggregateItemSeries(trades, farmId, selectedList, buckets, trade
 /**
  * Generates an SVG Multi-Series Graph with zero-line split for negative net flow
  */
+/**
+ * Generates an SVG Multi-Series Graph with interactive crosshair, hover columns, and zero-line split
+ */
 export function generateMultiItemSvgChart(seriesList, buckets, metric = 'sfl', tradeType = analyticsTradeType) {
+  lastMultiSeriesList = Array.isArray(seriesList) ? seriesList : [];
+  lastMultiBuckets = Array.isArray(buckets) ? buckets : [];
+  lastMultiMetric = metric;
+  lastMultiTradeType = tradeType;
+
   if (!seriesList || seriesList.length === 0) {
     return `
       <div class="p-8 text-center text-sfl-woodLight dark:text-amber-300/60 italic text-xs">
@@ -538,6 +551,10 @@ export function generateMultiItemSvgChart(seriesList, buckets, metric = 'sfl', t
   seriesList.forEach(s => {
     const coords = [];
     let pointsHtml = '';
+    const isFocused = focusedItemSeries === s.itemName;
+    const isDimmed = focusedItemSeries && !isFocused;
+    const seriesOpacity = isDimmed ? 0.15 : 0.95;
+    const strokeW = isFocused ? 3.5 : 2.5;
 
     s.points.forEach((p, i) => {
       const val = metric === 'sfl' ? p.sfl : p.qty;
@@ -552,33 +569,198 @@ export function generateMultiItemSvgChart(seriesList, buckets, metric = 'sfl', t
 
       coords.push(`${xPos.toFixed(1)},${yPos.toFixed(1)}`);
 
-      const tooltipText = `${s.itemName} (${p.label}):\n• Sold: +${p.soldSfl.toFixed(3)} SFL (${p.soldQty} units, ${p.soldCount} sales)\n• Bought: -${p.boughtSfl.toFixed(3)} SFL (${p.boughtQty} units, ${p.boughtCount} buys)\n• Net Flow: ${p.netSfl >= 0 ? '+' : ''}${p.netSfl.toFixed(3)} SFL`;
-      
       pointsHtml += `
-        <circle cx="${xPos.toFixed(1)}" cy="${yPos.toFixed(1)}" r="3.5" fill="${s.color}" stroke="#ffffff" stroke-width="1.5" class="cursor-pointer hover:r-5 transition-all">
-          <title>${tooltipText}</title>
+        <circle cx="${xPos.toFixed(1)}" cy="${yPos.toFixed(1)}" r="${isFocused ? '4' : '3.5'}" fill="${s.color}" stroke="#ffffff" stroke-width="1.5" class="multi-chart-circle multi-chart-circle-${i} pointer-events-none transition-all duration-100" data-idx="${i}" data-series="${s.itemName}">
         </circle>
       `;
     });
 
     const pathD = coords.length > 0 ? `M ${coords.join(' L ')}` : '';
     seriesHtml += `
-      <g class="series-group">
-        <path d="${pathD}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />
+      <g class="series-group transition-opacity duration-150" opacity="${seriesOpacity}">
+        <path d="${pathD}" fill="none" stroke="${s.color}" stroke-width="${strokeW}" stroke-linecap="round" stroke-linejoin="round" />
         ${pointsHtml}
       </g>
     `;
   });
 
+  // Interactive Hover Columns across buckets
+  let hoverColsHtml = '';
+  buckets.forEach((b, i) => {
+    const xPos = paddingLeft + i * stepX;
+    const colW = numBuckets <= 1 ? usableW : stepX;
+    const colX = numBuckets <= 1 ? paddingLeft : (i === 0 ? paddingLeft : xPos - stepX / 2);
+    hoverColsHtml += `
+      <rect class="multi-chart-hover-col" data-b-idx="${i}" data-cx="${xPos.toFixed(1)}" x="${colX.toFixed(1)}" y="${paddingTop}" width="${colW.toFixed(1)}" height="${usableH}" fill="transparent" cursor="crosshair" />
+    `;
+  });
+
   return `
-    <div class="relative w-full overflow-hidden">
-      <svg viewBox="0 0 ${chartW} ${chartH}" class="w-full h-52 sm:h-60 select-none">
+    <div class="multi-item-chart-wrapper relative w-full overflow-visible select-none">
+      <!-- FLOATING INTERACTIVE MULTI-ITEM TOOLTIP -->
+      <div id="multi-item-chart-tooltip" class="hidden absolute z-30 pointer-events-none rounded-xl p-3 text-xs shadow-2xl border-2 transition-all duration-75 bg-white/95 text-sfl-dirt border-amber-400 dark:bg-amber-950/95 dark:text-amber-100 dark:border-amber-600 backdrop-blur-xs min-w-[220px] max-w-[340px]"></div>
+
+      <svg viewBox="0 0 ${chartW} ${chartH}" class="w-full h-52 sm:h-60 select-none overflow-visible">
+        <!-- Interactive Hover Band & Crosshair -->
+        <rect id="multi-chart-hover-band" x="0" y="${paddingTop}" width="${stepX.toFixed(1)}" height="${usableH}" fill="#f59e0b" opacity="0" rx="3" pointer-events="none" />
+        <line id="multi-chart-crosshair" x1="0" y1="${paddingTop}" x2="0" y2="${chartH - paddingBottom}" stroke="#d97706" stroke-width="1.5" stroke-dasharray="3,3" opacity="0" pointer-events="none" />
+
         ${gridHtml}
         ${seriesHtml}
         ${xLabelsHtml}
+        ${hoverColsHtml}
       </svg>
     </div>
   `;
+}
+
+/**
+ * Binds interactive hover crosshair, bucket comparison tooltip, and point highlights for multi-item SVG chart
+ */
+export function bindInteractiveMultiItemChart(containerEl) {
+  if (!containerEl) return;
+  const wrapper = containerEl.querySelector('.multi-item-chart-wrapper');
+  if (!wrapper) return;
+
+  const tooltip = wrapper.querySelector('#multi-item-chart-tooltip');
+  const crosshair = wrapper.querySelector('#multi-chart-crosshair');
+  const hoverBand = wrapper.querySelector('#multi-chart-hover-band');
+  const hoverCols = wrapper.querySelectorAll('.multi-chart-hover-col');
+  const circles = wrapper.querySelectorAll('.multi-chart-circle');
+
+  hoverCols.forEach(col => {
+    col.addEventListener('pointerenter', onHover);
+    col.addEventListener('pointermove', onHover);
+  });
+
+  wrapper.addEventListener('pointerleave', () => {
+    if (tooltip) tooltip.classList.add('hidden');
+    if (crosshair) crosshair.setAttribute('opacity', '0');
+    if (hoverBand) hoverBand.setAttribute('opacity', '0');
+    circles.forEach(c => {
+      c.setAttribute('r', '3.5');
+      c.setAttribute('stroke-width', '1.5');
+    });
+  });
+
+  function onHover(e) {
+    const bIdx = parseInt(e.currentTarget.getAttribute('data-b-idx'), 10);
+    const bucket = lastMultiBuckets[bIdx];
+    if (!bucket || !tooltip) return;
+
+    const cx = parseFloat(e.currentTarget.getAttribute('data-cx') || 0);
+    const colW = parseFloat(e.currentTarget.getAttribute('width') || 20);
+
+    // Update crosshair & hover band
+    if (crosshair) {
+      crosshair.setAttribute('x1', cx);
+      crosshair.setAttribute('x2', cx);
+      crosshair.setAttribute('opacity', '1');
+    }
+    if (hoverBand) {
+      hoverBand.setAttribute('x', cx - colW / 2);
+      hoverBand.setAttribute('width', colW);
+      hoverBand.setAttribute('opacity', '0.08');
+    }
+
+    // Scale up circles at this bucket index
+    circles.forEach(c => {
+      const idx = parseInt(c.getAttribute('data-idx'), 10);
+      if (idx === bIdx) {
+        c.setAttribute('r', '5.5');
+        c.setAttribute('stroke-width', '2');
+      } else {
+        c.setAttribute('r', '3.5');
+        c.setAttribute('stroke-width', '1.5');
+      }
+    });
+
+    const bucketTitle = bucket.tooltipLabel || bucket.label;
+    let totalBucketVal = 0;
+    let totalBucketSoldSfl = 0;
+    let totalBucketBoughtSfl = 0;
+
+    const itemsHtml = lastMultiSeriesList.map(s => {
+      const pt = s.points[bIdx] || { sfl: 0, qty: 0, soldSfl: 0, boughtSfl: 0, soldQty: 0, boughtQty: 0, netSfl: 0, netQty: 0, soldCount: 0, boughtCount: 0 };
+      const val = lastMultiMetric === 'sfl' ? pt.sfl : pt.qty;
+      totalBucketVal += val;
+      totalBucketSoldSfl += pt.soldSfl || 0;
+      totalBucketBoughtSfl += pt.boughtSfl || 0;
+
+      const valStr = lastMultiMetric === 'sfl'
+        ? `${val >= 0 ? '+' : ''}${val.toFixed(3)} SFL`
+        : `${val >= 0 ? '+' : ''}${val.toLocaleString()} pcs`;
+
+      const hasActivity = (pt.soldCount > 0 || pt.boughtCount > 0);
+
+      return `
+        <div class="py-1 border-b border-amber-200/50 dark:border-amber-800/50 last:border-0 last:pb-0">
+          <div class="flex items-center justify-between gap-2 font-mono">
+            <span class="font-bold flex items-center gap-1.5 text-sfl-wood dark:text-amber-200">
+              <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0" style="background-color: ${s.color};"></span>
+              <span class="truncate max-w-[130px] font-sans">${s.itemName}</span>
+            </span>
+            <span class="font-black" style="color: ${s.color};">${valStr}</span>
+          </div>
+          ${hasActivity ? `
+            <div class="flex items-center justify-between text-[9.5px] font-mono text-sfl-woodLight dark:text-amber-300/70 pl-4 pt-0.5">
+              <span class="text-emerald-600 dark:text-emerald-400">🟢 +${pt.soldSfl.toFixed(2)} (${pt.soldQty}x)</span>
+              <span class="text-blue-600 dark:text-blue-400">🔵 -${pt.boughtSfl.toFixed(2)} (${pt.boughtQty}x)</span>
+            </div>
+          ` : `
+            <div class="text-[9px] font-sans text-sfl-woodLight/70 dark:text-amber-300/40 pl-4">No trades in bucket</div>
+          `}
+        </div>
+      `;
+    }).join('');
+
+    const bucketNetTotal = totalBucketSoldSfl - totalBucketBoughtSfl;
+    const isTotalProfit = bucketNetTotal >= 0;
+
+    tooltip.innerHTML = `
+      <div class="space-y-2 font-sans">
+        <div class="font-bold text-[11px] text-sfl-dirt dark:text-amber-100 flex items-center justify-between gap-3 border-b border-amber-300/60 dark:border-amber-700/60 pb-1">
+          <span class="flex items-center gap-1"><span>⏱️</span> ${bucketTitle}</span>
+          <span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 border border-amber-300 dark:border-amber-700">
+            ${lastMultiSeriesList.length} Item${lastMultiSeriesList.length === 1 ? '' : 's'}
+          </span>
+        </div>
+
+        <div class="space-y-0.5">
+          ${itemsHtml}
+        </div>
+
+        ${lastMultiSeriesList.length > 1 ? `
+          <div class="pt-1.5 border-t border-amber-300/60 dark:border-amber-700/60 flex items-center justify-between text-[10px] font-bold font-mono">
+            <span class="text-sfl-wood dark:text-amber-200 font-sans">Bucket Net Total:</span>
+            <span class="font-black ${isTotalProfit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}">
+              ${bucketNetTotal >= 0 ? '+' : ''}${lastMultiMetric === 'sfl' ? bucketNetTotal.toFixed(3) + ' SFL' : totalBucketVal.toLocaleString() + ' pcs'}
+            </span>
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    tooltip.classList.remove('hidden');
+
+    // Bounds checking
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    let left = clientX - wrapperRect.left + 15;
+    let top = clientY - wrapperRect.top - 20;
+
+    const tooltipW = tooltip.offsetWidth || 220;
+    if (left + tooltipW > wrapperRect.width - 10) {
+      left = clientX - wrapperRect.left - tooltipW - 15;
+    }
+    if (left < 10) left = 10;
+    if (top < 10) top = 10;
+
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  }
 }
 
 /**
@@ -764,8 +946,8 @@ export function renderItemAnalyticsView(mountEl, farmId) {
               </p>
             </div>
 
-            <!-- Color Legend -->
-            <div class="flex items-center gap-2 flex-wrap text-xs font-mono font-bold">
+            <!-- Color Legend (Click to focus single series) -->
+            <div class="flex items-center gap-1.5 flex-wrap text-xs font-mono font-bold">
               ${series.map(s => {
                 let badgeText = '';
                 if (analyticsMetric === 'sfl') {
@@ -773,12 +955,18 @@ export function renderItemAnalyticsView(mountEl, farmId) {
                 } else {
                   badgeText = (s.totalQty >= 0 ? '+' : '') + s.totalQty.toLocaleString();
                 }
+                const isFocused = focusedItemSeries === s.itemName;
                 return `
-                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/80 dark:bg-amber-950/60 border border-amber-300/80 dark:border-amber-700/60 shadow-2xs">
+                  <button data-focus-series="${s.itemName}" title="Click to ${isFocused ? 'show all series' : 'focus only ' + s.itemName}" class="focus-series-btn inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border shadow-2xs cursor-pointer transition-all ${
+                    isFocused 
+                      ? 'bg-amber-200 dark:bg-amber-800 border-amber-500 dark:border-amber-400 ring-2 ring-amber-400 scale-105' 
+                      : 'bg-white/80 dark:bg-amber-950/60 border-amber-300/80 dark:border-amber-700/60 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+                  }">
                     <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: ${s.color};"></span>
                     <span class="text-sfl-wood dark:text-amber-200">${s.itemName}</span>
                     <span class="text-[10px] font-black" style="color: ${s.color};">${badgeText}</span>
-                  </span>
+                    ${isFocused ? '<span class="text-[9px] text-amber-800 dark:text-amber-200 font-sans ml-0.5">✕</span>' : ''}
+                  </button>
                 `;
               }).join('')}
             </div>
@@ -992,6 +1180,22 @@ export function renderItemAnalyticsView(mountEl, farmId) {
       }
     });
   });
+
+  // Series Focus/Isolation Click Handler from Legend
+  mountEl.querySelectorAll('.focus-series-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const itemName = btn.getAttribute('data-focus-series');
+      if (focusedItemSeries === itemName) {
+        focusedItemSeries = null;
+      } else {
+        focusedItemSeries = itemName;
+      }
+      renderItemAnalyticsView(mountEl, farmId);
+    });
+  });
+
+  // Bind interactive SVG chart crosshairs & tooltips
+  bindInteractiveMultiItemChart(mountEl);
 }
 
 function metricDescription(metric, tradeType) {

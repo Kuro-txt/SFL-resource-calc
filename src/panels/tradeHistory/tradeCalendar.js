@@ -1,7 +1,7 @@
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { tradeHistoryData } from './tradeData.js';
 import { buildTradesDateMap, getWeekRange } from './tradeFilters.js';
-import { generateSvgChart, setCalendarChartFilter, calendarChartFilter } from './tradeChart.js';
+import { generateSvgChart, setCalendarChartFilter, calendarChartFilter, bindInteractiveCalendarChart } from './tradeChart.js';
 import { renderSelectedDayTradesTable } from './tradeTableView.js';
 import { isUserSeller, getTradeAmounts } from './tradeData.js';
 
@@ -140,6 +140,8 @@ export function renderByDayView(mountEl, tradesMap, farmId, topModeBarHtml) {
     const item = tradesMap.get(key) || { totalSold: 0, totalBought: 0 };
     recent14Days.push({
       label: d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }),
+      dateKey: key,
+      fullDateStr: d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
       sold: item.totalSold || 0,
       spent: item.totalBought || 0,
       net: (item.totalSold || 0) - (item.totalBought || 0)
@@ -266,6 +268,8 @@ export function renderByWeekView(mountEl, tradesMap, farmId, topModeBarHtml) {
   // Weekly Graph
   const weekGraphPoints = weekDays.map(({ key, dateObj, dayData }) => ({
     label: dateObj.toLocaleDateString(undefined, { weekday: 'short' }),
+    dateKey: key,
+    fullDateStr: dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
     sold: dayData.totalSold || 0,
     spent: dayData.totalBought || 0,
     net: (dayData.totalSold || 0) - (dayData.totalBought || 0)
@@ -351,6 +355,8 @@ export function renderByMonthView(mountEl, tradesMap, farmId, topModeBarHtml) {
 
     monthDailyPoints.push({
       label: String(d),
+      dateKey: key,
+      fullDateStr: new Date(calendarCurrentYear, calendarCurrentMonth, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
       sold: dayData.totalSold || 0,
       spent: dayData.totalBought || 0,
       net: (dayData.totalSold || 0) - (dayData.totalBought || 0)
@@ -479,6 +485,8 @@ export function renderBy3MonthView(mountEl, tradesMap, farmId, topModeBarHtml) {
     qSpend += wB;
     qPoints.push({
       label: monday.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }),
+      dateKey: `${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`,
+      fullDateStr: `Week of ${monday.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`,
       sold: wS,
       spent: wB,
       net: wS - wB
@@ -583,7 +591,7 @@ export function renderByAllTimeView(mountEl, tradesMap, farmId, topModeBarHtml) 
     if (isNaN(d.getTime())) return;
     const monthKey = d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
     if (!pointsMap.has(monthKey)) {
-      pointsMap.set(monthKey, { label: monthKey, sold: 0, spent: 0, net: 0, count: 0 });
+      pointsMap.set(monthKey, { label: monthKey, fullDateStr: d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }), sold: 0, spent: 0, net: 0, count: 0 });
     }
     const pt = pointsMap.get(monthKey);
     const isSeller = isUserSeller(t, farmId);
@@ -735,6 +743,14 @@ export function renderSingleMonthGrid(year, month, tradesMap) {
 }
 
 export function bindGenericCalendarEvents(mountEl, farmId) {
+  // Bind interactive SVG chart tooltips & click handlers
+  bindInteractiveCalendarChart(mountEl, (dateKey) => {
+    if (dateKey) {
+      selectedCalendarDateKey = dateKey;
+      renderCalendarMainView(mountEl, farmId);
+    }
+  });
+
   // Mode Switcher (Day / Week / Month / 3-Month / All Time)
   const modeBtns = mountEl.querySelectorAll('.cal-mode-btn');
   modeBtns.forEach(btn => {

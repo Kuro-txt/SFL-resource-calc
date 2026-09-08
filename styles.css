@@ -83,9 +83,21 @@ input[type=number] {
 /* CARDS & CONTAINERS */
 .dark .bg-sfl-card,
 .dark .bg-sfl-card\/90,
-.dark .bg-sfl-card\/80 {
+.dark .bg-sfl-card\/80,
+.dark .bg-sfl-card\/70,
+.dark .bg-sfl-card\/60,
+.dark .bg-sfl-card\/50,
+.dark .bg-sfl-card\/40,
+.dark .bg-sfl-card\/30 {
   background-color: #241710 !important;
   border-color: #4d2d17 !important;
+}
+
+.dark select#tax-select,
+.dark #tax-select {
+  background-color: #2b1b12 !important;
+  color: #fef3c7 !important;
+  border-color: #633d1f !important;
 }
 
 .dark .bg-white,

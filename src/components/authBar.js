@@ -48,11 +48,11 @@ export function renderAuthBar() {
               <label class="block text-xs font-bold text-sfl-wood mb-1">Farm ID</label>
               <input type="number" id="farm-id" placeholder="e.g. 12345" min="1" step="1" class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm text-sfl-dirt">
               <!-- GLOBAL TAX RATE DIRECTLY BELOW FARM ID -->
-              <div class="mt-2 flex items-center justify-between gap-2 bg-sfl-card/70 px-2.5 py-1.5 rounded-lg border border-sfl-cardBorder">
-                <label for="tax-select" class="text-[11px] font-bold text-sfl-wood uppercase whitespace-nowrap flex items-center gap-1">
+              <div class="mt-2 flex items-center justify-between gap-2 bg-amber-100/70 dark:bg-amber-950/60 px-2.5 py-1.5 rounded-lg border border-amber-300/70 dark:border-amber-700/60 shadow-2xs">
+                <label for="tax-select" class="text-[11px] font-bold text-sfl-wood dark:text-amber-200 uppercase whitespace-nowrap flex items-center gap-1">
                   <span>🏷️</span> Global Tax Rate:
                 </label>
-                <select id="tax-select" class="sfl-input rounded-md px-2 py-0.5 text-xs font-bold text-sfl-dirt cursor-pointer w-28">
+                <select id="tax-select" class="sfl-input rounded-md px-2 py-0.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 dark:bg-amber-900/40 dark:border-amber-700/60 cursor-pointer w-28">
                   <option value="0">0% (None)</option>
                   <option value="0.05">5%</option>
                   <option value="0.075">7.5%</option>
