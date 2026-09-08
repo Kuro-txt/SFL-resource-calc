@@ -191,8 +191,19 @@ export function initApiViewerPanel() {
           </div>
 
           <div class="flex items-center gap-2">
-            <input type="text" id="api-viewer-search" placeholder="🔍 Find in JSON..." 
-              class="sfl-input rounded-md px-2 py-0.5 text-xs text-sfl-dirt bg-white w-36 sm:w-48 placeholder:text-gray-400">
+            <div class="flex items-center bg-white rounded-md border border-amber-400 overflow-hidden shadow-2xs">
+              <input type="text" id="api-viewer-search" placeholder="🔍 Find in JSON..." 
+                class="px-2 py-0.5 text-xs text-sfl-dirt bg-transparent w-28 sm:w-44 focus:outline-hidden placeholder:text-gray-400">
+              <span id="api-viewer-search-count" class="text-[10px] font-mono font-bold text-amber-900 bg-amber-100 px-1.5 py-0.5 select-none hidden">0/0</span>
+              <button type="button" id="api-viewer-search-prev" title="Previous match (Shift+Enter)" 
+                class="px-1.5 py-0.5 text-xs text-gray-700 hover:text-gray-950 hover:bg-amber-100 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed border-l border-amber-200">
+                ▲
+              </button>
+              <button type="button" id="api-viewer-search-next" title="Next match (Enter)" 
+                class="px-1.5 py-0.5 text-xs text-gray-700 hover:text-gray-950 hover:bg-amber-100 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed border-l border-amber-200">
+                ▼
+              </button>
+            </div>
             <button id="api-viewer-copy-btn" 
               class="bg-amber-100 hover:bg-amber-200 text-sfl-dirt px-2.5 py-1 rounded text-xs font-bold transition cursor-pointer border border-amber-400">
               📋 Copy
@@ -205,7 +216,7 @@ export function initApiViewerPanel() {
         </div>
 
         <!-- CODE BLOCK OUTPUT -->
-        <div class="relative bg-gray-950 p-4 max-h-[600px] overflow-auto">
+        <div id="api-viewer-code-container" class="relative bg-gray-950 p-4 max-h-[600px] overflow-auto scroll-smooth">
           <pre id="api-viewer-output" class="text-xs font-mono text-emerald-400 leading-relaxed whitespace-pre select-text">Click "Fetch Raw JSON" to inspect payload...</pre>
         </div>
       </div>
@@ -364,22 +375,156 @@ function setupApiViewerListeners() {
     URL.revokeObjectURL(url);
   });
 
-  // Search inside JSON
-  document.getElementById('api-viewer-search')?.addEventListener('input', (e) => {
-    const query = e.target.value.trim().toLowerCase();
-    const outputEl = document.getElementById('api-viewer-output');
-    if (!outputEl || !lastRawJsonText) return;
+  // Search inside JSON with arrow navigation and Enter/Shift+Enter
+  const searchInput = document.getElementById('api-viewer-search');
+  const prevBtn = document.getElementById('api-viewer-search-prev');
+  const nextBtn = document.getElementById('api-viewer-search-next');
 
-    if (!query) {
+  searchInput?.addEventListener('input', (e) => {
+    highlightAndNavigate(e.target.value, 0);
+  });
+
+  searchInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      highlightAndNavigate(searchInput.value, e.shiftKey ? -1 : 1);
+    } else if (e.key === 'Escape') {
+      searchInput.value = '';
+      clearSearchHighlight();
+      searchInput.blur();
+    }
+  });
+
+  prevBtn?.addEventListener('click', () => {
+    highlightAndNavigate(searchInput ? searchInput.value : '', -1);
+  });
+
+  nextBtn?.addEventListener('click', () => {
+    highlightAndNavigate(searchInput ? searchInput.value : '', 1);
+  });
+}
+
+let currentSearchQuery = '';
+let matchCount = 0;
+let currentMatchIdx = -1;
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+export function clearSearchHighlight() {
+  const outputEl = document.getElementById('api-viewer-output');
+  const countEl = document.getElementById('api-viewer-search-count');
+  const prevBtn = document.getElementById('api-viewer-search-prev');
+  const nextBtn = document.getElementById('api-viewer-search-next');
+
+  currentSearchQuery = '';
+  matchCount = 0;
+  currentMatchIdx = -1;
+
+  if (outputEl && lastRawJsonText) {
+    outputEl.textContent = lastRawJsonText;
+  }
+  if (countEl) {
+    countEl.textContent = '';
+    countEl.classList.add('hidden');
+  }
+  if (prevBtn) prevBtn.disabled = true;
+  if (nextBtn) nextBtn.disabled = true;
+}
+
+export function highlightAndNavigate(query, direction = 0) {
+  const outputEl = document.getElementById('api-viewer-output');
+  const countEl = document.getElementById('api-viewer-search-count');
+  const prevBtn = document.getElementById('api-viewer-search-prev');
+  const nextBtn = document.getElementById('api-viewer-search-next');
+
+  if (!outputEl || !lastRawJsonText) return;
+
+  const trimmedQuery = (query || '').trim();
+  if (!trimmedQuery) {
+    clearSearchHighlight();
+    return;
+  }
+
+  // If query changed or re-highlighting requested
+  if (trimmedQuery.toLowerCase() !== currentSearchQuery.toLowerCase() || direction === 0) {
+    currentSearchQuery = trimmedQuery;
+    const lowerText = lastRawJsonText.toLowerCase();
+    const lowerQ = trimmedQuery.toLowerCase();
+    const qLen = trimmedQuery.length;
+
+    const indices = [];
+    let start = 0;
+    while ((start = lowerText.indexOf(lowerQ, start)) !== -1) {
+      indices.push(start);
+      start += qLen;
+    }
+
+    matchCount = indices.length;
+
+    if (matchCount === 0) {
+      currentMatchIdx = -1;
       outputEl.textContent = lastRawJsonText;
+      if (countEl) {
+        countEl.textContent = '0/0';
+        countEl.classList.remove('hidden');
+      }
+      if (prevBtn) prevBtn.disabled = true;
+      if (nextBtn) nextBtn.disabled = true;
       return;
     }
 
-    // Filter lines containing query
-    const lines = lastRawJsonText.split('\n');
-    const matched = lines.filter(line => line.toLowerCase().includes(query));
-    outputEl.textContent = `// Found ${matched.length} matching lines for "${query}":\n\n` + matched.join('\n');
+    // Build highlighted HTML with mark tags for each match
+    let html = '';
+    let lastPos = 0;
+    indices.forEach((idx, i) => {
+      html += escapeHtml(lastRawJsonText.substring(lastPos, idx));
+      const matchText = lastRawJsonText.substring(idx, idx + qLen);
+      html += `<mark id="api-search-mark-${i}" class="api-search-match bg-amber-400 text-gray-950 font-bold px-0.5 rounded transition-all duration-150">${escapeHtml(matchText)}</mark>`;
+      lastPos = idx + qLen;
+    });
+    html += escapeHtml(lastRawJsonText.substring(lastPos));
+    outputEl.innerHTML = html;
+
+    currentMatchIdx = 0;
+  } else if (direction !== 0 && matchCount > 0) {
+    // Cycle with wrap-around
+    currentMatchIdx = (currentMatchIdx + direction + matchCount) % matchCount;
+  }
+
+  // Update counter & buttons
+  if (countEl) {
+    countEl.textContent = `${currentMatchIdx + 1}/${matchCount}`;
+    countEl.classList.remove('hidden');
+  }
+  if (prevBtn) prevBtn.disabled = matchCount <= 1;
+  if (nextBtn) nextBtn.disabled = matchCount <= 1;
+
+  // Highlight active match in orange with ring, others in yellow
+  const marks = outputEl.querySelectorAll('.api-search-match');
+  marks.forEach((m, idx) => {
+    if (idx === currentMatchIdx) {
+      m.className = 'api-search-match bg-orange-500 text-white font-extrabold ring-2 ring-yellow-300 px-1 rounded shadow-md';
+    } else {
+      m.className = 'api-search-match bg-amber-400 text-gray-950 font-bold px-0.5 rounded';
+    }
   });
+
+  // Smooth scroll directly to active match in the pre block
+  const targetMark = document.getElementById(`api-search-mark-${currentMatchIdx}`);
+  if (targetMark) {
+    targetMark.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'nearest'
+    });
+  }
 }
 
 export async function fetchRawApi() {
@@ -434,11 +579,18 @@ export async function fetchRawApi() {
       if (isHtml) {
         outputEl.className = "text-xs font-mono text-amber-300 leading-relaxed whitespace-pre select-text";
         outputEl.textContent = `⚠️ WARNING: Received HTML instead of JSON (Status ${res.status}):\nTarget URL: ${url}\n\nReason: This endpoint was served as static HTML (e.g. GitHub Pages 404) rather than the Render backend.\nPlease make sure "Backend Host" is set to "${BACKEND_URL}".\n\n---\nRaw Content:\n` + rawText;
+        clearSearchHighlight();
       } else {
         outputEl.className = `text-xs font-mono leading-relaxed whitespace-pre select-text ${
           res.ok ? 'text-emerald-400' : 'text-red-400'
         }`;
         outputEl.textContent = lastRawJsonText;
+        const currentQuery = document.getElementById('api-viewer-search')?.value.trim();
+        if (currentQuery) {
+          highlightAndNavigate(currentQuery, 0);
+        } else {
+          clearSearchHighlight();
+        }
       }
     }
   } catch (err) {
