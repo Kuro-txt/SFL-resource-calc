@@ -1,8 +1,9 @@
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { tradeHistoryData } from './tradeData.js';
 import { buildTradesDateMap, getWeekRange } from './tradeFilters.js';
-import { generateSvgChart } from './tradeChart.js';
+import { generateSvgChart, setCalendarChartFilter, calendarChartFilter } from './tradeChart.js';
 import { renderSelectedDayTradesTable } from './tradeTableView.js';
+import { isUserSeller, getTradeAmounts } from './tradeData.js';
 
 export let calendarViewMode = 'day';
 export let calendarCurrentMonth = new Date().getMonth();
@@ -31,27 +32,30 @@ export function renderCalendarMainView(mountEl, farmId) {
     }
   }
 
-  // Top Mode Switcher Bar (By Day, By Week, By Month, By 3 Months)
+  // Top Mode Switcher Bar (By Day, By Week, By Month, By 3 Months, All Time)
   let topModeBarHtml = `
-    <div class="p-2.5 bg-amber-50/90 border-b-2 border-sfl-cardBorder flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+    <div class="p-2.5 bg-amber-50/90 dark:bg-amber-950/40 border-b-2 border-sfl-cardBorder flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
       <div class="flex items-center gap-1.5 flex-wrap">
         <span class="text-xs font-bold text-sfl-woodLight uppercase mr-1">View:</span>
-        <button data-cal-mode="day" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'day' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+        <button data-cal-mode="day" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'day' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white dark:bg-amber-900/30 text-sfl-wood hover:bg-amber-100/50'}">
           📅 Day
         </button>
-        <button data-cal-mode="week" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'week' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+        <button data-cal-mode="week" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'week' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white dark:bg-amber-900/30 text-sfl-wood hover:bg-amber-100/50'}">
           📊 Week
         </button>
-        <button data-cal-mode="month" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+        <button data-cal-mode="month" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white dark:bg-amber-900/30 text-sfl-wood hover:bg-amber-100/50'}">
           🗓️ Month
         </button>
-        <button data-cal-mode="3month" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === '3month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-100/50'}">
+        <button data-cal-mode="3month" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === '3month' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white dark:bg-amber-900/30 text-sfl-wood hover:bg-amber-100/50'}">
           📈 3 Months
+        </button>
+        <button data-cal-mode="all" class="cal-mode-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border-2 ${calendarViewMode === 'all' ? 'border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs' : 'border-sfl-cardBorder bg-white dark:bg-amber-900/30 text-sfl-wood hover:bg-amber-100/50'}">
+          🌐 All Time
         </button>
       </div>
 
       <div class="text-[11px] font-bold text-sfl-woodLight">
-        Click any day to inspect completed trades and exact net flow
+        Click any day or toggle Spend / Sales graph above
       </div>
     </div>
   `;
@@ -64,6 +68,8 @@ export function renderCalendarMainView(mountEl, farmId) {
     renderByMonthView(mountEl, tradesMap, farmId, topModeBarHtml);
   } else if (calendarViewMode === '3month') {
     renderBy3MonthView(mountEl, tradesMap, farmId, topModeBarHtml);
+  } else if (calendarViewMode === 'all') {
+    renderByAllTimeView(mountEl, tradesMap, farmId, topModeBarHtml);
   }
 }
 
@@ -548,6 +554,92 @@ export function renderBy3MonthView(mountEl, tradesMap, farmId, topModeBarHtml) {
   bindGenericCalendarEvents(mountEl, farmId);
 }
 
+export function renderByAllTimeView(mountEl, tradesMap, farmId, topModeBarHtml) {
+  const trades = tradeHistoryData?.trades || [];
+  let allTimeSales = 0;
+  let allTimeSpend = 0;
+  let allTimeTradesCount = trades.length;
+
+  trades.forEach(t => {
+    const isSeller = isUserSeller(t, farmId);
+    const amounts = getTradeAmounts(t, farmId);
+    if (isSeller) {
+      allTimeSales += amounts.netSfl;
+    } else {
+      allTimeSpend += amounts.grossSfl;
+    }
+  });
+
+  const allTimeNet = allTimeSales - allTimeSpend;
+  const netSign = allTimeNet >= 0 ? '+' : '';
+  const netColor = allTimeNet > 0 ? 'text-sfl-green' : (allTimeNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood');
+
+  // Group all trades chronologically into monthly intervals for the chart
+  const sortedTrades = [...trades].sort((a, b) => new Date(a.fulfilledAt || 0) - new Date(b.fulfilledAt || 0));
+  const pointsMap = new Map();
+
+  sortedTrades.forEach(t => {
+    const d = new Date(t.fulfilledAt);
+    if (isNaN(d.getTime())) return;
+    const monthKey = d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+    if (!pointsMap.has(monthKey)) {
+      pointsMap.set(monthKey, { label: monthKey, sold: 0, spent: 0, net: 0, count: 0 });
+    }
+    const pt = pointsMap.get(monthKey);
+    const isSeller = isUserSeller(t, farmId);
+    const amounts = getTradeAmounts(t, farmId);
+    if (isSeller) {
+      pt.sold += amounts.netSfl;
+      pt.net += amounts.netSfl;
+    } else {
+      pt.spent += amounts.grossSfl;
+      pt.net -= amounts.grossSfl;
+    }
+    pt.count++;
+  });
+
+  const allTimePoints = Array.from(pointsMap.values());
+  const graphHtml = generateSvgChart(allTimePoints, 125);
+
+  const allTimeMetricsHtml = `
+    <div class="p-3 bg-white/90 dark:bg-amber-950/40 border-b border-sfl-cardBorder">
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+        <div class="bg-amber-50/70 dark:bg-amber-900/20 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🟢 Lifetime Sales</span>
+          <span class="text-sm sm:text-base font-black text-sfl-green font-mono">+${allTimeSales.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 dark:bg-amber-900/20 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🔵 Lifetime Spent</span>
+          <span class="text-sm sm:text-base font-black text-sfl-wood dark:text-amber-200 font-mono">-${allTimeSpend.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 dark:bg-amber-900/20 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">⚖️ Lifetime Net</span>
+          <span class="text-sm sm:text-base font-black ${netColor} font-mono">${netSign}${allTimeNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+        </div>
+
+        <div class="bg-amber-50/70 dark:bg-amber-900/20 border border-sfl-cardBorder p-2.5 rounded-lg text-center shadow-2xs">
+          <span class="text-[9px] font-bold text-sfl-woodLight uppercase block mb-0.5">🏆 Total Lifetime Trades</span>
+          <span class="text-sm sm:text-base font-black text-sfl-dirt dark:text-amber-100 font-mono">${allTimeTradesCount}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const allTradesData = { trades };
+  const tradesTableHtml = renderSelectedDayTradesTable("All Time Completed Trades", allTradesData, farmId);
+
+  mountEl.innerHTML = `
+    ${topModeBarHtml}
+    ${allTimeMetricsHtml}
+    ${graphHtml}
+    ${tradesTableHtml}
+  `;
+
+  bindGenericCalendarEvents(mountEl, farmId);
+}
+
 export function renderSingleMonthGrid(year, month, tradesMap) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun, 1 = Mon ...
@@ -643,13 +735,25 @@ export function renderSingleMonthGrid(year, month, tradesMap) {
 }
 
 export function bindGenericCalendarEvents(mountEl, farmId) {
-  // Mode Switcher (Day / Week / Month / 3-Month)
+  // Mode Switcher (Day / Week / Month / 3-Month / All Time)
   const modeBtns = mountEl.querySelectorAll('.cal-mode-btn');
   modeBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
       const mode = e.currentTarget.getAttribute('data-cal-mode');
       if (mode) {
         calendarViewMode = mode;
+        renderCalendarMainView(mountEl, farmId);
+      }
+    });
+  });
+
+  // Chart Filter Buttons (All, Spent, Sold, Net)
+  const chartFilterBtns = mountEl.querySelectorAll('.chart-filter-btn');
+  chartFilterBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const filter = e.currentTarget.getAttribute('data-chart-filter');
+      if (filter) {
+        setCalendarChartFilter(filter);
         renderCalendarMainView(mountEl, farmId);
       }
     });

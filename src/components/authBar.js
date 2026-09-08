@@ -47,6 +47,20 @@ export function renderAuthBar() {
             <div>
               <label class="block text-xs font-bold text-sfl-wood mb-1">Farm ID</label>
               <input type="number" id="farm-id" placeholder="e.g. 12345" min="1" step="1" class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm text-sfl-dirt">
+              <!-- GLOBAL TAX RATE DIRECTLY BELOW FARM ID -->
+              <div class="mt-2 flex items-center justify-between gap-2 bg-sfl-card/70 px-2.5 py-1.5 rounded-lg border border-sfl-cardBorder">
+                <label for="tax-select" class="text-[11px] font-bold text-sfl-wood uppercase whitespace-nowrap flex items-center gap-1">
+                  <span>🏷️</span> Global Tax Rate:
+                </label>
+                <select id="tax-select" class="sfl-input rounded-md px-2 py-0.5 text-xs font-bold text-sfl-dirt cursor-pointer w-28">
+                  <option value="0">0% (None)</option>
+                  <option value="0.05">5%</option>
+                  <option value="0.075">7.5%</option>
+                  <option value="0.10" selected>10%</option>
+                  <option value="0.125">12.5%</option>
+                  <option value="0.15">15%</option>
+                </select>
+              </div>
             </div>
             <div>
               <label class="block text-xs font-bold text-sfl-wood mb-1">
@@ -77,6 +91,18 @@ function bindFarmSyncEvents() {
 
   if (savedFarmId && farmIdEl) farmIdEl.value = savedFarmId;
   if (savedApiKey && apiKeyEl) apiKeyEl.value = savedApiKey;
+
+  const savedTaxRate = localStorage.getItem('sfl_tax_rate');
+  const taxEl = document.getElementById('tax-select');
+  if (savedTaxRate !== null && taxEl) taxEl.value = savedTaxRate;
+
+  taxEl?.addEventListener('change', (e) => {
+    const newTax = e.target.value;
+    localStorage.setItem('sfl_tax_rate', newTax);
+    if (typeof window.renderSnapshotHistory === 'function') window.renderSnapshotHistory();
+    if (typeof window.renderCropTrackerRows === 'function') window.renderCropTrackerRows();
+    if (typeof window.renderCurrentTradeView === 'function') window.renderCurrentTradeView();
+  });
 }
 
 function startSyncCooldown() {

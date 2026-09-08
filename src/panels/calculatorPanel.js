@@ -10,23 +10,6 @@ export function renderCalculatorTemplate() {
   container.innerHTML = `
     <div class="space-y-5">
 
-      <!-- COMPACT TAX RATE BAR -->
-      <div class="flex justify-end">
-        <div class="bg-sfl-card/90 px-3 py-1.5 rounded-xl border-2 border-sfl-cardBorder shadow-sm inline-flex items-center gap-2">
-          <label class="text-xs font-bold text-sfl-wood uppercase flex items-center gap-1 whitespace-nowrap">
-            <span>🏷️</span> Tax Rate:
-          </label>
-          <select id="tax-select" class="sfl-input rounded-lg px-2 py-0.5 text-xs font-bold text-sfl-dirt cursor-pointer w-28">
-            <option value="0">0% (None)</option>
-            <option value="0.05">5%</option>
-            <option value="0.075">7.5%</option>
-            <option value="0.10" selected>10%</option>
-            <option value="0.125">12.5%</option>
-            <option value="0.15">15%</option>
-          </select>
-        </div>
-      </div>
-
       <!-- HARVEST TRACKER SUB-SECTION -->
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder shadow-sm space-y-4">
         
@@ -86,22 +69,11 @@ export function renderCalculatorTemplate() {
 
 export function initCalculatorPanel() {
   renderCalculatorTemplate();
-
-  const savedTaxRate = localStorage.getItem('sfl_tax_rate');
-  const taxEl = document.getElementById('tax-select');
-  if (savedTaxRate !== null && taxEl) taxEl.value = savedTaxRate;
-
   bindCalculatorEvents();
   loadPrices();
 }
 
 function bindCalculatorEvents() {
-  document.getElementById('tax-select')?.addEventListener('change', (e) => {
-    localStorage.setItem('sfl_tax_rate', e.target.value);
-    if (typeof window.renderSnapshotHistory === 'function') window.renderSnapshotHistory();
-    if (typeof window.renderCropTrackerRows === 'function') window.renderCropTrackerRows();
-  });
-
   document.getElementById('donate-btn')?.addEventListener('click', async () => {
     const donationAddress = "0xE32d234D63998F5078de9A7E2303233699276642";
     const donateBtn = document.getElementById('donate-btn');
