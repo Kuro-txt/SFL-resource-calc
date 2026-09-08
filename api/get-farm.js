@@ -39,6 +39,7 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
+    res.setHeader('Cache-Control', 'private, s-maxage=30, stale-while-revalidate=60');
     res.status(200).json({ success: true, farm: data });
   } catch (error) {
     res.status(500).json({ error: 'Server connection failed', details: error.message });

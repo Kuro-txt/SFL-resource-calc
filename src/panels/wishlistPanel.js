@@ -1,4 +1,5 @@
 import { BACKEND_URL } from '../config/constants.js';
+import { ApiService } from '../services/api.js';
 
 let allNfts = [];
 let wishlistItems = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]');
@@ -92,16 +93,13 @@ export function initWishlistPanel() {
   }
 }
 
-export async function loadNftCatalog() {
+export async function loadNftCatalog(force = false) {
+  if (!force && allNfts.length > 0) {
+    renderWishlist();
+    return;
+  }
   try {
-    const rawUrl = typeof BACKEND_URL !== 'undefined' && BACKEND_URL ? BACKEND_URL : '';
-    const cleanBaseUrl = rawUrl.replace(/\/+$/, '');
-    
-    const res = await fetch(`${cleanBaseUrl}/api/nfts`);
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    
+    const data = await ApiService.getNfts({ force });
     if (Array.isArray(data) && data.length > 0) {
       allNfts = data;
     } else {

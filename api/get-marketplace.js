@@ -40,6 +40,7 @@ export default async function handler(req, res) {
       });
     }
 
+    res.setHeader('Cache-Control', 'private, s-maxage=60, stale-while-revalidate=120');
     res.status(200).json({ success: true, data: data });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch marketplace data', details: error.message });

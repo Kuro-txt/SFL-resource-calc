@@ -31,10 +31,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTrackingModal();
   initWeeklySummaryModal();
 
+  let lastYieldFetch = 0;
+
   PanelManager.register('calc', {
     onMount: () => {
       console.log("Daily Tracker Panel Active");
-      loadCloudYieldHistory();
+      if (Date.now() - lastYieldFetch > 180000) {
+        lastYieldFetch = Date.now();
+        loadCloudYieldHistory();
+      }
     }
   });
 
@@ -43,7 +48,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   PanelManager.register('tradehistory', {
-    onMount: () => fetchMarketplaceTrades()
+    onMount: () => {
+      // Re-renders instant in-memory trades without network requests if loaded recently
+      fetchMarketplaceTrades(false);
+    }
   });
 
   PanelManager.register('npc', {

@@ -1,4 +1,5 @@
 import { BACKEND_URL } from '../config/constants.js';
+import { ApiService } from '../services/api.js';
 import { fetchMarketplaceTrades } from '../panels/tradeHistory/index.js';
 import { renderNpcCards } from '../panels/npc/npcGiftsPanel.js';
 import { renderWishlist } from '../panels/wishlistPanel.js';
@@ -123,16 +124,7 @@ export async function handleFarmSync() {
   }
 
   try {
-    const backend = typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : '';
-    const url = `${backend}/api/get-farm?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`;
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || `HTTP Error ${response.status}`);
-    }
-
-    const farmObj = data.farm?.farm || data.farm?.data || data.farm || data;
+    const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
     window.farmInventoryData = farmObj?.inventory || {};
     window.farmNpcData = farmObj?.npcs || {};
     localStorage.setItem('sfl_farm_npcs', JSON.stringify(window.farmNpcData));
@@ -152,7 +144,7 @@ export async function handleFarmSync() {
     // Automatically trigger trade history sync and cloud archiving in background
     let tradeMsg = '';
     try {
-      const tradeRes = await fetchMarketplaceTrades();
+      const tradeRes = await fetchMarketplaceTrades(true);
       if (tradeRes && tradeRes.success) {
         tradeMsg = ` & saved ${tradeRes.count} trades to cloud`;
       }

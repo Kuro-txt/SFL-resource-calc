@@ -71,57 +71,171 @@ function verifyCronAuth(req) {
   return key === CRON_SECRET_KEY;
 }
 
+// ── Server In-Memory Cache with TTL & Deduplication ────────────────────────
+const serverCache = new Map();
+
+function getServerCache(key, ttlMs) {
+  const entry = serverCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > ttlMs) {
+    serverCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setServerCache(key, data) {
+  if (serverCache.size > 1000) {
+    const oldestKey = serverCache.keys().next().value;
+    serverCache.delete(oldestKey);
+  }
+  serverCache.set(key, { data, timestamp: Date.now() });
+}
+
+function clearServerCache(prefix) {
+  if (!prefix) {
+    serverCache.clear();
+    return;
+  }
+  for (const k of serverCache.keys()) {
+    if (k.startsWith(prefix)) serverCache.delete(k);
+  }
+}
+
 // ── Simple API proxy routes ────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => res.status(200).send('OK'));
 
-app.get('/api/get-data', async (_req, res) => {
+app.get('/api/get-data', async (req, res) => {
+  const force = req.query.force === 'true';
+  const cacheKey = 'sfl_prices';
+  if (!force) {
+    const cached = getServerCache(cacheKey, 60 * 1000); // 60s
+    if (cached) {
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+  }
   try {
     const response = await axios.get('https://sfl.world/api/v1/prices', {
       headers: SFL_WORLD_HEADERS, timeout: 10000
     });
+    setServerCache(cacheKey, response.data);
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.setHeader('X-Cache', 'MISS');
     res.json(response.data);
   } catch (err) {
+    const stale = serverCache.get(cacheKey)?.data;
+    if (stale) {
+      res.setHeader('X-Cache', 'STALE');
+      return res.json(stale);
+    }
     res.status(500).json({ error: 'Failed to fetch price data', details: err.message });
   }
 });
 
 app.get('/api/get-farm', async (req, res) => {
-  const { farmId, apiKey } = req.query;
+  const { farmId, apiKey, force } = req.query;
   if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
+  const cleanFarmId = String(farmId).trim();
+  const cleanApiKey = apiKey ? String(apiKey).trim() : '';
+  const cacheKey = `farm_${cleanFarmId}_${cleanApiKey ? 'vip' : 'anon'}`;
+
+  if (force !== 'true') {
+    const cached = getServerCache(cacheKey, 30 * 1000); // 30s
+    if (cached) {
+      res.setHeader('Cache-Control', 'private, max-age=30');
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+  }
+
   try {
     const { inventory, farmActivity, npcs } = await fetchFarmFullDataWithRetry(
-      String(farmId).trim(), 5, apiKey ? String(apiKey).trim() : ''
+      cleanFarmId, 5, cleanApiKey
     );
-    res.json({ success: true, farm: { inventory, farmActivity, npcs } });
+    const result = { success: true, farm: { inventory, farmActivity, npcs } };
+    setServerCache(cacheKey, result);
+    res.setHeader('Cache-Control', 'private, max-age=30');
+    res.setHeader('X-Cache', 'MISS');
+    res.json(result);
   } catch (err) {
+    const stale = serverCache.get(cacheKey)?.data;
+    if (stale) {
+      res.setHeader('X-Cache', 'STALE');
+      return res.json(stale);
+    }
     res.status(err.response?.status || 500).json({ error: err.message });
   }
 });
 
 app.get('/api/get-land', async (req, res) => {
-  const { farmId } = req.query;
+  const { farmId, force } = req.query;
   if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
+  const cleanFarmId = String(farmId).trim();
+  const cacheKey = `land_${cleanFarmId}`;
+
+  if (force !== 'true') {
+    const cached = getServerCache(cacheKey, 180 * 1000); // 3 min
+    if (cached) {
+      res.setHeader('Cache-Control', 'public, max-age=180');
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+  }
+
   try {
     const response = await axios.get(
-      `https://sfl.world/api/v1/land/${encodeURIComponent(String(farmId).trim())}`,
+      `https://sfl.world/api/v1/land/${encodeURIComponent(cleanFarmId)}`,
       { headers: SFL_WORLD_HEADERS, timeout: 10000 }
     );
-    res.json({ success: true, land: response.data });
+    const result = { success: true, land: response.data };
+    setServerCache(cacheKey, result);
+    res.setHeader('Cache-Control', 'public, max-age=180');
+    res.setHeader('X-Cache', 'MISS');
+    res.json(result);
   } catch (err) {
+    const stale = serverCache.get(cacheKey)?.data;
+    if (stale) {
+      res.setHeader('X-Cache', 'STALE');
+      return res.json(stale);
+    }
     res.status(err.response?.status || 500).json({ error: 'Failed to fetch land data', details: err.message });
   }
 });
 
 app.get('/api/get-marketplace', async (req, res) => {
-  const { farmId, apiKey } = req.query;
+  const { farmId, apiKey, force } = req.query;
   if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });
+  const cleanFarmId = String(farmId).trim();
+  const cleanApiKey = apiKey ? String(apiKey).trim() : '';
+  const cacheKey = `marketplace_${cleanFarmId}`;
+
+  if (force !== 'true') {
+    const cached = getServerCache(cacheKey, 60 * 1000); // 60s
+    if (cached) {
+      res.setHeader('Cache-Control', 'private, max-age=60');
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+  }
+
   try {
     const response = await axios.get(
-      `https://api.sunflower-land.com/community/data?type=marketplaceProfile&farmId=${encodeURIComponent(String(farmId).trim())}`,
-      { headers: getSflHeaders(apiKey ? String(apiKey).trim() : ''), timeout: 15000 }
+      `https://api.sunflower-land.com/community/data?type=marketplaceProfile&farmId=${encodeURIComponent(cleanFarmId)}`,
+      { headers: getSflHeaders(cleanApiKey), timeout: 15000 }
     );
-    res.json({ success: true, data: response.data });
+    const result = { success: true, data: response.data };
+    setServerCache(cacheKey, result);
+    res.setHeader('Cache-Control', 'private, max-age=60');
+    res.setHeader('X-Cache', 'MISS');
+    res.json(result);
   } catch (err) {
+    const stale = serverCache.get(cacheKey)?.data;
+    if (stale) {
+      res.setHeader('X-Cache', 'STALE');
+      return res.json(stale);
+    }
     res.status(err.response?.status || 500).json({ error: err.response?.data?.error || err.message });
   }
 });
@@ -135,7 +249,19 @@ app.all('/api/trades', async (req, res) => {
   }
 });
 
-app.get('/api/nfts', async (_req, res) => {
+app.get('/api/nfts', async (req, res) => {
+  const force = req.query.force === 'true';
+  const cacheKey = 'sfl_nfts';
+
+  if (!force) {
+    const cached = getServerCache(cacheKey, 15 * 60 * 1000); // 15 min
+    if (cached) {
+      res.setHeader('Cache-Control', 'public, max-age=600');
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+  }
+
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
       headers: SFL_WORLD_HEADERS, timeout: 12000
@@ -165,9 +291,19 @@ app.get('/api/nfts', async (_req, res) => {
       }
     });
     const finalNFTs = Array.from(uniqueMap.values());
-    if (finalNFTs.length > 0) return res.json(finalNFTs);
+    if (finalNFTs.length > 0) {
+      setServerCache(cacheKey, finalNFTs);
+      res.setHeader('Cache-Control', 'public, max-age=600');
+      res.setHeader('X-Cache', 'MISS');
+      return res.json(finalNFTs);
+    }
     throw new Error('Parsed items array is empty');
   } catch (err) {
+    const stale = serverCache.get(cacheKey)?.data;
+    if (stale) {
+      res.setHeader('X-Cache', 'STALE');
+      return res.json(stale);
+    }
     res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });
   }
 });
