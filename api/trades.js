@@ -183,12 +183,13 @@ export default async function handler(req, res) {
           : (t.name && !t.name.startsWith('Item #') ? t.name : getItemNameById(itemId || t.itemId));
         const itemName = String(resolvedName || `Item #${itemId}`).substring(0, 128);
         const quantity = parseFloat(t.quantity || 1);
+        const sfl = parseFloat(t.sfl || 0);
         const tradeType = String(t.tradeType || 'sold').toLowerCase();
         let tax = parseFloat(t.tax || 0);
         if (tradeType === 'sold' && (!tax || tax <= 0)) {
           tax = Math.round((sfl * 0.10) * 10000) / 10000;
         }
-        const netSfl = tradeType === 'sold' ? Math.max(0, sfl - tax) : sfl;
+        const netSfl = (t.netSfl !== undefined && t.netSfl !== null) ? parseFloat(t.netSfl) : (tradeType === 'sold' ? Math.max(0, sfl - tax) : sfl);
         const unitPrice = quantity > 0 ? (sfl / quantity) : sfl;
         const source = String(t.source || 'listing').toLowerCase();
         const counterpartyId = t.counterpartyId ? String(t.counterpartyId).trim() : null;
