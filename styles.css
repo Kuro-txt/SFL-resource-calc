@@ -89,6 +89,7 @@ input[type=number] {
 }
 
 .dark .bg-white,
+.dark .bg-white\/95,
 .dark .bg-white\/90,
 .dark .bg-white\/80,
 .dark .bg-white\/70,
@@ -247,3 +248,114 @@ input[type=number] {
 .dark .hover\:bg-amber-100:hover {
   background-color: rgba(58, 38, 26, 0.7) !important;
 }
+
+/* ========================================================
+   DEDICATED ITEM SUMMARY & PERFORMANCE BREAKDOWN CARDS
+======================================================== */
+.sfl-item-summary-card {
+  background-color: rgba(255, 243, 219, 0.95);
+  border: 2px solid #c49a6c;
+}
+
+.dark .sfl-item-summary-card {
+  background-color: #241710 !important;
+  border-color: #4d2d17 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Sold Box */
+.trade-metric-box-sold {
+  background-color: #ecfdf5;
+  border: 1.5px solid #a7f3d0;
+}
+.dark .trade-metric-box-sold {
+  background-color: rgba(6, 44, 25, 0.65) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+}
+.dark .trade-metric-box-sold .badge-sold {
+  background-color: rgba(16, 185, 129, 0.25) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+.dark .trade-metric-box-sold .stat-sold-val {
+  color: #34d399 !important;
+}
+.dark .trade-metric-box-sold .stat-sold-sub {
+  color: #a7f3d0 !important;
+}
+.dark .trade-metric-box-sold .stat-sold-foot {
+  color: #d1fae5 !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+/* Bought Box */
+.trade-metric-box-bought {
+  background-color: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+}
+.dark .trade-metric-box-bought {
+  background-color: rgba(15, 30, 75, 0.65) !important;
+  border-color: rgba(59, 130, 246, 0.45) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+}
+.dark .trade-metric-box-bought .badge-bought {
+  background-color: rgba(59, 130, 246, 0.25) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.45) !important;
+}
+.dark .trade-metric-box-bought .stat-bought-val {
+  color: #60a5fa !important;
+}
+.dark .trade-metric-box-bought .stat-bought-sub {
+  color: #93c5fd !important;
+}
+.dark .trade-metric-box-bought .stat-bought-foot {
+  color: #dbeafe !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+}
+
+/* Net Flow Box */
+.trade-metric-box-net {
+  background-color: #fffbeb;
+  border: 1.5px solid #fcd34d;
+}
+.dark .trade-metric-box-net {
+  background-color: rgba(43, 27, 18, 0.85) !important;
+  border-color: rgba(217, 119, 6, 0.45) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+}
+.dark .trade-metric-box-net .badge-net {
+  background-color: rgba(217, 119, 6, 0.25) !important;
+  color: #fde68a !important;
+  border-color: rgba(217, 119, 6, 0.45) !important;
+}
+.dark .trade-metric-box-net .stat-net-sub {
+  color: #e2c2a4 !important;
+}
+.dark .trade-metric-box-net .stat-net-foot {
+  color: #fef3c7 !important;
+  border-color: rgba(217, 119, 6, 0.25) !important;
+}
+
+/* Active filter buttons */
+.dark .trade-filter-btn.active-sold {
+  background-color: #047857 !important;
+  color: #ffffff !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.3) !important;
+}
+
+.dark .trade-filter-btn.active-bought {
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.3) !important;
+}
+
+.dark .trade-filter-btn.active-all {
+  background-color: #5c3317 !important;
+  color: #fde68a !important;
+  border-color: #8a5832 !important;
+}
+
