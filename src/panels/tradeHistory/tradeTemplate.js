@@ -152,17 +152,31 @@ export function renderTradeHistoryTemplate() {
         </div>
       </div>
 
-      <!-- FILTER CONTROLS FOR TRADES VIEW (SOLD / BOUGHT) -->
-      <div id="trade-filters-bar" class="flex items-center gap-1.5">
-        <button id="trade-filter-all" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs">
-          All
-        </button>
-        <button id="trade-filter-sold" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-50">
-          🟢 Sold (Sales)
-        </button>
-        <button id="trade-filter-bought" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-50">
-          🔵 Bought (Purchases)
-        </button>
+      <!-- FILTER CONTROLS FOR TRADES VIEW (SOLD / BOUGHT + SPECIFIC ITEM DROPDOWN) -->
+      <div id="trade-filters-bar" class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <button id="trade-filter-all" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs">
+            All
+          </button>
+          <button id="trade-filter-sold" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-50">
+            🟢 Sold (Sales)
+          </button>
+          <button id="trade-filter-bought" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-50">
+            🔵 Bought (Purchases)
+          </button>
+        </div>
+
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <label for="trade-item-filter" class="text-xs font-bold text-sfl-wood flex items-center gap-1">
+            <span>📦</span> Item:
+          </label>
+          <select id="trade-item-filter" class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt cursor-pointer bg-white border border-sfl-cardBorder hover:border-sfl-dirt focus:ring-1 focus:ring-sfl-gold max-w-[200px] truncate shadow-xs">
+            <option value="all">📦 All Items</option>
+          </select>
+          <button id="trade-item-clear-btn" class="hidden px-2 py-1 rounded-md text-[10px] font-bold text-sfl-woodLight bg-amber-100 hover:bg-amber-200 border border-amber-300 transition cursor-pointer shadow-xs" title="Reset item filter">
+            ✕ Clear
+          </button>
+        </div>
       </div>
 
       <!-- MAIN DATA CONTAINER -->
@@ -171,6 +185,9 @@ export function renderTradeHistoryTemplate() {
           <span id="trade-table-title">📜 Completed Trade Transactions</span>
           <span id="trade-history-status" class="text-[11px] text-amber-300 font-mono">Ready</span>
         </div>
+
+        <!-- DEDICATED ITEM PERFORMANCE SUMMARY BANNER -->
+        <div id="trade-item-summary-mount" class="hidden border-b-2 border-sfl-cardBorder bg-amber-50/60 p-3.5"></div>
 
         <div id="trade-content-mount" class="overflow-x-auto">
           <table class="w-full text-left text-xs text-sfl-dirt">

@@ -1,7 +1,7 @@
 import { getItemNameById } from '../../data/knownIds.js';
 import { ApiService } from '../../services/api.js';
 import { renderTradeSummaryMetrics } from './tradeMetrics.js';
-import { renderCurrentView } from './index.js';
+import { renderCurrentView, populateItemFilterDropdown } from './index.js';
 
 export let tradeHistoryData = null;
 export let cloudArchivedCount = 0;
@@ -31,6 +31,7 @@ export async function fetchMarketplaceTrades() {
       const itemName = (rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName);
       const otherUser = isSeller ? (t.fulfilledBy?.username || '') : (t.initiatedBy?.username || '');
       const otherId = isSeller ? (t.fulfilledBy?.id || null) : (t.initiatedBy?.id || null);
+      const amounts = getTradeAmounts(t, farmId);
 
       return {
         id: t.id,
@@ -39,6 +40,8 @@ export async function fetchMarketplaceTrades() {
         itemName: itemName,
         quantity: parseFloat(t.quantity || 1),
         sfl: parseFloat(t.sfl || 0),
+        tax: amounts.tax,
+        netSfl: amounts.netSfl,
         tradeType: isSeller ? 'sold' : 'bought',
         source: t.source || 'listing',
         counterpartyId: otherId,
@@ -83,6 +86,7 @@ export async function fetchMarketplaceTrades() {
       console.warn("TiDB Cloud fetch note:", err.message);
     }
 
+    populateItemFilterDropdown();
     renderTradeSummaryMetrics(tradeHistoryData);
     renderCurrentView();
     if (statusEl) statusEl.textContent = `✅ Synced & Archived (${cloudArchivedCount || tradeHistoryData.trades?.length || 0} Total)`;
@@ -125,8 +129,13 @@ export function getTradeAmounts(trade, farmId) {
   const grossSfl = parseFloat(trade.sfl || 0);
 
   if (isSeller) {
-    // Subtract the exact tax that the API returns (trade.tax)
-    const tax = parseFloat(trade.tax || 0);
+    let tax = parseFloat(trade.tax !== undefined && trade.tax !== null ? trade.tax : 0);
+    if (!tax || tax <= 0) {
+      const savedTax = typeof localStorage !== 'undefined' ? localStorage.getItem('sfl_tax_rate') : null;
+      const taxSelectEl = typeof document !== 'undefined' ? document.getElementById('tax-select') : null;
+      const taxRate = taxSelectEl ? (parseFloat(taxSelectEl.value) || 0) : (savedTax !== null ? parseFloat(savedTax) : 0.10);
+      tax = Math.round((grossSfl * taxRate) * 10000) / 10000;
+    }
     const netSfl = Math.max(0, grossSfl - tax);
     return {
       isSeller: true,

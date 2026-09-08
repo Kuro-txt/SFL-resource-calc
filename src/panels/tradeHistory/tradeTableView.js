@@ -1,7 +1,7 @@
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { getItemNameById } from '../../data/knownIds.js';
 import { getTradeAmounts, isUserSeller, tradeHistoryData } from './tradeData.js';
-import { currentFilter } from './tradeFilters.js';
+import { currentFilter, selectedItemFilter, calculateItemTradeMetrics } from './tradeFilters.js';
 import { searchQuery } from './index.js';
 
 export function getTradeItemName(t) {
@@ -14,16 +14,105 @@ export function getTradeItemName(t) {
 
 export function renderTradesTableView(mountEl, farmId) {
   const trades = tradeHistoryData?.trades || [];
+  const summaryMount = document.getElementById('trade-item-summary-mount');
+
+  // Render or hide dedicated item performance banner
+  if (summaryMount) {
+    if (selectedItemFilter && selectedItemFilter !== 'all') {
+      const metrics = calculateItemTradeMetrics(trades, selectedItemFilter, farmId);
+      if (metrics && metrics.totalTrades > 0) {
+        summaryMount.classList.remove('hidden');
+        summaryMount.innerHTML = `
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white/95 border-2 border-amber-300/80 rounded-xl p-3 shadow-xs">
+            <div class="flex items-center gap-2.5">
+              <div class="w-10 h-10 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-xl shadow-xs shrink-0">
+                📦
+              </div>
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h4 class="text-sm font-black text-sfl-wood">${metrics.itemName}</h4>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-sfl-dirt border border-amber-300">
+                    ${metrics.totalTrades} ${metrics.totalTrades === 1 ? 'transaction' : 'transactions'}
+                  </span>
+                </div>
+                <p class="text-[11px] font-semibold text-sfl-woodLight">
+                  Individual item sales, purchases & net flow summary
+                </p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono w-full lg:w-auto">
+              <!-- SALES STATS -->
+              <div class="bg-green-50/80 border border-green-200 rounded-lg p-2 flex flex-col justify-between">
+                <span class="text-[9px] font-sans font-bold text-sfl-green uppercase flex items-center gap-1">
+                  🟢 Sold (${metrics.soldCount})
+                </span>
+                <div class="font-black text-sfl-green text-sm mt-0.5">
+                  +${metrics.soldNetSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+                </div>
+                ${metrics.soldTax > 0 ? `<div class="text-[9px] font-sans text-sfl-woodLight">Gross: ${metrics.soldGrossSfl.toFixed(3)} • Tax: -${metrics.soldTax.toFixed(3)}</div>` : ''}
+                <div class="text-[10px] text-sfl-woodLight mt-1 font-sans">
+                  <span class="font-bold font-mono text-sfl-wood">${metrics.soldQty.toLocaleString()}</span> units
+                  ${metrics.soldQty > 0 ? `• <span class="font-mono text-[9px]">~${metrics.avgSellPrice.toFixed(4)}/ea</span>` : ''}
+                </div>
+              </div>
+
+              <!-- BUYS STATS -->
+              <div class="bg-blue-50/80 border border-blue-200 rounded-lg p-2 flex flex-col justify-between">
+                <span class="text-[9px] font-sans font-bold text-blue-800 uppercase flex items-center gap-1">
+                  🔵 Bought (${metrics.boughtCount})
+                </span>
+                <div class="font-black text-sfl-wood text-sm mt-0.5">
+                  -${metrics.boughtSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+                </div>
+                <div class="text-[10px] text-sfl-woodLight mt-1 font-sans">
+                  <span class="font-bold font-mono text-sfl-wood">${metrics.boughtQty.toLocaleString()}</span> units
+                  ${metrics.boughtQty > 0 ? `• <span class="font-mono text-[9px]">~${metrics.avgBuyPrice.toFixed(4)}/ea</span>` : ''}
+                </div>
+              </div>
+
+              <!-- NET SFL & FLOW -->
+              <div class="bg-amber-100/50 border border-amber-300 rounded-lg p-2 flex flex-col justify-between">
+                <span class="text-[9px] font-sans font-bold text-sfl-wood uppercase flex items-center gap-1">
+                  ⚖️ Net Flow
+                </span>
+                <div class="font-black text-sm mt-0.5 font-mono ${metrics.netSfl >= 0 ? 'text-sfl-green' : 'text-sfl-accent'}">
+                  ${metrics.netSfl >= 0 ? '+' : ''}${metrics.netSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+                </div>
+                <div class="text-[10px] text-sfl-woodLight mt-1 font-sans">
+                  Net Qty: <span class="font-bold font-mono ${metrics.netQty >= 0 ? 'text-sfl-wood' : 'text-sfl-dirt'}">${metrics.netQty >= 0 ? '+' : ''}${metrics.netQty.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        summaryMount.classList.add('hidden');
+        summaryMount.innerHTML = '';
+      }
+    } else {
+      summaryMount.classList.add('hidden');
+      summaryMount.innerHTML = '';
+    }
+  }
 
   let filtered = trades.filter(t => {
     const isSeller = isUserSeller(t, farmId);
     if (currentFilter === 'sold' && !isSeller) return false;
     if (currentFilter === 'bought' && isSeller) return false;
 
+    const itemName = getTradeItemName(t);
+
+    if (selectedItemFilter && selectedItemFilter !== 'all') {
+      if (itemName.trim().toLowerCase() !== selectedItemFilter.trim().toLowerCase()) {
+        return false;
+      }
+    }
+
     if (searchQuery) {
-      const itemName = getTradeItemName(t).toLowerCase();
+      const lowerName = itemName.toLowerCase();
       const otherUser = isSeller ? (t.counterpartyName || t.fulfilledBy?.username || '').toLowerCase() : (t.counterpartyName || t.initiatedBy?.username || '').toLowerCase();
-      if (!itemName.includes(searchQuery) && !otherUser.includes(searchQuery)) return false;
+      if (!lowerName.includes(searchQuery) && !otherUser.includes(searchQuery)) return false;
     }
     return true;
   });

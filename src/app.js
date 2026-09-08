@@ -10,6 +10,7 @@ import { initTradeHistoryPanel, fetchMarketplaceTrades } from './panels/tradeHis
 import { initNpcGiftsPanel, renderNpcCards } from './panels/npc/npcGiftsPanel.js';
 import { initTrackerPanel, loadCloudYieldHistory } from './panels/trackerPanel.js';
 import { initWishlistPanel, renderWishlist } from './panels/wishlistPanel.js';
+import { initApiViewerPanel, renderApiViewerPanel } from './panels/apiViewer/apiViewerPanel.js';
 import { initTrackingModal } from './modals/trackingModal.js';
 import { initWeeklySummaryModal } from './modals/weeklyModal.js';
 
@@ -26,6 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initNpcGiftsPanel();
   initTrackerPanel();
   initWishlistPanel();
+  initApiViewerPanel();
   initTrackingModal();
   initWeeklySummaryModal();
 
@@ -50,6 +52,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   PanelManager.register('wishlist', {
     onMount: () => renderWishlist()
+  });
+
+  PanelManager.register('rawapi', {
+    onMount: () => renderApiViewerPanel()
   });
 
   // Initializes tabs and restores last opened tab automatically

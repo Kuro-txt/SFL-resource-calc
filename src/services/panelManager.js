@@ -6,7 +6,8 @@ const TAB_TO_HASH = {
   croptracker: 'crops',
   tradehistory: 'trades',
   npc: 'npc',
-  wishlist: 'wishlist'
+  wishlist: 'wishlist',
+  rawapi: 'api'
 };
 
 const HASH_TO_TAB = {
@@ -24,7 +25,11 @@ const HASH_TO_TAB = {
   gifts: 'npc',
   wishlist: 'wishlist',
   nfts: 'wishlist',
-  'nft-wishlist': 'wishlist'
+  'nft-wishlist': 'wishlist',
+  api: 'rawapi',
+  rawapi: 'rawapi',
+  'raw-api': 'rawapi',
+  'api-viewer': 'rawapi'
 };
 
 export const PanelManager = {
@@ -33,7 +38,7 @@ export const PanelManager = {
   },
 
   switch(targetId, updateUrlHash = true) {
-    const validTabs = ['calc', 'croptracker', 'tradehistory', 'npc', 'wishlist'];
+    const validTabs = ['calc', 'croptracker', 'tradehistory', 'npc', 'wishlist', 'rawapi'];
     if (!validTabs.includes(targetId)) {
       targetId = 'calc';
     }
@@ -47,6 +52,7 @@ export const PanelManager = {
       if (id === 'croptracker') sectionId = 'crop-tracker-section';
       if (id === 'tradehistory') sectionId = 'trade-history-section';
       if (id === 'npc') sectionId = 'npc-gifts-section';
+      if (id === 'rawapi') sectionId = 'raw-api-section';
 
       const sectionEl = document.getElementById(sectionId);
       const btnEl = document.getElementById(`tab-${id}-btn`);
@@ -92,6 +98,7 @@ export const PanelManager = {
     document.getElementById('tab-tradehistory-btn')?.addEventListener('click', () => this.switch('tradehistory'));
     document.getElementById('tab-npc-btn')?.addEventListener('click', () => this.switch('npc'));
     document.getElementById('tab-wishlist-btn')?.addEventListener('click', () => this.switch('wishlist'));
+    document.getElementById('tab-rawapi-btn')?.addEventListener('click', () => this.switch('rawapi'));
 
     // Listen to browser Back/Forward navigation or direct hash changes
     window.addEventListener('hashchange', () => {
