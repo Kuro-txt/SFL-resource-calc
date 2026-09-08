@@ -51,29 +51,29 @@ export function initTradeHistoryPanel() {
 }
 
 export function populateItemFilterDropdown() {
-  const selectEl = document.getElementById('trade-item-filter');
-  if (!selectEl) return;
   const trades = tradeHistoryData?.trades || [];
   const uniqueItems = getUniqueTradedItems(trades);
-  const currentVal = selectedItemFilter || 'all';
-
-  let html = `<option value="all">📦 All Items (${trades.length})</option>`;
-  uniqueItems.forEach(item => {
-    const isSel = (item.name.toLowerCase() === currentVal.toLowerCase());
-    html += `<option value="${item.name}" ${isSel ? 'selected' : ''}>${item.name} (${item.count})</option>`;
-  });
-
-  selectEl.innerHTML = html;
-  selectEl.value = currentVal;
 
   const itemsCountEl = document.getElementById('subtab-items-count');
   if (itemsCountEl) {
     itemsCountEl.textContent = uniqueItems.length;
   }
 
+  const selectEl = document.getElementById('trade-item-filter');
+  if (selectEl) {
+    const currentVal = selectedItemFilter || 'all';
+    let html = `<option value="all">📦 All Items (${trades.length})</option>`;
+    uniqueItems.forEach(item => {
+      const isSel = (item.name.toLowerCase() === currentVal.toLowerCase());
+      html += `<option value="${item.name}" ${isSel ? 'selected' : ''}>${item.name} (${item.count})</option>`;
+    });
+    selectEl.innerHTML = html;
+    selectEl.value = currentVal;
+  }
+
   const clearBtn = document.getElementById('trade-item-clear-btn');
   if (clearBtn) {
-    if (currentVal !== 'all') clearBtn.classList.remove('hidden');
+    if (selectedItemFilter && selectedItemFilter !== 'all') clearBtn.classList.remove('hidden');
     else clearBtn.classList.add('hidden');
   }
 }

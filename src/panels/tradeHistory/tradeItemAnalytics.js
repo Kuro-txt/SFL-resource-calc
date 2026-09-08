@@ -17,7 +17,7 @@ export const ITEM_PALETTE = [
   '#6366f1'  // Indigo
 ];
 
-// State for Item Analytics
+// State for Item Analytics - starts empty so only selected items are shown
 export let analyticsTimeHorizon = 'week'; // 'today' | 'week' | 'month'
 export let analyticsMetric = 'sfl';       // 'sfl' | 'qty'
 export let selectedItems = new Set();
@@ -130,7 +130,7 @@ export function getTimeBuckets(horizon) {
         endTime: end.getTime()
       });
     }
-    return { title: 'Today’s Hourly Sales (3h intervals)', buckets };
+    return { title: 'Today’s Hourly Sales', buckets };
   }
 
   if (horizon === 'month') {
@@ -255,7 +255,7 @@ export function generateMultiItemSvgChart(seriesList, buckets, metric = 'sfl') {
   if (!seriesList || seriesList.length === 0) {
     return `
       <div class="p-8 text-center text-sfl-woodLight dark:text-amber-300/60 italic text-xs">
-        Select one or more items below to plot their sales on the graph.
+        No items selected. Select an item from the dropdown to display its sales graph.
       </div>
     `;
   }
@@ -357,16 +357,13 @@ export function renderItemAnalyticsView(mountEl, farmId) {
   const trades = tradeHistoryData?.trades || [];
   const soldItems = getAllSoldItems(trades, farmId);
 
-  // If no items selected yet, default to top 3 sold items
-  if (selectedItems.size === 0 && soldItems.length > 0) {
-    soldItems.slice(0, 3).forEach(item => selectedItems.add(item.name));
-  }
-
+  // ONLY show items that are selected by the user
   const selectedList = Array.from(selectedItems);
   const { title: horizonTitle, buckets } = getTimeBuckets(analyticsTimeHorizon);
   const { series, matchingTrades } = aggregateItemSeries(trades, farmId, selectedList, buckets);
 
-  // Filter available items by search filter
+  // Available unselected items to choose from
+  const availableSoldItems = soldItems.filter(item => !selectedItems.has(item.name));
   const filteredSoldItems = itemSearchFilter
     ? soldItems.filter(item => item.name.toLowerCase().includes(itemSearchFilter.toLowerCase()))
     : soldItems;
@@ -413,184 +410,216 @@ export function renderItemAnalyticsView(mountEl, farmId) {
 
       </div>
 
-      <!-- MULTI-ITEM SELECTOR PANEL -->
+      <!-- MULTI-ITEM SELECTOR (ONLY SHOW ITEMS THAT ARE SELECTED) -->
       <div class="bg-white/95 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 rounded-xl p-3.5 shadow-2xs space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-black text-sfl-dirt dark:text-amber-100 uppercase tracking-wide flex items-center gap-1.5">
-              <span>🎯</span> Select Items to Compare (${selectedItems.size}/${soldItems.length} selected)
-            </span>
+          <div class="flex items-center gap-2 flex-wrap">
+            <label for="item-add-select" class="text-xs font-black text-sfl-dirt dark:text-amber-100 uppercase tracking-wide flex items-center gap-1.5">
+              <span>🎯</span> Select Items to Compare:
+            </label>
+            <select id="item-add-select" class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-200 dark:bg-amber-950/60 dark:border-amber-700/60 cursor-pointer max-w-[240px]">
+              <option value="">➕ Choose an item to add...</option>
+              ${availableSoldItems.map(item => `<option value="${item.name}">${item.name} (${item.count} sales, ${item.totalSfl.toFixed(2)} SFL)</option>`).join('')}
+            </select>
           </div>
 
           <div class="flex items-center gap-1.5 flex-wrap">
-            <button id="quick-top5-btn" class="px-2 py-1 rounded text-[11px] font-bold bg-amber-100 dark:bg-amber-900/60 text-sfl-wood dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-700 transition cursor-pointer">
+            <button id="quick-top5-btn" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 dark:bg-amber-900/60 text-sfl-wood dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-700 transition cursor-pointer">
               Top 5 Traded
             </button>
-            <button id="quick-select-all-btn" class="px-2 py-1 rounded text-[11px] font-bold bg-amber-100 dark:bg-amber-900/60 text-sfl-wood dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-700 transition cursor-pointer">
-              Select All
-            </button>
-            <button id="quick-clear-btn" class="px-2 py-1 rounded text-[11px] font-bold bg-amber-100 dark:bg-amber-900/60 text-sfl-wood dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-700 transition cursor-pointer">
-              ✕ Clear
+            <button id="quick-clear-btn" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 dark:bg-amber-900/60 text-sfl-wood dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-700 transition cursor-pointer">
+              ✕ Clear All
             </button>
             <input type="text" id="item-search-filter-input" placeholder="🔍 Filter items..." value="${itemSearchFilter}" 
-              class="sfl-input rounded-lg px-2 py-0.5 text-xs font-bold text-sfl-dirt dark:text-amber-200 dark:bg-amber-950/60 dark:border-amber-700/60 w-36">
+              class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-200 dark:bg-amber-950/60 dark:border-amber-700/60 w-36">
           </div>
         </div>
 
-        <!-- Chips list -->
-        <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 border border-amber-200/80 dark:border-amber-800/60 rounded-lg bg-amber-50/40 dark:bg-amber-950/20">
-          ${filteredSoldItems.map(item => {
-            const isSelected = selectedItems.has(item.name);
-            const color = isSelected ? getItemColor(item.name, selectedList) : 'transparent';
+        <!-- SELECTED ITEMS DISPLAY (ONLY SHOW ITEMS THAT ARE SELECTED) -->
+        <div class="flex items-center gap-2 flex-wrap min-h-[36px] p-2 border border-amber-200/80 dark:border-amber-800/60 rounded-lg bg-amber-50/40 dark:bg-amber-950/20">
+          <span class="text-xs font-bold text-sfl-wood dark:text-amber-200">
+            Selected (${selectedList.length}):
+          </span>
+          ${selectedList.map(itemName => {
+            const color = getItemColor(itemName, selectedList);
+            const itemData = soldItems.find(i => i.name === itemName);
+            const countStr = itemData ? ` (${itemData.count})` : '';
             return `
-              <button data-item-name="${item.name}" class="item-chip-btn flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer border shadow-2xs ${
-                isSelected 
-                  ? 'bg-amber-100 dark:bg-amber-900/80 text-sfl-dirt dark:text-amber-100 border-amber-400 dark:border-amber-600' 
-                  : 'bg-white dark:bg-amber-950/60 text-sfl-woodLight dark:text-amber-300/70 border-sfl-cardBorder dark:border-amber-700/40 hover:border-amber-400'
-              }">
-                <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0" style="background-color: ${isSelected ? color : '#94a3b8'};"></span>
-                <span>${item.name}</span>
-                <span class="text-[10px] font-mono opacity-75">(${item.count})</span>
-              </button>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 dark:bg-amber-900/80 text-sfl-dirt dark:text-amber-100 border border-amber-400 dark:border-amber-600 shadow-2xs">
+                <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: ${color};"></span>
+                <span>${itemName}${countStr}</span>
+                <button data-remove-item="${itemName}" class="remove-item-btn ml-1 hover:text-red-500 font-black cursor-pointer" title="Remove ${itemName}">✕</button>
+              </span>
             `;
           }).join('')}
-          ${filteredSoldItems.length === 0 ? `<div class="text-xs text-sfl-woodLight italic p-2">No matching traded items found.</div>` : ''}
+          ${selectedList.length === 0 ? `
+            <span class="text-xs text-sfl-woodLight dark:text-amber-300/60 italic">
+              No items selected. Choose an item from the dropdown or quick search below to view sales.
+            </span>
+          ` : ''}
         </div>
+
+        ${itemSearchFilter ? `
+          <!-- Quick search matches to add -->
+          <div class="flex items-center gap-1.5 flex-wrap pt-1">
+            <span class="text-[11px] text-sfl-woodLight dark:text-amber-300/70">Matches:</span>
+            ${filteredSoldItems.slice(0, 8).map(item => {
+              const isSelected = selectedItems.has(item.name);
+              return `
+                <button data-add-item="${item.name}" class="text-[11px] font-bold px-2 py-0.5 rounded border transition cursor-pointer ${
+                  isSelected ? 'bg-amber-200 dark:bg-amber-800 text-sfl-dirt dark:text-amber-100 border-amber-400' : 'bg-white dark:bg-amber-950/60 text-sfl-wood dark:text-amber-200 border-sfl-cardBorder hover:bg-amber-100'
+                }">
+                  ${isSelected ? '✓ ' : '+ '} ${item.name} (${item.count})
+                </button>
+              `;
+            }).join('')}
+          </div>
+        ` : ''}
       </div>
 
       <!-- GRAPH CARD -->
-      <div class="sfl-item-summary-card rounded-xl p-4 shadow-sm space-y-3">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-300/60 dark:border-amber-700/50 pb-2">
-          <div>
-            <h4 class="text-sm font-black text-sfl-wood dark:text-amber-200 flex items-center gap-2">
-              <span>📈</span> Multi-Item Sales Comparison: <span class="text-sfl-green dark:text-emerald-400 font-bold">${horizonTitle}</span>
-            </h4>
-            <p class="text-[11px] font-semibold text-sfl-woodLight dark:text-amber-300/70">
-              Plotting ${analyticsMetric === 'sfl' ? 'Net SFL Revenue earned' : 'Total Units Sold'} across ${selectedList.length} selected item(s)
-            </p>
+      ${selectedList.length === 0 ? `
+        <div class="sfl-item-summary-card rounded-xl p-8 text-center shadow-sm space-y-2">
+          <span class="text-3xl block">📈</span>
+          <h4 class="text-sm font-bold text-sfl-wood dark:text-amber-200">No Items Selected</h4>
+          <p class="text-xs text-sfl-woodLight dark:text-amber-300/70">
+            Select one or more items above to view their sales graph, comparative metrics, and transaction history.
+          </p>
+        </div>
+      ` : `
+        <div class="sfl-item-summary-card rounded-xl p-4 shadow-sm space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-300/60 dark:border-amber-700/50 pb-2">
+            <div>
+              <h4 class="text-sm font-black text-sfl-wood dark:text-amber-200 flex items-center gap-2">
+                <span>📈</span> Multi-Item Sales Comparison: <span class="text-sfl-green dark:text-emerald-400 font-bold">${horizonTitle}</span>
+              </h4>
+              <p class="text-[11px] font-semibold text-sfl-woodLight dark:text-amber-300/70">
+                Plotting ${analyticsMetric === 'sfl' ? 'Net SFL Revenue earned' : 'Total Units Sold'} across ${selectedList.length} selected item(s)
+              </p>
+            </div>
+
+            <!-- Color Legend -->
+            <div class="flex items-center gap-2 flex-wrap text-xs font-mono font-bold">
+              ${series.map(s => `
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/80 dark:bg-amber-950/60 border border-amber-300/80 dark:border-amber-700/60 shadow-2xs">
+                  <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: ${s.color};"></span>
+                  <span class="text-sfl-wood dark:text-amber-200">${s.itemName}</span>
+                  <span class="text-[10px] font-black" style="color: ${s.color};">${analyticsMetric === 'sfl' ? '+' + s.totalSfl.toFixed(2) : s.totalQty.toLocaleString()}</span>
+                </span>
+              `).join('')}
+            </div>
           </div>
 
-          <!-- Color Legend -->
-          <div class="flex items-center gap-2 flex-wrap text-xs font-mono font-bold">
-            ${series.map(s => `
-              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/80 dark:bg-amber-950/60 border border-amber-300/80 dark:border-amber-700/60 shadow-2xs">
-                <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: ${s.color};"></span>
-                <span class="text-sfl-wood dark:text-amber-200">${s.itemName}</span>
-                <span class="text-[10px] font-black" style="color: ${s.color};">${analyticsMetric === 'sfl' ? '+' + s.totalSfl.toFixed(2) : s.totalQty.toLocaleString()}</span>
-              </span>
-            `).join('')}
-          </div>
+          <!-- SVG Graph -->
+          ${generateMultiItemSvgChart(series, buckets, analyticsMetric)}
         </div>
 
-        <!-- SVG Graph -->
-        ${generateMultiItemSvgChart(series, buckets, analyticsMetric)}
-      </div>
-
-      <!-- PERFORMANCE STATS BREAKDOWN FOR SELECTED ITEMS -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        ${series.map(s => {
-          const avgPrice = s.totalQty > 0 ? (s.totalGrossSfl / s.totalQty) : 0;
-          return `
-            <div class="rounded-xl p-3 border-2 shadow-2xs bg-white/95 dark:bg-amber-950/40 border-amber-300/80 dark:border-amber-700/60 flex flex-col justify-between">
-              <div class="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-amber-200/80 dark:border-amber-800/60">
-                <div class="flex items-center gap-2">
-                  <span class="w-3.5 h-3.5 rounded-full inline-block shrink-0 shadow-xs" style="background-color: ${s.color};"></span>
-                  <span class="text-xs font-black text-sfl-dirt dark:text-amber-100">${s.itemName}</span>
-                </div>
-                <span class="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">
-                  ${s.totalCount} sales
-                </span>
-              </div>
-
-              <div class="space-y-1.5 font-mono text-xs">
-                <div class="flex items-center justify-between">
-                  <span class="text-[11px] text-sfl-woodLight dark:text-amber-300/70">Net Revenue:</span>
-                  <span class="font-black text-emerald-700 dark:text-emerald-400 text-sm flex items-center gap-1">
-                    +${s.totalSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+        <!-- PERFORMANCE STATS BREAKDOWN FOR SELECTED ITEMS ONLY -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          ${series.map(s => {
+            const avgPrice = s.totalQty > 0 ? (s.totalGrossSfl / s.totalQty) : 0;
+            return `
+              <div class="rounded-xl p-3 border-2 shadow-2xs bg-white/95 dark:bg-amber-950/40 border-amber-300/80 dark:border-amber-700/60 flex flex-col justify-between">
+                <div class="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-amber-200/80 dark:border-amber-800/60">
+                  <div class="flex items-center gap-2">
+                    <span class="w-3.5 h-3.5 rounded-full inline-block shrink-0 shadow-xs" style="background-color: ${s.color};"></span>
+                    <span class="text-xs font-black text-sfl-dirt dark:text-amber-100">${s.itemName}</span>
+                  </div>
+                  <span class="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">
+                    ${s.totalCount} sales
                   </span>
                 </div>
-                ${s.totalTax > 0 ? `
-                  <div class="flex items-center justify-between text-[10px] text-sfl-woodLight dark:text-amber-300/60">
-                    <span>Gross: +${s.totalGrossSfl.toFixed(3)}</span>
-                    <span>Tax: -${s.totalTax.toFixed(3)}</span>
+
+                <div class="space-y-1.5 font-mono text-xs">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] text-sfl-woodLight dark:text-amber-300/70">Net Revenue:</span>
+                    <span class="font-black text-emerald-700 dark:text-emerald-400 text-sm flex items-center gap-1">
+                      +${s.totalSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+                    </span>
                   </div>
-                ` : ''}
-                <div class="flex items-center justify-between pt-1 border-t border-amber-200/60 dark:border-amber-800/40">
-                  <span class="text-[11px] text-sfl-woodLight dark:text-amber-300/70">Units Sold:</span>
-                  <span class="font-bold text-sfl-wood dark:text-amber-200">📦 ${s.totalQty.toLocaleString()}</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-[11px] text-sfl-woodLight dark:text-amber-300/70">Avg Price:</span>
-                  <span class="font-bold text-sfl-wood dark:text-amber-200">~${avgPrice.toFixed(4)} SFL/ea</span>
+                  ${s.totalTax > 0 ? `
+                    <div class="flex items-center justify-between text-[10px] text-sfl-woodLight dark:text-amber-300/60">
+                      <span>Gross: +${s.totalGrossSfl.toFixed(3)}</span>
+                      <span>Tax: -${s.totalTax.toFixed(3)}</span>
+                    </div>
+                  ` : ''}
+                  <div class="flex items-center justify-between pt-1 border-t border-amber-200/60 dark:border-amber-800/40">
+                    <span class="text-[11px] text-sfl-woodLight dark:text-amber-300/70">Units Sold:</span>
+                    <span class="font-bold text-sfl-wood dark:text-amber-200">📦 ${s.totalQty.toLocaleString()}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] text-sfl-woodLight dark:text-amber-300/70">Avg Price:</span>
+                    <span class="font-bold text-sfl-wood dark:text-amber-200">~${avgPrice.toFixed(4)} SFL/ea</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-
-      <!-- TRANSACTION LEDGER TABLE FOR SELECTED ITEMS IN PERIOD -->
-      <div class="border-2 border-sfl-cardBorder dark:border-amber-700/60 rounded-xl overflow-hidden bg-white/95 dark:bg-amber-950/40 shadow-2xs">
-        <div class="bg-amber-100/80 dark:bg-amber-900/60 px-4 py-2.5 border-b border-sfl-cardBorder dark:border-amber-700/60 flex justify-between items-center">
-          <span class="text-xs font-bold text-sfl-dirt dark:text-amber-100 uppercase tracking-wider flex items-center gap-1.5">
-            <span>📜</span> Sales Log for Selected Items in Period
-          </span>
-          <span class="text-[11px] font-bold text-sfl-wood dark:text-amber-200 font-mono">
-            ${matchingTrades.length} sales recorded
-          </span>
+            `;
+          }).join('')}
         </div>
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs text-sfl-dirt dark:text-amber-100">
-            <thead class="text-[10px] uppercase bg-sfl-card dark:bg-amber-950/50 border-b border-sfl-cardBorder dark:border-amber-700/60 text-sfl-wood dark:text-amber-200">
-              <tr>
-                <th class="px-3 py-2">Date & Time</th>
-                <th class="px-3 py-2">Item Name</th>
-                <th class="px-2 py-2">Quantity</th>
-                <th class="px-2 py-2">Unit Price</th>
-                <th class="px-3 py-2">Buyer</th>
-                <th class="px-3 py-2 text-right">Net SFL</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-sfl-cardBorder/40 dark:divide-amber-700/40 font-medium">
-              ${matchingTrades.length === 0 ? `
-                <tr>
-                  <td colspan="6" class="p-6 text-center text-sfl-woodLight dark:text-amber-300/60 italic">
-                    No sales recorded for the selected item(s) in this time range.
-                  </td>
-                </tr>
-              ` : matchingTrades.map(t => {
-                const amounts = getTradeAmounts(t, farmId);
-                const rawDate = t.fulfilledAt;
-                const d = rawDate ? new Date(rawDate) : null;
-                const dateStr = d && !isNaN(d.getTime())
-                  ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                  : 'Recent';
-                const qty = parseFloat(t.quantity || 1);
-                const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
-                const otherUser = t.counterpartyName || t.fulfilledBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Buyer');
-                const itemColor = getItemColor(t.itemName, selectedList);
+        <!-- TRANSACTION LEDGER TABLE FOR SELECTED ITEMS IN PERIOD ONLY -->
+        <div class="border-2 border-sfl-cardBorder dark:border-amber-700/60 rounded-xl overflow-hidden bg-white/95 dark:bg-amber-950/40 shadow-2xs">
+          <div class="bg-amber-100/80 dark:bg-amber-900/60 px-4 py-2.5 border-b border-sfl-cardBorder dark:border-amber-700/60 flex justify-between items-center">
+            <span class="text-xs font-bold text-sfl-dirt dark:text-amber-100 uppercase tracking-wider flex items-center gap-1.5">
+              <span>📜</span> Sales Log for Selected Items in Period
+            </span>
+            <span class="text-[11px] font-bold text-sfl-wood dark:text-amber-200 font-mono">
+              ${matchingTrades.length} sales recorded
+            </span>
+          </div>
 
-                return `
-                  <tr class="hover:bg-amber-50/50 dark:hover:bg-amber-950/30 transition">
-                    <td class="px-3 py-2 font-mono text-sfl-wood dark:text-amber-200 whitespace-nowrap">${dateStr}</td>
-                    <td class="px-3 py-2 font-bold text-sfl-dirt dark:text-amber-100 flex items-center gap-1.5">
-                      <span class="w-2 h-2 rounded-full inline-block shrink-0" style="background-color: ${itemColor};"></span>
-                      <span>${t.itemName}</span>
-                    </td>
-                    <td class="px-2 py-2 font-mono font-bold text-sfl-wood dark:text-amber-200">${qty.toLocaleString()}</td>
-                    <td class="px-2 py-2 font-mono text-sfl-woodLight dark:text-amber-300/70">${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</td>
-                    <td class="px-3 py-2 font-medium text-sfl-wood dark:text-amber-200">${otherUser}</td>
-                    <td class="px-3 py-2 font-mono font-bold text-right text-emerald-600 dark:text-emerald-400">
-                      +${amounts.netSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-sfl-dirt dark:text-amber-100">
+              <thead class="text-[10px] uppercase bg-sfl-card dark:bg-amber-950/50 border-b border-sfl-cardBorder dark:border-amber-700/60 text-sfl-wood dark:text-amber-200">
+                <tr>
+                  <th class="px-3 py-2">Date & Time</th>
+                  <th class="px-3 py-2">Item Name</th>
+                  <th class="px-2 py-2">Quantity</th>
+                  <th class="px-2 py-2">Unit Price</th>
+                  <th class="px-3 py-2">Buyer</th>
+                  <th class="px-3 py-2 text-right">Net SFL</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-sfl-cardBorder/40 dark:divide-amber-700/40 font-medium">
+                ${matchingTrades.length === 0 ? `
+                  <tr>
+                    <td colspan="6" class="p-6 text-center text-sfl-woodLight dark:text-amber-300/60 italic">
+                      No sales recorded for the selected item(s) in this time range.
                     </td>
                   </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
+                ` : matchingTrades.map(t => {
+                  const amounts = getTradeAmounts(t, farmId);
+                  const rawDate = t.fulfilledAt;
+                  const d = rawDate ? new Date(rawDate) : null;
+                  const dateStr = d && !isNaN(d.getTime())
+                    ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : 'Recent';
+                  const qty = parseFloat(t.quantity || 1);
+                  const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
+                  const otherUser = t.counterpartyName || t.fulfilledBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Buyer');
+                  const itemColor = getItemColor(t.itemName, selectedList);
+
+                  return `
+                    <tr class="hover:bg-amber-50/50 dark:hover:bg-amber-950/30 transition">
+                      <td class="px-3 py-2 font-mono text-sfl-wood dark:text-amber-200 whitespace-nowrap">${dateStr}</td>
+                      <td class="px-3 py-2 font-bold text-sfl-dirt dark:text-amber-100 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full inline-block shrink-0" style="background-color: ${itemColor};"></span>
+                        <span>${t.itemName}</span>
+                      </td>
+                      <td class="px-2 py-2 font-mono font-bold text-sfl-wood dark:text-amber-200">${qty.toLocaleString()}</td>
+                      <td class="px-2 py-2 font-mono text-sfl-woodLight dark:text-amber-300/70">${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</td>
+                      <td class="px-3 py-2 font-medium text-sfl-wood dark:text-amber-200">${otherUser}</td>
+                      <td class="px-3 py-2 font-mono font-bold text-right text-emerald-600 dark:text-emerald-400">
+                        +${amounts.netSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      `}
 
     </div>
   `;
@@ -603,8 +632,16 @@ export function renderItemAnalyticsView(mountEl, farmId) {
   document.getElementById('metric-sfl-btn')?.addEventListener('click', () => setAnalyticsMetric('sfl'));
   document.getElementById('metric-qty-btn')?.addEventListener('click', () => setAnalyticsMetric('qty'));
 
+  const selectPicker = document.getElementById('item-add-select');
+  selectPicker?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (val) {
+      selectedItems.add(val);
+      renderItemAnalyticsView(mountEl, farmId);
+    }
+  });
+
   document.getElementById('quick-top5-btn')?.addEventListener('click', () => selectTopTradedItems(soldItems, 5));
-  document.getElementById('quick-select-all-btn')?.addEventListener('click', () => selectAllItems(soldItems.map(i => i.name)));
   document.getElementById('quick-clear-btn')?.addEventListener('click', () => clearSelectedItems());
 
   const searchInput = document.getElementById('item-search-filter-input');
@@ -613,10 +650,24 @@ export function renderItemAnalyticsView(mountEl, farmId) {
     renderItemAnalyticsView(mountEl, farmId);
   });
 
-  mountEl.querySelectorAll('.item-chip-btn').forEach(btn => {
+  mountEl.querySelectorAll('[data-remove-item]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const itemName = btn.getAttribute('data-item-name');
-      if (itemName) toggleItemSelection(itemName);
+      const itemName = btn.getAttribute('data-remove-item');
+      if (itemName) {
+        selectedItems.delete(itemName);
+        renderItemAnalyticsView(mountEl, farmId);
+      }
+    });
+  });
+
+  mountEl.querySelectorAll('[data-add-item]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const itemName = btn.getAttribute('data-add-item');
+      if (itemName) {
+        if (selectedItems.has(itemName)) selectedItems.delete(itemName);
+        else selectedItems.add(itemName);
+        renderItemAnalyticsView(mountEl, farmId);
+      }
     });
   });
 }

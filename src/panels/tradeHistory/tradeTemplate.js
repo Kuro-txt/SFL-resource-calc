@@ -148,14 +148,9 @@ export function renderTradeHistoryTemplate() {
             🎯 Open Offers (<span id="subtab-offers-count">0</span>)
           </button>
         </div>
-
-        <div id="trade-search-container" class="relative w-full sm:w-60">
-          <input type="text" id="trade-search-input" placeholder="🔍 Search item name or user..." 
-            class="w-full sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-200 dark:bg-amber-950/60 dark:border-amber-700/60 focus:ring-1 focus:ring-sfl-gold">
-        </div>
       </div>
 
-      <!-- FILTER CONTROLS FOR TRADES VIEW (SOLD / BOUGHT + SPECIFIC ITEM DROPDOWN) -->
+      <!-- FILTER CONTROLS FOR TRADES VIEW (ALL / SOLD / BOUGHT) -->
       <div id="trade-filters-bar" class="flex flex-wrap items-center justify-between gap-2.5">
         <div class="flex items-center gap-1.5 flex-wrap">
           <button id="trade-filter-all" class="trade-filter-btn active-all px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-100 shadow-xs">
@@ -166,18 +161,6 @@ export function renderTradeHistoryTemplate() {
           </button>
           <button id="trade-filter-bought" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder dark:border-amber-700/60 bg-white dark:bg-amber-950/40 text-sfl-wood dark:text-amber-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-800 dark:hover:text-blue-300">
             🔵 Bought (Purchases)
-          </button>
-        </div>
-
-        <div class="flex items-center gap-1.5 flex-wrap">
-          <label for="trade-item-filter" class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
-            <span>📦</span> Item:
-          </label>
-          <select id="trade-item-filter" class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-200 cursor-pointer bg-white dark:bg-amber-950/60 border border-sfl-cardBorder dark:border-amber-700/60 hover:border-sfl-dirt dark:hover:border-amber-500 focus:ring-1 focus:ring-sfl-gold max-w-[200px] truncate shadow-xs">
-            <option value="all">📦 All Items</option>
-          </select>
-          <button id="trade-item-clear-btn" class="hidden px-2 py-1 rounded-md text-[10px] font-bold text-sfl-woodLight dark:text-amber-200 bg-amber-100 dark:bg-amber-900/60 hover:bg-amber-200 dark:hover:bg-amber-800/60 border border-amber-300 dark:border-amber-700 transition cursor-pointer shadow-xs" title="Reset item filter">
-            ✕ Clear
           </button>
         </div>
       </div>
