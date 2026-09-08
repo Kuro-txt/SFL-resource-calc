@@ -42,6 +42,7 @@ export default async function handler(req, res) {
     }).filter(Boolean);
 
     if (cleanedList.length > 0) {
+      res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=1800');
       return res.status(200).json(cleanedList);
     }
 

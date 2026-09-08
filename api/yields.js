@@ -110,10 +110,12 @@ export default async function handler(req, res) {
           });
 
           const validRows = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
+          res.setHeader('Cache-Control', 'private, s-maxage=60, stale-while-revalidate=120');
           return res.status(200).json({ success: true, source: 'supabase', data: validRows });
         }
       }
 
+      res.setHeader('Cache-Control', 'private, s-maxage=60, stale-while-revalidate=120');
       return res.status(200).json({ success: true, source: 'supabase', data: [] });
     }
 

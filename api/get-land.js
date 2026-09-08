@@ -25,6 +25,7 @@ export default async function handler(req, res) {
     }
 
     const data = await response.json();
+    res.setHeader('Cache-Control', 'public, s-maxage=180, stale-while-revalidate=300');
     res.status(200).json({ success: true, land: data });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch land data from sfl.world', details: error.message });

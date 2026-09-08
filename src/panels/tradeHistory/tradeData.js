@@ -5,8 +5,9 @@ import { renderCurrentView, populateItemFilterDropdown } from './index.js';
 
 export let tradeHistoryData = null;
 export let cloudArchivedCount = 0;
+export let lastTradeFetchTime = 0;
 
-export async function fetchMarketplaceTrades() {
+export async function fetchMarketplaceTrades(force = false) {
   const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim();
   const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
   const statusEl = document.getElementById('trade-history-status');
@@ -14,14 +15,24 @@ export async function fetchMarketplaceTrades() {
 
   if (!farmId) {
     alert("⚠️ Please enter your Farm ID at the top first!");
-    return;
+    return { success: false, error: 'Farm ID required' };
+  }
+
+  // Fast path: Reuse in-memory trades if fetched in the last 3 minutes and not forced
+  if (!force && tradeHistoryData && (Date.now() - lastTradeFetchTime < 180000)) {
+    populateItemFilterDropdown();
+    renderTradeSummaryMetrics(tradeHistoryData);
+    renderCurrentView();
+    if (statusEl) statusEl.textContent = `✅ Synced & Archived (${cloudArchivedCount || tradeHistoryData.trades?.length || 0} Total)`;
+    return { success: true, count: cloudArchivedCount || tradeHistoryData.trades?.length || 0, fromCache: true };
   }
 
   if (statusEl) statusEl.textContent = "⏳ Syncing marketplace & TiDB Cloud...";
 
   try {
-    const data = await ApiService.getMarketplaceProfile(farmId, apiKey);
+    const data = await ApiService.getMarketplaceProfile(farmId, apiKey, { force });
     tradeHistoryData = data;
+    lastTradeFetchTime = Date.now();
 
     // Format trades for TiDB Cloud archiving
     const rawTrades = data.trades || [];
@@ -62,7 +73,7 @@ export async function fetchMarketplaceTrades() {
 
     // 2. Fetch accumulated lifetime trades from TiDB Cloud
     try {
-      const cloudRes = await ApiService.getCloudTrades(farmId);
+      const cloudRes = await ApiService.getCloudTrades(farmId, { force });
       if (cloudRes?.trades && Array.isArray(cloudRes.trades) && cloudRes.trades.length > 0) {
         // Merge cloud historical trades with live trades
         const tradesMap = new Map();

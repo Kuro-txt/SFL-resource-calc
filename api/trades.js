@@ -307,6 +307,7 @@ export default async function handler(req, res) {
 
       const netFlow = totalSoldVolume - totalBoughtVolume;
 
+      res.setHeader('Cache-Control', 'private, s-maxage=30, stale-while-revalidate=60');
       return res.status(200).json({
         success: true,
         configured: true,

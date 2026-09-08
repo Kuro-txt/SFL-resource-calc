@@ -271,7 +271,15 @@ export async function deleteSnapshotRow(date) {
   renderSnapshotHistory();
 }
 
-export async function loadCloudYieldHistory() {
+let lastYieldFetchTime = 0;
+
+export async function loadCloudYieldHistory(force = false) {
+  if (!force && (Date.now() - lastYieldFetchTime < 180000)) {
+    renderSnapshotHistory();
+    return;
+  }
+  lastYieldFetchTime = Date.now();
+
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
   const activeUser = window.currentUser;
   const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim() || '';
@@ -310,9 +318,7 @@ export async function loadCloudYieldHistory() {
   // Fallback to Backend /api/yields endpoint (backed by Supabase)
   if (cloudYields.length === 0 && (farmId || activeUser?.id)) {
     try {
-      const backend = window.BACKEND_URL || '';
-      const cacheBuster = Date.now();
-      const url = `${backend}/api/yields?farmId=${encodeURIComponent(farmId)}&userId=${encodeURIComponent(activeUser?.id || '')}&_t=${cacheBuster}`;
+      const url = `${backend}/api/yields?farmId=${encodeURIComponent(farmId)}&userId=${encodeURIComponent(activeUser?.id || '')}${force ? `&_t=${Date.now()}` : ''}`;
       const res = await fetch(url);
       const json = await res.json();
       if (json.success && Array.isArray(json.data) && json.data.length > 0) {

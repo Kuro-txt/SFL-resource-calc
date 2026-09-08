@@ -1,4 +1,5 @@
 import { BACKEND_URL } from '../config/constants.js';
+import { ApiService } from '../services/api.js';
 
 window.allPrices = window.allPrices || {};
 
@@ -121,20 +122,20 @@ function bindCalculatorEvents() {
   });
 }
 
-export function loadPrices() {
-  const backend = typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : '';
-  fetch(`${backend}/api/get-data`)
-    .then(res => res.json())
-    .then(rawData => {
-      if (rawData && typeof rawData === 'object') {
-        delete rawData.updated_text;
-        delete rawData.updatedText;
-        delete rawData.updated_at;
-        delete rawData.updatedAt;
-      }
-      window.allPrices = extractPrices(rawData);
-    })
-    .catch(() => console.warn("Using default fallback prices."));
+export async function loadPrices(force = false) {
+  try {
+    const rawData = await ApiService.getPrices({ force });
+    if (rawData && typeof rawData === 'object') {
+      const copy = { ...rawData };
+      delete copy.updated_text;
+      delete copy.updatedText;
+      delete copy.updated_at;
+      delete copy.updatedAt;
+      window.allPrices = extractPrices(copy);
+    }
+  } catch {
+    console.warn("Using default fallback prices.");
+  }
 }
 
 export function extractPrices(data) {

@@ -10,6 +10,7 @@ import { initTradeHistoryPanel, fetchMarketplaceTrades } from './panels/tradeHis
 import { initNpcGiftsPanel, renderNpcCards } from './panels/npc/npcGiftsPanel.js';
 import { initTrackerPanel, loadCloudYieldHistory } from './panels/trackerPanel.js';
 import { initWishlistPanel, renderWishlist } from './panels/wishlistPanel.js';
+import { initApiViewerPanel, renderApiViewerPanel } from './panels/apiViewer/apiViewerPanel.js';
 import { initTrackingModal } from './modals/trackingModal.js';
 import { initWeeklySummaryModal } from './modals/weeklyModal.js';
 
@@ -26,13 +27,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   initNpcGiftsPanel();
   initTrackerPanel();
   initWishlistPanel();
+  initApiViewerPanel();
   initTrackingModal();
   initWeeklySummaryModal();
+
+  let lastYieldFetch = 0;
 
   PanelManager.register('calc', {
     onMount: () => {
       console.log("Daily Tracker Panel Active");
-      loadCloudYieldHistory();
+      if (Date.now() - lastYieldFetch > 180000) {
+        lastYieldFetch = Date.now();
+        loadCloudYieldHistory();
+      }
     }
   });
 
@@ -41,7 +48,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   PanelManager.register('tradehistory', {
-    onMount: () => fetchMarketplaceTrades()
+    onMount: () => {
+      // Re-renders instant in-memory trades without network requests if loaded recently
+      fetchMarketplaceTrades(false);
+    }
   });
 
   PanelManager.register('npc', {
@@ -50,6 +60,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   PanelManager.register('wishlist', {
     onMount: () => renderWishlist()
+  });
+
+  PanelManager.register('rawapi', {
+    onMount: () => renderApiViewerPanel()
   });
 
   // Initializes tabs and restores last opened tab automatically

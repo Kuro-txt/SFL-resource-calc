@@ -13,7 +13,7 @@ export let searchQuery = '';
 export function initTradeHistoryPanel() {
   renderTradeHistoryTemplate();
 
-  document.getElementById('refresh-trade-history-btn')?.addEventListener('click', fetchMarketplaceTrades);
+  document.getElementById('refresh-trade-history-btn')?.addEventListener('click', () => fetchMarketplaceTrades(true));
   document.getElementById('export-trades-csv-btn')?.addEventListener('click', exportTradesToCsv);
 
   document.getElementById('subtab-trades-btn')?.addEventListener('click', () => switchSubTab('trades'));

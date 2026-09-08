@@ -94,10 +94,7 @@ export async function fetchLiveCropDiff() {
     if (statusEl) statusEl.textContent = "⏳ Fetching live farm activity...";
 
     const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
-    const backend = window.BACKEND_URL || '';
-    const res = await fetch(`${backend}/api/get-farm?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`);
-    const data = await res.json();
-    const farmObj = data.farm?.farm || data.farm || {};
+    const farmObj = await ApiService.getFarmFullData(farmId, apiKey);
     const currentActivity = farmObj.farmActivity || farmObj.activity || {};
 
     activeHarvestDiffs.length = 0; // Clear instead of reassign to keep reference
@@ -158,10 +155,7 @@ export async function saveCurrentActivityAsBaseline() {
   if (statusEl) statusEl.textContent = "⏳ Saving current farm activity as today's baseline...";
 
   try {
-    const backend = window.BACKEND_URL || '';
-    const res = await fetch(`${backend}/api/get-farm?farmId=${encodeURIComponent(farmId)}&apiKey=${encodeURIComponent(apiKey)}`);
-    const data = await res.json();
-    const farmObj = data.farm?.farm || data.farm || {};
+    const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
     const inventory = farmObj.inventory || {};
     const farmActivity = farmObj.farmActivity || farmObj.activity || {};
 
