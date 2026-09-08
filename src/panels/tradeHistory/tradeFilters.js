@@ -31,12 +31,18 @@ export function setTradeFilter(filter) {
   currentFilter = filter;
   const filterBtns = document.querySelectorAll('.trade-filter-btn');
   filterBtns.forEach(btn => {
-    btn.className = "trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder bg-white text-sfl-wood hover:bg-amber-50";
+    btn.className = "trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder dark:border-amber-700/60 bg-white dark:bg-amber-950/40 text-sfl-wood dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/40";
   });
 
   const activeBtn = document.getElementById(`trade-filter-${filter}`);
   if (activeBtn) {
-    activeBtn.className = "trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt bg-sfl-wood text-amber-100 shadow-xs";
+    if (filter === 'sold') {
+      activeBtn.className = "trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-emerald-700 dark:border-emerald-600 bg-emerald-700 text-white shadow-xs dark:bg-emerald-700";
+    } else if (filter === 'bought') {
+      activeBtn.className = "trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-blue-700 dark:border-blue-600 bg-blue-700 text-white shadow-xs dark:bg-blue-700";
+    } else {
+      activeBtn.className = "trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-100 shadow-xs";
+    }
   }
 
   renderCurrentView();
