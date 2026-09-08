@@ -50,6 +50,7 @@ export function renderTradesTableView(mountEl, farmId) {
                 <div class="font-black text-sfl-green text-sm mt-0.5">
                   +${metrics.soldNetSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
                 </div>
+                ${metrics.soldTax > 0 ? `<div class="text-[9px] font-sans text-sfl-woodLight">Gross: ${metrics.soldGrossSfl.toFixed(3)} • Tax: -${metrics.soldTax.toFixed(3)}</div>` : ''}
                 <div class="text-[10px] text-sfl-woodLight mt-1 font-sans">
                   <span class="font-bold font-mono text-sfl-wood">${metrics.soldQty.toLocaleString()}</span> units
                   ${metrics.soldQty > 0 ? `• <span class="font-mono text-[9px]">~${metrics.avgSellPrice.toFixed(4)}/ea</span>` : ''}

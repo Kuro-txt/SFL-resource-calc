@@ -108,7 +108,7 @@ async function processAutoSyncTrades(supabase) {
             const itemName = isEconomy ? `#${itemId}` : String(resolvedName || `Item #${itemId}`).substring(0, 128);
             const quantity = parseFloat(t.quantity || 1);
             const sfl = parseFloat(t.sfl || 0);
-            const tax = isSeller ? parseFloat(t.tax || 0) : 0;
+            const tax = isSeller ? (parseFloat(t.tax || 0) || Math.round((sfl * 0.10) * 10000) / 10000) : 0;
             const netSfl = isSeller ? Math.max(0, sfl - tax) : sfl;
             const unitPrice = quantity > 0 ? (sfl / quantity) : sfl;
             const tradeType = isSeller ? 'sold' : 'bought';

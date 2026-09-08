@@ -117,6 +117,10 @@ async function ensureTableCreated(pool, dbName = 'test') {
       await pool.query(`ALTER TABLE user_trades ADD COLUMN IF NOT EXISTS tax DECIMAL(20, 6) DEFAULT 0;`).catch(() => {});
       await pool.query(`ALTER TABLE user_trades ADD COLUMN IF NOT EXISTS net_sfl DECIMAL(20, 6) DEFAULT 0;`).catch(() => {});
 
+      // Auto-backfill missing tax and net_sfl for historical trades
+      await pool.query(`UPDATE user_trades SET tax = ROUND(sfl * 0.10, 4), net_sfl = ROUND(sfl * 0.90, 4) WHERE trade_type = 'sold' AND (tax = 0 OR tax IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET tax = 0, net_sfl = sfl WHERE trade_type = 'bought' AND (net_sfl = 0 OR net_sfl IS NULL);`).catch(() => {});
+
       // Auto-clean legacy Item # placeholders to official names
       await pool.query(`UPDATE user_trades SET item_name = 'Crimson Baitfish' WHERE item_id = 2988 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
       await pool.query(`UPDATE user_trades SET item_name = 'Moonfur' WHERE item_id = 2634 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
@@ -179,9 +183,11 @@ export default async function handler(req, res) {
           : (t.name && !t.name.startsWith('Item #') ? t.name : getItemNameById(itemId || t.itemId));
         const itemName = String(resolvedName || `Item #${itemId}`).substring(0, 128);
         const quantity = parseFloat(t.quantity || 1);
-        const sfl = parseFloat(t.sfl || 0);
-        const tax = parseFloat(t.tax || 0);
         const tradeType = String(t.tradeType || 'sold').toLowerCase();
+        let tax = parseFloat(t.tax || 0);
+        if (tradeType === 'sold' && (!tax || tax <= 0)) {
+          tax = Math.round((sfl * 0.10) * 10000) / 10000;
+        }
         const netSfl = tradeType === 'sold' ? Math.max(0, sfl - tax) : sfl;
         const unitPrice = quantity > 0 ? (sfl / quantity) : sfl;
         const source = String(t.source || 'listing').toLowerCase();
@@ -260,9 +266,14 @@ export default async function handler(req, res) {
         const sfl = parseFloat(r.sfl || 0);
         const qty = parseFloat(r.quantity || 1);
         const isSeller = r.trade_type === 'sold';
+        let tax = parseFloat(r.tax || 0);
+        if (isSeller && (!tax || tax <= 0)) {
+          tax = Math.round((sfl * 0.10) * 10000) / 10000;
+        }
+        const netSfl = parseFloat(r.net_sfl || (isSeller ? Math.max(0, sfl - tax) : sfl));
 
         if (isSeller) {
-          totalSoldVolume += sfl;
+          totalSoldVolume += netSfl;
           totalSoldCount += qty;
         } else {
           totalBoughtVolume += sfl;
@@ -281,6 +292,8 @@ export default async function handler(req, res) {
           itemName: resolvedName,
           quantity: qty,
           sfl: sfl,
+          tax: tax,
+          netSfl: netSfl,
           unitPrice: parseFloat(r.unit_price || 0),
           tradeType: r.trade_type,
           source: r.source,

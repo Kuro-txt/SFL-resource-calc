@@ -5,6 +5,7 @@ import { exportTradesToCsv } from './tradeCsv.js';
 import { renderCalendarMainView } from './tradeCalendar.js';
 import { renderListingsView, renderOffersView } from './tradeListings.js';
 import { renderTradesTableView } from './tradeTableView.js';
+import { renderTradeSummaryMetrics } from './tradeMetrics.js';
 
 export let searchQuery = '';
 
@@ -31,6 +32,13 @@ export function initTradeHistoryPanel() {
   const clearItemBtn = document.getElementById('trade-item-clear-btn');
   clearItemBtn?.addEventListener('click', () => {
     setItemFilter('all');
+  });
+
+  document.getElementById('tax-select')?.addEventListener('change', () => {
+    if (tradeHistoryData) {
+      renderTradeSummaryMetrics(tradeHistoryData);
+      renderCurrentView();
+    }
   });
 
   const searchEl = document.getElementById('trade-search-input');
