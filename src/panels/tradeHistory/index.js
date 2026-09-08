@@ -6,6 +6,7 @@ import { renderCalendarMainView } from './tradeCalendar.js';
 import { renderListingsView, renderOffersView } from './tradeListings.js';
 import { renderTradesTableView } from './tradeTableView.js';
 import { renderTradeSummaryMetrics } from './tradeMetrics.js';
+import { renderItemAnalyticsView } from './tradeItemAnalytics.js';
 
 export let searchQuery = '';
 
@@ -16,6 +17,7 @@ export function initTradeHistoryPanel() {
   document.getElementById('export-trades-csv-btn')?.addEventListener('click', exportTradesToCsv);
 
   document.getElementById('subtab-trades-btn')?.addEventListener('click', () => switchSubTab('trades'));
+  document.getElementById('subtab-items-btn')?.addEventListener('click', () => switchSubTab('items'));
   document.getElementById('subtab-calendar-btn')?.addEventListener('click', () => switchSubTab('calendar'));
   document.getElementById('subtab-listings-btn')?.addEventListener('click', () => switchSubTab('listings'));
   document.getElementById('subtab-offers-btn')?.addEventListener('click', () => switchSubTab('offers'));
@@ -64,6 +66,11 @@ export function populateItemFilterDropdown() {
   selectEl.innerHTML = html;
   selectEl.value = currentVal;
 
+  const itemsCountEl = document.getElementById('subtab-items-count');
+  if (itemsCountEl) {
+    itemsCountEl.textContent = uniqueItems.length;
+  }
+
   const clearBtn = document.getElementById('trade-item-clear-btn');
   if (clearBtn) {
     if (currentVal !== 'all') clearBtn.classList.remove('hidden');
@@ -81,6 +88,9 @@ export function renderCurrentView() {
   if (currentView === 'trades') {
     if (titleEl) titleEl.textContent = "📜 Completed Trade Ledger (Archived in TiDB Cloud)";
     renderTradesTableView(mountEl, farmId);
+  } else if (currentView === 'items') {
+    if (titleEl) titleEl.textContent = "📦 Individual Item Sales & Multi-Item Comparison";
+    renderItemAnalyticsView(mountEl, farmId);
   } else if (currentView === 'calendar') {
     if (titleEl) titleEl.textContent = "📅 Trade Calendar & Profit Trends";
     renderCalendarMainView(mountEl, farmId);

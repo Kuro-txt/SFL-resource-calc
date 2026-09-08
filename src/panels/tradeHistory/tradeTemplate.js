@@ -135,6 +135,9 @@ export function renderTradeHistoryTemplate() {
           <button id="subtab-trades-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-200 shadow-xs">
             📜 Trade History (<span id="subtab-trades-count">0</span>)
           </button>
+          <button id="subtab-items-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 dark:bg-amber-950/40 text-sfl-woodLight dark:text-amber-300/80 hover:bg-amber-200/60">
+            📦 Items (<span id="subtab-items-count">0</span>)
+          </button>
           <button id="subtab-calendar-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 dark:bg-amber-950/40 text-sfl-woodLight dark:text-amber-300/80 hover:bg-amber-200/60">
             📅 Trade Calendar
           </button>
@@ -180,14 +183,14 @@ export function renderTradeHistoryTemplate() {
       </div>
 
       <!-- MAIN DATA CONTAINER -->
-      <div class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl overflow-hidden shadow-sm">
+      <div class="bg-white/80 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 rounded-xl overflow-hidden shadow-sm">
         <div class="bg-sfl-wood text-amber-200 px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-sfl-dirt flex justify-between items-center">
           <span id="trade-table-title">📜 Completed Trade Transactions</span>
           <span id="trade-history-status" class="text-[11px] text-amber-300 font-mono">Ready</span>
         </div>
 
         <!-- DEDICATED ITEM PERFORMANCE SUMMARY BANNER -->
-        <div id="trade-item-summary-mount" class="hidden border-b-2 border-sfl-cardBorder bg-amber-50/60 p-3.5"></div>
+        <div id="trade-item-summary-mount" class="hidden"></div>
 
         <div id="trade-content-mount" class="overflow-x-auto">
           <table class="w-full text-left text-xs text-sfl-dirt">

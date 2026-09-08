@@ -10,12 +10,12 @@ export function switchSubTab(tab) {
   currentView = tab;
   const subtabBtns = document.querySelectorAll('.trade-subtab-btn');
   subtabBtns.forEach(btn => {
-    btn.className = "trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 text-sfl-woodLight hover:bg-amber-200/60";
+    btn.className = "trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-transparent bg-amber-100/60 dark:bg-amber-950/40 text-sfl-woodLight dark:text-amber-300/80 hover:bg-amber-200/60";
   });
 
   const activeBtn = document.getElementById(`subtab-${tab}-btn`);
   if (activeBtn) {
-    activeBtn.className = "trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-sfl-dirt bg-sfl-wood text-amber-200 shadow-xs";
+    activeBtn.className = "trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-200 shadow-xs";
   }
 
   const filterBar = document.getElementById('trade-filters-bar');
