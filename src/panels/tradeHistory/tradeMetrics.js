@@ -242,38 +242,32 @@ export function renderTradeSummaryMetrics(profileData, farmData = null) {
     localStorage.setItem('sfl_farm_transfers', JSON.stringify(transfers));
   } catch (_) {}
 
+  const totalTransfers = transfers.depositStarted + transfers.withdrawStarted;
   const transfersCountEl = document.getElementById('trade-metric-transfers-count');
   if (transfersCountEl) {
-    transfersCountEl.textContent = `${transfers.depositStarted} in / ${transfers.withdrawStarted} out`;
-    transfersCountEl.title = `${transfers.depositStarted} deposits started, ${transfers.withdrawStarted} withdrawals started`;
-  }
-
-  const transfersNetEl = document.getElementById('trade-metric-transfers-net');
-  if (transfersNetEl) {
-    transfersNetEl.className = `text-lg font-black font-mono ${transfers.net > 0 ? 'text-sfl-green dark:text-emerald-400' : (transfers.net < 0 ? 'text-sfl-accent dark:text-rose-400' : 'text-sfl-wood dark:text-amber-100')}`;
-    transfersNetEl.innerHTML = `${transfers.net >= 0 ? '+' : ''}${transfers.net.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
-    transfersNetEl.title = `Net Transferred: ${transfers.net >= 0 ? '+' : ''}${transfers.net} Flower`;
+    transfersCountEl.textContent = `${totalTransfers} total`;
+    transfersCountEl.title = `${transfers.depositStarted} deposits, ${transfers.withdrawStarted} withdrawals`;
   }
 
   const depositStartedEl = document.getElementById('trade-metric-deposit-started');
   if (depositStartedEl) {
-    depositStartedEl.textContent = `${transfers.depositStarted} in`;
+    depositStartedEl.textContent = `${transfers.depositStarted}`;
   }
 
   const flowerDepositedEl = document.getElementById('trade-metric-flower-deposited');
   if (flowerDepositedEl) {
-    flowerDepositedEl.textContent = `+${transfers.deposited.toFixed(3)}`;
+    flowerDepositedEl.innerHTML = `+${transfers.deposited.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
     flowerDepositedEl.title = `Total Deposited: +${transfers.deposited} Flower (${transfers.depositStarted} deposits)`;
   }
 
   const withdrawStartedEl = document.getElementById('trade-metric-withdraw-started');
   if (withdrawStartedEl) {
-    withdrawStartedEl.textContent = `${transfers.withdrawStarted} out`;
+    withdrawStartedEl.textContent = `${transfers.withdrawStarted}`;
   }
 
   const flowerWithdrawnEl = document.getElementById('trade-metric-flower-withdrawn');
   if (flowerWithdrawnEl) {
-    flowerWithdrawnEl.textContent = `-${transfers.withdrawn.toFixed(3)}`;
+    flowerWithdrawnEl.innerHTML = `-${transfers.withdrawn.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
     flowerWithdrawnEl.title = `Total Withdrawn: -${transfers.withdrawn} Flower (${transfers.withdrawStarted} withdrawals)`;
   }
 

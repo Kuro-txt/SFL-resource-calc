@@ -107,28 +107,41 @@ export function renderTradeHistoryTemplate() {
         <div class="bg-white/90 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 p-3 rounded-xl shadow-xs flex flex-col justify-between">
           <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-2">
             <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
-              <span>🏦</span> Transfers (On-Chain)
+              <span>🏦</span> Deposits &amp; Withdrawals
             </span>
-            <span id="trade-metric-transfers-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60" title="FLOWER Deposit & Withdraw Events">0 in / 0 out</span>
+            <span id="trade-metric-transfers-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60" title="Total On-Chain Transfers">0 total</span>
           </div>
-          <div class="mb-2">
-            <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">Total On-Chain Net Flow</span>
-            <span id="trade-metric-transfers-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
-          </div>
-          <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40 dark:border-amber-700/40">
-            <div>
-              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold flex items-center justify-between">
-                <span>Deposited</span>
-                <span id="trade-metric-deposit-started" class="text-[9px] font-mono text-sfl-woodLight dark:text-amber-300/60">0 in</span>
-              </span>
-              <span id="trade-metric-flower-deposited" class="font-bold text-sfl-green dark:text-emerald-400 font-mono" title="Total FLOWER Deposited">+0.000</span>
+
+          <!-- Pure count and amount of both deposits & withdrawals (no net flow) -->
+          <div class="space-y-1.5 my-auto">
+            <!-- DEPOSITS -->
+            <div class="bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50 px-2.5 py-1.5 rounded-lg flex items-center justify-between">
+              <div>
+                <span class="text-[9px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">Deposits</span>
+                <span class="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 font-mono">
+                  <span id="trade-metric-deposit-started" class="font-bold">0</span> deposits
+                </span>
+              </div>
+              <div class="text-right">
+                <span id="trade-metric-flower-deposited" class="text-sm font-black text-sfl-green dark:text-emerald-400 font-mono flex items-center justify-end gap-1" title="Total FLOWER Deposited">
+                  +0.000 ${FLOWER_IMG_SMALL_HTML}
+                </span>
+              </div>
             </div>
-            <div>
-              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold flex items-center justify-between">
-                <span>Withdrawn</span>
-                <span id="trade-metric-withdraw-started" class="text-[9px] font-mono text-sfl-woodLight dark:text-amber-300/60">0 out</span>
-              </span>
-              <span id="trade-metric-flower-withdrawn" class="font-bold text-sfl-accent dark:text-rose-400 font-mono" title="Total FLOWER Withdrawn">-0.000</span>
+
+            <!-- WITHDRAWALS -->
+            <div class="bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-800/50 px-2.5 py-1.5 rounded-lg flex items-center justify-between">
+              <div>
+                <span class="text-[9px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-300 block">Withdrawals</span>
+                <span class="text-[10px] font-semibold text-rose-700 dark:text-rose-400 font-mono">
+                  <span id="trade-metric-withdraw-started" class="font-bold">0</span> withdrawals
+                </span>
+              </div>
+              <div class="text-right">
+                <span id="trade-metric-flower-withdrawn" class="text-sm font-black text-sfl-accent dark:text-rose-400 font-mono flex items-center justify-end gap-1" title="Total FLOWER Withdrawn">
+                  -0.000 ${FLOWER_IMG_SMALL_HTML}
+                </span>
+              </div>
             </div>
           </div>
         </div>
