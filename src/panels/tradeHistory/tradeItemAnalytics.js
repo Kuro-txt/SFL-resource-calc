@@ -18,7 +18,7 @@ export const ITEM_PALETTE = [
 ];
 
 // State for Item Analytics - starts empty so only selected items are shown
-export let analyticsTimeHorizon = 'week'; // 'today' | 'week' | 'month' | 'all'
+export let analyticsTimeHorizon = 'week'; // 'today' | 'week' | 'month' | '3months' | 'all'
 export let analyticsMetric = 'sfl';       // 'sfl' | 'qty'
 export let analyticsTradeType = 'all';    // 'all' | 'sold' | 'bought'
 export let selectedItems = new Set();
@@ -212,6 +212,31 @@ export function getTimeBuckets(horizon, trades = []) {
       });
     }
     return { title: `This Month (${monthShort} ${year})`, buckets };
+  }
+
+  if (horizon === '3months') {
+    // 12 weekly buckets for the past ~3 months (12 weeks)
+    const buckets = [];
+    const curDay = now.getDay(); // 0 = Sun, 1 = Mon ...
+    const diffToMonday = (curDay === 0 ? -6 : 1 - curDay);
+    const thisMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday, 0, 0, 0, 0);
+
+    for (let w = 11; w >= 0; w--) {
+      const monday = new Date(thisMonday.getTime() - w * 7 * 86400000);
+      const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 23, 59, 59, 999);
+      const mLabel = monday.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+      const fullDateStr = `Week of ${monday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+      buckets.push({
+        label: mLabel,
+        tooltipLabel: fullDateStr,
+        startTime: monday.getTime(),
+        endTime: sunday.getTime()
+      });
+    }
+
+    const startStr = buckets[0]?.tooltipLabel || '';
+    const endStr = buckets[buckets.length - 1]?.tooltipLabel || '';
+    return { title: `Past 3 Months (${startStr} – ${endStr})`, buckets };
   }
 
   if (horizon === 'all') {
@@ -806,6 +831,10 @@ export function renderItemAnalyticsView(mountEl, farmId) {
             class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border shadow-xs ${analyticsTimeHorizon === 'month' ? 'bg-sfl-wood dark:bg-amber-800 text-amber-100 border-sfl-dirt dark:border-amber-600 ring-2 ring-sfl-gold' : 'bg-white dark:bg-amber-950/60 text-sfl-wood dark:text-amber-200 border-sfl-cardBorder dark:border-amber-700/60 hover:bg-amber-100/60'}">
             🗓️ Month
           </button>
+          <button id="horizon-3months-btn" 
+            class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border shadow-xs ${analyticsTimeHorizon === '3months' ? 'bg-sfl-wood dark:bg-amber-800 text-amber-100 border-sfl-dirt dark:border-amber-600 ring-2 ring-sfl-gold' : 'bg-white dark:bg-amber-950/60 text-sfl-wood dark:text-amber-200 border-sfl-cardBorder dark:border-amber-700/60 hover:bg-amber-100/60'}">
+            📈 3 Months
+          </button>
           <button id="horizon-all-btn" 
             class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border shadow-xs ${analyticsTimeHorizon === 'all' ? 'bg-sfl-wood dark:bg-amber-800 text-amber-100 border-sfl-dirt dark:border-amber-600 ring-2 ring-sfl-gold' : 'bg-white dark:bg-amber-950/60 text-sfl-wood dark:text-amber-200 border-sfl-cardBorder dark:border-amber-700/60 hover:bg-amber-100/60'}">
             🌐 All Time
@@ -1133,6 +1162,7 @@ export function renderItemAnalyticsView(mountEl, farmId) {
   document.getElementById('horizon-today-btn')?.addEventListener('click', () => setAnalyticsTimeHorizon('today'));
   document.getElementById('horizon-week-btn')?.addEventListener('click', () => setAnalyticsTimeHorizon('week'));
   document.getElementById('horizon-month-btn')?.addEventListener('click', () => setAnalyticsTimeHorizon('month'));
+  document.getElementById('horizon-3months-btn')?.addEventListener('click', () => setAnalyticsTimeHorizon('3months'));
   document.getElementById('horizon-all-btn')?.addEventListener('click', () => setAnalyticsTimeHorizon('all'));
 
   document.getElementById('trade-type-all-btn')?.addEventListener('click', () => setAnalyticsTradeType('all'));
