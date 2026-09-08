@@ -103,26 +103,32 @@ export function renderTradeHistoryTemplate() {
           </div>
         </div>
 
-        <!-- CARD 4: ALL-TIME CLOUD LEDGER -->
+        <!-- CARD 4: ON-CHAIN FLOWER TRANSFERS (DEPOSITS & WITHDRAWALS) -->
         <div class="bg-white/90 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 p-3 rounded-xl shadow-xs flex flex-col justify-between">
           <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-2">
             <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
-              <span>☁️</span> All-Time (TiDB)
+              <span>🏦</span> Transfers (On-Chain)
             </span>
-            <span id="trade-metric-cloud-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">0 trades</span>
+            <span id="trade-metric-transfers-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60" title="FLOWER Deposit & Withdraw Events">0 in / 0 out</span>
           </div>
           <div class="mb-2">
-            <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">Total Net Profit</span>
-            <span id="trade-metric-cloud-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+            <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">Total On-Chain Net Flow</span>
+            <span id="trade-metric-transfers-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
           <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40 dark:border-amber-700/40">
             <div>
-              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Sales</span>
-              <span id="trade-metric-cloud-sales" class="font-bold text-sfl-green dark:text-emerald-400 font-mono">+0.000</span>
+              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold flex items-center justify-between">
+                <span>Deposited</span>
+                <span id="trade-metric-deposit-started" class="text-[9px] font-mono text-sfl-woodLight dark:text-amber-300/60">0 in</span>
+              </span>
+              <span id="trade-metric-flower-deposited" class="font-bold text-sfl-green dark:text-emerald-400 font-mono" title="Total FLOWER Deposited">+0.000</span>
             </div>
             <div>
-              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Purchases</span>
-              <span id="trade-metric-cloud-buys" class="font-bold text-sfl-wood dark:text-amber-200 font-mono">-0.000</span>
+              <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold flex items-center justify-between">
+                <span>Withdrawn</span>
+                <span id="trade-metric-withdraw-started" class="text-[9px] font-mono text-sfl-woodLight dark:text-amber-300/60">0 out</span>
+              </span>
+              <span id="trade-metric-flower-withdrawn" class="font-bold text-sfl-accent dark:text-rose-400 font-mono" title="Total FLOWER Withdrawn">-0.000</span>
             </div>
           </div>
         </div>

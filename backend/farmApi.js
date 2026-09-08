@@ -30,9 +30,13 @@ async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 5, customApi
       });
       const farmObj = response.data?.farm || response.data || {};
       const inventory = farmObj.inventory || {};
-      const farmActivity = farmObj.farmActivity || farmObj.activity || {};
+      const farmActivity = {
+        ...(farmObj.bumpkin?.activity || {}),
+        ...(farmObj.activity || {}),
+        ...(farmObj.farmActivity || {})
+      };
       const npcs = farmObj.npcs || {};
-      return { inventory, farmActivity, npcs };
+      return { inventory, farmActivity, npcs, ...farmObj };
     } catch (err) {
       const status = err.response?.status;
       const errMsg = (err.message || '').toLowerCase();

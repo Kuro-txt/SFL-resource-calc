@@ -151,9 +151,16 @@ export async function handleFarmSync() {
 
   try {
     const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
+    window.farmData = farmObj;
     window.farmInventoryData = farmObj?.inventory || {};
     window.farmNpcData = farmObj?.npcs || {};
     localStorage.setItem('sfl_farm_npcs', JSON.stringify(window.farmNpcData));
+    if (typeof window.extractFarmTransferMetrics === 'function') {
+      try {
+        const transfers = window.extractFarmTransferMetrics(farmObj);
+        localStorage.setItem('sfl_farm_transfers', JSON.stringify(transfers));
+      } catch (_) {}
+    }
 
     let totalItemsCount = Object.keys(window.farmInventoryData).length;
     let totalNpcsCount = Object.keys(window.farmNpcData).length;

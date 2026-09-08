@@ -151,10 +151,10 @@ app.get('/api/get-farm', async (req, res) => {
   }
 
   try {
-    const { inventory, farmActivity, npcs } = await fetchFarmFullDataWithRetry(
+    const farmData = await fetchFarmFullDataWithRetry(
       cleanFarmId, 5, cleanApiKey
     );
-    const result = { success: true, farm: { inventory, farmActivity, npcs } };
+    const result = { success: true, farm: farmData };
     setServerCache(cacheKey, result);
     res.setHeader('Cache-Control', 'private, max-age=30');
     res.setHeader('X-Cache', 'MISS');

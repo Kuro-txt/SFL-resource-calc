@@ -1,7 +1,106 @@
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { getTradeAmounts } from './tradeData.js';
 
-export function renderTradeSummaryMetrics(profileData) {
+export function extractFarmTransferMetrics(farmObj) {
+  if (!farmObj || typeof farmObj !== 'object') {
+    return {
+      withdrawn: 0,
+      deposited: 0,
+      withdrawStarted: 0,
+      depositStarted: 0,
+      net: 0
+    };
+  }
+
+  // Unwrap potential nested farm objects
+  const root = farmObj.farm || farmObj.data || farmObj;
+
+  // Flatten potential activity dictionaries
+  const activity = {
+    ...(root.bumpkin?.activity || {}),
+    ...(root.activity || {}),
+    ...(root.farmActivity || {}),
+    ...root
+  };
+
+  const getNum = (keys) => {
+    for (const k of keys) {
+      if (activity[k] !== undefined && activity[k] !== null) {
+        const val = typeof activity[k] === 'number' ? activity[k] : parseFloat(activity[k]);
+        if (!isNaN(val)) return val;
+      }
+    }
+    return 0;
+  };
+
+  let withdrawn = getNum([
+    'FLOWER Withdrawn',
+    'Flower Withdrawn',
+    'flower Withdrawn',
+    'SFL Withdrawn',
+    'sfl Withdrawn'
+  ]);
+
+  let deposited = getNum([
+    'FLOWER Deposited',
+    'Flower Deposited',
+    'flower Deposited',
+    'SFL Deposited',
+    'sfl Deposited'
+  ]);
+
+  let withdrawStarted = getNum([
+    'FLOWER Withdraw Started',
+    'Flower Withdraw Started',
+    'flower Withdraw Started',
+    'SFL Withdraw Started',
+    'sfl Withdraw Started'
+  ]);
+
+  let depositStarted = getNum([
+    'FLOWER Deposit Started',
+    'Flower Deposit Started',
+    'flower Deposit Started',
+    'SFL Deposit Started',
+    'sfl Deposit Started'
+  ]);
+
+  // Fallback: case-insensitive scan if any is still 0
+  if (!withdrawn || !deposited || !withdrawStarted || !depositStarted) {
+    for (const [key, val] of Object.entries(activity)) {
+      if (val === undefined || val === null) continue;
+      const num = typeof val === 'number' ? val : parseFloat(val);
+      if (isNaN(num)) continue;
+
+      const norm = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!withdrawn && norm.includes('withdrawn') && (norm.includes('flower') || norm.includes('sfl'))) {
+        withdrawn = num;
+      } else if (!deposited && norm.includes('deposited') && (norm.includes('flower') || norm.includes('sfl'))) {
+        deposited = num;
+      } else if (!withdrawStarted && (norm.includes('withdrawstarted') || (norm.includes('withdraw') && norm.includes('start')))) {
+        withdrawStarted = Math.round(num);
+      } else if (!depositStarted && (norm.includes('depositstarted') || (norm.includes('deposit') && norm.includes('start')))) {
+        depositStarted = Math.round(num);
+      }
+    }
+  }
+
+  const net = deposited - withdrawn;
+
+  return {
+    withdrawn,
+    deposited,
+    withdrawStarted: Math.round(withdrawStarted),
+    depositStarted: Math.round(depositStarted),
+    net
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.extractFarmTransferMetrics = extractFarmTransferMetrics;
+}
+
+export function renderTradeSummaryMetrics(profileData, farmData = null) {
   if (!profileData) return;
   const user = profileData.username || `Farm #${profileData.id || ''}`;
   const level = profileData.level || '-';
@@ -77,7 +176,7 @@ export function renderTradeSummaryMetrics(profileData) {
   const todayNet = todaySales - todayBuys;
   const todayNetEl = document.getElementById('trade-metric-today-net');
   if (todayNetEl) {
-    todayNetEl.className = `text-lg font-black font-mono ${todayNet > 0 ? 'text-sfl-green' : (todayNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood')}`;
+    todayNetEl.className = `text-lg font-black font-mono ${todayNet > 0 ? 'text-sfl-green dark:text-emerald-400' : (todayNet < 0 ? 'text-sfl-accent dark:text-rose-400' : 'text-sfl-wood dark:text-amber-100')}`;
     todayNetEl.innerHTML = `${todayNet >= 0 ? '+' : ''}${todayNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
   }
   const todayCountEl = document.getElementById('trade-metric-today-count');
@@ -91,7 +190,7 @@ export function renderTradeSummaryMetrics(profileData) {
   const weekNet = weekSales - weekBuys;
   const weekNetEl = document.getElementById('trade-metric-week-net');
   if (weekNetEl) {
-    weekNetEl.className = `text-lg font-black font-mono ${weekNet > 0 ? 'text-sfl-green' : (weekNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood')}`;
+    weekNetEl.className = `text-lg font-black font-mono ${weekNet > 0 ? 'text-sfl-green dark:text-emerald-400' : (weekNet < 0 ? 'text-sfl-accent dark:text-rose-400' : 'text-sfl-wood dark:text-amber-100')}`;
     weekNetEl.innerHTML = `${weekNet >= 0 ? '+' : ''}${weekNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
   }
   const weekCountEl = document.getElementById('trade-metric-week-count');
@@ -105,7 +204,7 @@ export function renderTradeSummaryMetrics(profileData) {
   const monthNet = monthSales - monthBuys;
   const monthNetEl = document.getElementById('trade-metric-month-net');
   if (monthNetEl) {
-    monthNetEl.className = `text-lg font-black font-mono ${monthNet > 0 ? 'text-sfl-green' : (monthNet < 0 ? 'text-sfl-accent' : 'text-sfl-wood')}`;
+    monthNetEl.className = `text-lg font-black font-mono ${monthNet > 0 ? 'text-sfl-green dark:text-emerald-400' : (monthNet < 0 ? 'text-sfl-accent dark:text-rose-400' : 'text-sfl-wood dark:text-amber-100')}`;
     monthNetEl.innerHTML = `${monthNet >= 0 ? '+' : ''}${monthNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
   }
   const monthCountEl = document.getElementById('trade-metric-month-count');
@@ -115,13 +214,68 @@ export function renderTradeSummaryMetrics(profileData) {
   const monthBuysEl = document.getElementById('trade-metric-month-buys');
   if (monthBuysEl) monthBuysEl.textContent = `-${monthBuys.toFixed(3)}`;
 
-  // 4. CLOUD ARCHIVE
-  const totalTradesEl = document.getElementById('trade-metric-total-trades');
-  if (totalTradesEl) totalTradesEl.textContent = `${trades.length.toLocaleString()}`;
-  const lifetimeSalesEl = document.getElementById('trade-metric-lifetime-sales');
-  if (lifetimeSalesEl) lifetimeSalesEl.textContent = `+${totalSales.toFixed(3)}`;
-  const lifetimeBuysEl = document.getElementById('trade-metric-lifetime-buys');
-  if (lifetimeBuysEl) lifetimeBuysEl.textContent = `-${totalBuys.toFixed(3)}`;
+  // 4. ON-CHAIN FLOWER TRANSFERS (DEPOSITS & WITHDRAWALS)
+  let transfers = null;
+  if (farmData) {
+    transfers = extractFarmTransferMetrics(farmData);
+  } else if (window.farmData) {
+    transfers = extractFarmTransferMetrics(window.farmData);
+  } else {
+    try {
+      const saved = localStorage.getItem('sfl_farm_transfers');
+      if (saved) transfers = JSON.parse(saved);
+    } catch (_) {}
+  }
+
+  if (!transfers) {
+    transfers = {
+      withdrawn: 0,
+      deposited: 0,
+      withdrawStarted: 0,
+      depositStarted: 0,
+      net: 0
+    };
+  }
+
+  // Cache in localStorage for immediate rendering on future loads
+  try {
+    localStorage.setItem('sfl_farm_transfers', JSON.stringify(transfers));
+  } catch (_) {}
+
+  const transfersCountEl = document.getElementById('trade-metric-transfers-count');
+  if (transfersCountEl) {
+    transfersCountEl.textContent = `${transfers.depositStarted} in / ${transfers.withdrawStarted} out`;
+    transfersCountEl.title = `${transfers.depositStarted} deposits started, ${transfers.withdrawStarted} withdrawals started`;
+  }
+
+  const transfersNetEl = document.getElementById('trade-metric-transfers-net');
+  if (transfersNetEl) {
+    transfersNetEl.className = `text-lg font-black font-mono ${transfers.net > 0 ? 'text-sfl-green dark:text-emerald-400' : (transfers.net < 0 ? 'text-sfl-accent dark:text-rose-400' : 'text-sfl-wood dark:text-amber-100')}`;
+    transfersNetEl.innerHTML = `${transfers.net >= 0 ? '+' : ''}${transfers.net.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
+    transfersNetEl.title = `Net Transferred: ${transfers.net >= 0 ? '+' : ''}${transfers.net} Flower`;
+  }
+
+  const depositStartedEl = document.getElementById('trade-metric-deposit-started');
+  if (depositStartedEl) {
+    depositStartedEl.textContent = `${transfers.depositStarted} in`;
+  }
+
+  const flowerDepositedEl = document.getElementById('trade-metric-flower-deposited');
+  if (flowerDepositedEl) {
+    flowerDepositedEl.textContent = `+${transfers.deposited.toFixed(3)}`;
+    flowerDepositedEl.title = `Total Deposited: +${transfers.deposited} Flower (${transfers.depositStarted} deposits)`;
+  }
+
+  const withdrawStartedEl = document.getElementById('trade-metric-withdraw-started');
+  if (withdrawStartedEl) {
+    withdrawStartedEl.textContent = `${transfers.withdrawStarted} out`;
+  }
+
+  const flowerWithdrawnEl = document.getElementById('trade-metric-flower-withdrawn');
+  if (flowerWithdrawnEl) {
+    flowerWithdrawnEl.textContent = `-${transfers.withdrawn.toFixed(3)}`;
+    flowerWithdrawnEl.title = `Total Withdrawn: -${transfers.withdrawn} Flower (${transfers.withdrawStarted} withdrawals)`;
+  }
 
   document.getElementById('subtab-trades-count').textContent = trades.length;
   document.getElementById('subtab-listings-count').textContent = listings.length;
