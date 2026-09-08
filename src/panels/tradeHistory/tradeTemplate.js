@@ -155,7 +155,7 @@ export function renderTradeHistoryTemplate() {
       <!-- FILTER CONTROLS FOR TRADES VIEW (SOLD / BOUGHT + SPECIFIC ITEM DROPDOWN) -->
       <div id="trade-filters-bar" class="flex flex-wrap items-center justify-between gap-2.5">
         <div class="flex items-center gap-1.5 flex-wrap">
-          <button id="trade-filter-all" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-100 shadow-xs">
+          <button id="trade-filter-all" class="trade-filter-btn active-all px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-100 shadow-xs">
             All
           </button>
           <button id="trade-filter-sold" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder dark:border-amber-700/60 bg-white dark:bg-amber-950/40 text-sfl-wood dark:text-amber-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-800 dark:hover:text-emerald-300">

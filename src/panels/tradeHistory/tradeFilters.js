@@ -37,11 +37,11 @@ export function setTradeFilter(filter) {
   const activeBtn = document.getElementById(`trade-filter-${filter}`);
   if (activeBtn) {
     if (filter === 'sold') {
-      activeBtn.className = "trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-emerald-700 dark:border-emerald-600 bg-emerald-700 text-white shadow-xs dark:bg-emerald-700";
+      activeBtn.className = "trade-filter-btn active-sold px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-emerald-700 dark:border-emerald-600 bg-emerald-700 text-white shadow-xs dark:bg-emerald-700";
     } else if (filter === 'bought') {
-      activeBtn.className = "trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-blue-700 dark:border-blue-600 bg-blue-700 text-white shadow-xs dark:bg-blue-700";
+      activeBtn.className = "trade-filter-btn active-bought px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-blue-700 dark:border-blue-600 bg-blue-700 text-white shadow-xs dark:bg-blue-700";
     } else {
-      activeBtn.className = "trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-100 shadow-xs";
+      activeBtn.className = "trade-filter-btn active-all px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-100 shadow-xs";
     }
   }
 
