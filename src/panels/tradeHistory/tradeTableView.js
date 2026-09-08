@@ -25,27 +25,13 @@ export function renderTradesTableView(mountEl, farmId) {
     const isSeller = isUserSeller(t, farmId);
     if (currentFilter === 'sold' && !isSeller) return false;
     if (currentFilter === 'bought' && isSeller) return false;
-
-    const itemName = getTradeItemName(t);
-
-    if (selectedItemFilter && selectedItemFilter !== 'all') {
-      if (itemName.trim().toLowerCase() !== selectedItemFilter.trim().toLowerCase()) {
-        return false;
-      }
-    }
-
-    if (searchQuery) {
-      const lowerName = itemName.toLowerCase();
-      const otherUser = isSeller ? (t.counterpartyName || t.fulfilledBy?.username || '').toLowerCase() : (t.counterpartyName || t.initiatedBy?.username || '').toLowerCase();
-      if (!lowerName.includes(searchQuery) && !otherUser.includes(searchQuery)) return false;
-    }
     return true;
   });
 
   if (filtered.length === 0) {
     mountEl.innerHTML = `
-      <div class="p-8 text-center text-sfl-woodLight italic">
-        No completed trades found matching your search and filter criteria.
+      <div class="p-8 text-center text-sfl-woodLight dark:text-amber-300/60 italic">
+        No completed trades found.
       </div>
     `;
     return;
