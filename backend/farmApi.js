@@ -21,8 +21,47 @@ function getSflHeaders(customApiKey = '') {
   return headers;
 }
 
-async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 5, customApiKey = '') {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+// ── Global Sequential Queue for Farm API Syncs (Concurrency = 1) ───────────
+// Enforces strictly 1-by-1 execution.
+// If an ID fetch succeeds, waits 8 seconds before fetching the next ID.
+// If an ID fetch fails, retries 10 seconds later (up to 2 retries).
+let syncQueueChain = Promise.resolve();
+let lastSuccessTimestamp = 0;
+const SUCCESS_COOLDOWN_MS = 8000; // 8 seconds wait after successful fetch before next ID
+
+function queueFarmSync(taskFn) {
+  const queuedTask = syncQueueChain.then(async () => {
+    // If a previous fetch succeeded, ensure at least 8 seconds have passed before next fetch
+    if (lastSuccessTimestamp > 0) {
+      const elapsed = Date.now() - lastSuccessTimestamp;
+      if (elapsed < SUCCESS_COOLDOWN_MS) {
+        const remainingWait = SUCCESS_COOLDOWN_MS - elapsed;
+        console.log(`⏳ [Sync Queue] Waiting ${(remainingWait / 1000).toFixed(1)}s before next farm ID...`);
+        await delay(remainingWait);
+      }
+    }
+
+    try {
+      const result = await taskFn();
+      lastSuccessTimestamp = Date.now();
+      return result;
+    } catch (err) {
+      // Record timestamp on failure too so the next farm ID still has safe buffer
+      lastSuccessTimestamp = Date.now();
+      throw err;
+    }
+  });
+
+  // Keep queue alive even if an individual task rejects
+  syncQueueChain = queuedTask.catch(() => {});
+
+  return queuedTask;
+}
+
+async function fetchFarmFullDataRaw(cleanFarmId, maxRetries = 2, customApiKey = '') {
+  const totalAttempts = 1 + maxRetries; // 1 initial attempt + 2 retries = 3 attempts total
+
+  for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     try {
       const response = await axios.get(`https://api.sunflower-land.com/community/farms/${cleanFarmId}`, {
         headers: getSflHeaders(customApiKey),
@@ -58,18 +97,23 @@ async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 5, customApi
         throw err;
       }
 
-      if ((status === 429 || isServerError || isTimeoutOrAbort) && attempt < maxRetries) {
-        const retryHeader = err.response?.headers['retry-after'];
-        const waitTimeSec = retryHeader ? Math.max(parseInt(retryHeader, 10), 10) : attempt * 8;
-        const reason = isTimeoutOrAbort ? `Network/Timeout (${err.code || err.message})` : `HTTP ${status}`;
-        console.warn(`⚠️ [Farm #${cleanFarmId}] ${reason}. Retrying in ${waitTimeSec}s... (Attempt ${attempt}/${maxRetries})`);
+      // If failed and retries remain (retry 1 on attempt 1 failure, retry 2 on attempt 2 failure)
+      if (attempt <= maxRetries) {
+        const waitTimeSec = 10; // Exactly 10 seconds later
+        const reason = isTimeoutOrAbort ? `Network/Timeout (${err.code || err.message})` : (status ? `HTTP ${status}` : err.message);
+        console.warn(`⚠️ [Farm #${cleanFarmId}] ${reason}. Retrying in ${waitTimeSec}s... (Retry ${attempt}/${maxRetries})`);
         await delay(waitTimeSec * 1000);
       } else {
+        console.error(`❌ [Farm #${cleanFarmId}] Failed after ${maxRetries} retries: ${err.message}`);
         throw err;
       }
     }
   }
   return { inventory: {}, farmActivity: {}, npcs: {} };
+}
+
+async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 2, customApiKey = '') {
+  return queueFarmSync(() => fetchFarmFullDataRaw(cleanFarmId, maxRetries, customApiKey));
 }
 
 function getStockAmount(stockObj, targetCleanKey) {
@@ -112,6 +156,9 @@ function formatNftItem(item, parentKey = '') {
 module.exports = {
   getSflHeaders,
   fetchFarmFullDataWithRetry,
+  fetchFarmFullDataRaw,
+  queueFarmSync,
+  delay,
   getStockAmount,
   formatNftItem
 };

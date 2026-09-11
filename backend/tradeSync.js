@@ -1,12 +1,11 @@
 const axios = require('axios');
-const { getSflHeaders } = require('./farmApi');
+const { getSflHeaders, queueFarmSync, delay } = require('./farmApi');
 const { getTiDBPool } = require('./db');
 const { getItemNameById } = require('./knownIds');
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function fetchMarketplaceTradesWithRetry(farmId, apiKey = '', maxRetries = 3) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+async function fetchMarketplaceTradesRaw(farmId, apiKey = '', maxRetries = 2) {
+  const totalAttempts = 1 + maxRetries; // 1 initial attempt + 2 retries = 3 attempts total
+  for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     try {
       const response = await axios.get(`https://api.sunflower-land.com/community/data?type=marketplaceProfile&farmId=${encodeURIComponent(farmId)}`, {
         headers: getSflHeaders(apiKey),
@@ -25,10 +24,11 @@ async function fetchMarketplaceTradesWithRetry(farmId, apiKey = '', maxRetries =
         console.warn(`⚠️ [Farm #${farmId}] 401 Unauthorized (Check SFL API key). Skipping retries.`);
         throw err;
       }
-      if (attempt < maxRetries) {
-        console.warn(`⚠️ [Farm #${farmId}] Trade fetch attempt ${attempt}/${maxRetries} failed (${err.message}). Retrying in 13s...`);
-        await delay(13000);
+      if (attempt <= maxRetries) {
+        console.warn(`⚠️ [Farm #${farmId}] Trade fetch failed (${err.message}). Retrying in 10s... (Retry ${attempt}/${maxRetries})`);
+        await delay(10000);
       } else {
+        console.error(`❌ [Farm #${farmId}] Trade fetch failed after ${maxRetries} retries: ${err.message}`);
         throw err;
       }
     }
@@ -36,8 +36,12 @@ async function fetchMarketplaceTradesWithRetry(farmId, apiKey = '', maxRetries =
   return [];
 }
 
+async function fetchMarketplaceTradesWithRetry(farmId, apiKey = '', maxRetries = 2) {
+  return queueFarmSync(() => fetchMarketplaceTradesRaw(farmId, apiKey, maxRetries));
+}
+
 async function processAutoSyncTrades(supabase) {
-  console.log("🚀 [Auto-Sync Trades] Starting 4x daily marketplace trades auto-sync (:33 UTC, 13s gap, 3 retries)...");
+  console.log("🚀 [Auto-Sync Trades] Starting 4x daily marketplace trades auto-sync (:33 UTC, 8s gap, 2 retries)...");
   
   const farmMap = new Map();
 
@@ -81,10 +85,10 @@ async function processAutoSyncTrades(supabase) {
 
   for (let i = 0; i < farmEntries.length; i++) {
     const [farmId, apiKey] = farmEntries[i];
-    console.log(`[${i + 1}/${farmEntries.length}] ⏳ Fetching trades for Farm #${farmId} (3 retries, 13s gap)...`);
+    console.log(`[${i + 1}/${farmEntries.length}] ⏳ Fetching trades for Farm #${farmId} (2 retries, 8s gap)...`);
 
     try {
-      const rawTrades = await fetchMarketplaceTradesWithRetry(farmId, apiKey, 3);
+      const rawTrades = await fetchMarketplaceTradesWithRetry(farmId, apiKey, 2);
       if (rawTrades.length > 0) {
         const pool = getTiDBPool();
         if (pool) {
@@ -143,10 +147,10 @@ async function processAutoSyncTrades(supabase) {
       console.warn(`⚠️ [Auto-Sync Trades] Error syncing Farm #${farmId}: ${err.message}`);
     }
 
-    // Strict 13-second gap between farms to comply with SFL rate limits
+    // Strict 8-second gap between farms to comply with SFL rate limits
     if (i < farmEntries.length - 1) {
-      console.log(`⏳ Waiting 13s before next farm (rate limit safe)...`);
-      await delay(13000);
+      console.log(`⏳ Waiting 8s before next farm (rate limit safe)...`);
+      await delay(8000);
     }
   }
 
@@ -155,5 +159,6 @@ async function processAutoSyncTrades(supabase) {
 
 module.exports = {
   fetchMarketplaceTradesWithRetry,
+  fetchMarketplaceTradesRaw,
   processAutoSyncTrades
 };

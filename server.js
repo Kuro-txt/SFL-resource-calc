@@ -152,7 +152,7 @@ app.get('/api/get-farm', async (req, res) => {
 
   try {
     const farmData = await fetchFarmFullDataWithRetry(
-      cleanFarmId, 5, cleanApiKey
+      cleanFarmId, 2, cleanApiKey
     );
     const result = { success: true, farm: farmData };
     setServerCache(cacheKey, result);
@@ -314,20 +314,31 @@ let isYieldRunning = false;
 let isTradesSyncRunning = false;
 let isBackfillRunning = false;
 
+function isAnySyncRunning() {
+  return isSnapshotRunning || isYieldRunning || isTradesSyncRunning || isBackfillRunning;
+}
+
 // ── Cron trigger routes ────────────────────────────────────────────────────
 app.get('/api/trigger-daily-baseline', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
   const { type, sync } = req.query;
 
+  if (isAnySyncRunning()) {
+    return res.status(200).json({ success: true, status: 'already_running', message: 'A sync task is already in progress. Syncs run 1-by-1 sequentially.' });
+  }
+
   if (sync === 'true') {
     try {
       if (type === 'baseline') {
+        isSnapshotRunning = true;
         const result = await processBaselineSnapshot(supabase);
         return res.status(200).json({ success: true, message: 'Baseline snapshot completed.', result });
       } else if (type === 'yield') {
+        isYieldRunning = true;
         const result = await processYieldCalculation(supabase);
         return res.status(200).json({ success: true, message: 'Yield calculation completed.', result });
       } else if (type === 'trades') {
+        isTradesSyncRunning = true;
         const result = await processAutoSyncTrades(supabase);
         return res.status(200).json({ success: true, message: 'Trades auto-sync completed.', result });
       } else {
@@ -336,22 +347,23 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
     } catch (err) {
       console.error(`Manual trigger error (${type}):`, err.message);
       return res.status(500).json({ success: false, error: err.message });
+    } finally {
+      isSnapshotRunning = false;
+      isYieldRunning = false;
+      isTradesSyncRunning = false;
     }
   }
 
   // Non-blocking trigger (fire and return immediately with concurrency guard)
   if (type === 'baseline') {
-    if (isSnapshotRunning) return res.status(200).json({ success: true, status: 'already_running', message: 'Baseline snapshot already in progress.' });
     isSnapshotRunning = true;
     res.status(200).json({ success: true, status: 'started', message: 'Baseline snapshot triggered in background.' });
     processBaselineSnapshot(supabase).catch(err => console.error('Snapshot Error:', err.message)).finally(() => { isSnapshotRunning = false; });
   } else if (type === 'yield') {
-    if (isYieldRunning) return res.status(200).json({ success: true, status: 'already_running', message: 'Yield calculation already in progress.' });
     isYieldRunning = true;
     res.status(200).json({ success: true, status: 'started', message: 'Yield calculation triggered in background.' });
     processYieldCalculation(supabase).catch(err => console.error('Yield Error:', err.message)).finally(() => { isYieldRunning = false; });
   } else if (type === 'trades') {
-    if (isTradesSyncRunning) return res.status(200).json({ success: true, status: 'already_running', message: 'Trades auto-sync already in progress.' });
     isTradesSyncRunning = true;
     res.status(200).json({ success: true, status: 'started', message: 'Trades auto-sync triggered in background.' });
     processAutoSyncTrades(supabase).catch(err => console.error('Trades Error:', err.message)).finally(() => { isTradesSyncRunning = false; });
@@ -363,18 +375,21 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
 app.get('/api/cron/snapshot', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
 
+  if (isAnySyncRunning()) {
+    return res.status(200).json({ success: true, status: 'already_running', message: 'A sync task is already in progress. Syncs run 1-by-1 sequentially.' });
+  }
+
   if (req.query.sync === 'true') {
     try {
+      isSnapshotRunning = true;
       const result = await processBaselineSnapshot(supabase);
       return res.status(200).json({ success: true, message: 'Baseline snapshot completed.', result });
     } catch (err) {
       console.error('Snapshot Error:', err.message);
       return res.status(500).json({ success: false, error: err.message });
+    } finally {
+      isSnapshotRunning = false;
     }
-  }
-
-  if (isSnapshotRunning) {
-    return res.status(200).json({ success: true, status: 'already_running', message: 'Baseline snapshot already in progress.' });
   }
 
   isSnapshotRunning = true;
@@ -387,18 +402,21 @@ app.get('/api/cron/snapshot', async (req, res) => {
 app.get('/api/cron/22utc-yield', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
 
+  if (isAnySyncRunning()) {
+    return res.status(200).json({ success: true, status: 'already_running', message: 'A sync task is already in progress. Syncs run 1-by-1 sequentially.' });
+  }
+
   if (req.query.sync === 'true') {
     try {
+      isYieldRunning = true;
       const result = await processYieldCalculation(supabase);
       return res.status(200).json({ success: true, message: 'Yield calculation completed.', result });
     } catch (err) {
       console.error('Yield Error:', err.message);
       return res.status(500).json({ success: false, error: err.message });
+    } finally {
+      isYieldRunning = false;
     }
-  }
-
-  if (isYieldRunning) {
-    return res.status(200).json({ success: true, status: 'already_running', message: 'Yield calculation already in progress.' });
   }
 
   isYieldRunning = true;
@@ -411,18 +429,21 @@ app.get('/api/cron/22utc-yield', async (req, res) => {
 app.get('/api/cron/sync-trades', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
 
+  if (isAnySyncRunning()) {
+    return res.status(200).json({ success: true, status: 'already_running', message: 'A sync task is already in progress. Syncs run 1-by-1 sequentially.' });
+  }
+
   if (req.query.sync === 'true') {
     try {
+      isTradesSyncRunning = true;
       const result = await processAutoSyncTrades(supabase);
       return res.status(200).json({ success: true, message: 'Marketplace trades auto-sync completed.', result });
     } catch (err) {
       console.error('Auto-sync trades Error:', err.message);
       return res.status(500).json({ success: false, error: err.message });
+    } finally {
+      isTradesSyncRunning = false;
     }
-  }
-
-  if (isTradesSyncRunning) {
-    return res.status(200).json({ success: true, status: 'already_running', message: 'Marketplace trades auto-sync already in progress.' });
   }
 
   isTradesSyncRunning = true;
@@ -435,18 +456,21 @@ app.get('/api/cron/sync-trades', async (req, res) => {
 app.get('/api/cron/backfill-yields', async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
 
+  if (isAnySyncRunning()) {
+    return res.status(200).json({ success: true, status: 'already_running', message: 'A sync task is already in progress. Syncs run 1-by-1 sequentially.' });
+  }
+
   if (req.query.sync === 'true') {
     try {
+      isBackfillRunning = true;
       const result = await backfillDailyYields(supabase);
       return res.status(200).json(result);
     } catch (err) {
       console.error('Backfill Error:', err.message);
       return res.status(500).json({ success: false, error: err.message });
+    } finally {
+      isBackfillRunning = false;
     }
-  }
-
-  if (isBackfillRunning) {
-    return res.status(200).json({ success: true, status: 'already_running', message: 'Yield backfill already in progress.' });
   }
 
   isBackfillRunning = true;
@@ -537,20 +561,41 @@ app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 // ── Internal cron schedule (UTC timezone) ──────────────────────────────────
 // 1. Daily snapshot at 00:01 UTC (start of day post-midnight SFL reset)
 cron.schedule('1 0 * * *', () => {
+  if (isAnySyncRunning()) {
+    console.warn('⚠️ [Cron] 00:01 UTC Baseline Snapshot skipped: another sync is already running.');
+    return;
+  }
+  isSnapshotRunning = true;
   console.log('⏰ [Cron] 00:01 UTC — Baseline Snapshot...');
-  processBaselineSnapshot(supabase).catch(err => console.error('Snapshot error:', err.message));
+  processBaselineSnapshot(supabase)
+    .catch(err => console.error('Snapshot error:', err.message))
+    .finally(() => { isSnapshotRunning = false; });
 }, { scheduled: true, timezone: "UTC" });
 
 // 2. Daily yield calculation at 22:00 UTC (tallies day harvests against 00:01 baseline)
 cron.schedule('0 22 * * *', () => {
+  if (isAnySyncRunning()) {
+    console.warn('⚠️ [Cron] 22:00 UTC Daily yield calculation skipped: another sync is already running.');
+    return;
+  }
+  isYieldRunning = true;
   console.log('⏰ [Cron] 22:00 UTC — Daily yield calculation...');
-  processYieldCalculation(supabase).catch(err => console.error('Yield error:', err.message));
+  processYieldCalculation(supabase)
+    .catch(err => console.error('Yield error:', err.message))
+    .finally(() => { isYieldRunning = false; });
 }, { scheduled: true, timezone: "UTC" });
 
 // 3. Marketplace trades auto-sync 4x daily (:33 UTC)
 cron.schedule('33 0,6,12,18 * * *', () => {
+  if (isAnySyncRunning()) {
+    console.warn('⚠️ [Cron] Trade auto-sync skipped: another sync is already running.');
+    return;
+  }
+  isTradesSyncRunning = true;
   console.log('⏰ [Cron] Trade auto-sync (4x daily)...');
-  processAutoSyncTrades(supabase).catch(err => console.error('Trade sync error:', err.message));
+  processAutoSyncTrades(supabase)
+    .catch(err => console.error('Trade sync error:', err.message))
+    .finally(() => { isTradesSyncRunning = false; });
 }, { scheduled: true, timezone: "UTC" });
 
 app.listen(PORT, () => {

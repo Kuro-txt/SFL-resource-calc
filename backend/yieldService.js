@@ -144,7 +144,7 @@ async function processYieldCalculation(supabase) {
       currentData = await fetchFarmFullDataWithRetry(cleanFarmId);
     } catch (err) {
       console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: ${err.message}`);
-      await delay(4500);
+      await delay(8000);
       continue;
     }
 
@@ -207,7 +207,7 @@ async function processYieldCalculation(supabase) {
 
     if (totalHarvestCount <= 0 && yieldsList.length === 0 && cropActivityYields.length === 0) {
       console.log(`ℹ️ [Yield Calculation] No harvest activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
-      await delay(2000);
+      await delay(8000);
       continue;
     }
 
@@ -227,7 +227,7 @@ async function processYieldCalculation(supabase) {
       console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
     }
 
-    await delay(4500);
+    await delay(8000);
   }
 
   console.log(`🏁 [Yield Calculation] Completed: ${savedYieldsCount} farm yields saved to Supabase.`);

@@ -26,22 +26,38 @@ export default async function handler(req, res) {
     headers['Authorization'] = `Bearer ${cleanKey}`;
   }
 
-  try {
-    const response = await fetch(`https://api.sunflower-land.com/community/farms/${farmId}`, {
-      method: 'GET',
-      headers: headers
-    });
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  const maxRetries = 2;
+  const totalAttempts = 1 + maxRetries;
 
-    if (!response.ok) {
-      return res.status(response.status).json({ 
-        error: `API returned status ${response.status}. Please check your Farm ID or API Key.` 
+  for (let attempt = 1; attempt <= totalAttempts; attempt++) {
+    try {
+      const response = await fetch(`https://api.sunflower-land.com/community/farms/${farmId}`, {
+        method: 'GET',
+        headers: headers
       });
-    }
 
-    const data = await response.json();
-    res.setHeader('Cache-Control', 'private, s-maxage=30, stale-while-revalidate=60');
-    res.status(200).json({ success: true, farm: data });
-  } catch (error) {
-    res.status(500).json({ error: 'Server connection failed', details: error.message });
+      if (!response.ok) {
+        if ((response.status === 429 || response.status >= 500) && attempt <= maxRetries) {
+          console.warn(`⚠️ [Farm #${farmId}] HTTP ${response.status}. Retrying in 10s... (Retry ${attempt}/${maxRetries})`);
+          await delay(10000);
+          continue;
+        }
+        return res.status(response.status).json({ 
+          error: `API returned status ${response.status}. Please check your Farm ID or API Key.` 
+        });
+      }
+
+      const data = await response.json();
+      res.setHeader('Cache-Control', 'private, s-maxage=30, stale-while-revalidate=60');
+      return res.status(200).json({ success: true, farm: data });
+    } catch (error) {
+      if (attempt <= maxRetries) {
+        console.warn(`⚠️ [Farm #${farmId}] Network error (${error.message}). Retrying in 10s... (Retry ${attempt}/${maxRetries})`);
+        await delay(10000);
+      } else {
+        return res.status(500).json({ error: 'Server connection failed', details: error.message });
+      }
+    }
   }
 }
