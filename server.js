@@ -22,7 +22,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { CROP_FLOWER_PRICES }                     = require('./backend/prices');
 const { fetchFarmFullDataWithRetry, getSflHeaders, formatNftItem } = require('./backend/farmApi');
 const { processBaselineSnapshot }                = require('./backend/baselineService');
-const { processYieldCalculation, backfillDailyYields } = require('./backend/yieldService');
+const { processYieldCalculation, backfillDailyYields, repairMissingBaselines } = require('./backend/yieldService');
 const { processAutoSyncTrades }                  = require('./backend/tradeSync');
 
 // ── App & Supabase setup ───────────────────────────────────────────────────
@@ -367,8 +367,13 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
     isTradesSyncRunning = true;
     res.status(200).json({ success: true, status: 'started', message: 'Trades auto-sync triggered in background.' });
     processAutoSyncTrades(supabase).catch(err => console.error('Trades Error:', err.message)).finally(() => { isTradesSyncRunning = false; });
+  } else if (type === 'repair') {
+    repairMissingBaselines(supabase)
+      .then(res => console.log('Baseline Repair Complete:', res))
+      .catch(err => console.error('Baseline Repair Error:', err.message));
+    return res.status(200).json({ success: true, message: 'Baseline repair started in background.' });
   } else {
-    return res.status(400).json({ error: "Invalid type. Use 'type=baseline', 'type=yield', or 'type=trades'." });
+    return res.status(400).json({ error: "Invalid type. Use 'type=baseline', 'type=yield', 'type=trades', or 'type=repair'." });
   }
 });
 
@@ -478,6 +483,25 @@ app.get('/api/cron/backfill-yields', async (req, res) => {
   backfillDailyYields(supabase)
     .catch(err => console.error('Backfill Error:', err.message))
     .finally(() => { isBackfillRunning = false; });
+});
+
+app.get('/api/cron/repair-baselines', async (req, res) => {
+  if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
+
+  if (req.query.sync === 'true') {
+    try {
+      const result = await repairMissingBaselines(supabase);
+      return res.status(200).json({ success: true, message: 'Baseline repair completed.', result });
+    } catch (err) {
+      console.error('Repair Error:', err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  res.status(200).json({ success: true, status: 'started', message: 'Baseline repair started in background.' });
+  repairMissingBaselines(supabase)
+    .then(r => console.log('Baseline repair result:', r))
+    .catch(err => console.error('Repair Error:', err.message));
 });
 
 // ── /api/yields — Serve daily yield history exclusively from Supabase ─────────
@@ -600,4 +624,8 @@ cron.schedule('33 0,6,12,18 * * *', () => {
 
 app.listen(PORT, () => {
   console.log(`🚀 SFL Resource Calculator Backend listening on port ${PORT}`);
+  // Run repair once on startup in case any past baseline was missed
+  repairMissingBaselines(supabase)
+    .then(res => console.log('Startup baseline repair status:', res))
+    .catch(err => console.warn('Startup baseline repair notice:', err.message));
 });

@@ -136,6 +136,41 @@ async function processYieldCalculation(supabase) {
       continue;
     }
 
+    // ── Prevent double-counting if using an earlier day's fallback baseline ──
+    let priorRecordedHarvests = {};
+    let priorRecordedStockDiffs = {};
+
+    if (baselineRecord.snapshot_date !== todayDate) {
+      console.log(`ℹ️ [Yield Calculation] Farm #${cleanFarmId}: Baseline is from ${baselineRecord.snapshot_date} (today is ${todayDate}). Checking prior yields to prevent double counting...`);
+      const { data: priorYields } = await supabase
+        .from('daily_yields')
+        .select('yield_date, crops, crop_activity_yields')
+        .eq('user_id', user.id)
+        .gte('yield_date', baselineRecord.snapshot_date)
+        .lt('yield_date', todayDate);
+
+      if (Array.isArray(priorYields)) {
+        for (const py of priorYields) {
+          const acts = Array.isArray(py.crop_activity_yields) ? py.crop_activity_yields : [];
+          for (const a of acts) {
+            const cropName = (a.crop || a.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const cycles = parseFloat(a.harvestCount || 0);
+            if (cropName && cycles > 0) {
+              priorRecordedHarvests[cropName] = (priorRecordedHarvests[cropName] || 0) + cycles;
+            }
+          }
+          const crs = Array.isArray(py.crops) ? py.crops : [];
+          for (const c of crs) {
+            const k = (c.name || c.item || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const q = parseFloat(c.qty || 0);
+            if (k && q > 0) {
+              priorRecordedStockDiffs[k] = (priorRecordedStockDiffs[k] || 0) + q;
+            }
+          }
+        }
+      }
+    }
+
     const baselineStock = baselineRecord.stock || {};
     const baseActivity = baselineRecord.farm_activity || {};
 
@@ -157,7 +192,9 @@ async function processYieldCalculation(supabase) {
         let cleanKey = String(targetItem).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
         let currentQty = getStockAmount(currentData.inventory, cleanKey);
         let baselineQty = getStockAmount(baselineStock, cleanKey);
-        let diff = currentQty - baselineQty;
+        let grossDiff = currentQty - baselineQty;
+        let priorDeduction = priorRecordedStockDiffs[cleanKey] || 0;
+        let diff = Math.max(0, grossDiff - priorDeduction);
 
         if (diff > 0.0001) {
           let harvestedQty = Math.ceil(diff * 10) / 10;
@@ -185,7 +222,9 @@ async function processYieldCalculation(supabase) {
 
         let startCount = parseFloat(baseActivity[actKey] || 0);
         let endCount = parseFloat(currActivity[actKey] || 0);
-        let harvestCycles = endCount - startCount;
+        let grossCycles = endCount - startCount;
+        let priorCycles = priorRecordedHarvests[cleanCropKey] || 0;
+        let harvestCycles = Math.max(0, grossCycles - priorCycles);
 
         if (harvestCycles > 0) {
           let baseYield = parseFloat(baseYields[cleanCropKey] || baseYields['_global']) || 1.0;
@@ -334,7 +373,179 @@ async function backfillDailyYields(supabase) {
   return { success: true, backfilledRecords: totalBackfilled };
 }
 
+async function repairMissingBaselines(supabase) {
+  console.log("🔧 [Repair] Starting repair of missing Sep 10 baselines & duplicate yields...");
+  const { data: users, error: uErr } = await supabase.from('profiles').select('id, farm_id, tracked_items, crop_base_yields');
+  if (uErr || !users || users.length === 0) return { success: false, error: "No users: " + uErr?.message };
+
+  let repairedCount = 0;
+
+  for (const user of users) {
+    if (!user.farm_id) continue;
+    const cleanFarmId = String(user.farm_id).trim();
+
+    // Check if user is missing Sep 10 baseline
+    const { data: b10 } = await supabase
+      .from('preharvest_baselines')
+      .select('id, snapshot_date')
+      .eq('user_id', user.id)
+      .eq('snapshot_date', '2026-09-10')
+      .maybeSingle();
+
+    if (!b10) {
+      // Missing Sep 10 baseline! Reconstruct from Sep 9 baseline + Sep 9 yield
+      const { data: b9 } = await supabase
+        .from('preharvest_baselines')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('snapshot_date', '2026-09-09')
+        .maybeSingle();
+
+      const { data: y9 } = await supabase
+        .from('daily_yields')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('yield_date', '2026-09-09')
+        .maybeSingle();
+
+      const { data: y10 } = await supabase
+        .from('daily_yields')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('yield_date', '2026-09-10')
+        .maybeSingle();
+
+      if (b9 && y10) {
+        console.log(`🔧 [Repair] Reconstructing Sep 10 baseline for Farm #${cleanFarmId}...`);
+        const reconstructedActivity = { ...(b9.farm_activity || {}) };
+        const sep9Acts = (y9 && Array.isArray(y9.crop_activity_yields)) ? y9.crop_activity_yields : [];
+        for (const act of sep9Acts) {
+          const cropName = (act.crop || act.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const count = parseFloat(act.harvestCount || 0);
+          if (!cropName || count <= 0) continue;
+          const matchedKey = Object.keys(reconstructedActivity).find(k =>
+            k.toLowerCase().replace(/[^a-z0-9]/g, '') === `${cropName}harvested`
+          );
+          if (matchedKey) {
+            reconstructedActivity[matchedKey] = (parseFloat(reconstructedActivity[matchedKey]) || 0) + count;
+          } else {
+            reconstructedActivity[`${act.crop || cropName} Harvested`] = count;
+          }
+        }
+
+        const reconstructedStock = { ...(b9.stock || {}) };
+        const sep9Crops = (y9 && Array.isArray(y9.crops)) ? y9.crops : [];
+        for (const item of sep9Crops) {
+          const name = (item.name || item.item || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const qty = parseFloat(item.qty || 0);
+          if (!name || qty <= 0) continue;
+          const matchedKey = Object.keys(reconstructedStock).find(k =>
+            k.toLowerCase().replace(/[^a-z0-9]/g, '') === name
+          );
+          if (matchedKey) {
+            reconstructedStock[matchedKey] = (parseFloat(reconstructedStock[matchedKey]) || 0) + qty;
+          } else {
+            reconstructedStock[item.name || name] = qty;
+          }
+        }
+
+        // 1. Insert reconstructed Sep 10 baseline
+        await supabase.from('preharvest_baselines').upsert({
+          user_id: user.id,
+          farm_id: cleanFarmId,
+          snapshot_date: '2026-09-10',
+          stock: reconstructedStock,
+          farm_activity: reconstructedActivity
+        }, { onConflict: 'user_id,snapshot_date' });
+
+        // 2. Correct Sep 10 daily_yields
+        const correctedActs = [];
+        const currentActs = Array.isArray(y10.crop_activity_yields) ? y10.crop_activity_yields : [];
+        for (const curr of currentActs) {
+          const crop = curr.crop || curr.name || '';
+          const cleanCrop = crop.toLowerCase().replace(/[^a-z0-9]/g, '');
+          let sep9Cycles = 0;
+          const match9 = sep9Acts.find(a => (a.crop || a.name || '').toLowerCase().replace(/[^a-z0-9]/g, '') === cleanCrop);
+          if (match9) {
+            sep9Cycles = parseFloat(match9.harvestCount || 0);
+          }
+          const trueCycles = Math.max(0, parseFloat(curr.harvestCount || 0) - sep9Cycles);
+          if (trueCycles > 0) {
+            const baseYield = parseFloat(curr.baseYield || 1.0);
+            const totalProduced = Math.ceil((trueCycles * baseYield) * 10) / 10;
+            const unitPrice = parseFloat(curr.unitPrice || 0);
+            const netFlowers = Math.ceil((unitPrice * totalProduced * 0.9) * 1000) / 1000;
+
+            correctedActs.push({
+              crop,
+              baseYield,
+              unitPrice,
+              netFlowers,
+              harvestCount: trueCycles,
+              totalProduced
+            });
+          }
+        }
+
+        const correctedCrops = [];
+        let correctedTotalCount = 0;
+        let correctedNetFlowers = 0;
+        const currentCrops = Array.isArray(y10.crops) ? y10.crops : [];
+
+        if (currentCrops.length > 0) {
+          for (const curr of currentCrops) {
+            const name = curr.name || curr.item || '';
+            const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            let sep9Qty = 0;
+            const match9 = sep9Crops.find(c => (c.name || c.item || '').toLowerCase().replace(/[^a-z0-9]/g, '') === cleanName);
+            if (match9) {
+              sep9Qty = parseFloat(match9.qty || 0);
+            }
+            const trueQty = Math.ceil(Math.max(0, parseFloat(curr.qty || 0) - sep9Qty) * 10) / 10;
+            if (trueQty > 0) {
+              const origQty = parseFloat(curr.qty || 0);
+              const origFlowers = parseFloat(curr.flowers || 0);
+              const unitFlowers = origQty > 0 ? (origFlowers / origQty) : 0;
+              const netFl = Math.ceil((unitFlowers * trueQty) * 1000) / 1000;
+
+              correctedCrops.push({
+                name,
+                qty: trueQty,
+                flowers: netFl
+              });
+              correctedTotalCount += trueQty;
+              correctedNetFlowers += netFl;
+            }
+          }
+        } else if (correctedActs.length > 0) {
+          correctedTotalCount = correctedActs.reduce((s, a) => s + a.totalProduced, 0);
+          correctedNetFlowers = correctedActs.reduce((s, a) => s + a.netFlowers, 0);
+        }
+
+        const finalTotal = Math.ceil(correctedTotalCount * 10) / 10;
+        const finalFlowers = Math.ceil(correctedNetFlowers * 1000) / 1000;
+
+        await supabase.from('daily_yields').upsert({
+          user_id: user.id,
+          yield_date: '2026-09-10',
+          total_count: finalTotal,
+          net_flowers: finalFlowers,
+          crops: correctedCrops,
+          crop_activity_yields: correctedActs
+        }, { onConflict: 'user_id,yield_date' });
+
+        repairedCount++;
+        console.log(`✅ [Repair] Fixed Farm #${cleanFarmId} for 2026-09-10 (totalCount: ${finalTotal}, netFlowers: ${finalFlowers})`);
+      }
+    }
+  }
+
+  console.log(`🏁 [Repair] Finished repair: fixed ${repairedCount} farms.`);
+  return { success: true, repairedCount };
+}
+
 module.exports = {
   processYieldCalculation,
-  backfillDailyYields
+  backfillDailyYields,
+  repairMissingBaselines
 };
