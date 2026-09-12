@@ -1,5 +1,5 @@
 import { getItemNameById } from '../../data/knownIds.js';
-import { getTradeAmounts, tradeHistoryData } from './tradeData.js';
+import { getTradeAmounts, getTradeCounterparty, tradeHistoryData } from './tradeData.js';
 
 export function exportTradesToCsv() {
   const trades = tradeHistoryData?.trades || [];
@@ -21,7 +21,7 @@ export function exportTradesToCsv() {
     const itemName = isEconomy ? `#${t.itemId || '?'}` : resolvedName;
     const qty = t.quantity || 1;
     const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
-    const counterparty = isSeller ? (t.counterpartyName || t.fulfilledBy?.username || '') : (t.counterpartyName || t.initiatedBy?.username || '');
+    const counterparty = getTradeCounterparty(t, farmId, isSeller);
 
     return [
       `"${rawDate}"`,

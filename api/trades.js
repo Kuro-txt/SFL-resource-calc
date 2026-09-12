@@ -121,6 +121,11 @@ async function ensureTableCreated(pool, dbName = 'test') {
       await pool.query(`UPDATE user_trades SET tax = ROUND(sfl * 0.10, 4), net_sfl = ROUND(sfl * 0.90, 4) WHERE trade_type = 'sold' AND (tax = 0 OR tax IS NULL);`).catch(() => {});
       await pool.query(`UPDATE user_trades SET tax = 0, net_sfl = sfl WHERE trade_type = 'bought' AND (net_sfl = 0 OR net_sfl IS NULL);`).catch(() => {});
 
+      // Auto-correct known historical offer trades that had inverted trade_type in TiDB
+      await pool.query(`UPDATE user_trades SET trade_type = 'sold', tax = ROUND(sfl * 0.10, 4), net_sfl = ROUND(sfl * 0.90, 4) WHERE id = '823e4d29';`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET trade_type = 'bought', tax = 0, net_sfl = sfl WHERE id IN ('914b14f7', 'fc703fa3');`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET counterparty_name = 'Market Trader' WHERE counterparty_name = 'Kuro1' OR counterparty_id = farm_id;`).catch(() => {});
+
       // Auto-clean legacy Item # placeholders to official names
       await pool.query(`UPDATE user_trades SET item_name = 'Crimson Baitfish' WHERE item_id = 2988 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
       await pool.query(`UPDATE user_trades SET item_name = 'Moonfur' WHERE item_id = 2634 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
@@ -207,7 +212,11 @@ export default async function handler(req, res) {
             sfl = VALUES(sfl),
             tax = VALUES(tax),
             net_sfl = VALUES(net_sfl),
-            unit_price = VALUES(unit_price)
+            unit_price = VALUES(unit_price),
+            trade_type = VALUES(trade_type),
+            source = VALUES(source),
+            counterparty_id = VALUES(counterparty_id),
+            counterparty_name = VALUES(counterparty_name)
         `;
 
         try {
@@ -270,6 +279,8 @@ export default async function handler(req, res) {
         let tax = parseFloat(r.tax || 0);
         if (isSeller && (!tax || tax <= 0)) {
           tax = Math.round((sfl * 0.10) * 10000) / 10000;
+        } else if (!isSeller) {
+          tax = 0;
         }
         const netSfl = parseFloat(r.net_sfl || (isSeller ? Math.max(0, sfl - tax) : sfl));
 

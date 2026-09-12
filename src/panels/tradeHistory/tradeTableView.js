@@ -1,6 +1,6 @@
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { getItemNameById } from '../../data/knownIds.js';
-import { getTradeAmounts, isUserSeller, tradeHistoryData } from './tradeData.js';
+import { getTradeAmounts, isUserSeller, getTradeCounterparty, tradeHistoryData } from './tradeData.js';
 import { currentFilter, selectedItemFilter, calculateItemTradeMetrics } from './tradeFilters.js';
 import { searchQuery } from './index.js';
 
@@ -53,9 +53,7 @@ export function renderTradesTableView(mountEl, farmId) {
       dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : String(rawDate);
     }
 
-    const otherUser = isSeller
-      ? (t.counterpartyName || t.fulfilledBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Buyer'))
-      : (t.counterpartyName || t.initiatedBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Seller'));
+    const otherUser = getTradeCounterparty(t, farmId, isSeller);
 
     const badge = isSeller
       ? `<span class="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-700/60 px-2 py-0.5 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs">🟢 SOLD</span>`
@@ -127,9 +125,7 @@ export function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
       ? dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
       : 'Recent';
 
-    const otherUser = isSeller
-      ? (t.counterpartyName || t.fulfilledBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Buyer'))
-      : (t.counterpartyName || t.initiatedBy?.username || (t.counterpartyId ? `Farm #${t.counterpartyId}` : 'Market Seller'));
+    const otherUser = getTradeCounterparty(t, farmId, isSeller);
 
     const badge = isSeller
       ? `<span class="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-700/60 px-1.5 py-0.2 rounded text-[9px] font-bold inline-flex items-center gap-1 shadow-2xs">🟢 SOLD</span>`

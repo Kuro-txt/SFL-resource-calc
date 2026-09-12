@@ -96,13 +96,23 @@ async function processAutoSyncTrades(supabase) {
             const id = String(t.id || '').trim();
             if (!id) continue;
 
-            const isListing = t.source === 'listing';
-            const initId = String(t.initiatedBy?.id || '');
-            const fulfId = String(t.fulfilledBy?.id || '');
-            const isSeller = isListing ? (initId === farmId) : (fulfId !== farmId);
+            const myFarmIdStr = String(farmId).trim();
+            const initId = String(t.initiatedBy?.id || '').trim();
+            const fulfId = String(t.fulfilledBy?.id || '').trim();
 
-            const otherName = isSeller ? (t.fulfilledBy?.username || '') : (t.initiatedBy?.username || '');
-            const otherId = isSeller ? (t.fulfilledBy?.id || null) : (t.initiatedBy?.id || null);
+            // In an offer:
+            // initiatedBy = BUYER (who offered SFL to purchase)
+            // fulfilledBy = SELLER (who accepted the offer and sold the item)
+            // In a listing (or default):
+            // initiatedBy = SELLER (who created the listing to sell)
+            // fulfilledBy = BUYER (who purchased the listing)
+            const isOffer = t.source === 'offer';
+            const isSeller = isOffer ? (fulfId === myFarmIdStr) : (initId === myFarmIdStr);
+
+            // Counterparty is ALWAYS the other party (the party whose ID does NOT match myFarmId)
+            const otherParty = (initId === myFarmIdStr) ? t.fulfilledBy : t.initiatedBy;
+            const otherName = otherParty?.username || (otherParty?.id ? `Farm #${otherParty.id}` : '');
+            const otherId = otherParty?.id || null;
 
             const itemId = parseInt(t.itemId || 0, 10);
             const isEconomy = t.collection === 'economies' || Boolean(t.economy);
@@ -130,7 +140,11 @@ async function processAutoSyncTrades(supabase) {
                 sfl = VALUES(sfl),
                 tax = VALUES(tax),
                 net_sfl = VALUES(net_sfl),
-                unit_price = VALUES(unit_price)
+                unit_price = VALUES(unit_price),
+                trade_type = VALUES(trade_type),
+                source = VALUES(source),
+                counterparty_id = VALUES(counterparty_id),
+                counterparty_name = VALUES(counterparty_name)
             `;
 
             await pool.query(insertSql, [

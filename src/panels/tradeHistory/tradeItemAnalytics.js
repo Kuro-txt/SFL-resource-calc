@@ -1,4 +1,4 @@
-import { tradeHistoryData, getTradeAmounts, isUserSeller } from './tradeData.js';
+import { tradeHistoryData, getTradeAmounts, isUserSeller, getTradeCounterparty } from './tradeData.js';
 import { getItemNameById } from '../../data/knownIds.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 
@@ -1121,7 +1121,7 @@ export function renderItemAnalyticsView(mountEl, farmId) {
                     : 'Recent';
                   const qty = parseFloat(t.quantity || 1);
                   const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
-                  const otherUser = t.counterpartyName || (isSeller ? (t.fulfilledBy?.username || 'Buyer') : (t.initiatedBy?.username || 'Seller'));
+                  const otherUser = getTradeCounterparty(t, farmId, isSeller);
                   const itemColor = getItemColor(t.itemName, selectedList);
 
                   return `

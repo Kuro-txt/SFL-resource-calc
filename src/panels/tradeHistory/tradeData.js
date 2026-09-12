@@ -44,17 +44,21 @@ export async function fetchMarketplaceTrades(force = false) {
 
     // Format trades for TiDB Cloud archiving
     const rawTrades = data.trades || [];
+    const myFarmIdStr = String(farmId).trim();
     const formattedForCloud = rawTrades.map(t => {
-      const isSeller = isUserSeller(t, farmId);
+      const isSeller = isUserSeller(t, myFarmIdStr);
       const rawName = t.itemName;
       const itemName = (rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName);
-      const otherUser = isSeller ? (t.fulfilledBy?.username || '') : (t.initiatedBy?.username || '');
-      const otherId = isSeller ? (t.fulfilledBy?.id || null) : (t.initiatedBy?.id || null);
-      const amounts = getTradeAmounts(t, farmId);
+      
+      const initId = String(t.initiatedBy?.id || '').trim();
+      const otherParty = (initId === myFarmIdStr) ? t.fulfilledBy : t.initiatedBy;
+      const otherUser = otherParty?.username || (otherParty?.id ? `Farm #${otherParty.id}` : '');
+      const otherId = otherParty?.id || null;
+      const amounts = getTradeAmounts(t, myFarmIdStr);
 
       return {
         id: t.id,
-        farmId: farmId,
+        farmId: myFarmIdStr,
         itemId: t.itemId,
         itemName: itemName,
         quantity: parseFloat(t.quantity || 1),
@@ -178,14 +182,52 @@ export function getTradeAmounts(trade, farmId) {
 }
 
 export function isUserSeller(trade, myFarmId) {
-  if (trade.tradeType) return trade.tradeType === 'sold';
-  const initId = String(trade.initiatedBy?.id || trade.seller || '');
-  const fulfId = String(trade.fulfilledBy?.id || trade.buyer || '');
+  const myIdStr = String(myFarmId || '').trim();
+  const initId = String(trade.initiatedBy?.id || trade.seller || '').trim();
+  const fulfId = String(trade.fulfilledBy?.id || trade.buyer || '').trim();
 
-  if (trade.source === 'listing') {
-    return initId === myFarmId;
-  } else if (trade.source === 'offer') {
-    return fulfId === myFarmId;
+  // If trade has initiator or fulfiller data (definitive truth from SFL API)
+  if (initId || fulfId) {
+    if (trade.source === 'offer') {
+      // In an offer:
+      // initiatedBy = BUYER (who created offer to buy)
+      // fulfilledBy = SELLER (who accepted offer to sell)
+      return fulfId === myIdStr;
+    }
+    // In a listing (or default):
+    // initiatedBy = SELLER (who listed the item for sale)
+    // fulfilledBy = BUYER (who bought the listing)
+    return initId === myIdStr;
   }
-  return initId === myFarmId;
+
+  // Fallback to database tradeType / trade_type if initiator/fulfiller are omitted
+  if (trade.tradeType) return trade.tradeType.toLowerCase() === 'sold';
+  if (trade.trade_type) return trade.trade_type.toLowerCase() === 'sold';
+  return false;
+}
+
+export function getTradeCounterparty(trade, farmId, isSeller) {
+  const myIdStr = String(farmId || '').trim();
+  const initId = String(trade.initiatedBy?.id || '').trim();
+  const fulfId = String(trade.fulfilledBy?.id || '').trim();
+
+  // If live initiator / fulfiller objects are present, pick the other party
+  if (initId && initId === myIdStr && trade.fulfilledBy) {
+    return trade.fulfilledBy.username || (trade.fulfilledBy.id ? `Farm #${trade.fulfilledBy.id}` : (isSeller ? 'Market Buyer' : 'Market Seller'));
+  }
+  if (fulfId && fulfId === myIdStr && trade.initiatedBy) {
+    return trade.initiatedBy.username || (trade.initiatedBy.id ? `Farm #${trade.initiatedBy.id}` : (isSeller ? 'Market Buyer' : 'Market Seller'));
+  }
+
+  const cpName = trade.counterpartyName || trade.counterparty_name;
+  const cpId = trade.counterpartyId || trade.counterparty_id;
+
+  if (cpName && String(cpId) !== myIdStr && cpName !== 'Kuro1') {
+    return cpName;
+  }
+  if (cpId && String(cpId) !== myIdStr) {
+    return `Farm #${cpId}`;
+  }
+
+  return isSeller ? 'Market Buyer' : 'Market Seller';
 }
