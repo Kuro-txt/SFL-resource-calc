@@ -96,19 +96,20 @@ export function renderCropWeeklySummary() {
   const netValEl = document.getElementById('crop-weekly-net-val');
 
   const sortedDates = Object.keys(dailyHarvestMap).sort().reverse();
+  const isArchivedWeek = currentCropWeekOffset <= -3 || sortedDates.length === 0;
 
-  if (sortedDates.length === 0) {
+  if (isArchivedWeek) {
     const archive = cachedWeeklyArchives ? cachedWeeklyArchives.find(w => (w.week_start || '').split('T')[0] === mondayStr) : null;
 
     if (!archive && cachedWeeklyArchives === null) {
       if (breakdownEl) breakdownEl.innerHTML = '<div class="text-center italic text-sfl-woodLight py-6 bg-white/60 dark:bg-amber-950/20 rounded-xl border border-sfl-cardBorder/40">Loading archived week...</div>';
       getWeeklyArchive(mondayStr).then(found => {
         if (found) renderCropWeeklySummary();
-        else {
+        else if (sortedDates.length === 0) {
           if (breakdownEl) breakdownEl.innerHTML = '<div class="text-center italic text-sfl-woodLight py-6 bg-white/60 dark:bg-amber-950/20 rounded-xl border border-sfl-cardBorder/40">No crop activity logged for this calendar week.</div>';
         }
       });
-      return;
+      if (sortedDates.length === 0) return;
     }
 
     if (archive) {

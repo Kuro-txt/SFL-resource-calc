@@ -217,19 +217,20 @@ export function renderWeeklySummaryModal() {
   const netValEl = document.getElementById('weekly-net-val');
 
   const sortedDates = Object.keys(dailySnapshotsMap).sort().reverse();
+  const isArchivedWeek = currentWeekOffset <= -3 || sortedDates.length === 0;
 
-  if (sortedDates.length === 0) {
+  if (isArchivedWeek) {
     const archive = cachedWeeklyArchives ? cachedWeeklyArchives.find(w => (w.week_start || '').split('T')[0] === mondayStr) : null;
 
     if (!archive && cachedWeeklyArchives === null) {
       if (breakdownContainer) breakdownContainer.innerHTML = '<div class="text-center italic text-sfl-woodLight py-6 bg-white/60 dark:bg-amber-950/20 rounded-xl border border-sfl-cardBorder/40">Loading archived week...</div>';
       getWeeklyArchive(mondayStr).then(found => {
         if (found) renderWeeklySummaryModal();
-        else {
+        else if (sortedDates.length === 0) {
           if (breakdownContainer) breakdownContainer.innerHTML = '<div class="text-center italic text-sfl-woodLight py-6 bg-white/60 dark:bg-amber-950/20 rounded-xl border border-sfl-cardBorder/40">No harvest snapshots logged for this calendar week.</div>';
         }
       });
-      return;
+      if (sortedDates.length === 0) return;
     }
 
     if (archive) {
