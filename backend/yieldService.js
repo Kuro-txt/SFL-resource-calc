@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { CROP_FLOWER_PRICES, getFlowerUnitPrice } = require('./prices');
+const { CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES, getFlowerUnitPrice } = require('./prices');
 const { fetchFarmFullDataWithRetry, getStockAmount } = require('./farmApi');
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -80,7 +80,7 @@ async function processYieldCalculation(supabase) {
 
   function getFlowerUnitPrice(cleanKey) {
     let matchedKey = Object.keys(flatPrices).find(k => {
-      let norm = k.replace(/^\[.*?\]\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      let norm = k.replace(/\[.*?\]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
       return norm === cleanKey;
     });
     if (matchedKey) {
@@ -89,6 +89,9 @@ async function processYieldCalculation(supabase) {
     }
     if (CROP_FLOWER_PRICES[cleanKey] !== undefined) {
       return CROP_FLOWER_PRICES[cleanKey];
+    }
+    if (RESOURCE_FLOWER_FALLBACK_PRICES[cleanKey] !== undefined) {
+      return RESOURCE_FLOWER_FALLBACK_PRICES[cleanKey];
     }
     return 0.01;
   }
@@ -646,8 +649,14 @@ async function aggregateCompletedWeeks(supabase, forceAll = false) {
     for (const c of crops) {
       const name = c.name || c.item || 'Item';
       const qty = parseFloat(c.qty) || 0;
-      const fl = parseFloat(c.flowers) || 0;
+      let fl = parseFloat(c.flowers) || 0;
       if (qty <= 0) continue;
+
+      if (fl <= 0) {
+        const cleanKey = name.replace(/\[.*?\]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        const unitPrice = getFlowerUnitPrice(cleanKey);
+        fl = Math.round((unitPrice * qty * 0.9) * 1000) / 1000;
+      }
 
       if (!wk.itemsMap[name]) wk.itemsMap[name] = [0, 0];
       wk.itemsMap[name][0] = Math.round((wk.itemsMap[name][0] + qty) * 10) / 10;
@@ -658,7 +667,11 @@ async function aggregateCompletedWeeks(supabase, forceAll = false) {
   let savedCount = 0;
   for (const [key, wk] of weeksMap.entries()) {
     const finalTotalItems = Math.round(wk.total_items * 10) / 10;
-    const finalTotalFlowers = Math.round(wk.total_flowers * 1000) / 1000;
+    let itemsFlowerSum = 0;
+    for (const val of Object.values(wk.itemsMap)) {
+      itemsFlowerSum += (val[1] || 0);
+    }
+    const finalTotalFlowers = Math.max(Math.round(wk.total_flowers * 1000) / 1000, Math.round(itemsFlowerSum * 1000) / 1000);
 
     const { error: upsertErr } = await supabase.from('weekly_yields').upsert({
       user_id: wk.user_id,
@@ -770,20 +783,33 @@ async function recalculateWeekForUser(supabase, userId, dateStr) {
     for (const c of crops) {
       const name = c.name || c.item || 'Item';
       const qty = parseFloat(c.qty) || 0;
-      const fl = parseFloat(c.flowers) || 0;
+      let fl = parseFloat(c.flowers) || 0;
       if (qty <= 0) continue;
+
+      if (fl <= 0) {
+        const cleanKey = name.replace(/\[.*?\]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        const unitPrice = getFlowerUnitPrice(cleanKey);
+        fl = Math.round((unitPrice * qty * 0.9) * 1000) / 1000;
+      }
+
       if (!itemsMap[name]) itemsMap[name] = [0, 0];
       itemsMap[name][0] = Math.round((itemsMap[name][0] + qty) * 10) / 10;
       itemsMap[name][1] = Math.round((itemsMap[name][1] + fl) * 1000) / 1000;
     }
   }
 
+  let itemsFlowerSum = 0;
+  for (const val of Object.values(itemsMap)) {
+    itemsFlowerSum += (val[1] || 0);
+  }
+  const finalTotalFlowers = Math.max(Math.round(totalFlowers * 1000) / 1000, Math.round(itemsFlowerSum * 1000) / 1000);
+
   const payload = {
     user_id: userId,
     week_start: monday,
     week_end: sunday,
     total_items: Math.round(totalItems * 10) / 10,
-    total_flowers: Math.round(totalFlowers * 1000) / 1000,
+    total_flowers: finalTotalFlowers,
     items_summary: itemsMap,
     updated_at: new Date().toISOString()
   };

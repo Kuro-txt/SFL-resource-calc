@@ -95,6 +95,23 @@ export const CROP_FLOWER_PRICES = {
 // Exported as BETTY_SHOP_PRICES for backward-compatibility with all imports
 export const BETTY_SHOP_PRICES = CROP_FLOWER_PRICES;
 
+export const RESOURCE_FLOWER_FALLBACK_PRICES = {
+  "egg": 0.021,
+  "milk": 0.1263,
+  "feather": 0.00364,
+  "leather": 0.080,
+  "wool": 0.0205,
+  "merinowool": 0.0039,
+  "honey": 0.0997,
+  "wood": 0.0114,
+  "stone": 0.0200,
+  "iron": 0.0675,
+  "gold": 0.3044,
+  "crimstone": 0.74,
+  "obsidian": 15.288,
+  "salt": 0.00417
+};
+
 // Whitelist of 64 items that use the global tax rate (from tax-select / sfl_tax_rate).
 // Everything else is taxed at a fixed 10% rate.
 export const RAW_GLOBAL_TAX_ITEMS = [

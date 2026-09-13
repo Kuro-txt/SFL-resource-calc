@@ -1,4 +1,4 @@
-import { FLOWER_IMG_SMALL_HTML, SFL_GREENHOUSE_CROPS, SFL_FRUITS, getItemTaxRate } from '../../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML, SFL_GREENHOUSE_CROPS, SFL_FRUITS, getItemTaxRate, RESOURCE_FLOWER_FALLBACK_PRICES } from '../../config/constants.js';
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, getBettyUnitPrice } from '../../utils/formatters.js';
 import { cropBaseYields, globalAvgYield, updateCropBaseYield } from './cropState.js';
 import { activeHarvestDiffs, hasBaselineForToday, isInitialCheckDone, saveCurrentActivityAsBaseline } from './cropSync.js';
@@ -307,5 +307,9 @@ export function getItemFlowerPrice(cleanKey) {
     return bettyPrice;
   }
 
-  return 0;
+  if (RESOURCE_FLOWER_FALLBACK_PRICES[cleanKey] !== undefined) {
+    return RESOURCE_FLOWER_FALLBACK_PRICES[cleanKey];
+  }
+
+  return 0.01;
 }

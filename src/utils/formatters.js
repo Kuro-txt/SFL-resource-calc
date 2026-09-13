@@ -10,7 +10,7 @@ export function formatDateYYYYMMDD(d) {
 export function normalizeItemKey(rawInput) {
   if (!rawInput) return '';
   let str = typeof rawInput === 'object' ? (rawInput.item || rawInput.name || '') : String(rawInput);
-  return str.replace(/^\[.*?\]\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+  return str.replace(/\[.*?\]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
 }
 
 export function roundUpToOneDecimal(val) {

@@ -33,22 +33,43 @@ const CROP_FLOWER_PRICES = {
   "banana": 0.01998
 };
 
-  function getFlowerUnitPrice(cleanKey) {
-    let matchedKey = Object.keys(flatPrices).find(k => {
-      let norm = k.replace(/^\[.*?\]\s*/, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-      return norm === cleanKey;
-    });
-    if (matchedKey) {
-      let p = parseFloat(flatPrices[matchedKey]) || 0;
-      if (p > 0) return p > 100 ? p / 1000 : p;
-    }
-    if (CROP_FLOWER_PRICES[cleanKey] !== undefined) {
-      return CROP_FLOWER_PRICES[cleanKey];
-    }
-    return 0.01;
+const RESOURCE_FLOWER_FALLBACK_PRICES = {
+  "egg": 0.021,
+  "milk": 0.1263,
+  "feather": 0.00364,
+  "leather": 0.080,
+  "wool": 0.0205,
+  "merinowool": 0.0039,
+  "honey": 0.0997,
+  "wood": 0.0114,
+  "stone": 0.0200,
+  "iron": 0.0675,
+  "gold": 0.3044,
+  "crimstone": 0.74,
+  "obsidian": 15.288,
+  "salt": 0.00417
+};
+
+function getFlowerUnitPrice(cleanKey, flatPrices = {}) {
+  let matchedKey = Object.keys(flatPrices).find(k => {
+    let norm = k.replace(/\[.*?\]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    return norm === cleanKey;
+  });
+  if (matchedKey) {
+    let p = parseFloat(flatPrices[matchedKey]) || 0;
+    if (p > 0) return p > 100 ? p / 1000 : p;
   }
+  if (CROP_FLOWER_PRICES[cleanKey] !== undefined) {
+    return CROP_FLOWER_PRICES[cleanKey];
+  }
+  if (RESOURCE_FLOWER_FALLBACK_PRICES[cleanKey] !== undefined) {
+    return RESOURCE_FLOWER_FALLBACK_PRICES[cleanKey];
+  }
+  return 0.01;
+}
 
 module.exports = {
   CROP_FLOWER_PRICES,
+  RESOURCE_FLOWER_FALLBACK_PRICES,
   getFlowerUnitPrice
 };

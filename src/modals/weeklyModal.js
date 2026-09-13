@@ -1,4 +1,4 @@
-import { FLOWER_IMG_HTML, FLOWER_IMG_SMALL_HTML, getItemTaxRate } from '../config/constants.js';
+import { FLOWER_IMG_HTML, FLOWER_IMG_SMALL_HTML, getItemTaxRate, RESOURCE_FLOWER_FALLBACK_PRICES } from '../config/constants.js';
 import { formatDateYYYYMMDD, normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, getBettyUnitPrice } from '../utils/formatters.js';
 
 let currentWeekOffset = 0;
@@ -151,7 +151,11 @@ function getItemFlowerPrice(cleanKey) {
     return bettyPrice;
   }
 
-  return 0;
+  if (RESOURCE_FLOWER_FALLBACK_PRICES[cleanKey] !== undefined) {
+    return RESOURCE_FLOWER_FALLBACK_PRICES[cleanKey];
+  }
+
+  return 0.01;
 }
 
 export function renderWeeklySummaryModal() {
@@ -244,13 +248,7 @@ export function renderWeeklySummaryModal() {
       const totalFlowers = parseFloat(archive.total_flowers || 0);
       const itemsMap = archive.items_summary || {};
 
-      if (snapshotsEl) snapshotsEl.textContent = 'Archived Week';
-      if (itemsEl) itemsEl.textContent = `${totalItems.toFixed(1)} Items`;
-      if (flowersEl) flowersEl.innerHTML = `${totalFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
-      if (grossValEl) grossValEl.textContent = `${totalFlowers.toFixed(3)} Flowers`;
-      if (taxValEl) taxValEl.textContent = `0.000 Flowers`;
-      if (netValEl) netValEl.textContent = `${totalFlowers.toFixed(3)} Flowers`;
-
+      let calculatedTotalFlowers = 0;
       let chips = [];
       let itemsHtml = '<div class="space-y-1.5">';
       const itemKeys = Object.keys(itemsMap);
@@ -260,9 +258,23 @@ export function renderWeeklySummaryModal() {
         itemKeys.forEach(itemName => {
           const val = itemsMap[itemName];
           const qty = Array.isArray(val) ? (parseFloat(val[0]) || 0) : (parseFloat(val) || 0);
-          const fl = Array.isArray(val) ? (parseFloat(val[1]) || 0) : 0;
+          let fl = Array.isArray(val) ? (parseFloat(val[1]) || 0) : 0;
           if (qty <= 0) return;
 
+          const cleanKey = normalizeItemKey(itemName);
+          const effectiveTaxRate = getItemTaxRate(itemName, taxRate);
+
+          // Fallback to live or base price if archive stored 0
+          if (fl <= 0) {
+            const unitPrice = getItemFlowerPrice(cleanKey);
+            if (unitPrice > 0) {
+              const grossTotal = unitPrice * qty;
+              const taxAmount = grossTotal * effectiveTaxRate;
+              fl = roundUpToThreeDecimals(grossTotal - taxAmount);
+            }
+          }
+
+          calculatedTotalFlowers += fl;
           chips.push(`+${qty.toFixed(1)} ${itemName} (${fl.toFixed(3)} 🌸)`);
 
           itemsHtml += `
@@ -289,11 +301,20 @@ export function renderWeeklySummaryModal() {
       }
       itemsHtml += '</div>';
 
+      const displayTotalFlowers = Math.max(totalFlowers, roundUpToThreeDecimals(calculatedTotalFlowers));
+
+      if (snapshotsEl) snapshotsEl.textContent = 'Archived Week';
+      if (itemsEl) itemsEl.textContent = `${totalItems.toFixed(1)} Items`;
+      if (flowersEl) flowersEl.innerHTML = `${displayTotalFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
+      if (grossValEl) grossValEl.textContent = `${displayTotalFlowers.toFixed(3)} Flowers`;
+      if (taxValEl) taxValEl.textContent = `0.000 Flowers`;
+      if (netValEl) netValEl.textContent = `${displayTotalFlowers.toFixed(3)} Flowers`;
+
       const chipsHtml = chips.length > 0 ? `
         <div class="p-2.5 bg-amber-100/70 dark:bg-amber-950/40 rounded-xl border border-amber-300/70 dark:border-amber-700/50 text-xs font-mono mb-2">
           <div class="flex justify-between items-center font-bold text-sfl-dirt dark:text-amber-200 text-[11px] pb-1 mb-1 border-b border-amber-200/70 dark:border-amber-700/30">
             <span>🗓️ 7-Day Rollup: ${monFmt} – ${sunFmt}</span>
-            <span class="text-sfl-green dark:text-emerald-400 font-extrabold flex items-center gap-1">${totalFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+            <span class="text-sfl-green dark:text-emerald-400 font-extrabold flex items-center gap-1">${displayTotalFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
           </div>
           <div class="text-[11px] text-sfl-wood dark:text-amber-200/90 leading-relaxed font-semibold">
             ${chips.join(' • ')}

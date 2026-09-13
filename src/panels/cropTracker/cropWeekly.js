@@ -136,8 +136,18 @@ export function renderCropWeeklySummary() {
           const formattedName = cleanCropKey.charAt(0).toUpperCase() + cleanCropKey.slice(1);
           const val = itemsMap[cropName];
           const qty = Array.isArray(val) ? (parseFloat(val[0]) || 0) : (parseFloat(val) || 0);
-          const fl = Array.isArray(val) ? (parseFloat(val[1]) || 0) : 0;
+          let fl = Array.isArray(val) ? (parseFloat(val[1]) || 0) : 0;
           if (qty <= 0) return;
+
+          if (fl <= 0) {
+            const unitPrice = getItemFlowerPrice(cleanCropKey);
+            if (unitPrice > 0) {
+              const effectiveTaxRate = getItemTaxRate(formattedName || cleanCropKey, taxRate);
+              const grossTotal = unitPrice * qty;
+              const taxAmount = grossTotal * effectiveTaxRate;
+              fl = roundUpToThreeDecimals(grossTotal - taxAmount);
+            }
+          }
 
           archQty += qty;
           archFlowers += fl;
