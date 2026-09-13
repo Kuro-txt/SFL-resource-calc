@@ -3,6 +3,45 @@ import { formatDateYYYYMMDD, normalizeItemKey, roundUpToOneDecimal, roundUpToThr
 
 let currentWeekOffset = 0;
 
+export let cachedWeeklyArchives = null;
+let isFetchingWeeklyArchives = false;
+
+export async function getWeeklyArchive(mondayStr) {
+  if (!cachedWeeklyArchives && !isFetchingWeeklyArchives) {
+    isFetchingWeeklyArchives = true;
+    try {
+      const client = window.supabaseClient;
+      const activeUser = window.currentUser;
+      const farmId = localStorage.getItem('sfl_farm_id') || '';
+      let loaded = [];
+
+      if (client && activeUser) {
+        const { data } = await client.from('weekly_yields').select('*').eq('user_id', activeUser.id);
+        if (Array.isArray(data) && data.length > 0) loaded = data;
+      }
+
+      if (loaded.length === 0) {
+        const backend = window.BACKEND_URL || '';
+        const res = await fetch(`${backend}/api/weekly-yields?userId=${encodeURIComponent(activeUser?.id || '')}&farmId=${encodeURIComponent(farmId)}`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) loaded = json.data;
+      }
+
+      cachedWeeklyArchives = loaded;
+    } catch (e) {
+      console.warn("Weekly archive fetch error:", e.message);
+      cachedWeeklyArchives = [];
+    } finally {
+      isFetchingWeeklyArchives = false;
+    }
+  }
+
+  if (Array.isArray(cachedWeeklyArchives)) {
+    return cachedWeeklyArchives.find(w => (w.week_start || '').split('T')[0] === mondayStr);
+  }
+  return null;
+}
+
 export function renderWeeklyModalTemplate() {
   const container = document.getElementById('weekly-modal-mount');
   if (!container) return;
@@ -176,45 +215,6 @@ export function renderWeeklySummaryModal() {
   const grossValEl = document.getElementById('weekly-gross-val');
   const taxValEl = document.getElementById('weekly-tax-val');
   const netValEl = document.getElementById('weekly-net-val');
-
-export let cachedWeeklyArchives = null;
-let isFetchingWeeklyArchives = false;
-
-export async function getWeeklyArchive(mondayStr) {
-  if (!cachedWeeklyArchives && !isFetchingWeeklyArchives) {
-    isFetchingWeeklyArchives = true;
-    try {
-      const client = window.supabaseClient;
-      const activeUser = window.currentUser;
-      const farmId = localStorage.getItem('sfl_farm_id') || '';
-      let loaded = [];
-
-      if (client && activeUser) {
-        const { data } = await client.from('weekly_yields').select('*').eq('user_id', activeUser.id);
-        if (Array.isArray(data) && data.length > 0) loaded = data;
-      }
-
-      if (loaded.length === 0) {
-        const backend = window.BACKEND_URL || '';
-        const res = await fetch(`${backend}/api/weekly-yields?userId=${encodeURIComponent(activeUser?.id || '')}&farmId=${encodeURIComponent(farmId)}`);
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) loaded = json.data;
-      }
-
-      cachedWeeklyArchives = loaded;
-    } catch (e) {
-      console.warn("Weekly archive fetch error:", e.message);
-      cachedWeeklyArchives = [];
-    } finally {
-      isFetchingWeeklyArchives = false;
-    }
-  }
-
-  if (Array.isArray(cachedWeeklyArchives)) {
-    return cachedWeeklyArchives.find(w => (w.week_start || '').split('T')[0] === mondayStr);
-  }
-  return null;
-}
 
   const sortedDates = Object.keys(dailySnapshotsMap).sort().reverse();
 
