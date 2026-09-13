@@ -175,8 +175,8 @@ export function renderCropTrackerTemplate() {
           <!-- DAY-BY-DAY HARVEST SECTION CONTAINER (FLOWS NATURALLY WITHOUT INNER SCROLLBAR) -->
           <div class="space-y-3">
             <h4 class="text-xs font-bold text-sfl-dirt uppercase tracking-wider border-b border-amber-200/60 pb-1 flex justify-between items-center">
-              <span>📅 Day-by-Day Harvest Log</span>
-              <span class="text-[10px] text-sfl-woodLight font-mono">Plots / Yield / Net Flowers</span>
+              <span id="crop-weekly-harvest-log-title">📅 Day-by-Day Harvest Log</span>
+              <span id="crop-weekly-harvest-log-subtitle" class="text-[10px] text-sfl-woodLight font-mono">Plots / Yield / Net Flowers</span>
             </h4>
             <div id="crop-weekly-breakdown" class="space-y-3.5 text-xs"></div>
           </div>

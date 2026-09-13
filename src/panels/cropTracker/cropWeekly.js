@@ -28,14 +28,14 @@ export function getCropWeekRange(offset = 0) {
 
 export function renderCropWeeklySummary() {
   const { mondayStr, sundayStr, mondayDate, sundayDate } = getCropWeekRange(currentCropWeekOffset);
+  const monFmt = mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const sunFmt = sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
   const dateRangeEl = document.getElementById('crop-weekly-date-range');
   const weekLabelEl = document.getElementById('crop-week-label-badge');
   const nextBtn = document.getElementById('next-crop-week-btn');
 
   if (dateRangeEl) {
-    const monFmt = mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const sunFmt = sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     dateRangeEl.textContent = `📅 ${monFmt} – ${sunFmt}`;
   }
 
@@ -98,7 +98,13 @@ export function renderCropWeeklySummary() {
   const sortedDates = Object.keys(dailyHarvestMap).sort().reverse();
   const isArchivedWeek = currentCropWeekOffset <= -3 || sortedDates.length === 0;
 
+  const harvestTitleEl = document.getElementById('crop-weekly-harvest-log-title');
+  const harvestSubEl = document.getElementById('crop-weekly-harvest-log-subtitle');
+
   if (isArchivedWeek) {
+    if (harvestTitleEl) harvestTitleEl.textContent = `📅 Archived Harvest (${monFmt} – ${sunFmt})`;
+    if (harvestSubEl) harvestSubEl.textContent = `Weekly Summary`;
+
     const archive = cachedWeeklyArchives ? cachedWeeklyArchives.find(w => (w.week_start || '').split('T')[0] === mondayStr) : null;
 
     if (!archive && cachedWeeklyArchives === null) {
@@ -122,7 +128,8 @@ export function renderCropWeeklySummary() {
       if (cropKeys.length > 0) {
         let archQty = 0;
         let archFlowers = 0;
-        let cropCardsHtml = '<div class="space-y-2">';
+        let chips = [];
+        let cropCardsHtml = '<div class="space-y-1.5">';
 
         cropKeys.forEach(cropName => {
           const cleanCropKey = normalizeItemKey(cropName);
@@ -130,8 +137,12 @@ export function renderCropWeeklySummary() {
           const val = itemsMap[cropName];
           const qty = Array.isArray(val) ? (parseFloat(val[0]) || 0) : (parseFloat(val) || 0);
           const fl = Array.isArray(val) ? (parseFloat(val[1]) || 0) : 0;
+          if (qty <= 0) return;
+
           archQty += qty;
           archFlowers += fl;
+
+          chips.push(`+${qty.toFixed(1)} ${formattedName} (${fl.toFixed(3)} 🌸)`);
 
           let typeIcon = '🌾';
           let typeBadge = '';
@@ -144,15 +155,20 @@ export function renderCropWeeklySummary() {
           }
 
           cropCardsHtml += `
-            <div class="flex justify-between items-center p-2.5 bg-amber-50/80 dark:bg-amber-950/30 rounded-lg border border-amber-200/60 dark:border-amber-700/40 text-xs font-mono">
-              <span class="font-bold text-sfl-dirt dark:text-amber-100 flex items-center gap-1.5">
-                <span>${typeIcon}</span> <span>${formattedName}</span> ${typeBadge}
-              </span>
-              <div class="flex items-center gap-2">
-                <span class="text-sfl-wood dark:text-amber-200 font-bold bg-amber-100/90 dark:bg-amber-900/40 px-2 py-0.5 rounded border border-amber-300/60">
+            <div class="flex items-center justify-between px-3 py-2 bg-amber-50/80 dark:bg-amber-950/30 rounded-lg border border-amber-200/60 dark:border-amber-700/40 text-xs font-mono whitespace-nowrap overflow-x-auto gap-2">
+              <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                <span class="font-bold text-sfl-dirt dark:text-amber-100 flex items-center gap-1.5 whitespace-nowrap">
+                  <span>${typeIcon}</span> <span>${formattedName}</span> ${typeBadge}
+                </span>
+                <span class="text-[10px] text-sfl-woodLight dark:text-amber-300/70 font-sans font-bold bg-amber-100/90 dark:bg-amber-900/40 px-1.5 py-0.5 rounded border border-amber-200/80 dark:border-amber-700/50 whitespace-nowrap">
+                  📅 ${monFmt} – ${sunFmt}
+                </span>
+              </div>
+              <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                <span class="text-sfl-wood dark:text-amber-200 font-bold bg-amber-100/90 dark:bg-amber-900/40 px-2 py-0.5 rounded border border-amber-300/60 whitespace-nowrap">
                   +${qty.toFixed(1)} qty
                 </span>
-                <span class="text-xs text-sfl-green dark:text-emerald-400 font-extrabold flex items-center gap-1 bg-green-100 dark:bg-green-950/50 border border-sfl-green/30 px-2 py-0.5 rounded">
+                <span class="text-xs text-sfl-green dark:text-emerald-400 font-extrabold flex items-center gap-1 bg-green-100 dark:bg-green-950/50 border border-sfl-green/30 px-2 py-0.5 rounded whitespace-nowrap">
                   ${fl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
                 </span>
               </div>
@@ -161,7 +177,19 @@ export function renderCropWeeklySummary() {
         });
         cropCardsHtml += '</div>';
 
-        if (breakdownEl) breakdownEl.innerHTML = cropCardsHtml;
+        const chipsHtml = chips.length > 0 ? `
+          <div class="p-2.5 bg-amber-100/70 dark:bg-amber-950/40 rounded-xl border border-amber-300/70 dark:border-amber-700/50 text-xs font-mono mb-2">
+            <div class="flex justify-between items-center font-bold text-sfl-dirt dark:text-amber-200 text-[11px] pb-1 mb-1 border-b border-amber-200/70 dark:border-amber-700/30">
+              <span>🗓️ 7-Day Rollup: ${monFmt} – ${sunFmt}</span>
+              <span class="text-sfl-green dark:text-emerald-400 font-extrabold flex items-center gap-1">${archFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+            </div>
+            <div class="text-[11px] text-sfl-wood dark:text-amber-200/90 leading-relaxed font-semibold">
+              ${chips.join(' • ')}
+            </div>
+          </div>
+        ` : '';
+
+        if (breakdownEl) breakdownEl.innerHTML = chipsHtml + cropCardsHtml;
         if (cyclesEl) cyclesEl.textContent = 'Archived';
         if (qtyEl) qtyEl.textContent = archQty.toFixed(1);
         if (flowersEl) flowersEl.innerHTML = `${archFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
@@ -181,6 +209,9 @@ export function renderCropWeeklySummary() {
     if (netValEl) netValEl.textContent = '0.000 Flowers';
     return;
   }
+
+  if (harvestTitleEl) harvestTitleEl.textContent = `📅 Day-by-Day Harvest Log (${sortedDates.length} Days)`;
+  if (harvestSubEl) harvestSubEl.textContent = `Plots / Yield / Net Flowers`;
 
   let html = '';
 
@@ -235,37 +266,34 @@ export function renderCropWeeklySummary() {
       }
 
       dayCropsHtml += `
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-2.5 bg-amber-50/70 dark:bg-amber-950/30 rounded-lg border border-amber-200/50 dark:border-amber-700/40 gap-2">
-          <div class="flex flex-col">
-            <span class="font-bold text-sfl-dirt dark:text-amber-100 text-xs flex items-center gap-1 flex-wrap">
+        <div class="flex items-center justify-between p-2 bg-amber-50/70 dark:bg-amber-950/30 rounded-lg border border-amber-200/50 dark:border-amber-700/40 gap-2 whitespace-nowrap overflow-x-auto text-xs font-mono">
+          <div class="flex items-center gap-2 shrink-0 whitespace-nowrap">
+            <span class="font-bold text-sfl-dirt dark:text-amber-100 flex items-center gap-1 whitespace-nowrap">
               <span>${typeIcon}</span> <span>${formattedName}</span> ${typeBadge}
             </span>
-            <span class="text-[10px] text-sfl-woodLight dark:text-amber-300/70 font-mono">Unit: ${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</span>
+            <span class="text-[10px] text-sfl-woodLight dark:text-amber-300/70 font-mono whitespace-nowrap">(${unitPrice.toFixed(3)}/ea)</span>
           </div>
           
-          <div class="flex flex-wrap items-center gap-2 font-mono text-xs w-full sm:w-auto justify-between sm:justify-end">
-            <span class="text-sfl-wood dark:text-amber-200 font-bold bg-amber-100/90 dark:bg-amber-900/40 px-2 py-0.5 rounded border border-amber-300/60 dark:border-amber-700/50">
+          <div class="flex items-center gap-2 shrink-0 whitespace-nowrap font-mono text-xs">
+            <span class="text-sfl-wood dark:text-amber-200 font-bold bg-amber-100/90 dark:bg-amber-900/40 px-2 py-0.5 rounded border border-amber-300/60 dark:border-amber-700/50 whitespace-nowrap">
               ${cycles} ${unitLabel}
             </span>
 
             <!-- CLEAN INLINE AVG YIELD PILL -->
-            <div class="flex items-center gap-1.5 bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 px-2 py-0.5 rounded-lg shadow-xs">
+            <div class="flex items-center gap-1 bg-amber-900/10 dark:bg-amber-950/40 border border-amber-600/30 dark:border-amber-700/50 px-1.5 py-0.5 rounded-lg shadow-xs whitespace-nowrap">
               <span class="text-[10px] font-bold text-sfl-wood dark:text-amber-300 uppercase">Yield:</span>
               <input type="number" step="0.05" min="0.1" value="${dayBaseYield}"
                 onchange="updateDailyCropHistoricalYield('${dateStr}', '${cleanCropKey}', this.value)"
                 class="w-14 sfl-input rounded px-1.5 py-0.5 text-xs font-bold text-center text-sfl-dirt focus:ring-1 focus:ring-sfl-gold">
             </div>
 
-            <span class="text-sfl-dirt dark:text-amber-100 font-extrabold text-xs">
+            <span class="text-sfl-dirt dark:text-amber-100 font-extrabold text-xs whitespace-nowrap">
               = ${cropCalculatedQty.toFixed(1)} qty
             </span>
 
-            <div class="flex flex-col items-end">
-              <span class="text-xs text-sfl-green dark:text-emerald-400 font-extrabold flex items-center gap-1 bg-green-100 dark:bg-green-950/50 border border-sfl-green/30 px-2 py-0.5 rounded">
-                ${netFlowerVal.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
-              </span>
-              <span class="text-[9px] text-sfl-accent font-mono">Tax (${(effectiveTaxRate * 100).toFixed(0)}%): -${taxAmount.toFixed(3)}</span>
-            </div>
+            <span class="text-xs text-sfl-green dark:text-emerald-400 font-extrabold flex items-center gap-1 bg-green-100 dark:bg-green-950/50 border border-sfl-green/30 px-2 py-0.5 rounded whitespace-nowrap">
+              ${netFlowerVal.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+            </span>
           </div>
         </div>
       `;
