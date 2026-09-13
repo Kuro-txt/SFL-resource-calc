@@ -177,9 +177,104 @@ export function renderWeeklySummaryModal() {
   const taxValEl = document.getElementById('weekly-tax-val');
   const netValEl = document.getElementById('weekly-net-val');
 
+export let cachedWeeklyArchives = null;
+let isFetchingWeeklyArchives = false;
+
+export async function getWeeklyArchive(mondayStr) {
+  if (!cachedWeeklyArchives && !isFetchingWeeklyArchives) {
+    isFetchingWeeklyArchives = true;
+    try {
+      const client = window.supabaseClient;
+      const activeUser = window.currentUser;
+      const farmId = localStorage.getItem('sfl_farm_id') || '';
+      let loaded = [];
+
+      if (client && activeUser) {
+        const { data } = await client.from('weekly_yields').select('*').eq('user_id', activeUser.id);
+        if (Array.isArray(data) && data.length > 0) loaded = data;
+      }
+
+      if (loaded.length === 0) {
+        const backend = window.BACKEND_URL || '';
+        const res = await fetch(`${backend}/api/weekly-yields?userId=${encodeURIComponent(activeUser?.id || '')}&farmId=${encodeURIComponent(farmId)}`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) loaded = json.data;
+      }
+
+      cachedWeeklyArchives = loaded;
+    } catch (e) {
+      console.warn("Weekly archive fetch error:", e.message);
+      cachedWeeklyArchives = [];
+    } finally {
+      isFetchingWeeklyArchives = false;
+    }
+  }
+
+  if (Array.isArray(cachedWeeklyArchives)) {
+    return cachedWeeklyArchives.find(w => (w.week_start || '').split('T')[0] === mondayStr);
+  }
+  return null;
+}
+
   const sortedDates = Object.keys(dailySnapshotsMap).sort().reverse();
 
   if (sortedDates.length === 0) {
+    const archive = cachedWeeklyArchives ? cachedWeeklyArchives.find(w => (w.week_start || '').split('T')[0] === mondayStr) : null;
+
+    if (!archive && cachedWeeklyArchives === null) {
+      if (breakdownContainer) breakdownContainer.innerHTML = '<div class="text-center italic text-sfl-woodLight py-6 bg-white/60 dark:bg-amber-950/20 rounded-xl border border-sfl-cardBorder/40">Loading archived week...</div>';
+      getWeeklyArchive(mondayStr).then(found => {
+        if (found) renderWeeklySummaryModal();
+        else {
+          if (breakdownContainer) breakdownContainer.innerHTML = '<div class="text-center italic text-sfl-woodLight py-6 bg-white/60 dark:bg-amber-950/20 rounded-xl border border-sfl-cardBorder/40">No harvest snapshots logged for this calendar week.</div>';
+        }
+      });
+      return;
+    }
+
+    if (archive) {
+      const totalItems = parseFloat(archive.total_items || 0);
+      const totalFlowers = parseFloat(archive.total_flowers || 0);
+      const itemsMap = archive.items_summary || {};
+
+      if (snapshotsEl) snapshotsEl.textContent = 'Archived Week';
+      if (itemsEl) itemsEl.textContent = `${totalItems.toFixed(1)} Items`;
+      if (flowersEl) flowersEl.innerHTML = `${totalFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
+      if (grossValEl) grossValEl.textContent = `${totalFlowers.toFixed(3)} Flowers`;
+      if (taxValEl) taxValEl.textContent = `0.000 Flowers`;
+      if (netValEl) netValEl.textContent = `${totalFlowers.toFixed(3)} Flowers`;
+
+      let itemsHtml = '<div class="space-y-1.5">';
+      const itemKeys = Object.keys(itemsMap);
+      if (itemKeys.length === 0) {
+        itemsHtml += '<div class="text-center italic text-xs text-sfl-woodLight py-3">No individual items recorded for this week.</div>';
+      } else {
+        itemKeys.forEach(itemName => {
+          const val = itemsMap[itemName];
+          const qty = Array.isArray(val) ? (parseFloat(val[0]) || 0) : (parseFloat(val) || 0);
+          const fl = Array.isArray(val) ? (parseFloat(val[1]) || 0) : 0;
+          itemsHtml += `
+            <div class="flex justify-between items-center px-3 py-2 bg-amber-50/80 dark:bg-amber-950/30 rounded-lg border border-amber-200/60 dark:border-amber-700/40 text-xs font-mono">
+              <span class="font-bold text-sfl-dirt dark:text-amber-100 flex items-center gap-1.5">
+                <span>🌾</span> ${itemName}
+              </span>
+              <div class="flex items-center gap-2">
+                <span class="text-sfl-wood dark:text-amber-200 font-bold bg-amber-100/90 dark:bg-amber-900/40 px-2 py-0.5 rounded border border-amber-300/60">
+                  +${qty.toFixed(1)}
+                </span>
+                <span class="text-xs text-sfl-green dark:text-emerald-400 font-extrabold flex items-center gap-1 bg-green-100 dark:bg-green-950/50 border border-sfl-green/30 px-2 py-0.5 rounded">
+                  ${fl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+                </span>
+              </div>
+            </div>
+          `;
+        });
+      }
+      itemsHtml += '</div>';
+      if (breakdownContainer) breakdownContainer.innerHTML = itemsHtml;
+      return;
+    }
+
     if (breakdownContainer) breakdownContainer.innerHTML = '<div class="text-center italic text-sfl-woodLight py-6 bg-white/60 dark:bg-amber-950/20 rounded-xl border border-sfl-cardBorder/40">No harvest snapshots logged for this calendar week.</div>';
     if (snapshotsEl) snapshotsEl.textContent = '0 Logs';
     if (itemsEl) itemsEl.textContent = '0.0 Items';

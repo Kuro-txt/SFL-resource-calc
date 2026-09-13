@@ -245,6 +245,8 @@ export async function saveEditedSnapshot(date) {
       net_flowers: roundUpToThreeDecimals(grandNetFlowers),
       crops: updatedCrops
     }, { onConflict: 'user_id,yield_date' });
+
+    syncWeeklyYieldForDate(activeUser.id, date).catch(() => {});
   }
 
   localStorage.setItem('sfl_daily_snapshots', JSON.stringify(history));
@@ -267,10 +269,25 @@ export async function deleteSnapshotRow(date) {
 
   if (activeUser && client) {
     await client.from('daily_yields').delete().eq('user_id', activeUser.id).eq('yield_date', date);
+    syncWeeklyYieldForDate(activeUser.id, date).catch(() => {});
   }
 
   if (window.editingSnapshotDate === date) window.editingSnapshotDate = null;
   renderSnapshotHistory();
+}
+
+export async function syncWeeklyYieldForDate(userId, date) {
+  if (!userId || !date) return;
+  const backend = window.BACKEND_URL || '';
+  try {
+    await fetch(`${backend}/api/weekly-yields/recalc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, date })
+    });
+  } catch(e) {
+    console.warn("Weekly sync notice:", e.message);
+  }
 }
 
 let lastYieldFetchTime = 0;
@@ -337,19 +354,23 @@ export async function loadCloudYieldHistory(force = false) {
       existingLocal = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
     } catch(e) { existingLocal = []; }
 
+    const cutoff21 = new Date();
+    cutoff21.setDate(cutoff21.getDate() - 21);
+    const cutoff21Str = cutoff21.toISOString().split('T')[0];
+
     const mergedMap = new Map();
-    // 1. Keep existing local records so older snapshots are never lost
+    // 1. Keep existing local records within 21-day retention window
     if (Array.isArray(existingLocal)) {
       existingLocal.forEach(item => {
         const d = item.date || item.yield_date;
-        if (d) mergedMap.set(d, item);
+        if (d && d >= cutoff21Str) mergedMap.set(d, item);
       });
     }
 
-    // 2. Overlay cloud yields and guarantee crops details are filled
+    // 2. Overlay cloud yields within 21-day window
     cloudYields.forEach(item => {
       const d = item.yield_date || item.date;
-      if (!d) return;
+      if (!d || d < cutoff21Str) return;
 
       const existing = mergedMap.get(d) || {};
       let cloudCrops = Array.isArray(item.crops) ? item.crops : [];

@@ -114,8 +114,16 @@ export async function loadCloudUserData() {
     if (typeof window.renderTrackedBadges === 'function') window.renderTrackedBadges();
   }
 
-  await window.supabaseClient.from('daily_yields').delete().eq('user_id', window.currentUser.id).lt('yield_date', cutoffDateStr);
-  await window.supabaseClient.from('preharvest_baselines').delete().eq('user_id', window.currentUser.id).lt('snapshot_date', cutoffDateStr);
+  const cutoffBaselines = new Date();
+  cutoffBaselines.setDate(cutoffBaselines.getDate() - 7);
+  const cutoffBaselinesStr = cutoffBaselines.toISOString().split('T')[0];
+
+  const cutoffYields = new Date();
+  cutoffYields.setDate(cutoffYields.getDate() - 21);
+  const cutoffYieldsStr = cutoffYields.toISOString().split('T')[0];
+
+  await window.supabaseClient.from('preharvest_baselines').delete().eq('user_id', window.currentUser.id).lt('snapshot_date', cutoffBaselinesStr);
+  await window.supabaseClient.from('daily_yields').delete().eq('user_id', window.currentUser.id).lt('yield_date', cutoffYieldsStr);
 
   let yields = [];
   try {

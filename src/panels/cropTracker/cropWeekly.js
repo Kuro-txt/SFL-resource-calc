@@ -3,6 +3,7 @@ import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, formatDa
 import { cropBaseYields, globalAvgYield, updateDailyCropHistoricalYield } from './cropState.js';
 import { getItemFlowerPrice } from './cropTable.js';
 import { currentCropWeekOffset } from './index.js';
+import { getWeeklyArchive, cachedWeeklyArchives } from '../../modals/weeklyModal.js';
 
 export function getCropWeekRange(offset = 0) {
   const now = new Date();
@@ -97,6 +98,79 @@ export function renderCropWeeklySummary() {
   const sortedDates = Object.keys(dailyHarvestMap).sort().reverse();
 
   if (sortedDates.length === 0) {
+    const archive = cachedWeeklyArchives ? cachedWeeklyArchives.find(w => (w.week_start || '').split('T')[0] === mondayStr) : null;
+
+    if (!archive && cachedWeeklyArchives === null) {
+      if (breakdownEl) breakdownEl.innerHTML = '<div class="text-center italic text-sfl-woodLight py-6 bg-white/60 dark:bg-amber-950/20 rounded-xl border border-sfl-cardBorder/40">Loading archived week...</div>';
+      getWeeklyArchive(mondayStr).then(found => {
+        if (found) renderCropWeeklySummary();
+        else {
+          if (breakdownEl) breakdownEl.innerHTML = '<div class="text-center italic text-sfl-woodLight py-6 bg-white/60 dark:bg-amber-950/20 rounded-xl border border-sfl-cardBorder/40">No crop activity logged for this calendar week.</div>';
+        }
+      });
+      return;
+    }
+
+    if (archive) {
+      const itemsMap = archive.items_summary || {};
+      const cropKeys = Object.keys(itemsMap).filter(name => {
+        const cleanKey = normalizeItemKey(name);
+        return SFL_PLOT_CROPS.has(cleanKey) || SFL_GREENHOUSE_CROPS.has(cleanKey) || SFL_FRUITS.has(cleanKey);
+      });
+
+      if (cropKeys.length > 0) {
+        let archQty = 0;
+        let archFlowers = 0;
+        let cropCardsHtml = '<div class="space-y-2">';
+
+        cropKeys.forEach(cropName => {
+          const cleanCropKey = normalizeItemKey(cropName);
+          const formattedName = cleanCropKey.charAt(0).toUpperCase() + cleanCropKey.slice(1);
+          const val = itemsMap[cropName];
+          const qty = Array.isArray(val) ? (parseFloat(val[0]) || 0) : (parseFloat(val) || 0);
+          const fl = Array.isArray(val) ? (parseFloat(val[1]) || 0) : 0;
+          archQty += qty;
+          archFlowers += fl;
+
+          let typeIcon = '🌾';
+          let typeBadge = '';
+          if (SFL_GREENHOUSE_CROPS.has(cleanCropKey)) {
+            typeIcon = '🏡';
+            typeBadge = `<span class="text-[9px] bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 font-bold px-1.5 py-0.5 rounded ml-1 border border-emerald-300/60">Greenhouse</span>`;
+          } else if (SFL_FRUITS.has(cleanCropKey)) {
+            typeIcon = '🍎';
+            typeBadge = `<span class="text-[9px] bg-orange-100 dark:bg-orange-950/70 text-orange-800 dark:text-orange-300 font-bold px-1.5 py-0.5 rounded ml-1 border border-orange-300/60">Fruit</span>`;
+          }
+
+          cropCardsHtml += `
+            <div class="flex justify-between items-center p-2.5 bg-amber-50/80 dark:bg-amber-950/30 rounded-lg border border-amber-200/60 dark:border-amber-700/40 text-xs font-mono">
+              <span class="font-bold text-sfl-dirt dark:text-amber-100 flex items-center gap-1.5">
+                <span>${typeIcon}</span> <span>${formattedName}</span> ${typeBadge}
+              </span>
+              <div class="flex items-center gap-2">
+                <span class="text-sfl-wood dark:text-amber-200 font-bold bg-amber-100/90 dark:bg-amber-900/40 px-2 py-0.5 rounded border border-amber-300/60">
+                  +${qty.toFixed(1)} qty
+                </span>
+                <span class="text-xs text-sfl-green dark:text-emerald-400 font-extrabold flex items-center gap-1 bg-green-100 dark:bg-green-950/50 border border-sfl-green/30 px-2 py-0.5 rounded">
+                  ${fl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+                </span>
+              </div>
+            </div>
+          `;
+        });
+        cropCardsHtml += '</div>';
+
+        if (breakdownEl) breakdownEl.innerHTML = cropCardsHtml;
+        if (cyclesEl) cyclesEl.textContent = 'Archived';
+        if (qtyEl) qtyEl.textContent = archQty.toFixed(1);
+        if (flowersEl) flowersEl.innerHTML = `${archFlowers.toFixed(3)} ${FLOWER_IMG_HTML}`;
+        if (grossValEl) grossValEl.textContent = `${archFlowers.toFixed(3)} Flowers`;
+        if (taxValEl) taxValEl.textContent = `0.000 Flowers`;
+        if (netValEl) netValEl.textContent = `${archFlowers.toFixed(3)} Flowers`;
+        return;
+      }
+    }
+
     if (breakdownEl) breakdownEl.innerHTML = '<div class="text-center italic text-sfl-woodLight py-6 bg-white/60 dark:bg-amber-950/20 rounded-xl border border-sfl-cardBorder/40">No crop activity logged for this calendar week.</div>';
     if (cyclesEl) cyclesEl.textContent = '0';
     if (qtyEl) qtyEl.textContent = '0.0';

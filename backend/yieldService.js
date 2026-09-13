@@ -270,6 +270,20 @@ async function processYieldCalculation(supabase) {
   }
 
   console.log(`🏁 [Yield Calculation] Completed: ${savedYieldsCount} farm yields saved to Supabase.`);
+
+  // Auto-aggregate completed weeks and safely prune expired logs
+  try {
+    await aggregateCompletedWeeks(supabase);
+  } catch (err) {
+    console.error("⚠️ [Weekly Aggregation Error]:", err.message);
+  }
+
+  try {
+    await pruneOldLogs(supabase);
+  } catch (err) {
+    console.error("⚠️ [Log Pruning Error]:", err.message);
+  }
+
   return { success: true, processed: users.length, saved: savedYieldsCount };
 }
 
@@ -544,8 +558,253 @@ async function repairMissingBaselines(supabase) {
   return { success: true, repairedCount };
 }
 
+function getWeekRangeUTC(dateInput) {
+  let dt;
+  if (typeof dateInput === 'string') {
+    const [y, m, d] = dateInput.split('-').map(Number);
+    dt = new Date(Date.UTC(y, m - 1, d));
+  } else {
+    dt = new Date(dateInput);
+  }
+  const day = dt.getUTCDay(); // 0 = Sunday, 1 = Monday...
+  const diffToMonday = (day === 0 ? 6 : day - 1);
+  const mon = new Date(dt);
+  mon.setUTCDate(dt.getUTCDate() - diffToMonday);
+  const sun = new Date(mon);
+  sun.setUTCDate(mon.getUTCDate() + 6);
+  return {
+    monday: mon.toISOString().split('T')[0],
+    sunday: sun.toISOString().split('T')[0]
+  };
+}
+
+async function aggregateCompletedWeeks(supabase, forceAll = false) {
+  console.log("🗓️ [Weekly Aggregation] Checking for completed weeks to rollup...");
+  const todayDate = new Date().toISOString().split('T')[0];
+
+  const { data: yields, error } = await supabase
+    .from('daily_yields')
+    .select('*')
+    .order('yield_date', { ascending: true });
+
+  if (error || !yields || yields.length === 0) {
+    console.log("ℹ️ [Weekly Aggregation] No daily yields found to aggregate.");
+    return { success: true, aggregated: 0 };
+  }
+
+  const { data: profiles } = await supabase.from('profiles').select('id, farm_id');
+  const userFarmMap = {};
+  if (Array.isArray(profiles)) {
+    profiles.forEach(p => { userFarmMap[p.id] = p.farm_id; });
+  }
+
+  const weeksMap = new Map();
+  for (const row of yields) {
+    if (!row.user_id || !row.yield_date) continue;
+    const { monday, sunday } = getWeekRangeUTC(row.yield_date);
+
+    // Only roll up completed weeks unless forceAll is true
+    if (!forceAll && sunday > todayDate) {
+      continue;
+    }
+
+    const key = `${row.user_id}___${monday}`;
+    if (!weeksMap.has(key)) {
+      weeksMap.set(key, {
+        user_id: row.user_id,
+        farm_id: userFarmMap[row.user_id] || '',
+        week_start: monday,
+        week_end: sunday,
+        total_items: 0,
+        total_flowers: 0,
+        itemsMap: {}
+      });
+    }
+
+    const wk = weeksMap.get(key);
+    wk.total_items += parseFloat(row.total_count) || 0;
+    wk.total_flowers += parseFloat(row.net_flowers) || 0;
+
+    let crops = Array.isArray(row.crops) ? row.crops : [];
+    if (typeof crops === 'string') {
+      try { crops = JSON.parse(crops); } catch (e) { crops = []; }
+    }
+    if (!crops.length) {
+      let acts = Array.isArray(row.crop_activity_yields) ? row.crop_activity_yields : [];
+      if (typeof acts === 'string') {
+        try { acts = JSON.parse(acts); } catch (e) { acts = []; }
+      }
+      if (acts.length) {
+        crops = acts.map(c => ({
+          name: c.crop || c.name || 'Crop',
+          qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
+          flowers: parseFloat(c.netFlowers || c.flowers || 0)
+        }));
+      }
+    }
+
+    for (const c of crops) {
+      const name = c.name || c.item || 'Item';
+      const qty = parseFloat(c.qty) || 0;
+      const fl = parseFloat(c.flowers) || 0;
+      if (qty <= 0) continue;
+
+      if (!wk.itemsMap[name]) wk.itemsMap[name] = [0, 0];
+      wk.itemsMap[name][0] = Math.round((wk.itemsMap[name][0] + qty) * 10) / 10;
+      wk.itemsMap[name][1] = Math.round((wk.itemsMap[name][1] + fl) * 1000) / 1000;
+    }
+  }
+
+  let savedCount = 0;
+  for (const [key, wk] of weeksMap.entries()) {
+    const finalTotalItems = Math.round(wk.total_items * 10) / 10;
+    const finalTotalFlowers = Math.round(wk.total_flowers * 1000) / 1000;
+
+    const { error: upsertErr } = await supabase.from('weekly_yields').upsert({
+      user_id: wk.user_id,
+      farm_id: wk.farm_id,
+      week_start: wk.week_start,
+      week_end: wk.week_end,
+      total_items: finalTotalItems,
+      total_flowers: finalTotalFlowers,
+      items_summary: wk.itemsMap,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,week_start' });
+
+    if (upsertErr) {
+      console.warn(`⚠️ [Weekly Yields Notice] Upsert notice for week ${wk.week_start}: ${upsertErr.message}`);
+    } else {
+      savedCount++;
+    }
+  }
+
+  console.log(`🏁 [Weekly Aggregation] Successfully rolled up ${savedCount} weekly summaries into weekly_yields.`);
+  return { success: true, savedCount };
+}
+
+async function pruneOldLogs(supabase) {
+  console.log("🧹 [Retention] Checking for expired logs to prune...");
+
+  // 1. Prune preharvest_baselines older than 7 days
+  const cutoff7 = new Date();
+  cutoff7.setUTCDate(cutoff7.getUTCDate() - 7);
+  const cutoff7Str = cutoff7.toISOString().split('T')[0];
+
+  const { error: baseErr } = await supabase
+    .from('preharvest_baselines')
+    .delete()
+    .lt('snapshot_date', cutoff7Str);
+
+  if (baseErr) {
+    console.warn("⚠️ [Retention] Baseline prune notice:", baseErr.message);
+  } else {
+    console.log(`✅ [Retention] Pruned preharvest_baselines older than ${cutoff7Str}`);
+  }
+
+  // 2. Prune daily_yields older than 21 days (Safety Guard: only if weekly_yields exists and has records)
+  const cutoff21 = new Date();
+  cutoff21.setUTCDate(cutoff21.getUTCDate() - 21);
+  const cutoff21Str = cutoff21.toISOString().split('T')[0];
+
+  const { data: weeklyCheck, error: wErr } = await supabase
+    .from('weekly_yields')
+    .select('id')
+    .limit(1);
+
+  if (wErr || !weeklyCheck || weeklyCheck.length === 0) {
+    console.log("ℹ️ [Retention] weekly_yields not yet populated. Skipping daily_yields prune to protect data.");
+    return;
+  }
+
+  const { error: yieldErr } = await supabase
+    .from('daily_yields')
+    .delete()
+    .lt('yield_date', cutoff21Str);
+
+  if (yieldErr) {
+    console.warn("⚠️ [Retention] Daily yield prune notice:", yieldErr.message);
+  } else {
+    console.log(`✅ [Retention] Pruned daily_yields older than ${cutoff21Str}`);
+  }
+}
+
+async function recalculateWeekForUser(supabase, userId, dateStr) {
+  if (!userId || !dateStr) return null;
+  const { monday, sunday } = getWeekRangeUTC(dateStr);
+
+  const { data: yields, error } = await supabase
+    .from('daily_yields')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('yield_date', monday)
+    .lte('yield_date', sunday);
+
+  if (error || !yields) return null;
+
+  let totalItems = 0;
+  let totalFlowers = 0;
+  const itemsMap = {};
+
+  for (const row of yields) {
+    totalItems += parseFloat(row.total_count) || 0;
+    totalFlowers += parseFloat(row.net_flowers) || 0;
+
+    let crops = Array.isArray(row.crops) ? row.crops : [];
+    if (typeof crops === 'string') {
+      try { crops = JSON.parse(crops); } catch (e) { crops = []; }
+    }
+    if (!crops.length) {
+      let acts = Array.isArray(row.crop_activity_yields) ? row.crop_activity_yields : [];
+      if (typeof acts === 'string') {
+        try { acts = JSON.parse(acts); } catch (e) { acts = []; }
+      }
+      if (acts.length) {
+        crops = acts.map(c => ({
+          name: c.crop || c.name || 'Crop',
+          qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
+          flowers: parseFloat(c.netFlowers || c.flowers || 0)
+        }));
+      }
+    }
+
+    for (const c of crops) {
+      const name = c.name || c.item || 'Item';
+      const qty = parseFloat(c.qty) || 0;
+      const fl = parseFloat(c.flowers) || 0;
+      if (qty <= 0) continue;
+      if (!itemsMap[name]) itemsMap[name] = [0, 0];
+      itemsMap[name][0] = Math.round((itemsMap[name][0] + qty) * 10) / 10;
+      itemsMap[name][1] = Math.round((itemsMap[name][1] + fl) * 1000) / 1000;
+    }
+  }
+
+  const payload = {
+    user_id: userId,
+    week_start: monday,
+    week_end: sunday,
+    total_items: Math.round(totalItems * 10) / 10,
+    total_flowers: Math.round(totalFlowers * 1000) / 1000,
+    items_summary: itemsMap,
+    updated_at: new Date().toISOString()
+  };
+
+  const { error: upsertErr } = await supabase
+    .from('weekly_yields')
+    .upsert(payload, { onConflict: 'user_id,week_start' });
+
+  if (upsertErr) {
+    console.warn(`⚠️ [Recalculate Week Notice] ${upsertErr.message}`);
+  }
+
+  return payload;
+}
+
 module.exports = {
   processYieldCalculation,
   backfillDailyYields,
-  repairMissingBaselines
+  repairMissingBaselines,
+  getWeekRangeUTC,
+  aggregateCompletedWeeks,
+  pruneOldLogs,
+  recalculateWeekForUser
 };
