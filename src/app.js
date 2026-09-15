@@ -13,6 +13,7 @@ import { initWishlistPanel, renderWishlist } from './panels/wishlistPanel.js';
 import { initApiViewerPanel, renderApiViewerPanel } from './panels/apiViewer/apiViewerPanel.js';
 import { initTrackingModal } from './modals/trackingModal.js';
 import { initWeeklySummaryModal } from './modals/weeklyModal.js';
+import { initDashboardPanel, mountDashboard } from './panels/dashboard/dashboardPanel.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log("🚀 Bootstrapping SFL Resource Calculator...");
@@ -28,10 +29,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTrackerPanel();
   initWishlistPanel();
   initApiViewerPanel();
+  initDashboardPanel();
   initTrackingModal();
   initWeeklySummaryModal();
 
   let lastYieldFetch = 0;
+
+  PanelManager.register('dashboard', {
+    onMount: () => mountDashboard()
+  });
 
   PanelManager.register('calc', {
     onMount: () => {
