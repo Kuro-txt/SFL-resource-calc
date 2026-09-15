@@ -2,7 +2,7 @@ const axios = require('axios');
 const { CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES, getFlowerUnitPrice, ALLOWED_DIFFERENCE_ITEMS, ALLOWED_ITEM_KEYS, ALLOWED_ITEM_NAMES, isAllowedDifferenceItem } = require('./prices');
 const { fetchFarmFullDataWithRetry, getStockAmount } = require('./farmApi');
 const { getTodayTradesForFarm } = require('./tradeSync');
-const { KNOWN_IDS } = require('./knownIds');
+const { KNOWN_IDS, getItemNameById } = require('./knownIds');
 
 const CLEAN_TO_OFFICIAL_NAME = {};
 if (typeof KNOWN_IDS === 'object' && KNOWN_IDS !== null) {
@@ -196,8 +196,10 @@ async function processYieldCalculation(supabase) {
     try {
       currentData = await fetchFarmFullDataWithRetry(cleanFarmId);
     } catch (err) {
-      console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: ${err.message}`);
-      await delay(8000);
+      const is429 = err.response?.status === 429 || (err.message && err.message.includes('429'));
+      const waitMs = is429 ? 20000 : 8000;
+      console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: ${err.message}. Waiting ${(waitMs / 1000)}s...`);
+      await delay(waitMs);
       continue;
     }
 

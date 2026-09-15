@@ -99,12 +99,20 @@ async function fetchFarmFullDataRaw(cleanFarmId, maxRetries = 2, customApiKey = 
 
       // If failed and retries remain (retry 1 on attempt 1 failure, retry 2 on attempt 2 failure)
       if (attempt <= maxRetries) {
-        const waitTimeSec = 10; // Exactly 10 seconds later
+        let waitTimeSec = 10;
+        if (status === 429) {
+          const retryAfterHeader = err.response?.headers?.['retry-after'];
+          const headerSec = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 0;
+          waitTimeSec = headerSec > 0 ? headerSec : (attempt === 1 ? 15 : 25);
+        }
         const reason = isTimeoutOrAbort ? `Network/Timeout (${err.code || err.message})` : (status ? `HTTP ${status}` : err.message);
-        console.warn(`⚠️ [Farm #${cleanFarmId}] ${reason}. Retrying in ${waitTimeSec}s... (Retry ${attempt}/${maxRetries})`);
+        const timeStr = new Date().toISOString().substring(11, 19);
+        console.warn(`[${timeStr} UTC] ⚠️ [Farm #${cleanFarmId}] ${reason}. Sleeping ${waitTimeSec}s before retry ${attempt}/${maxRetries}...`);
         await delay(waitTimeSec * 1000);
+        console.log(`[${new Date().toISOString().substring(11, 19)} UTC] 🔄 [Farm #${cleanFarmId}] Finished waiting ${waitTimeSec}s. Retrying attempt ${attempt + 1}/${totalAttempts} now...`);
       } else {
-        console.error(`❌ [Farm #${cleanFarmId}] Failed after ${maxRetries} retries: ${err.message}`);
+        const timeStr = new Date().toISOString().substring(11, 19);
+        console.error(`[${timeStr} UTC] ❌ [Farm #${cleanFarmId}] Failed after ${maxRetries} retries: ${err.message}`);
         throw err;
       }
     }
