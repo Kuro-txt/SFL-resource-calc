@@ -56,32 +56,33 @@ input[type=number] {
 ======================================================== */
 
 .dark body {
-  background-color: #111a0c;
-  background-image: radial-gradient(#1a2e12 15%, transparent 16%), radial-gradient(#1a2e12 15%, transparent 16%);
-  color: #fceade;
+  background-color: #0b0f14;
+  background-image: radial-gradient(#151e28 15%, transparent 16%), radial-gradient(#151e28 15%, transparent 16%);
+  color: #f0f6fc;
 }
 
 .dark .sfl-panel {
-  background-color: #1e140e;
-  border-color: #4a2811;
-  box-shadow: inset -4px -4px 0px #140d09, 0px 8px 0px #080402;
-  color: #f8e5d2;
+  background-color: #121820;
+  border-color: #263242;
+  box-shadow: inset -4px -4px 0px #0a0e13, 0px 8px 0px #020406;
+  color: #f0f6fc;
 }
 
 .dark .sfl-input {
-  background-color: #2b1b12;
-  border-color: #633d1f;
-  color: #fef3c7;
-  box-shadow: inset 2px 2px 0px #140d09;
+  background-color: #0d1218;
+  border-color: #2b3848;
+  color: #f0f6fc;
+  box-shadow: inset 2px 2px 0px #070a0e;
 }
 
 .dark select option {
-  background-color: #2b1b12;
-  color: #fef3c7;
+  background-color: #121820;
+  color: #f0f6fc;
 }
 
 /* CARDS & CONTAINERS */
 .dark .bg-sfl-card,
+.dark .bg-sfl-card\/95,
 .dark .bg-sfl-card\/90,
 .dark .bg-sfl-card\/80,
 .dark .bg-sfl-card\/70,
@@ -89,15 +90,16 @@ input[type=number] {
 .dark .bg-sfl-card\/50,
 .dark .bg-sfl-card\/40,
 .dark .bg-sfl-card\/30 {
-  background-color: #241710 !important;
-  border-color: #4d2d17 !important;
+  background-color: #171f2a !important;
+  border-color: #263445 !important;
+  color: #f0f6fc;
 }
 
 .dark select#tax-select,
 .dark #tax-select {
-  background-color: #2b1b12 !important;
-  color: #fef3c7 !important;
-  border-color: #633d1f !important;
+  background-color: #0d1218 !important;
+  color: #f0f6fc !important;
+  border-color: #2b3848 !important;
 }
 
 .dark .bg-white,
@@ -106,14 +108,20 @@ input[type=number] {
 .dark .bg-white\/80,
 .dark .bg-white\/70,
 .dark .bg-white\/60 {
-  background-color: #1e140e !important;
-  color: #fef3c7 !important;
+  background-color: #171f2a !important;
+  color: #f0f6fc !important;
 }
 
+/* AMBER & WARM SURFACE OVERRIDES IN DARK MODE (REPLACES BROWN WITH SLEEK DARK SLATE) */
+.dark [class*="dark:bg-amber-950"],
+.dark [class*="dark:bg-amber-900"],
 .dark .bg-amber-50,
 .dark .bg-amber-50\/90,
 .dark .bg-amber-50\/80,
 .dark .bg-amber-50\/70,
+.dark .bg-amber-50\/60,
+.dark .bg-amber-50\/50,
+.dark .bg-amber-50\/40,
 .dark .bg-amber-100,
 .dark .bg-amber-100\/90,
 .dark .bg-amber-100\/80,
@@ -123,34 +131,43 @@ input[type=number] {
 .dark .bg-amber-200,
 .dark .bg-amber-200\/90,
 .dark .bg-amber-200\/80,
-.dark .bg-amber-200\/60 {
-  background-color: #2b1b12 !important;
-  color: #fde68a !important;
-  border-color: #59351a !important;
+.dark .bg-amber-200\/60,
+.dark .bg-amber-200\/50,
+.dark .bg-amber-200\/40 {
+  background-color: #1d2633 !important;
+  color: #e2e8f0 !important;
+  border-color: #2d3b4e !important;
+}
+
+.dark [class*="dark:border-amber-800"],
+.dark [class*="dark:border-amber-700"] {
+  border-color: #2d3b4e !important;
 }
 
 /* NET FLOWERS & GREEN CONTRAST BOOST */
 .dark .text-sfl-green {
-  color: #4ade80 !important; /* High-contrast vibrant emerald green */
+  color: #34d399 !important; /* Vibrant emerald green */
 }
 
 .dark .bg-green-100,
 .dark .bg-green-100\/90,
-.dark .bg-green-200 {
-  background-color: rgba(20, 83, 45, 0.45) !important; /* Deep emerald badge */
-  border-color: rgba(74, 222, 128, 0.4) !important;
-  color: #86efac !important;
+.dark .bg-green-200,
+.dark [class*="dark:bg-emerald-950"],
+.dark [class*="dark:bg-green-950"] {
+  background-color: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+  color: #6ee7b7 !important;
 }
 
 .dark .text-green-800,
 .dark .text-green-900 {
-  color: #86efac !important;
+  color: #6ee7b7 !important;
 }
 
-/* GOLD SUMMARY CARDS */
+/* GOLD / COIN SUMMARY CARDS */
 .dark .bg-sfl-gold\/20 {
-  background-color: rgba(120, 53, 15, 0.35) !important;
-  border-color: #d97706 !important;
+  background-color: rgba(245, 158, 11, 0.16) !important;
+  border-color: rgba(251, 191, 36, 0.4) !important;
 }
 
 .dark .text-sfl-gold {
@@ -161,8 +178,8 @@ input[type=number] {
 .dark .bg-blue-100,
 .dark .bg-blue-100\/90,
 .dark .bg-blue-200 {
-  background-color: rgba(30, 58, 138, 0.45) !important;
-  border-color: rgba(96, 165, 250, 0.4) !important;
+  background-color: rgba(59, 130, 246, 0.16) !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
   color: #93c5fd !important;
 }
 
@@ -174,69 +191,71 @@ input[type=number] {
 
 /* CALENDAR & TRADE TABLE HEADERS */
 .dark thead {
-  background-color: #241710 !important;
-  color: #fde68a !important;
+  background-color: #121820 !important;
+  color: #cbd5e1 !important;
 }
 
 .dark thead th {
-  color: #fde68a !important;
+  color: #cbd5e1 !important;
 }
 
 .dark tbody tr {
-  color: #fef3c7 !important;
+  color: #f0f6fc !important;
 }
 
 .dark tbody tr:hover {
-  background-color: rgba(58, 38, 26, 0.7) !important;
+  background-color: rgba(38, 50, 66, 0.6) !important;
 }
 
 /* CALENDAR DAILY CARDS & TIMELINES */
 .dark .cal-range-btn {
-  background-color: #2b1b12 !important;
-  color: #fef3c7 !important;
-  border-color: #59351a !important;
+  background-color: #171f2a !important;
+  color: #e2e8f0 !important;
+  border-color: #2b3848 !important;
 }
 
 .dark .cal-range-btn.bg-sfl-wood {
-  background-color: #5c3317 !important;
-  color: #fde68a !important;
-  border-color: #8a5832 !important;
+  background-color: #2b3848 !important;
+  color: #ffffff !important;
+  border-color: #3b4d63 !important;
 }
 
 .dark .trade-filter-btn {
-  background-color: #2b1b12 !important;
-  color: #fef3c7 !important;
-  border-color: #59351a !important;
+  background-color: #171f2a !important;
+  color: #e2e8f0 !important;
+  border-color: #2b3848 !important;
 }
 
 .dark .trade-filter-btn.bg-sfl-wood {
-  background-color: #5c3317 !important;
-  color: #fde68a !important;
-  border-color: #8a5832 !important;
+  background-color: #2b3848 !important;
+  color: #ffffff !important;
+  border-color: #3b4d63 !important;
 }
 
 /* TEXT COLOR READABILITY */
 .dark .text-sfl-dirt {
-  color: #fef3c7 !important;
+  color: #f0f6fc !important;
 }
 
 .dark .text-sfl-wood {
-  color: #fcd34d !important;
+  color: #cbd5e1 !important;
 }
 
 .dark .text-sfl-woodLight {
-  color: #e2c2a4 !important;
+  color: #94a3b8 !important;
 }
 
 .dark .text-amber-800,
 .dark .text-amber-900,
 .dark .text-amber-950 {
-  color: #fde68a !important;
+  color: #e2e8f0 !important;
 }
 
 .dark .text-amber-600,
-.dark .text-amber-700 {
-  color: #fbbf24 !important;
+.dark .text-amber-700,
+.dark .text-amber-100,
+.dark .text-amber-200 {
+  color: #f1f5f9 !important;
 }
 
 /* BORDERS & DIVIDERS */
@@ -245,20 +264,21 @@ input[type=number] {
 .dark .border-sfl-cardBorder\/40,
 .dark .border-sfl-cardBorder\/50,
 .dark .border-sfl-cardBorder\/60 {
-  border-color: #4d2d17 !important;
+  border-color: #263445 !important;
 }
 
 .dark .divide-sfl-cardBorder > :not([hidden]) ~ :not([hidden]),
 .dark .divide-sfl-cardBorder\/30 > :not([hidden]) ~ :not([hidden]),
 .dark .divide-sfl-cardBorder\/40 > :not([hidden]) ~ :not([hidden]),
 .dark .divide-sfl-cardBorder\/50 > :not([hidden]) ~ :not([hidden]) {
-  border-color: #4d2d17 !important;
+  border-color: #263445 !important;
 }
 
 /* TABLE HOVERS */
 .dark .hover\:bg-amber-50\/50:hover,
-.dark .hover\:bg-amber-100:hover {
-  background-color: rgba(58, 38, 26, 0.7) !important;
+.dark .hover\:bg-amber-100:hover,
+.dark [class*="dark:hover:bg-amber-900"]:hover {
+  background-color: rgba(38, 50, 66, 0.6) !important;
 }
 
 /* ========================================================
@@ -270,8 +290,8 @@ input[type=number] {
 }
 
 .dark .sfl-item-summary-card {
-  background-color: #241710 !important;
-  border-color: #4d2d17 !important;
+  background-color: #171f2a !important;
+  border-color: #263445 !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
 }
 
@@ -333,21 +353,21 @@ input[type=number] {
   border: 1.5px solid #fcd34d;
 }
 .dark .trade-metric-box-net {
-  background-color: rgba(43, 27, 18, 0.85) !important;
-  border-color: rgba(217, 119, 6, 0.45) !important;
+  background-color: rgba(23, 31, 42, 0.85) !important;
+  border-color: rgba(234, 179, 8, 0.4) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
 }
 .dark .trade-metric-box-net .badge-net {
-  background-color: rgba(217, 119, 6, 0.25) !important;
-  color: #fde68a !important;
-  border-color: rgba(217, 119, 6, 0.45) !important;
+  background-color: rgba(234, 179, 8, 0.18) !important;
+  color: #facc15 !important;
+  border-color: rgba(234, 179, 8, 0.4) !important;
 }
 .dark .trade-metric-box-net .stat-net-sub {
-  color: #e2c2a4 !important;
+  color: #cbd5e1 !important;
 }
 .dark .trade-metric-box-net .stat-net-foot {
-  color: #fef3c7 !important;
-  border-color: rgba(217, 119, 6, 0.25) !important;
+  color: #f8fafc !important;
+  border-color: rgba(234, 179, 8, 0.25) !important;
 }
 
 /* Active filter buttons */
@@ -366,9 +386,9 @@ input[type=number] {
 }
 
 .dark .trade-filter-btn.active-all {
-  background-color: #5c3317 !important;
-  color: #fde68a !important;
-  border-color: #8a5832 !important;
+  background-color: #2b3848 !important;
+  color: #ffffff !important;
+  border-color: #3b4d63 !important;
 }
 
 /* ========================================================
