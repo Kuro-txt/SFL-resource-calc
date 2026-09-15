@@ -1,7 +1,7 @@
-﻿// ─── Items Spent Section ──────────────────────────────────────────────────────
+// ─── Items Spent Section ──────────────────────────────────────────────────────
 // Diffs consecutive preharvest_baselines.stock rows to compute items consumed.
 
-import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES } from '../../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
 
 function getItemPrice(name) {
@@ -26,7 +26,15 @@ const ITEM_ICONS = {
   gold: '🪙', crimstone: '💎', obsidian: '⬛', salt: '🧂',
   sunflower: '🌻', potato: '🥔', pumpkin: '🎃', carrot: '🥕', cabbage: '🥬',
   beetroot: '🟣', cauliflower: '🥦', parsnip: '🥕', eggplant: '🍆', corn: '🌽',
-  radish: '🔴', wheat: '🌾', kale: '🥬', soybean: '🫘', barley: '🌾'
+  radish: '🔴', wheat: '🌾', kale: '🥬', soybean: '🫘', barley: '🌾',
+  rhubarb: '🌱', zucchini: '🥒', yam: '🍠', broccoli: '🥦', pepper: '🌶️',
+  onion: '🧅', turnip: '🪴', artichoke: '🌿', duskberry: '🫐', lunara: '✨',
+  celestine: '💎', grape: '🍇', rice: '🌾', olive: '🫒', tomato: '🍅',
+  lemon: '🍋', blueberry: '🫐', orange: '🍊', apple: '🍎', banana: '🍌',
+  goblinemblem: '👺', bumpkinemblem: '🧑‍🌾', sunflorianemblem: '🌻', nightshadeemblem: '🌙',
+  ruffroot: '🌿', chewedbone: '🦴', heartleaf: '🍃', moonfur: '🐾', ribbon: '🎀',
+  dewberry: '🫐', wildgrass: '🌾', frostpebble: '🪨', capsulebait: '💊', umbrellabait: '☂️',
+  crimsonbaitfish: '🐟'
 };
 
 function getItemIcon(name) {
@@ -66,15 +74,17 @@ export async function loadSpentData(timeRange = '7d') {
     allItems.forEach(item => {
       const clean = normalizeItemKey(item);
       if (IGNORE_ITEMS.has(clean)) return;
+      if (!isAllowedDifferenceItem(clean)) return;
 
       const prevQty = parseFloat(prev[item]) || 0;
       const currQty = parseFloat(curr[item]) || 0;
       const consumed = prevQty - currQty;
 
       if (consumed > 0.01) {
-        if (!result[item]) result[item] = { qty: 0, flowers: 0 };
-        result[item].qty += consumed;
-        result[item].flowers += parseFloat((consumed * getItemPrice(item)).toFixed(3));
+        const officialName = ALLOWED_ITEM_NAMES[clean] || item;
+        if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
+        result[officialName].qty += consumed;
+        result[officialName].flowers += parseFloat((consumed * getItemPrice(item)).toFixed(3));
       }
     });
   }

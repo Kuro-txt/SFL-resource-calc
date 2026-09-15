@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES, getFlowerUnitPrice } = require('./prices');
+const { CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES, getFlowerUnitPrice, ALLOWED_DIFFERENCE_ITEMS, ALLOWED_ITEM_KEYS, ALLOWED_ITEM_NAMES, isAllowedDifferenceItem } = require('./prices');
 const { fetchFarmFullDataWithRetry, getStockAmount } = require('./farmApi');
 const { getTodayTradesForFarm } = require('./tradeSync');
 const { KNOWN_IDS } = require('./knownIds');
@@ -12,6 +12,7 @@ if (typeof KNOWN_IDS === 'object' && KNOWN_IDS !== null) {
   }
 }
 function formatOfficialItemName(cleanKey) {
+  if (ALLOWED_ITEM_NAMES[cleanKey]) return ALLOWED_ITEM_NAMES[cleanKey];
   if (CLEAN_TO_OFFICIAL_NAME[cleanKey]) return CLEAN_TO_OFFICIAL_NAME[cleanKey];
   return cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
 }
@@ -225,31 +226,21 @@ async function processYieldCalculation(supabase) {
     let totalHarvestCount = 0;
     let totalNetFlowers = 0;
 
-    // ── Scan ALL items across baseline, current inventory, and trades ──
+    // ── Restrict diff calculations strictly to the 64 whitelisted items ──
     const candidateItems = new Set();
-    if (Array.isArray(targets) && targets.length > 0) {
-      targets.forEach(targetItem => {
-        let cleanKey = String(targetItem).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-        if (cleanKey) candidateItems.add(cleanKey);
-      });
-    }
-    for (let k in baselineStock) {
-      let cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-      if (cleanK) candidateItems.add(cleanK);
-    }
-    for (let k in (currentData.inventory || {})) {
-      let cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-      if (cleanK) candidateItems.add(cleanK);
-    }
-    for (let cleanK in tradesBought) candidateItems.add(cleanK);
-    for (let cleanK in tradesSold) candidateItems.add(cleanK);
+    ALLOWED_ITEM_KEYS.forEach(cleanKey => {
+      let baselineQty = getStockAmount(baselineStock, cleanKey);
+      let currentQty = getStockAmount(currentData.inventory, cleanKey);
+      let bought = tradesBought[cleanKey] || 0;
+      let sold = tradesSold[cleanKey] || 0;
 
-    const EXCLUDED_INVENTORY_ITEMS = new Set([
-      'coins', 'coin', 'sfl', 'flower', 'gem', 'blockbuck', 'loveletter', 'currentcoins'
-    ]);
+      // Only check items that exist in baseline, current inventory, or today's trades
+      if (baselineQty > 0 || currentQty > 0 || bought > 0 || sold > 0) {
+        candidateItems.add(cleanKey);
+      }
+    });
 
     candidateItems.forEach(cleanKey => {
-      if (EXCLUDED_INVENTORY_ITEMS.has(cleanKey)) return;
 
       let currentQty = getStockAmount(currentData.inventory, cleanKey);
       let baselineQty = getStockAmount(baselineStock, cleanKey);

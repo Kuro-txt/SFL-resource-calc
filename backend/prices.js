@@ -47,8 +47,56 @@ const RESOURCE_FLOWER_FALLBACK_PRICES = {
   "gold": 0.3044,
   "crimstone": 0.74,
   "obsidian": 15.288,
-  "salt": 0.00417
+  "salt": 0.00417,
+  "duskberry": 0.08,
+  "lunara": 0.10,
+  "celestine": 0.12,
+  "goblinemblem": 0.05,
+  "bumpkinemblem": 0.05,
+  "sunflorianemblem": 0.05,
+  "nightshadeemblem": 0.05,
+  "ruffroot": 0.05,
+  "chewedbone": 0.05,
+  "heartleaf": 0.05,
+  "moonfur": 0.05,
+  "ribbon": 0.05,
+  "dewberry": 0.03,
+  "wildgrass": 0.02,
+  "frostpebble": 0.05,
+  "capsulebait": 0.06,
+  "umbrellabait": 0.06,
+  "crimsonbaitfish": 0.08
 };
+
+const ALLOWED_DIFFERENCE_ITEMS = [
+  "Sunflower", "Potato", "Pumpkin", "Carrot", "Cabbage",
+  "Beetroot", "Cauliflower", "Parsnip", "Radish", "Wheat",
+  "Kale", "Apple", "Blueberry", "Orange", "Eggplant",
+  "Corn", "Banana", "Soybean", "Grape", "Rice",
+  "Olive", "Tomato", "Lemon", "Barley", "Rhubarb",
+  "Zucchini", "Yam", "Broccoli", "Pepper", "Onion",
+  "Turnip", "Artichoke", "Duskberry", "Lunara", "Celestine",
+  "Wood", "Stone", "Iron", "Gold", "Egg",
+  "Honey", "Crimstone", "Leather", "Wool", "Merino Wool",
+  "Feather", "Milk", "Obsidian", "Salt", "Goblin Emblem",
+  "Bumpkin Emblem", "Sunflorian Emblem", "Nightshade Emblem", "Ruffroot", "Chewed Bone",
+  "Heart Leaf", "Moonfur", "Ribbon", "Dewberry", "Wild Grass",
+  "Frost Pebble", "Capsule Bait", "Umbrella Bait", "Crimson Baitfish"
+];
+
+const ALLOWED_ITEM_NAMES = {};
+const ALLOWED_ITEM_KEYS = new Set();
+ALLOWED_DIFFERENCE_ITEMS.forEach(name => {
+  const clean = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  ALLOWED_ITEM_KEYS.add(clean);
+  ALLOWED_ITEM_NAMES[clean] = name;
+});
+
+function isAllowedDifferenceItem(name) {
+  if (!name) return false;
+  const clean = String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return ALLOWED_ITEM_KEYS.has(clean);
+}
 
 function getFlowerUnitPrice(cleanKey, flatPrices = {}) {
   let matchedKey = Object.keys(flatPrices).find(k => {
@@ -71,5 +119,9 @@ function getFlowerUnitPrice(cleanKey, flatPrices = {}) {
 module.exports = {
   CROP_FLOWER_PRICES,
   RESOURCE_FLOWER_FALLBACK_PRICES,
-  getFlowerUnitPrice
+  getFlowerUnitPrice,
+  ALLOWED_DIFFERENCE_ITEMS,
+  ALLOWED_ITEM_KEYS,
+  ALLOWED_ITEM_NAMES,
+  isAllowedDifferenceItem
 };

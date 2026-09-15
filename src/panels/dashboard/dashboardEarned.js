@@ -1,4 +1,4 @@
-﻿import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES } from '../../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -33,7 +33,14 @@ const ITEM_ICONS = {
   sunflower: '🌻', potato: '🥔', pumpkin: '🎃', carrot: '🥕', cabbage: '🥬',
   beetroot: '🟣', cauliflower: '🥦', parsnip: '🥕', eggplant: '🍆', corn: '🌽',
   radish: '🔴', wheat: '🌾', kale: '🥬', soybean: '🫘', barley: '🌾',
-  tomato: '🍅', apple: '🍎', orange: '🍊', blueberry: '🫐', banana: '🍌'
+  rhubarb: '🌱', zucchini: '🥒', yam: '🍠', broccoli: '🥦', pepper: '🌶️',
+  onion: '🧅', turnip: '🪴', artichoke: '🌿', duskberry: '🫐', lunara: '✨',
+  celestine: '💎', grape: '🍇', rice: '🌾', olive: '🫒', tomato: '🍅',
+  lemon: '🍋', blueberry: '🫐', orange: '🍊', apple: '🍎', banana: '🍌',
+  goblinemblem: '👺', bumpkinemblem: '🧑‍🌾', sunflorianemblem: '🌻', nightshadeemblem: '🌙',
+  ruffroot: '🌿', chewedbone: '🦴', heartleaf: '🍃', moonfur: '🐾', ribbon: '🎀',
+  dewberry: '🫐', wildgrass: '🌾', frostpebble: '🪨', capsulebait: '💊', umbrellabait: '☂️',
+  crimsonbaitfish: '🐟'
 };
 
 function getItemIcon(name) {
@@ -82,7 +89,11 @@ export function getLocalEarnedRows(timeRange = '7d') {
       const items = {};
       let totalFlowers = 0;
       rawCrops.forEach(c => {
-        const name = c.name || c.item || 'Item';
+        const rawName = c.name || c.item || c.crop || 'Item';
+        const clean = normalizeItemKey(rawName);
+        if (!isAllowedDifferenceItem(clean)) return;
+
+        const name = ALLOWED_ITEM_NAMES[clean] || rawName;
         const qty = parseFloat(c.qty) || 0;
         let flowers = parseFloat(c.flowers) || 0;
         if (flowers <= 0 || flowers > qty * 1.5) {
