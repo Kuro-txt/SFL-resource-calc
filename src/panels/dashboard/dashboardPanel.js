@@ -1,4 +1,4 @@
-﻿// ─── Dashboard Panel ──────────────────────────────────────────────────────────
+// ─── Dashboard Panel ──────────────────────────────────────────────────────────
 // Unified overview: Items Earned, Items Spent, Trades summary, Deliveries.
 
 import { renderEarnedSection } from './dashboardEarned.js';
@@ -21,7 +21,7 @@ function renderTemplate() {
             <span>📊</span> Dashboard
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
-            Your farm at a glance — earnings, spending, trades, and deliveries.
+            Your farm at a glance — earnings, spending, trades, and wallet balances.
           </p>
         </div>
         <button id="dashboard-refresh-btn"
@@ -48,7 +48,7 @@ function renderTemplate() {
           <div id="dash-trades-mount"></div>
         </div>
 
-        <!-- Deliveries -->
+        <!-- Coins & Balances -->
         <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder shadow-sm">
           <div id="dash-deliveries-mount"></div>
         </div>
