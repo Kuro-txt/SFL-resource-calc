@@ -112,6 +112,7 @@ export async function loadCloudUserData() {
     }
 
     if (typeof window.renderTrackedBadges === 'function') window.renderTrackedBadges();
+    if (typeof window.renderSnapshotHistory === 'function') window.renderSnapshotHistory();
   }
 
   const cutoffBaselines = new Date();

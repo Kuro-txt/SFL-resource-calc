@@ -32,6 +32,9 @@ export function renderCalculatorTemplate() {
           </button>
         </div>
 
+        <!-- TRACKED TARGETS STATUS BAR -->
+        <div id="tracker-targets-status-bar" class="hidden bg-sfl-card/70 border-2 border-sfl-cardBorder/70 p-2.5 rounded-lg text-xs shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2"></div>
+
         <!-- BASELINE STATUS DISPLAY -->
         <div id="pre-harvest-status" class="hidden bg-amber-100/90 border-2 border-amber-400 p-3 rounded-lg text-xs font-bold text-amber-900 space-y-2 shadow-sm">
           <div id="cloud-baseline-status" class="flex justify-between items-center text-green-800">

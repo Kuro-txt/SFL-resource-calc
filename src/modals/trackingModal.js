@@ -168,6 +168,9 @@ export function initTrackingModal() {
     }
 
     renderTrackedBadges();
+    if (typeof window.renderSnapshotHistory === 'function') {
+      window.renderSnapshotHistory();
+    }
     alert('✅ Persistent tracking targets saved successfully!');
     hideModal();
   });
@@ -210,6 +213,9 @@ export function removeTrackedTarget(index) {
     window.trackedTargets.splice(index, 1);
     localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
     renderTrackedBadges();
+    if (typeof window.renderSnapshotHistory === 'function') {
+      window.renderSnapshotHistory();
+    }
   }
 }
 

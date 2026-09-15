@@ -59,9 +59,55 @@ export async function updatePreHarvestUI() {
   }
 }
 
+export function getTrackedTargetKeys() {
+  let targets = window.trackedTargets;
+  if (!Array.isArray(targets) || targets.length === 0) {
+    try {
+      const rawLocal = localStorage.getItem('sfl_tracked_targets');
+      if (rawLocal) targets = JSON.parse(rawLocal) || [];
+    } catch (e) {}
+  }
+  if (!Array.isArray(targets)) targets = [];
+  return new Set(targets.map(t => normalizeItemKey(t)).filter(Boolean));
+}
+
 export function renderSnapshotHistory() {
   const tbody = document.getElementById('snapshot-history-body');
   if (!tbody) return;
+
+  const targetKeys = getTrackedTargetKeys();
+  const hasTargets = targetKeys.size > 0;
+
+  // Render / update active targets indicator if status container exists
+  const targetsStatusBar = document.getElementById('tracker-targets-status-bar');
+  if (targetsStatusBar) {
+    if (hasTargets) {
+      const targetPillsHtml = Array.from(targetKeys).map(k => {
+        const displayName = k.charAt(0).toUpperCase() + k.slice(1);
+        return `<span class="inline-flex items-center bg-amber-200/90 text-amber-950 border border-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-2xs">${displayName}</span>`;
+      }).join(' ');
+
+      targetsStatusBar.innerHTML = `
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-bold text-sfl-wood text-xs flex items-center gap-1">🎯 <span>Tracked Targets (${targetKeys.size}):</span></span>
+          <div class="flex flex-wrap items-center gap-1">${targetPillsHtml}</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] text-sfl-woodLight font-semibold">Displaying only selected items</span>
+          <button type="button" onclick="openTrackingModal()" class="text-[11px] font-bold text-amber-700 hover:text-amber-900 underline cursor-pointer">Edit Targets</button>
+        </div>
+      `;
+      targetsStatusBar.classList.remove('hidden');
+    } else {
+      targetsStatusBar.innerHTML = `
+        <div class="flex items-center justify-between w-full">
+          <span class="text-xs text-sfl-woodLight italic">🎯 Showing all harvested items (No tracking targets set).</span>
+          <button type="button" onclick="openTrackingModal()" class="text-[11px] font-bold text-amber-700 hover:text-amber-900 underline cursor-pointer">Select Targets</button>
+        </div>
+      `;
+      targetsStatusBar.classList.remove('hidden');
+    }
+  }
 
   let history = [];
   try {
@@ -76,6 +122,8 @@ export function renderSnapshotHistory() {
   }
 
   tbody.innerHTML = '';
+  let renderedCount = 0;
+
   history.forEach(entry => {
     if (!entry) return;
 
@@ -101,18 +149,26 @@ export function renderSnapshotHistory() {
           flowers: parseFloat(c.netFlowers || c.flowers || 0)
         })) : []);
 
-    let rawTotalCount = parseFloat(entry.totalCount || entry.total_count);
-    let totalYieldCount = !isNaN(rawTotalCount) 
-      ? rawTotalCount 
-      : cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0);
+    // Filter to ONLY items selected in targets if user has set targets
+    if (hasTargets) {
+      cropsList = cropsList.filter(c => {
+        const cropName = c.name || c.item || c.crop || '';
+        return targetKeys.has(normalizeItemKey(cropName));
+      });
+    }
 
-    // Skip empty dummy rows with 0 harvests and no crops (e.g. inactive baseline days)
+    let rawTotalCount = parseFloat(entry.totalCount || entry.total_count);
+    let totalYieldCount = hasTargets
+      ? cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0)
+      : (!isNaN(rawTotalCount) ? rawTotalCount : cropsList.reduce((acc, c) => acc + (parseFloat(c.qty) || 0), 0));
+
+    // Skip empty dummy rows with 0 harvests and no crops (e.g. inactive baseline days or no target items harvested)
     if (totalYieldCount <= 0 && cropsList.length === 0) return;
 
     let calculatedRowNetFlowers = 0;
 
     let cropBadges = cropsList
-      .map((crop, idx) => {
+      .map((crop) => {
         const cropQty = parseFloat(crop.qty) || 0;
         let cropFlowers = parseFloat(crop.flowers) || 0;
         const cropName = crop.name || crop.item || 'Item';
@@ -130,7 +186,7 @@ export function renderSnapshotHistory() {
           return `
             <span class="inline-flex items-center gap-1 bg-amber-200 text-amber-900 border-2 border-sfl-green text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
               <span>${cropName}:</span>
-              <input type="number" id="edit-qty-${cleanDateId}-${idx}" value="${cropQty.toFixed(1)}" step="0.1" min="0" 
+              <input type="number" id="edit-qty-${cleanDateId}-${cleanK}" value="${cropQty.toFixed(1)}" step="0.1" min="0" 
                 class="w-12 sfl-input text-xs font-mono font-bold rounded px-1 text-sfl-dirt text-center">
             </span>
           `;
@@ -189,9 +245,9 @@ export function renderSnapshotHistory() {
       `;
 
     let recordedNet = parseFloat(entry.netFlowers || entry.net_flowers || 0);
-    let finalNetFlowers = calculatedRowNetFlowers > 0 
-      ? calculatedRowNetFlowers 
-      : (recordedNet < 500 ? recordedNet : 0);
+    let finalNetFlowers = hasTargets
+      ? calculatedRowNetFlowers
+      : (calculatedRowNetFlowers > 0 ? calculatedRowNetFlowers : (recordedNet < 500 ? recordedNet : 0));
 
     let tr = document.createElement('tr');
     tr.className = isEditing ? "bg-amber-100/70 transition" : "hover:bg-amber-50/50 transition";
@@ -199,14 +255,23 @@ export function renderSnapshotHistory() {
       <td class="px-3 py-2.5 font-bold whitespace-nowrap">${entryDate}</td>
       <td class="px-3 py-2.5 font-bold font-mono text-sfl-wood">${totalYieldCount.toFixed(1)} Items</td>
       <td class="px-3 py-2.5">
-        ${cropBadges || '<span class="italic text-gray-400">No details</span>'}
+        ${cropBadges || '<span class="italic text-gray-400">No target items harvested</span>'}
         ${coinsHtml}
       </td>
       <td class="px-3 py-2.5 font-bold text-sfl-green font-mono">${finalNetFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</td>
       <td class="px-2 py-2.5 text-center whitespace-nowrap">${actionButtons}</td>
     `;
     tbody.appendChild(tr);
+    renderedCount++;
   });
+
+  if (renderedCount === 0) {
+    if (hasTargets) {
+      tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">No harvest sessions found matching your selected targets.</td></tr>`;
+    } else {
+      tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-sfl-woodLight italic">No harvest sessions logged yet!</td></tr>`;
+    }
+  }
 }
 
 export function editSnapshotRow(date) {
@@ -235,18 +300,19 @@ export async function saveEditedSnapshot(date) {
   let grandNetFlowers = 0;
 
   if (Array.isArray(entry.crops)) {
-    entry.crops.forEach((crop, cropIdx) => {
+    entry.crops.forEach((crop) => {
       let cleanDateId = date.replace(/[^a-zA-Z0-9]/g, '');
-      let inputEl = document.getElementById(`edit-qty-${cleanDateId}-${cropIdx}`);
+      let cleanK = normalizeItemKey(crop.name || crop.item || '');
+      let inputEl = document.getElementById(`edit-qty-${cleanDateId}-${cleanK}`);
       let newQty = inputEl ? roundUpToOneDecimal(parseFloat(inputEl.value) || 0) : (parseFloat(crop.qty) || 0);
 
       if (newQty > 0) {
-        let cleanK = normalizeItemKey(crop.name || crop.item || '');
         let unitPrice = getItemUnitPriceInFlowers(cleanK);
         const effectiveTax = getItemTaxRate(crop.name || crop.item || '', taxRate);
         let itemNetFlowers = roundUpToThreeDecimals((unitPrice * newQty) * (1 - effectiveTax));
 
         updatedCrops.push({
+          ...crop,
           name: crop.name || crop.item || 'Crop',
           qty: newQty,
           flowers: itemNetFlowers
@@ -264,6 +330,7 @@ export async function saveEditedSnapshot(date) {
   }
 
   history[entryIndex] = {
+    ...entry,
     date: date,
     totalCount: roundUpToOneDecimal(grandTotalCount),
     crops: updatedCrops,
