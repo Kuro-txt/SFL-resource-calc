@@ -51,76 +51,129 @@ const IGNORE_ITEMS = new Set([
 ]);
 
 export async function loadSpentData(timeRange = '7d') {
-  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
-  const user = window.currentUser;
-  if (!client || !user) return [];
-
-  const rowLimit = timeRange === 'daily' ? 2 : (timeRange === '7d' ? 8 : 31);
-
-  const { data, error } = await client
-    .from('preharvest_baselines')
-    .select('snapshot_date, stock')
-    .eq('user_id', user.id)
-    .order('snapshot_date', { ascending: false })
-    .limit(rowLimit);
-
-  if (error || !data || data.length < 2) return [];
-
-  // Sort ascending chronologically
-  const chronological = [...data].reverse();
-
   const result = {};
-  for (let i = 1; i < chronological.length; i++) {
-    const prev = chronological[i - 1].stock || {};
-    const curr = chronological[i].stock || {};
-
-    const allItems = new Set([...Object.keys(prev), ...Object.keys(curr)]);
-    allItems.forEach(item => {
-      const clean = normalizeItemKey(item);
-      if (IGNORE_ITEMS.has(clean)) return;
-      if (!isAllowedDifferenceItem(clean)) return;
-
-      const prevQty = parseFloat(prev[item]) || 0;
-      const currQty = parseFloat(curr[item]) || 0;
-      const consumed = prevQty - currQty;
-
-      if (consumed > 0.01) {
-        const officialName = ALLOWED_ITEM_NAMES[clean] || item;
-        if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
-        result[officialName].qty += consumed;
-        result[officialName].flowers += parseFloat((consumed * getItemPrice(item)).toFixed(3));
-      }
-    });
-  }
-
-  // Include Coins spent as a resource for the selected timeframe
   let history = [];
   try { history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]'); } catch (_) {}
-  let totalCoinsSpent = 0;
+
   const now = Date.now();
   let minDateStr = '';
-  if (timeRange === 'daily') {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const hasToday = history.some(h => (h.date || h.yield_date) === todayStr);
-    minDateStr = hasToday ? todayStr : (history[0]?.date || history[0]?.yield_date || todayStr);
-  } else if (timeRange === '7d') {
+  if (timeRange === '7d') {
     minDateStr = new Date(now - 7 * 86400 * 1000).toISOString().split('T')[0];
   } else if (timeRange === 'month') {
     minDateStr = new Date(now - 30 * 86400 * 1000).toISOString().split('T')[0];
   }
 
+  let hasSavedSpent = false;
+  let totalCoinsSpent = 0;
+
+  // 1. First, check sfl_daily_snapshots for saved spent records
   history.forEach(h => {
     const d = h.date || h.yield_date || '';
-    if (timeRange === 'daily' && d !== minDateStr) return;
     if (minDateStr && d < minDateStr) return;
 
+    // Check h.spent array
+    if (Array.isArray(h.spent) && h.spent.length > 0) {
+      hasSavedSpent = true;
+      h.spent.forEach(item => {
+        const name = item.name || item.crop || item.item;
+        if (!name) return;
+        const clean = normalizeItemKey(name);
+        if (clean === 'coins') {
+          totalCoinsSpent += parseFloat(item.qty || 0);
+          return;
+        }
+        if (!isAllowedDifferenceItem(clean)) return;
+        const officialName = ALLOWED_ITEM_NAMES[clean] || name;
+        if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
+        const qty = parseFloat(item.qty || 0);
+        const flowers = parseFloat(item.flowers || (qty * getItemPrice(officialName) * 0.9));
+        result[officialName].qty += qty;
+        result[officialName].flowers += flowers;
+      });
+    } else {
+      // Check cropActivityYields for type === 'spent'
+      const rawActs = h.cropActivityYields || h.crop_activity_yields || [];
+      if (Array.isArray(rawActs)) {
+        const spentAct = rawActs.find(a => a && a.type === 'spent');
+        if (spentAct && Array.isArray(spentAct.items) && spentAct.items.length > 0) {
+          hasSavedSpent = true;
+          spentAct.items.forEach(item => {
+            const name = item.name || item.crop || item.item;
+            if (!name) return;
+            const clean = normalizeItemKey(name);
+            if (clean === 'coins') {
+              totalCoinsSpent += parseFloat(item.qty || 0);
+              return;
+            }
+            if (!isAllowedDifferenceItem(clean)) return;
+            const officialName = ALLOWED_ITEM_NAMES[clean] || name;
+            if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
+            const qty = parseFloat(item.qty || 0);
+            const flowers = parseFloat(item.flowers || (qty * getItemPrice(officialName) * 0.9));
+            result[officialName].qty += qty;
+            result[officialName].flowers += flowers;
+          });
+        }
+      }
+    }
+
+    // Accumulate coins spent
     const rawActs = h.cropActivityYields || h.crop_activity_yields || [];
     const coinsObj = (Array.isArray(rawActs) ? rawActs.find(a => a && (a.type === 'coins' || a.crop === 'Coins')) : null) || h.coins;
-    if (coinsObj) {
-      totalCoinsSpent += parseFloat(coinsObj.coinsSpent || coinsObj.spent || 0);
+    if (coinsObj && coinsObj.coinsSpent) {
+      totalCoinsSpent = Math.max(totalCoinsSpent, parseFloat(coinsObj.coinsSpent || 0));
     }
   });
 
+  // 2. If no saved spent data in daily snapshots yet, fall back to trade-adjusted preharvest_baselines
+  if (!hasSavedSpent) {
+    try {
+      const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+      const user = window.currentUser;
+      const farmId = localStorage.getItem('sfl_farm_id');
+
+      if (client && (user || farmId)) {
+        const rowLimit = timeRange === '7d' ? 8 : 31;
+        let query = client
+          .from('preharvest_baselines')
+          .select('snapshot_date, stock')
+          .order('snapshot_date', { ascending: false })
+          .limit(rowLimit);
+
+        if (user?.id) query = query.eq('user_id', user.id);
+        else if (farmId) query = query.eq('farm_id', farmId);
+
+        const { data } = await query;
+        if (data && data.length >= 2) {
+          const chronological = [...data].reverse();
+          for (let i = 1; i < chronological.length; i++) {
+            const prev = chronological[i - 1].stock || {};
+            const curr = chronological[i].stock || {};
+
+            const allItems = new Set([...Object.keys(prev), ...Object.keys(curr)]);
+            allItems.forEach(item => {
+              const clean = normalizeItemKey(item);
+              if (IGNORE_ITEMS.has(clean)) return;
+              if (!isAllowedDifferenceItem(clean)) return;
+
+              const prevQty = parseFloat(prev[item]) || 0;
+              const currQty = parseFloat(curr[item]) || 0;
+              const consumed = prevQty - currQty;
+
+              if (consumed > 0.01) {
+                const officialName = ALLOWED_ITEM_NAMES[clean] || item;
+                if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
+                result[officialName].qty += consumed;
+                result[officialName].flowers += parseFloat((consumed * getItemPrice(item)).toFixed(3));
+              }
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Add Coins if spent > 0
   if (totalCoinsSpent > 0) {
     const ratio = getCoinFlowerRatio();
     const coinSpentFlowers = parseFloat((totalCoinsSpent / ratio).toFixed(3));
@@ -128,52 +181,40 @@ export async function loadSpentData(timeRange = '7d') {
   }
 
   return Object.entries(result)
-    .map(([name, { qty, flowers }]) => ({ name, qty, flowers }))
+    .map(([name, { qty, flowers }]) => ({
+      name,
+      qty: Math.ceil(qty * 10) / 10,
+      flowers: parseFloat(flowers.toFixed(3))
+    }))
     .sort((a, b) => b.flowers - a.flowers);
 }
 
 export async function renderSpentSection(mountEl, timeRange = '7d') {
   if (!mountEl) return;
 
-  const rangeLabel = timeRange === 'daily' ? 'Today' : (timeRange === '7d' ? 'Last 7 Days' : 'Last 30 Days');
-
-  mountEl.innerHTML = `
-    <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
-      <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-        <span>💸</span> Resources & Coins Spent
-      </h4>
-    </div>
-    <p class="text-xs text-sfl-woodLight italic text-center py-6">⏳ Analyzing stock baselines...</p>`;
-
-  const user = window.currentUser;
-  if (!user) {
-    mountEl.innerHTML = `
-      <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
-        <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-          <span>💸</span> Resources & Coins Spent
-        </h4>
-      </div>
-      <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
-        <span class="text-2xl mb-1 block">🔒</span>
-        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">Sign In Required</p>
-        <p class="text-[11px] text-sfl-woodLight mt-1">Log in with your account to load multi-day consumption history.</p>
-      </div>`;
-    return;
-  }
+  const rangeLabel = timeRange === '7d' ? 'Last 7 Days' : 'Last 30 Days';
 
   const items = await loadSpentData(timeRange);
 
   if (items.length === 0) {
     mountEl.innerHTML = `
       <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
-        <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-          <span>💸</span> Resources & Coins Spent
-        </h4>
+        <div>
+          <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+            <span>💸</span> Resources & Coins Spent
+          </h4>
+          <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • Crafting, chores & coins spent</p>
+        </div>
+        <div class="text-right">
+          <span class="font-mono text-sm font-bold text-orange-700 dark:text-orange-400 bg-orange-100/80 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">
+            0.000 🌸 Used
+          </span>
+        </div>
       </div>
       <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
         <span class="text-2xl mb-1 block">📉</span>
-        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Consumption in ${rangeLabel}</p>
-        <p class="text-[11px] text-sfl-woodLight mt-1">Requires 2+ daily 00:00 UTC snapshots or recorded coin activity.</p>
+        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Consumption Recorded in ${rangeLabel}</p>
+        <p class="text-[11px] text-sfl-woodLight mt-1">Resource consumption and coins spent will sync automatically every day.</p>
       </div>`;
     return;
   }
@@ -215,10 +256,22 @@ export async function renderSpentSection(mountEl, timeRange = '7d') {
         </span>
       </div>
     </div>
-    <div class="max-h-60 overflow-y-auto pr-1 space-y-0.5">
+
+    <!-- Section Title: Item Breakdown -->
+    <div class="flex items-center justify-between mb-2">
+      <h5 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+        <span>📊</span> Item Breakdown
+      </h5>
+      <span class="text-[10px] font-bold text-sfl-woodLight bg-amber-200/50 dark:bg-amber-900/40 px-2 py-0.5 rounded-full">
+        ${items.length} items & coins
+      </span>
+    </div>
+
+    <!-- Item Breakdown Content -->
+    <div class="max-h-72 overflow-y-auto pr-1 space-y-0.5">
       ${barsHtml}
     </div>
     <p class="text-[10px] text-sfl-woodLight italic mt-3 pt-2 border-t border-amber-100 dark:border-amber-900/40">
-      * Computed between midnight baselines. Excludes market trades.
+      * Trade-adjusted consumption. Excludes marketplace sales.
     </p>`;
 }

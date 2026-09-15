@@ -390,23 +390,23 @@ export async function loadCloudYieldHistory(force = false) {
       existingLocal = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
     } catch(e) { existingLocal = []; }
 
-    const cutoff21 = new Date();
-    cutoff21.setDate(cutoff21.getDate() - 21);
-    const cutoff21Str = cutoff21.toISOString().split('T')[0];
+    const cutoff90 = new Date();
+    cutoff90.setDate(cutoff90.getDate() - 90);
+    const cutoff90Str = cutoff90.toISOString().split('T')[0];
 
     const mergedMap = new Map();
-    // 1. Keep existing local records within 21-day retention window
+    // 1. Keep existing local records within 90-day retention window (3 months)
     if (Array.isArray(existingLocal)) {
       existingLocal.forEach(item => {
         const d = item.date || item.yield_date;
-        if (d && d >= cutoff21Str) mergedMap.set(d, item);
+        if (d && d >= cutoff90Str) mergedMap.set(d, item);
       });
     }
 
-    // 2. Overlay cloud yields within 21-day window
+    // 2. Overlay cloud yields within 90-day window (3 months)
     cloudYields.forEach(item => {
       const d = item.yield_date || item.date;
-      if (!d || d < cutoff21Str) return;
+      if (!d || d < cutoff90Str) return;
 
       const existing = mergedMap.get(d) || {};
       let cloudCrops = Array.isArray(item.crops) ? item.crops : [];
@@ -419,13 +419,20 @@ export async function loadCloudYieldHistory(force = false) {
         try { cloudActs = JSON.parse(cloudActs); } catch(e) { cloudActs = []; }
       }
 
+      const spentAct = cloudActs.find(a => a && a.type === 'spent');
+      const spentItems = (spentAct && Array.isArray(spentAct.items)) ? spentAct.items : (existing.spent || []);
+      const totalSpentCount = spentAct ? parseFloat(spentAct.totalSpentCount || 0) : parseFloat(existing.totalSpentCount || 0);
+      const totalSpentFlowers = spentAct ? parseFloat(spentAct.totalSpentFlowers || 0) : parseFloat(existing.totalSpentFlowers || 0);
+
       let effectiveCrops = cloudCrops;
       if (effectiveCrops.length === 0 && cloudActs.length > 0) {
-        effectiveCrops = cloudActs.map(c => ({
-          name: c.crop || c.name || 'Crop',
-          qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
-          flowers: parseFloat(c.netFlowers || c.flowers || 0)
-        }));
+        effectiveCrops = cloudActs
+          .filter(c => c && c.type !== 'spent' && c.type !== 'coins')
+          .map(c => ({
+            name: c.crop || c.name || 'Crop',
+            qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
+            flowers: parseFloat(c.netFlowers || c.flowers || 0)
+          }));
       }
 
       if (effectiveCrops.length === 0 && Array.isArray(existing.crops) && existing.crops.length > 0) {
@@ -434,13 +441,16 @@ export async function loadCloudYieldHistory(force = false) {
 
       const totalCount = parseFloat(item.total_count || item.totalCount || existing.totalCount || 0);
 
-      // Skip 0-yield blank days with no crops
-      if (totalCount <= 0 && effectiveCrops.length === 0) return;
+      // Skip 0-yield blank days with no crops and no spent items
+      if (totalCount <= 0 && effectiveCrops.length === 0 && spentItems.length === 0) return;
 
       mergedMap.set(d, {
         date: d,
         totalCount: totalCount,
         crops: effectiveCrops,
+        spent: spentItems,
+        totalSpentCount: totalSpentCount,
+        totalSpentFlowers: totalSpentFlowers,
         cropActivityYields: cloudActs.length > 0 ? cloudActs : (existing.cropActivityYields || []),
         netFlowers: parseFloat(item.net_flowers || item.netFlowers || existing.netFlowers || 0).toFixed(3)
       });

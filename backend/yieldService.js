@@ -223,8 +223,11 @@ async function processYieldCalculation(supabase) {
     const dailyCoinsSpent = Math.max(0, Math.round((endCoinsSpent - startCoinsSpent) * 100) / 100);
 
     let yieldsList = [];
+    let spentList = [];
     let totalHarvestCount = 0;
     let totalNetFlowers = 0;
+    let totalSpentCount = 0;
+    let totalSpentFlowers = 0;
 
     // ── Restrict diff calculations strictly to the 64 whitelisted items ──
     const candidateItems = new Set();
@@ -241,7 +244,6 @@ async function processYieldCalculation(supabase) {
     });
 
     candidateItems.forEach(cleanKey => {
-
       let currentQty = getStockAmount(currentData.inventory, cleanKey);
       let baselineQty = getStockAmount(baselineStock, cleanKey);
       let grossDiff = currentQty - baselineQty;
@@ -251,27 +253,43 @@ async function processYieldCalculation(supabase) {
       let bought = tradesBought[cleanKey] || 0;
       let sold = tradesSold[cleanKey] || 0;
 
-      // Organic production formula:
-      // netOrganicDiff = (Current Stock - Baseline Stock) - Trades Bought + Trades Sold
-      let netOrganicDiff = Math.max(0, effectiveGrossDiff - bought + sold);
+      // Net organic inventory movement:
+      // Positive = harvested/produced organically
+      // Negative = consumed/spent organically on farm
+      let netOrganicDiff = effectiveGrossDiff - bought + sold;
+      let unitPrice = getFlowerUnitPrice(cleanKey, flatPrices);
+      let formattedName = formatOfficialItemName(cleanKey);
 
-      // Only include items that had net organic production OR trade activity
-      if (netOrganicDiff > 0.0001 || bought > 0 || sold > 0) {
-        let harvestedQty = Math.ceil(netOrganicDiff * 10) / 10;
-        let unitPrice = getFlowerUnitPrice(cleanKey, flatPrices);
+      if (netOrganicDiff > 0.0001 || (netOrganicDiff >= 0 && (bought > 0 || sold > 0))) {
+        let harvestedQty = Math.ceil(Math.max(0, netOrganicDiff) * 10) / 10;
         let itemFlowers = Math.ceil((unitPrice * harvestedQty * 0.9) * 1000) / 1000;
-        let formattedName = formatOfficialItemName(cleanKey);
 
-        yieldsList.push({
+        if (harvestedQty > 0 || bought > 0 || sold > 0) {
+          yieldsList.push({
+            name: formattedName,
+            qty: harvestedQty,
+            flowers: itemFlowers,
+            tradeBought: Math.ceil(bought * 10) / 10,
+            tradeSold: Math.ceil(sold * 10) / 10,
+            grossStockDiff: Math.ceil(effectiveGrossDiff * 10) / 10
+          });
+          totalHarvestCount += harvestedQty;
+          totalNetFlowers += itemFlowers;
+        }
+      } else if (netOrganicDiff < -0.0001) {
+        let consumedQty = Math.ceil(Math.abs(netOrganicDiff) * 10) / 10;
+        let itemFlowers = Math.ceil((unitPrice * consumedQty * 0.9) * 1000) / 1000;
+
+        spentList.push({
           name: formattedName,
-          qty: harvestedQty,
+          qty: consumedQty,
           flowers: itemFlowers,
           tradeBought: Math.ceil(bought * 10) / 10,
           tradeSold: Math.ceil(sold * 10) / 10,
           grossStockDiff: Math.ceil(effectiveGrossDiff * 10) / 10
         });
-        totalHarvestCount += harvestedQty;
-        totalNetFlowers += itemFlowers;
+        totalSpentCount += consumedQty;
+        totalSpentFlowers += itemFlowers;
       }
     });
 
@@ -321,10 +339,32 @@ async function processYieldCalculation(supabase) {
         coinsEarned: dailyCoinsEarned,
         coinsSpent: dailyCoinsSpent
       });
+
+      // Also record coins in spentList as a spent resource
+      if (dailyCoinsSpent > 0) {
+        const coinFlowerVal = Math.ceil((dailyCoinsSpent / 1000) * 1000) / 1000;
+        spentList.push({
+          name: 'Coins',
+          qty: Math.round(dailyCoinsSpent),
+          flowers: coinFlowerVal
+        });
+        totalSpentCount += dailyCoinsSpent;
+        totalSpentFlowers += coinFlowerVal;
+      }
     }
 
-    if (totalHarvestCount <= 0 && yieldsList.length === 0 && cropActivityYields.length === 0 && Math.abs(netCoinsDiff) <= 0 && dailyCoinsEarned <= 0) {
-      console.log(`ℹ️ [Yield Calculation] No harvest/trade/coin activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
+    // Include spent items summary in cropActivityYields
+    if (spentList.length > 0 || totalSpentCount > 0) {
+      cropActivityYields.push({
+        type: 'spent',
+        items: spentList,
+        totalSpentCount: Math.ceil(totalSpentCount * 10) / 10,
+        totalSpentFlowers: Math.ceil(totalSpentFlowers * 1000) / 1000
+      });
+    }
+
+    if (totalHarvestCount <= 0 && yieldsList.length === 0 && spentList.length === 0 && cropActivityYields.length === 0 && Math.abs(netCoinsDiff) <= 0 && dailyCoinsEarned <= 0 && dailyCoinsSpent <= 0) {
+      console.log(`ℹ️ [Yield Calculation] No harvest/trade/spent/coin activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
       await delay(8000);
       continue;
     }
@@ -790,10 +830,10 @@ async function pruneOldLogs(supabase) {
     console.log(`✅ [Retention] Pruned preharvest_baselines older than ${cutoff7Str}`);
   }
 
-  // 2. Prune daily_yields older than 21 days (Safety Guard: only if weekly_yields exists and has records)
-  const cutoff21 = new Date();
-  cutoff21.setUTCDate(cutoff21.getUTCDate() - 21);
-  const cutoff21Str = cutoff21.toISOString().split('T')[0];
+  // 2. Prune daily_yields older than 90 days (3 months) (Safety Guard: only if weekly_yields exists and has records)
+  const cutoff90 = new Date();
+  cutoff90.setUTCDate(cutoff90.getUTCDate() - 90);
+  const cutoff90Str = cutoff90.toISOString().split('T')[0];
 
   const { data: weeklyCheck, error: wErr } = await supabase
     .from('weekly_yields')
@@ -808,12 +848,12 @@ async function pruneOldLogs(supabase) {
   const { error: yieldErr } = await supabase
     .from('daily_yields')
     .delete()
-    .lt('yield_date', cutoff21Str);
+    .lt('yield_date', cutoff90Str);
 
   if (yieldErr) {
     console.warn("⚠️ [Retention] Daily yield prune notice:", yieldErr.message);
   } else {
-    console.log(`✅ [Retention] Pruned daily_yields older than ${cutoff21Str}`);
+    console.log(`✅ [Retention] Pruned daily_yields older than ${cutoff90Str} (retained 90 days / 3 months)`);
   }
 }
 

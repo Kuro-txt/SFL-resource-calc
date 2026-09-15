@@ -236,27 +236,18 @@ export function renderEarnedSection(mountEl, timeRange = '7d') {
       </div>
     </div>
 
-    <!-- Segmented Tab Switcher -->
-    <div class="flex items-center gap-1 bg-amber-100/70 dark:bg-amber-950/60 p-1 rounded-lg border border-amber-300/60 dark:border-amber-800 mb-3">
-      <button id="dash-earned-tab-rank" class="flex-1 py-1 px-2 rounded-md text-[11px] font-bold transition cursor-pointer ${currentEarnedTab === 'ranking' ? 'bg-sfl-wood text-amber-200 shadow-xs' : 'text-sfl-woodLight hover:text-sfl-dirt'}">
-        📊 Top Items Breakdown (${sortedItems.length})
-      </button>
-      <button id="dash-earned-tab-feed" class="flex-1 py-1 px-2 rounded-md text-[11px] font-bold transition cursor-pointer ${currentEarnedTab === 'feed' ? 'bg-sfl-wood text-amber-200 shadow-xs' : 'text-sfl-woodLight hover:text-sfl-dirt'}">
-        📅 Daily Harvest Log (${rows.length} Days)
-      </button>
+    <!-- Section Title: Item Breakdown -->
+    <div class="flex items-center justify-between mb-2">
+      <h5 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+        <span>📊</span> Item Breakdown
+      </h5>
+      <span class="text-[10px] font-bold text-sfl-woodLight bg-amber-200/50 dark:bg-amber-900/40 px-2 py-0.5 rounded-full">
+        ${sortedItems.length} items & coins
+      </span>
     </div>
 
-    <!-- Tab Content -->
-    <div id="dash-earned-content" class="max-h-60 overflow-y-auto pr-1">
-      ${currentEarnedTab === 'ranking' ? `<div class="space-y-0.5">${barsHtml}</div>` : `<div class="space-y-0">${recentHtml}</div>`}
+    <!-- Item Breakdown Content -->
+    <div id="dash-earned-content" class="max-h-72 overflow-y-auto pr-1">
+      <div class="space-y-0.5">${barsHtml}</div>
     </div>`;
-
-  document.getElementById('dash-earned-tab-rank')?.addEventListener('click', () => {
-    currentEarnedTab = 'ranking';
-    renderEarnedSection(mountEl, timeRange);
-  });
-  document.getElementById('dash-earned-tab-feed')?.addEventListener('click', () => {
-    currentEarnedTab = 'feed';
-    renderEarnedSection(mountEl, timeRange);
-  });
 }
