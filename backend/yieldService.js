@@ -380,6 +380,10 @@ async function processYieldCalculation(supabase) {
       }
     }
 
+    // Deterministically sort yields and spent items by flower value descending
+    yieldsList.sort((a, b) => (b.flowers || 0) - (a.flowers || 0));
+    spentList.sort((a, b) => (b.flowers || 0) - (a.flowers || 0));
+
     // Include spent items summary in cropActivityYields
     if (spentList.length > 0 || totalSpentCount > 0) {
       cropActivityYields.push({
@@ -392,7 +396,7 @@ async function processYieldCalculation(supabase) {
 
     if (totalHarvestCount <= 0 && yieldsList.length === 0 && spentList.length === 0 && cropActivityYields.length === 0 && Math.abs(netCoinsDiff) <= 0 && dailyCoinsEarned <= 0 && dailyCoinsSpent <= 0) {
       console.log(`ℹ️ [Yield Calculation] No harvest/trade/spent/coin activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
-      await delay(8000);
+      await delay(15000);
       continue;
     }
 
@@ -412,7 +416,7 @@ async function processYieldCalculation(supabase) {
       console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
     }
 
-    await delay(8000);
+    await delay(15000);
   }
 
   console.log(`🏁 [Yield Calculation] Completed: ${savedYieldsCount} farm yields saved to Supabase.`);

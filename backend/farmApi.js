@@ -27,7 +27,7 @@ function getSflHeaders(customApiKey = '') {
 // If an ID fetch fails, retries 10 seconds later (up to 2 retries).
 let syncQueueChain = Promise.resolve();
 let lastSuccessTimestamp = 0;
-const SUCCESS_COOLDOWN_MS = 8000; // 8 seconds wait after successful fetch before next ID
+const SUCCESS_COOLDOWN_MS = 15000; // 15 seconds wait after successful fetch before next ID to avoid HTTP 429
 
 function queueFarmSync(taskFn) {
   const queuedTask = syncQueueChain.then(async () => {

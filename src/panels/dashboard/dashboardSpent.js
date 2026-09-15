@@ -6,6 +6,8 @@ import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
 import { tradeHistoryData } from '../tradeHistory/tradeData.js';
 import { ApiService } from '../../services/api.js';
 import { getItemNameById } from '../../data/knownIds.js';
+import { getDateRangeBounds } from './dashboardPanel.js';
+import { ITEM_CATEGORIES, CATEGORY_META, getItemCategory } from './dashboardEarned.js';
 
 function getItemPrice(name) {
   if (name === 'Coins' || normalizeItemKey(name) === 'coins') {
@@ -53,21 +55,19 @@ const IGNORE_ITEMS = new Set([
   'flower', 'sfl', 'coin', 'coins', 'gem', 'blockbuck', 'loveletter', 'currentcoins'
 ]);
 
-export async function loadSpentData(timeRange = '7d') {
+export async function loadSpentData(boundsInput = 'week') {
   const result = {};
   let history = [];
   try { history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]'); } catch (_) {}
 
-  const now = Date.now();
-  let minTimestamp = 0;
-  let minDateStr = '';
-  if (timeRange === '7d') {
-    minTimestamp = now - 7 * 86400 * 1000;
-    minDateStr = new Date(minTimestamp).toISOString().split('T')[0];
-  } else if (timeRange === 'month') {
-    minTimestamp = now - 30 * 86400 * 1000;
-    minDateStr = new Date(minTimestamp).toISOString().split('T')[0];
-  }
+  const bounds = (typeof boundsInput === 'object' && boundsInput?.minDateStr)
+    ? boundsInput
+    : getDateRangeBounds(boundsInput || 'week');
+
+  const minTimestamp = bounds.minTimestamp || 0;
+  const maxTimestamp = bounds.maxTimestamp || Infinity;
+  const minDateStr = bounds.minDateStr || '';
+  const maxDateStr = bounds.maxDateStr || '';
 
   const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value?.trim() || '';
 
@@ -89,7 +89,7 @@ export async function loadSpentData(timeRange = '7d') {
 
   tradesList.forEach(t => {
     const fulfilledAt = parseInt(t.fulfilledAt || 0, 10);
-    if (minTimestamp && fulfilledAt > 0 && fulfilledAt < minTimestamp) return;
+    if (fulfilledAt > 0 && (fulfilledAt < minTimestamp || fulfilledAt > maxTimestamp)) return;
 
     const rawName = t.itemName || t.name || t.item || '';
     const clean = normalizeItemKey((rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName));
@@ -135,7 +135,7 @@ export async function loadSpentData(timeRange = '7d') {
   // 1. First, check sfl_daily_snapshots for saved spent records
   history.forEach(h => {
     const d = h.date || h.yield_date || '';
-    if (minDateStr && d < minDateStr) return;
+    if (minDateStr && (d < minDateStr || d > maxDateStr)) return;
 
     const rawSpent = (Array.isArray(h.spent) && h.spent.length > 0) ? h.spent
       : (Array.isArray(h.cropActivityYields) ? h.cropActivityYields.find(a => a && a.type === 'spent')?.items : null);
@@ -262,14 +262,40 @@ export async function loadSpentData(timeRange = '7d') {
     .sort((a, b) => b.flowers - a.flowers);
 }
 
-export async function renderSpentSection(mountEl, timeRange = '7d') {
+let currentSpentCategory = 'all';
+
+export async function renderSpentSection(mountEl, boundsInput = 'week') {
   if (!mountEl) return;
 
-  const rangeLabel = timeRange === '7d' ? 'Last 7 Days' : 'Last 30 Days';
+  const bounds = (typeof boundsInput === 'object' && boundsInput?.label)
+    ? boundsInput
+    : getDateRangeBounds(boundsInput || 'week');
 
-  const items = await loadSpentData(timeRange);
+  const rangeLabel = bounds.label || 'Selected Range';
+  const allSpentItems = await loadSpentData(bounds);
 
-  if (items.length === 0) {
+  // Extract Coins
+  const coinsData = allSpentItems.find(i => i.name === 'Coins') || null;
+  const nonCoinItems = allSpentItems
+    .filter(i => i.name !== 'Coins')
+    .map(i => ({
+      ...i,
+      category: getItemCategory(i.name)
+    }))
+    .sort((a, b) => b.flowers - a.flowers);
+
+  const grandFlowers = allSpentItems.reduce((s, v) => s + (v.flowers || 0), 0);
+
+  // Category counts
+  const counts = {
+    all: nonCoinItems.length,
+    crops: nonCoinItems.filter(i => i.category === 'crops').length,
+    resources: nonCoinItems.filter(i => i.category === 'resources').length,
+    animals: nonCoinItems.filter(i => i.category === 'animals').length,
+    special: nonCoinItems.filter(i => i.category === 'special').length
+  };
+
+  if (nonCoinItems.length === 0 && !coinsData) {
     mountEl.innerHTML = `
       <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
         <div>
@@ -286,36 +312,97 @@ export async function renderSpentSection(mountEl, timeRange = '7d') {
       </div>
       <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
         <span class="text-2xl mb-1 block">📉</span>
-        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Consumption Recorded in ${rangeLabel}</p>
-        <p class="text-[11px] text-sfl-woodLight mt-1">Resource consumption and coins spent will sync automatically every day.</p>
+        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Consumption in ${rangeLabel}</p>
+        <p class="text-[11px] text-sfl-woodLight mt-1">Navigate days with ◀ / ▶ or sync inventory data.</p>
       </div>`;
     return;
   }
 
-  const grandFlowers = items.reduce((s, v) => s + v.flowers, 0);
-  const maxFlowers = items[0]?.flowers || 1;
+  function getItemsListHtml() {
+    const visibleItems = currentSpentCategory === 'all'
+      ? nonCoinItems
+      : nonCoinItems.filter(i => i.category === currentSpentCategory);
 
-  const barsHtml = items.map(({ name, qty, flowers }) => {
-    const pct = Math.min(100, Math.max(8, Math.round((flowers / maxFlowers) * 100)));
-    const icon = getItemIcon(name);
-    const formattedQty = name === 'Coins' ? Math.round(qty).toLocaleString() : qty.toFixed(1);
+    if (visibleItems.length === 0) {
+      return `
+        <div class="text-center py-6 px-3 bg-amber-50/40 dark:bg-amber-950/10 rounded-xl border border-amber-200/40 dark:border-amber-800/30">
+          <p class="text-xs font-semibold text-sfl-woodLight">No ${CATEGORY_META[currentSpentCategory]?.label || 'items'} spent in this timeframe.</p>
+        </div>`;
+    }
+
+    const maxFlowers = visibleItems[0]?.flowers || 1;
+
+    return visibleItems.map(({ name, qty, flowers, category }) => {
+      const pct = Math.min(100, Math.max(8, Math.round((flowers / maxFlowers) * 100)));
+      const icon = getItemIcon(name);
+      const catMeta = CATEGORY_META[category] || { label: category, icon: '🌾' };
+      const formattedQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
+
+      return `
+        <div class="group flex items-center gap-2.5 text-xs py-1.5 hover:bg-orange-100/40 dark:hover:bg-orange-950/30 px-2 rounded-lg transition border border-transparent hover:border-orange-200/50 dark:hover:border-orange-800/40">
+          <span class="text-base shrink-0">${icon}</span>
+          <div class="w-24 sm:w-28 truncate shrink-0">
+            <span class="font-bold text-sfl-dirt dark:text-amber-100" title="${name}">${name}</span>
+            <span class="block text-[9px] text-sfl-woodLight font-medium">${catMeta.label}</span>
+          </div>
+          <div class="flex-1 bg-amber-200/60 dark:bg-amber-900/40 rounded-full h-2 overflow-hidden">
+            <div class="bg-gradient-to-r from-orange-400 to-amber-500 h-2 rounded-full transition-all duration-500" style="width:${pct}%"></div>
+          </div>
+          <div class="text-right shrink-0 font-mono">
+            <span class="font-bold text-orange-700 dark:text-orange-400">-${formattedQty}</span>
+            <span class="text-sfl-woodLight text-[11px] ml-1">(${flowers.toFixed(3)} 🌸)</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function getCoinsBannerHtml() {
+    if (!coinsData || coinsData.qty <= 0) return '';
+    const ratio = getCoinFlowerRatio();
     return `
-      <div class="group flex items-center gap-2.5 text-xs py-1 hover:bg-orange-100/40 dark:hover:bg-orange-950/30 px-2 rounded-lg transition">
-        <span class="text-sm shrink-0">${icon}</span>
-        <div class="w-24 truncate font-bold text-sfl-dirt dark:text-amber-100 shrink-0" title="${name}">
-          ${name}
+      <div class="bg-gradient-to-r from-orange-500/15 via-amber-500/20 to-orange-500/15 dark:from-orange-950/50 dark:to-amber-950/40 border border-orange-500/40 dark:border-orange-600/50 p-2.5 rounded-xl flex items-center justify-between shadow-2xs mb-2.5">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🪙</span>
+          <div>
+            <p class="text-[10px] font-bold uppercase text-orange-800 dark:text-orange-300 tracking-wider">Coins Spent</p>
+            <p class="font-mono text-sm font-bold text-orange-900 dark:text-orange-100">-${Math.round(coinsData.qty).toLocaleString()} Coins</p>
+          </div>
         </div>
-        <div class="flex-1 bg-amber-200/60 dark:bg-amber-900/40 rounded-full h-2 overflow-hidden">
-          <div class="bg-gradient-to-r from-orange-400 to-amber-500 h-2 rounded-full transition-all duration-500" style="width:${pct}%"></div>
-        </div>
-        <div class="text-right shrink-0 font-mono">
-          <span class="font-bold text-orange-700 dark:text-orange-400">-${formattedQty}</span>
-          <span class="text-sfl-woodLight text-[11px] ml-1">(${flowers.toFixed(3)} 🌸)</span>
+        <div class="text-right">
+          <span class="font-mono text-xs font-bold text-orange-700 dark:text-orange-400 bg-orange-100/90 dark:bg-orange-950/80 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">
+            -${coinsData.flowers.toFixed(3)} 🌸
+          </span>
+          <p class="text-[9px] text-sfl-woodLight font-mono mt-0.5">1🌸 = ${ratio.toLocaleString()}🪙</p>
         </div>
       </div>`;
-  }).join('');
+  }
+
+  function getCategoryPillsHtml() {
+    const pill = (cat, label, icon, count) => {
+      const isActive = currentSpentCategory === cat;
+      const activeClass = isActive
+        ? 'bg-orange-600 text-white shadow-xs'
+        : 'bg-amber-100/90 dark:bg-amber-900/40 text-sfl-wood dark:text-amber-200 hover:bg-amber-200/80 dark:hover:bg-amber-800/60';
+      return `
+        <button data-cat="${cat}" class="dash-spent-cat-btn px-2.5 py-1 rounded-lg transition cursor-pointer shrink-0 flex items-center gap-1 ${activeClass}">
+          <span>${icon}</span>
+          <span>${label}</span>
+          <span class="opacity-75 text-[10px]">(${count})</span>
+        </button>`;
+    };
+
+    return `
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-1.5 mb-2.5 text-xs font-bold scrollbar-none">
+        ${pill('all', 'All', '🌟', counts.all)}
+        ${pill('crops', 'Crops', '🌾', counts.crops)}
+        ${pill('resources', 'Resources', '🪵', counts.resources)}
+        ${pill('animals', 'Animals', '🥚', counts.animals)}
+        ${pill('special', 'Special', '🎁', counts.special)}
+      </div>`;
+  }
 
   mountEl.innerHTML = `
+    <!-- Header -->
     <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
       <div>
         <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
@@ -330,21 +417,47 @@ export async function renderSpentSection(mountEl, timeRange = '7d') {
       </div>
     </div>
 
-    <!-- Section Title: Item Breakdown -->
-    <div class="flex items-center justify-between mb-2">
-      <h5 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-        <span>📊</span> Item Breakdown
-      </h5>
-      <span class="text-[10px] font-bold text-sfl-woodLight bg-amber-200/50 dark:bg-amber-900/40 px-2 py-0.5 rounded-full">
-        ${items.length} items & coins
-      </span>
+    <!-- Featured Coins Spent Card -->
+    ${getCoinsBannerHtml()}
+
+    <!-- Section Title & Category Filter Pills -->
+    <div class="mb-1">
+      <div class="flex items-center justify-between mb-1.5">
+        <h5 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+          <span>📊</span> Item Breakdown
+        </h5>
+        <span class="text-[10px] font-bold text-sfl-woodLight bg-amber-200/50 dark:bg-amber-900/40 px-2 py-0.5 rounded-full">
+          ${nonCoinItems.length + (coinsData ? 1 : 0)} items & coins
+        </span>
+      </div>
+      <div id="dash-spent-cat-pills">${getCategoryPillsHtml()}</div>
     </div>
 
-    <!-- Item Breakdown Content -->
-    <div class="max-h-72 overflow-y-auto pr-1 space-y-0.5">
-      ${barsHtml}
+    <!-- Item Breakdown Content List -->
+    <div id="dash-spent-items-list" class="max-h-80 overflow-y-auto pr-1 space-y-1">
+      ${getItemsListHtml()}
     </div>
     <p class="text-[10px] text-sfl-woodLight italic mt-3 pt-2 border-t border-amber-100 dark:border-amber-900/40">
       * Trade-adjusted consumption. Excludes marketplace sales.
     </p>`;
+
+  // Attach Category Filter Listeners
+  mountEl.querySelectorAll('.dash-spent-cat-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const targetCat = btn.getAttribute('data-cat');
+      if (!targetCat || targetCat === currentSpentCategory) return;
+      currentSpentCategory = targetCat;
+      const pillsContainer = mountEl.querySelector('#dash-spent-cat-pills');
+      const listContainer = mountEl.querySelector('#dash-spent-items-list');
+      if (pillsContainer) pillsContainer.innerHTML = getCategoryPillsHtml();
+      if (listContainer) listContainer.innerHTML = getItemsListHtml();
+      // Re-attach listeners to refreshed pills
+      mountEl.querySelectorAll('.dash-spent-cat-btn').forEach(b => {
+        b.addEventListener('click', () => {
+          currentSpentCategory = b.getAttribute('data-cat');
+          renderSpentSection(mountEl, boundsInput);
+        });
+      });
+    });
+  });
 }
