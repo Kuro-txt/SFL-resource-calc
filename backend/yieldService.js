@@ -1,6 +1,20 @@
 const axios = require('axios');
 const { CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES, getFlowerUnitPrice } = require('./prices');
 const { fetchFarmFullDataWithRetry, getStockAmount } = require('./farmApi');
+const { getTodayTradesForFarm } = require('./tradeSync');
+const { KNOWN_IDS } = require('./knownIds');
+
+const CLEAN_TO_OFFICIAL_NAME = {};
+if (typeof KNOWN_IDS === 'object' && KNOWN_IDS !== null) {
+  for (const officialName in KNOWN_IDS) {
+    const clean = officialName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!CLEAN_TO_OFFICIAL_NAME[clean]) CLEAN_TO_OFFICIAL_NAME[clean] = officialName;
+  }
+}
+function formatOfficialItemName(cleanKey) {
+  if (CLEAN_TO_OFFICIAL_NAME[cleanKey]) return CLEAN_TO_OFFICIAL_NAME[cleanKey];
+  return cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
+}
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const SFL_WORLD_HEADERS = {
@@ -186,31 +200,89 @@ async function processYieldCalculation(supabase) {
       continue;
     }
 
+    // ── Fetch Today's P2P Trades (00:00 to 22:00 UTC) ──
+    let todayTrades = { tradesBought: {}, tradesSold: {}, rawTradesCount: 0 };
+    try {
+      todayTrades = await getTodayTradesForFarm(cleanFarmId, todayDate);
+    } catch (err) {
+      console.warn(`Notice: Failed to fetch trades for Farm #${cleanFarmId}:`, err.message);
+    }
+    const tradesBought = todayTrades.tradesBought || {};
+    const tradesSold = todayTrades.tradesSold || {};
+
+    // ── Coins tracking at 22:00 UTC ──
+    const baselineCoins = parseFloat(baselineStock['Coins'] || baselineStock['__coins__'] || baseActivity['Current Coins'] || 0);
+    const currentCoins = parseFloat(currentData.coins || currentData.balance || (currentData.inventory && currentData.inventory['Coins']) || 0);
+    const netCoinsDiff = Math.round((currentCoins - baselineCoins) * 100) / 100;
+    const startCoinsEarned = parseFloat(baseActivity['Coins Earned'] || 0);
+    const endCoinsEarned = parseFloat(currActivity['Coins Earned'] || 0);
+    const dailyCoinsEarned = Math.max(0, Math.round((endCoinsEarned - startCoinsEarned) * 100) / 100);
+    const startCoinsSpent = parseFloat(baseActivity['Coins Spent'] || 0);
+    const endCoinsSpent = parseFloat(currActivity['Coins Spent'] || 0);
+    const dailyCoinsSpent = Math.max(0, Math.round((endCoinsSpent - startCoinsSpent) * 100) / 100);
+
     let yieldsList = [];
     let totalHarvestCount = 0;
     let totalNetFlowers = 0;
 
+    // ── Scan ALL items across baseline, current inventory, and trades ──
+    const candidateItems = new Set();
     if (Array.isArray(targets) && targets.length > 0) {
       targets.forEach(targetItem => {
         let cleanKey = String(targetItem).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-        let currentQty = getStockAmount(currentData.inventory, cleanKey);
-        let baselineQty = getStockAmount(baselineStock, cleanKey);
-        let grossDiff = currentQty - baselineQty;
-        let priorDeduction = priorRecordedStockDiffs[cleanKey] || 0;
-        let diff = Math.max(0, grossDiff - priorDeduction);
-
-        if (diff > 0.0001) {
-          let harvestedQty = Math.ceil(diff * 10) / 10;
-          let unitPrice = getFlowerUnitPrice(cleanKey);
-          let itemFlowers = Math.ceil((unitPrice * harvestedQty * 0.9) * 1000) / 1000;
-          let formattedName = cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
-
-          yieldsList.push({ name: formattedName, qty: harvestedQty, flowers: itemFlowers });
-          totalHarvestCount += harvestedQty;
-          totalNetFlowers += itemFlowers;
-        }
+        if (cleanKey) candidateItems.add(cleanKey);
       });
     }
+    for (let k in baselineStock) {
+      let cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      if (cleanK) candidateItems.add(cleanK);
+    }
+    for (let k in (currentData.inventory || {})) {
+      let cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      if (cleanK) candidateItems.add(cleanK);
+    }
+    for (let cleanK in tradesBought) candidateItems.add(cleanK);
+    for (let cleanK in tradesSold) candidateItems.add(cleanK);
+
+    const EXCLUDED_INVENTORY_ITEMS = new Set([
+      'coins', 'coin', 'sfl', 'flower', 'gem', 'blockbuck', 'loveletter', 'currentcoins'
+    ]);
+
+    candidateItems.forEach(cleanKey => {
+      if (EXCLUDED_INVENTORY_ITEMS.has(cleanKey)) return;
+
+      let currentQty = getStockAmount(currentData.inventory, cleanKey);
+      let baselineQty = getStockAmount(baselineStock, cleanKey);
+      let grossDiff = currentQty - baselineQty;
+      let priorDeduction = priorRecordedStockDiffs[cleanKey] || 0;
+      let effectiveGrossDiff = grossDiff - priorDeduction;
+
+      let bought = tradesBought[cleanKey] || 0;
+      let sold = tradesSold[cleanKey] || 0;
+
+      // Organic production formula:
+      // netOrganicDiff = (Current Stock - Baseline Stock) - Trades Bought + Trades Sold
+      let netOrganicDiff = Math.max(0, effectiveGrossDiff - bought + sold);
+
+      // Only include items that had net organic production OR trade activity
+      if (netOrganicDiff > 0.0001 || bought > 0 || sold > 0) {
+        let harvestedQty = Math.ceil(netOrganicDiff * 10) / 10;
+        let unitPrice = getFlowerUnitPrice(cleanKey, flatPrices);
+        let itemFlowers = Math.ceil((unitPrice * harvestedQty * 0.9) * 1000) / 1000;
+        let formattedName = formatOfficialItemName(cleanKey);
+
+        yieldsList.push({
+          name: formattedName,
+          qty: harvestedQty,
+          flowers: itemFlowers,
+          tradeBought: Math.ceil(bought * 10) / 10,
+          tradeSold: Math.ceil(sold * 10) / 10,
+          grossStockDiff: Math.ceil(effectiveGrossDiff * 10) / 10
+        });
+        totalHarvestCount += harvestedQty;
+        totalNetFlowers += itemFlowers;
+      }
+    });
 
     const baseYields = user.crop_base_yields || {};
     const currActivity = currentData.farmActivity || {};
@@ -232,7 +304,7 @@ async function processYieldCalculation(supabase) {
         if (harvestCycles > 0) {
           let baseYield = parseFloat(baseYields[cleanCropKey] || baseYields['_global']) || 1.0;
           let totalProduced = Math.ceil((harvestCycles * baseYield) * 10) / 10;
-          let unitPrice = getFlowerUnitPrice(cleanCropKey);
+          let unitPrice = getFlowerUnitPrice(cleanCropKey, flatPrices);
           let netFlowers = Math.ceil((unitPrice * totalProduced * 0.9) * 1000) / 1000;
 
           cropActivityYields.push({
@@ -247,8 +319,21 @@ async function processYieldCalculation(supabase) {
       }
     }
 
-    if (totalHarvestCount <= 0 && yieldsList.length === 0 && cropActivityYields.length === 0) {
-      console.log(`ℹ️ [Yield Calculation] No harvest activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
+    // Include coins summary in cropActivityYields
+    if (dailyCoinsEarned > 0 || dailyCoinsSpent > 0 || Math.abs(netCoinsDiff) > 0) {
+      cropActivityYields.push({
+        type: 'coins',
+        crop: 'Coins',
+        startCoins: baselineCoins,
+        endCoins: currentCoins,
+        netCoins: netCoinsDiff,
+        coinsEarned: dailyCoinsEarned,
+        coinsSpent: dailyCoinsSpent
+      });
+    }
+
+    if (totalHarvestCount <= 0 && yieldsList.length === 0 && cropActivityYields.length === 0 && Math.abs(netCoinsDiff) <= 0 && dailyCoinsEarned <= 0) {
+      console.log(`ℹ️ [Yield Calculation] No harvest/trade/coin activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
       await delay(8000);
       continue;
     }

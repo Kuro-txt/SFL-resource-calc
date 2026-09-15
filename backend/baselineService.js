@@ -17,7 +17,14 @@ async function processBaselineSnapshot(supabase) {
     const cleanFarmId = String(user.farm_id).trim();
 
     try {
-      const { inventory, farmActivity } = await fetchFarmFullDataWithRetry(cleanFarmId);
+      const farmData = await fetchFarmFullDataWithRetry(cleanFarmId);
+      const inventory = { ...(farmData.inventory || {}) };
+      const farmActivity = { ...(farmData.farmActivity || {}) };
+      const coins = parseFloat(farmData.coins || farmData.balance || 0);
+
+      // Preserve coin snapshot in baseline
+      inventory['Coins'] = coins;
+      farmActivity['Current Coins'] = coins;
 
       const { error: dbError } = await supabase
         .from('preharvest_baselines')
@@ -32,7 +39,7 @@ async function processBaselineSnapshot(supabase) {
       if (dbError) {
         console.error(`❌ [Supabase DB Error] Baseline save failed for Farm #${cleanFarmId}: ${dbError.message}`);
       } else {
-        console.log(`✅ 00:00 UTC Baseline saved for Farm #${cleanFarmId} on ${todayDate}`);
+        console.log(`✅ 00:00 UTC Baseline saved for Farm #${cleanFarmId} on ${todayDate} (Coins: ${coins})`);
       }
     } catch (err) {
       console.error(`❌ Failed baseline snapshot for Farm #${cleanFarmId}: ${err.message}`);

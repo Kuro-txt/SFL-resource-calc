@@ -135,15 +135,48 @@ export function renderSnapshotHistory() {
             </span>
           `;
         } else {
+          const tradeBought = parseFloat(crop.tradeBought || 0);
+          const tradeSold = parseFloat(crop.tradeSold || 0);
+          let tradeBadges = '';
+          if (tradeBought > 0) {
+            tradeBadges += `<span class="bg-blue-100 text-blue-800 border border-blue-300 text-[10px] font-bold px-1.5 py-0.2 rounded shadow-2xs ml-0.5" title="${tradeBought.toFixed(1)} bought in P2P marketplace">🛒 +${tradeBought.toFixed(0)}</span>`;
+          }
+          if (tradeSold > 0) {
+            tradeBadges += `<span class="bg-orange-100 text-orange-800 border border-orange-300 text-[10px] font-bold px-1.5 py-0.2 rounded shadow-2xs ml-0.5" title="${tradeSold.toFixed(1)} sold in P2P marketplace">🛒 -${tradeSold.toFixed(0)}</span>`;
+          }
+
           return `
             <span class="inline-flex items-center gap-1 bg-green-100 text-sfl-green border border-sfl-green/40 text-[11px] font-bold px-2 py-0.5 rounded shadow-sm mr-1 mb-1">
               <span>+${cropQty.toFixed(1)} ${cropName}</span>
               <span class="text-sfl-green font-normal">(${cropFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML})</span>
+              ${tradeBadges}
             </span>
           `;
         }
       })
       .join('');
+
+    let coinsEntry = (Array.isArray(rawActs) ? rawActs.find(a => a && (a.type === 'coins' || a.crop === 'Coins')) : null) || entry.coins;
+    let coinsHtml = '';
+    if (coinsEntry) {
+      const netCoins = parseFloat(coinsEntry.netCoins || coinsEntry.net || 0);
+      const earned = parseFloat(coinsEntry.coinsEarned || coinsEntry.earned || 0);
+      const spent = parseFloat(coinsEntry.coinsSpent || coinsEntry.spent || 0);
+      if (Math.abs(netCoins) > 0 || earned > 0 || spent > 0) {
+        const netSign = netCoins >= 0 ? '+' : '';
+        const netColor = netCoins >= 0 ? 'text-amber-800 bg-amber-100/90 border-amber-300' : 'text-red-800 bg-red-100/90 border-red-300';
+        coinsHtml = `
+          <div class="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-mono">
+            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border font-bold ${netColor} shadow-2xs">
+              <span>🪙</span>
+              <span>${netSign}${Math.round(netCoins).toLocaleString()} Coins</span>
+            </span>
+            ${earned > 0 ? `<span class="text-green-700 font-semibold">(+${Math.round(earned).toLocaleString()} earned</span>` : ''}
+            ${spent > 0 ? `<span class="text-orange-700 font-semibold">${earned > 0 ? ',' : '('}-${Math.round(spent).toLocaleString()} spent)</span>` : (earned > 0 ? `<span class="text-green-700 font-semibold">)</span>` : '')}
+          </div>
+        `;
+      }
+    }
 
     let actionButtons = isEditing 
       ? `
@@ -165,7 +198,10 @@ export function renderSnapshotHistory() {
     tr.innerHTML = `
       <td class="px-3 py-2.5 font-bold whitespace-nowrap">${entryDate}</td>
       <td class="px-3 py-2.5 font-bold font-mono text-sfl-wood">${totalYieldCount.toFixed(1)} Items</td>
-      <td class="px-3 py-2.5">${cropBadges || '<span class="italic text-gray-400">No details</span>'}</td>
+      <td class="px-3 py-2.5">
+        ${cropBadges || '<span class="italic text-gray-400">No details</span>'}
+        ${coinsHtml}
+      </td>
       <td class="px-3 py-2.5 font-bold text-sfl-green font-mono">${finalNetFlowers.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</td>
       <td class="px-2 py-2.5 text-center whitespace-nowrap">${actionButtons}</td>
     `;

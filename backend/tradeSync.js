@@ -171,8 +171,88 @@ async function processAutoSyncTrades(supabase) {
   console.log(`🎉 [Auto-Sync Trades] Finished auto-sync batch for ${farmEntries.length} farms. Total trades: ${totalSynced}.`);
 }
 
+async function getTodayTradesForFarm(farmId, todayDate) {
+  const cleanFarmId = String(farmId).trim();
+  const dayStartMs = new Date(todayDate + 'T00:00:00Z').getTime();
+  const dayEndMs = new Date(todayDate + 'T22:00:00Z').getTime();
+
+  let trades = [];
+
+  // 1. Try TiDB Pool first if configured
+  try {
+    const pool = getTiDBPool();
+    if (pool) {
+      const [rows] = await pool.query(
+        `SELECT item_name, quantity, trade_type, fulfilled_at 
+         FROM user_trades 
+         WHERE farm_id = ? AND fulfilled_at >= ? AND fulfilled_at <= ?`,
+        [cleanFarmId, dayStartMs, dayEndMs]
+      );
+      if (Array.isArray(rows) && rows.length > 0) {
+        trades = rows.map(r => ({
+          itemName: r.item_name,
+          quantity: parseFloat(r.quantity || 1),
+          tradeType: r.trade_type
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn(`Notice: TiDB query for trades Farm #${cleanFarmId}:`, err.message);
+  }
+
+  // 2. Fallback to direct API if TiDB had no trades or is not connected
+  if (trades.length === 0) {
+    try {
+      const rawTrades = await fetchMarketplaceTradesRaw(cleanFarmId, '', 1);
+      if (Array.isArray(rawTrades)) {
+        for (const t of rawTrades) {
+          const fulfilledAt = parseInt(t.fulfilledAt || 0, 10);
+          if (fulfilledAt >= dayStartMs && fulfilledAt <= dayEndMs) {
+            const myFarmIdStr = String(cleanFarmId).trim();
+            const initId = String(t.initiatedBy?.id || '').trim();
+            const fulfId = String(t.fulfilledBy?.id || '').trim();
+            const isOffer = t.source === 'offer';
+            const isSeller = isOffer ? (fulfId === myFarmIdStr) : (initId === myFarmIdStr);
+            const tradeType = isSeller ? 'sold' : 'bought';
+            const rawName = t.itemName || t.name;
+            const itemId = parseInt(t.itemId || 0, 10);
+            const itemName = (rawName && !rawName.startsWith('Item #'))
+              ? rawName
+              : getItemNameById(itemId || rawName);
+
+            trades.push({
+              itemName: itemName || `Item #${itemId}`,
+              quantity: parseFloat(t.quantity || 1),
+              tradeType: tradeType
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`Notice: Marketplace trades fetch fallback Farm #${cleanFarmId}:`, err.message);
+    }
+  }
+
+  const tradesBought = {};
+  const tradesSold = {};
+
+  trades.forEach(t => {
+    const cleanK = String(t.itemName || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    if (!cleanK) return;
+    const qty = parseFloat(t.quantity || 0);
+    if (t.tradeType === 'bought') {
+      tradesBought[cleanK] = (tradesBought[cleanK] || 0) + qty;
+    } else if (t.tradeType === 'sold') {
+      tradesSold[cleanK] = (tradesSold[cleanK] || 0) + qty;
+    }
+  });
+
+  return { tradesBought, tradesSold, rawTradesCount: trades.length };
+}
+
 module.exports = {
   fetchMarketplaceTradesWithRetry,
   fetchMarketplaceTradesRaw,
-  processAutoSyncTrades
+  processAutoSyncTrades,
+  getTodayTradesForFarm
 };

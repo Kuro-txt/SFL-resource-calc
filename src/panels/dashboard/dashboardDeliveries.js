@@ -1,4 +1,4 @@
-﻿// ─── Deliveries Section ───────────────────────────────────────────────────────
+// ─── Deliveries Section ───────────────────────────────────────────────────────
 // Reads window.farmData.bumpkin.activity for NPC delivery counters + coins/flowers.
 
 import { PanelManager } from '../../services/panelManager.js';
@@ -70,6 +70,26 @@ export function renderDeliveriesSection(mountEl) {
           <span class="font-mono text-sfl-wood">${count}× deliveries</span>
         </div>`).join('');
 
+  let latestCoinsStats = null;
+  try {
+    const history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
+    if (Array.isArray(history) && history.length > 0) {
+      for (const h of history) {
+        const rawActs = h.cropActivityYields || h.crop_activity_yields || [];
+        const found = (Array.isArray(rawActs) ? rawActs.find(a => a && (a.type === 'coins' || a.crop === 'Coins')) : null) || h.coins;
+        if (found) {
+          latestCoinsStats = found;
+          break;
+        }
+      }
+    }
+  } catch (_) {}
+
+  const coinSubtext = latestCoinsStats ? `
+    <p class="text-[9px] font-mono font-bold ${parseFloat(latestCoinsStats.netCoins || latestCoinsStats.net || 0) >= 0 ? 'text-green-700' : 'text-red-600'}">
+      ${parseFloat(latestCoinsStats.netCoins || latestCoinsStats.net || 0) >= 0 ? '+' : ''}${Math.round(parseFloat(latestCoinsStats.netCoins || latestCoinsStats.net || 0)).toLocaleString()} today
+    </p>` : '';
+
   mountEl.innerHTML = `
     <div class="flex items-center justify-between mb-3">
       <h4 class="text-xs font-bold text-sfl-wood uppercase tracking-wide">🎁 Deliveries & Balance</h4>
@@ -79,6 +99,7 @@ export function renderDeliveriesSection(mountEl) {
       <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
         <p class="text-[10px] text-sfl-woodLight font-bold uppercase">Coins</p>
         <p class="font-mono font-bold text-yellow-600 text-sm">${totalCoins.toLocaleString()}</p>
+        ${coinSubtext}
       </div>
       <div class="bg-pink-50 border border-pink-200 rounded-lg p-2">
         <p class="text-[10px] text-sfl-woodLight font-bold uppercase">Flowers</p>
