@@ -123,8 +123,8 @@ export const PanelManager = {
     if (urlTab) {
       this.switch(urlTab, false);
     } else {
-      // 2. Fallback: Last opened tab from localStorage or default 'calc'
-      const savedTab = localStorage.getItem('sfl_active_tab') || 'calc';
+      // 2. Fallback: Last opened tab from localStorage or default 'dashboard'
+      const savedTab = localStorage.getItem('sfl_active_tab') || 'dashboard';
       this.switch(savedTab, true);
     }
   }

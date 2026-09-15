@@ -1,10 +1,13 @@
 // ─── Items Spent Section ──────────────────────────────────────────────────────
 // Diffs consecutive preharvest_baselines.stock rows to compute items consumed.
 
-import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES } from '../../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES, getCoinFlowerRatio } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
 
 function getItemPrice(name) {
+  if (name === 'Coins' || normalizeItemKey(name) === 'coins') {
+    return 1 / getCoinFlowerRatio();
+  }
   if (window.allPrices) {
     const cleanKey = normalizeItemKey(name);
     const match = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanKey);
@@ -21,6 +24,7 @@ function getItemPrice(name) {
 }
 
 const ITEM_ICONS = {
+  coins: '🪙', coin: '🪙',
   egg: '🥚', milk: '🥛', feather: '🪶', leather: '👞', wool: '🧶',
   merinowool: '🐑', honey: '🍯', wood: '🪵', stone: '🪨', iron: '⛓️',
   gold: '🪙', crimstone: '💎', obsidian: '⬛', salt: '🧂',
@@ -89,6 +93,40 @@ export async function loadSpentData(timeRange = '7d') {
     });
   }
 
+  // Include Coins spent as a resource for the selected timeframe
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]'); } catch (_) {}
+  let totalCoinsSpent = 0;
+  const now = Date.now();
+  let minDateStr = '';
+  if (timeRange === 'daily') {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const hasToday = history.some(h => (h.date || h.yield_date) === todayStr);
+    minDateStr = hasToday ? todayStr : (history[0]?.date || history[0]?.yield_date || todayStr);
+  } else if (timeRange === '7d') {
+    minDateStr = new Date(now - 7 * 86400 * 1000).toISOString().split('T')[0];
+  } else if (timeRange === 'month') {
+    minDateStr = new Date(now - 30 * 86400 * 1000).toISOString().split('T')[0];
+  }
+
+  history.forEach(h => {
+    const d = h.date || h.yield_date || '';
+    if (timeRange === 'daily' && d !== minDateStr) return;
+    if (minDateStr && d < minDateStr) return;
+
+    const rawActs = h.cropActivityYields || h.crop_activity_yields || [];
+    const coinsObj = (Array.isArray(rawActs) ? rawActs.find(a => a && (a.type === 'coins' || a.crop === 'Coins')) : null) || h.coins;
+    if (coinsObj) {
+      totalCoinsSpent += parseFloat(coinsObj.coinsSpent || coinsObj.spent || 0);
+    }
+  });
+
+  if (totalCoinsSpent > 0) {
+    const ratio = getCoinFlowerRatio();
+    const coinSpentFlowers = parseFloat((totalCoinsSpent / ratio).toFixed(3));
+    result['Coins'] = { qty: Math.round(totalCoinsSpent), flowers: coinSpentFlowers };
+  }
+
   return Object.entries(result)
     .map(([name, { qty, flowers }]) => ({ name, qty, flowers }))
     .sort((a, b) => b.flowers - a.flowers);
@@ -102,7 +140,7 @@ export async function renderSpentSection(mountEl, timeRange = '7d') {
   mountEl.innerHTML = `
     <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
       <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-        <span>💸</span> Resource Consumption
+        <span>💸</span> Resources & Coins Spent
       </h4>
     </div>
     <p class="text-xs text-sfl-woodLight italic text-center py-6">⏳ Analyzing stock baselines...</p>`;
@@ -112,7 +150,7 @@ export async function renderSpentSection(mountEl, timeRange = '7d') {
     mountEl.innerHTML = `
       <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
         <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-          <span>💸</span> Resource Consumption
+          <span>💸</span> Resources & Coins Spent
         </h4>
       </div>
       <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
@@ -129,13 +167,13 @@ export async function renderSpentSection(mountEl, timeRange = '7d') {
     mountEl.innerHTML = `
       <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
         <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-          <span>💸</span> Resource Consumption
+          <span>💸</span> Resources & Coins Spent
         </h4>
       </div>
       <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
         <span class="text-2xl mb-1 block">📉</span>
         <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Consumption in ${rangeLabel}</p>
-        <p class="text-[11px] text-sfl-woodLight mt-1">Requires 2+ daily 00:00 UTC snapshots to compute net consumed resources.</p>
+        <p class="text-[11px] text-sfl-woodLight mt-1">Requires 2+ daily 00:00 UTC snapshots or recorded coin activity.</p>
       </div>`;
     return;
   }
@@ -146,6 +184,7 @@ export async function renderSpentSection(mountEl, timeRange = '7d') {
   const barsHtml = items.map(({ name, qty, flowers }) => {
     const pct = Math.min(100, Math.max(8, Math.round((flowers / maxFlowers) * 100)));
     const icon = getItemIcon(name);
+    const formattedQty = name === 'Coins' ? Math.round(qty).toLocaleString() : qty.toFixed(1);
     return `
       <div class="group flex items-center gap-2.5 text-xs py-1 hover:bg-orange-100/40 dark:hover:bg-orange-950/30 px-2 rounded-lg transition">
         <span class="text-sm shrink-0">${icon}</span>
@@ -156,7 +195,7 @@ export async function renderSpentSection(mountEl, timeRange = '7d') {
           <div class="bg-gradient-to-r from-orange-400 to-amber-500 h-2 rounded-full transition-all duration-500" style="width:${pct}%"></div>
         </div>
         <div class="text-right shrink-0 font-mono">
-          <span class="font-bold text-orange-700 dark:text-orange-400">-${qty.toFixed(1)}</span>
+          <span class="font-bold text-orange-700 dark:text-orange-400">-${formattedQty}</span>
           <span class="text-sfl-woodLight text-[11px] ml-1">(${flowers.toFixed(3)} 🌸)</span>
         </div>
       </div>`;
@@ -166,9 +205,9 @@ export async function renderSpentSection(mountEl, timeRange = '7d') {
     <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
       <div>
         <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-          <span>💸</span> Resource Consumption
+          <span>💸</span> Resources & Coins Spent
         </h4>
-        <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • Crafting, chores & feeding</p>
+        <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • Crafting, chores & coins spent</p>
       </div>
       <div class="text-right">
         <span class="font-mono text-sm font-bold text-orange-700 dark:text-orange-400 bg-orange-100/80 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">

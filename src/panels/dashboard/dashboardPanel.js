@@ -1,11 +1,11 @@
-﻿// ─── Dashboard Panel ──────────────────────────────────────────────────────────
-// Unified Command Center: Top KPI Ribbon, Items Earned, Items Spent, Trades, and Balances.
+// ─── Dashboard Panel ──────────────────────────────────────────────────────────
+// Unified Command Center: Top KPI Ribbon, Items Earned, Items Spent, and Trades.
 // Supports dynamic time ranges: Daily (Today), 7 Days, and Month (30 Days).
 
 import { renderEarnedSection, aggregateLocalEarned } from './dashboardEarned.js';
-import { renderSpentSection } from './dashboardSpent.js';
+import { renderSpentSection, loadSpentData } from './dashboardSpent.js';
 import { renderTradesSection, getTradeSummary } from './dashboardTrades.js';
-import { renderDeliveriesSection, parseBalances, aggregateCoinsForRange } from './dashboardDeliveries.js';
+import { parseBalances } from './dashboardDeliveries.js';
 
 let initialized = false;
 let activeTimeRange = '7d'; // 'daily' | '7d' | 'month'
@@ -16,51 +16,57 @@ const RANGE_LABELS = {
   month: 'Month'
 };
 
-function renderKpiBanner(timeRange = '7d') {
+async function renderKpiBanner(timeRange = '7d') {
   const mount = document.getElementById('dash-kpi-banner');
   if (!mount) return;
 
   const rangeText = RANGE_LABELS[timeRange] || '7 Days';
 
-  // 1. Harvest Data for range
+  // 1. Earned Output (including Coins converted via user ratio)
   const totals = aggregateLocalEarned(timeRange);
   const grandFlowers = Object.values(totals).reduce((s, v) => s + (v.flowers || 0), 0);
   const totalItems = Object.values(totals).reduce((s, v) => s + (v.qty || 0), 0);
 
-  // 2. Balances Data & Coin Flow for range
-  const farmData = window.farmData || window.currentFarmData;
-  const { totalCoins, totalFlowers, totalSfl } = parseBalances(farmData);
-  const coinStats = aggregateCoinsForRange(timeRange);
+  // 2. Spent Output (including Coins spent converted via user ratio)
+  let grandSpentFlowers = 0;
+  let totalSpentItems = 0;
+  try {
+    const spentItems = await loadSpentData(timeRange);
+    grandSpentFlowers = spentItems.reduce((s, v) => s + (v.flowers || 0), 0);
+    totalSpentItems = spentItems.reduce((s, v) => s + (v.qty || 0), 0);
+  } catch (_) {}
 
   // 3. Trade Data for range
   const tradeSum = getTradeSummary(timeRange);
   const netSfl = tradeSum ? tradeSum.netSfl : 0;
   const tradeCount = tradeSum ? tradeSum.total : 0;
 
+  // 4. Balances Data (Coins & SFL)
+  const farmData = window.farmData || window.currentFarmData;
+  const { totalCoins, totalSfl } = parseBalances(farmData);
+
   mount.innerHTML = `
-    <!-- KPI 1: Harvest Output for Time Range -->
+    <!-- KPI 1: Harvest & Resources Earned -->
     <div class="bg-sfl-card/90 dark:bg-amber-950/40 p-3 rounded-xl border-2 border-emerald-600/30 shadow-sm flex items-center gap-3">
       <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-xl shrink-0">
         🌾
       </div>
       <div class="truncate">
-        <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Harvest (${rangeText})</p>
-        <p class="font-mono text-base sm:text-lg font-bold text-sfl-green truncate">${grandFlowers.toFixed(3)} 🌸</p>
-        <p class="text-[10px] text-sfl-woodLight font-mono">${totalItems.toFixed(0)} items produced</p>
+        <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Earned (${rangeText})</p>
+        <p class="font-mono text-base sm:text-lg font-bold text-sfl-green truncate">+${grandFlowers.toFixed(3)} 🌸</p>
+        <p class="text-[10px] text-sfl-woodLight font-mono">${totalItems.toFixed(0)} items & coins</p>
       </div>
     </div>
 
-    <!-- KPI 2: Farm Coins & Flow -->
-    <div class="bg-sfl-card/90 dark:bg-amber-950/40 p-3 rounded-xl border-2 border-amber-600/30 shadow-sm flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-yellow-100 dark:bg-yellow-950/70 border border-yellow-300 dark:border-yellow-800 flex items-center justify-center text-xl shrink-0">
-        🪙
+    <!-- KPI 2: Resources & Coins Spent -->
+    <div class="bg-sfl-card/90 dark:bg-amber-950/40 p-3 rounded-xl border-2 border-orange-600/30 shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/70 border border-orange-300 dark:border-orange-800 flex items-center justify-center text-xl shrink-0">
+        💸
       </div>
       <div class="truncate">
-        <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Coins (${rangeText})</p>
-        <p class="font-mono text-base sm:text-lg font-bold text-yellow-700 dark:text-amber-300 truncate">${totalCoins > 0 ? totalCoins.toLocaleString() : '—'}</p>
-        <p class="text-[10px] font-mono font-semibold ${coinStats.netCoins >= 0 ? 'text-green-700 dark:text-emerald-400' : 'text-red-600'}">
-          ${coinStats.count > 0 ? `${coinStats.netCoins >= 0 ? '+' : ''}${Math.round(coinStats.netCoins).toLocaleString()} flow` : 'Ready to track'}
-        </p>
+        <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Spent (${rangeText})</p>
+        <p class="font-mono text-base sm:text-lg font-bold text-orange-700 dark:text-orange-400 truncate">-${grandSpentFlowers.toFixed(3)} 🌸</p>
+        <p class="text-[10px] text-sfl-woodLight font-mono">${totalSpentItems.toFixed(0)} items & coins</p>
       </div>
     </div>
 
@@ -78,14 +84,14 @@ function renderKpiBanner(timeRange = '7d') {
       </div>
     </div>
 
-    <!-- KPI 4: Flower Balance -->
-    <div class="bg-sfl-card/90 dark:bg-amber-950/40 p-3 rounded-xl border-2 border-pink-600/30 shadow-sm flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-pink-100 dark:bg-pink-950/70 border border-pink-300 dark:border-pink-800 flex items-center justify-center text-xl shrink-0">
-        🌸
+    <!-- KPI 4: Farm Wallet Holdings -->
+    <div class="bg-sfl-card/90 dark:bg-amber-950/40 p-3 rounded-xl border-2 border-amber-600/30 shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-yellow-100 dark:bg-yellow-950/70 border border-yellow-300 dark:border-yellow-800 flex items-center justify-center text-xl shrink-0">
+        🪙
       </div>
       <div class="truncate">
-        <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Flower Balance</p>
-        <p class="font-mono text-base sm:text-lg font-bold text-pink-700 dark:text-pink-300 truncate">${totalFlowers > 0 ? totalFlowers.toFixed(3) : '0.000'} 🌸</p>
+        <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Farm Holdings</p>
+        <p class="font-mono text-base sm:text-lg font-bold text-yellow-700 dark:text-amber-300 truncate">${totalCoins > 0 ? totalCoins.toLocaleString() : '—'} Coins</p>
         <p class="text-[10px] text-sfl-woodLight font-mono">SFL Balance: ${totalSfl.toFixed(2)}</p>
       </div>
     </div>`;
@@ -129,7 +135,7 @@ function renderTemplate() {
   container.innerHTML = `
     <div class="space-y-4">
       <!-- Header Banner & Time Range Switcher -->
-      <div class="bg-sfl-card/90 dark:bg-amber-950/40 p-4 rounded-xl border-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
+      <div class="bg-sfl-card/95 dark:bg-amber-950/40 p-4 rounded-2xl border-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
         <div>
           <h3 class="text-sm sm:text-base font-bold text-sfl-wood dark:text-amber-200 uppercase flex items-center gap-2">
             <span>📊</span> Farm Command Center
@@ -155,41 +161,35 @@ function renderTemplate() {
       <!-- Top High-Level KPI Ribbon -->
       <div id="dash-kpi-banner" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
 
-      <!-- 2x2 Clean Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Main Dashboard Grid -->
+      <div class="space-y-4">
+        <!-- Row 1: Earned and Spent side by side -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Card 1: Items & Coins Earned (Emerald Accent) -->
+          <div class="bg-sfl-card/95 dark:bg-amber-950/30 p-4 rounded-2xl border-2 border-emerald-600/30 shadow-sm flex flex-col justify-between">
+            <div id="dash-earned-mount"></div>
+          </div>
 
-        <!-- Card 1: Items Earned (Emerald Accent) -->
-        <div class="bg-sfl-card/90 dark:bg-amber-950/30 p-4 rounded-xl border-2 border-emerald-600/30 shadow-sm flex flex-col justify-between">
-          <div id="dash-earned-mount"></div>
+          <!-- Card 2: Items & Coins Spent (Orange Accent) -->
+          <div class="bg-sfl-card/95 dark:bg-amber-950/30 p-4 rounded-2xl border-2 border-orange-600/30 shadow-sm flex flex-col justify-between">
+            <div id="dash-spent-mount"></div>
+          </div>
         </div>
 
-        <!-- Card 2: Items Spent (Orange Accent) -->
-        <div class="bg-sfl-card/90 dark:bg-amber-950/30 p-4 rounded-xl border-2 border-orange-600/30 shadow-sm flex flex-col justify-between">
-          <div id="dash-spent-mount"></div>
-        </div>
-
-        <!-- Card 3: Trades Ledger (Blue Accent) -->
-        <div class="bg-sfl-card/90 dark:bg-amber-950/30 p-4 rounded-xl border-2 border-blue-600/30 shadow-sm flex flex-col justify-between">
+        <!-- Row 2: Marketplace Trades Ledger (Blue Accent) -->
+        <div class="bg-sfl-card/95 dark:bg-amber-950/30 p-4 rounded-2xl border-2 border-blue-600/30 shadow-sm">
           <div id="dash-trades-mount"></div>
         </div>
-
-        <!-- Card 4: Farm Balances & Coins (Gold Accent) -->
-        <div class="bg-sfl-card/90 dark:bg-amber-950/30 p-4 rounded-xl border-2 border-amber-600/30 shadow-sm flex flex-col justify-between">
-          <div id="dash-deliveries-mount"></div>
-        </div>
-
       </div>
     </div>`;
 }
 
-async function populateSections(timeRange = activeTimeRange) {
-  renderKpiBanner(timeRange);
+export async function populateSections(timeRange = activeTimeRange) {
+  await renderKpiBanner(timeRange);
   renderEarnedSection(document.getElementById('dash-earned-mount'), timeRange);
   await renderSpentSection(document.getElementById('dash-spent-mount'), timeRange);
   await renderTradesSection(document.getElementById('dash-trades-mount'), timeRange);
-  renderDeliveriesSection(document.getElementById('dash-deliveries-mount'), timeRange);
-  // Re-run KPI banner once async sections finish
-  renderKpiBanner(timeRange);
+  await renderKpiBanner(timeRange);
 }
 
 export function initDashboardPanel() {
@@ -213,4 +213,10 @@ export async function mountDashboard() {
     });
   }
   await populateSections(activeTimeRange);
+}
+
+if (typeof window !== 'undefined') {
+  window.mountDashboard = mountDashboard;
+  window.refreshDashboardView = () => populateSections(activeTimeRange);
+  window.populateSections = populateSections;
 }

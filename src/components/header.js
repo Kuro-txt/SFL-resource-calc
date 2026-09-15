@@ -32,32 +32,37 @@ export function renderHeader() {
         </div>
       </div>
 
-      <!-- COMPACT GUIDE BOX AT THE TOP OF PAGE -->
-      <div class="bg-amber-50/90 border-2 border-sfl-cardBorder rounded-xl p-2.5 sm:p-3 text-xs text-sfl-wood space-y-2 shadow-xs">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 border-b border-sfl-cardBorder/50 pb-1.5">
-          <p class="font-bold flex items-center gap-1.5 text-sfl-wood text-xs sm:text-sm">
-            <span>📖</span> How to Use SFL Calculator
-          </p>
-          <span class="bg-amber-200/90 text-amber-900 border border-amber-400 text-[10px] font-bold px-2 py-0.2 rounded-full flex items-center gap-1">
-            <span>🖥️</span> <strong>Tip:</strong> Desktop Mode recommended on mobile
-          </span>
-        </div>
+      <!-- COMPACT COLLAPSIBLE GUIDE BOX AT THE TOP OF PAGE -->
+      <details class="group bg-amber-50/90 dark:bg-amber-950/40 border-2 border-sfl-cardBorder rounded-xl p-2 sm:p-2.5 text-xs text-sfl-wood shadow-xs transition-all">
+        <summary class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 cursor-pointer list-none select-none font-bold text-xs sm:text-sm text-sfl-wood">
+          <div class="flex items-center gap-1.5">
+            <span>📖</span>
+            <span>How to Use SFL Calculator</span>
+            <span class="text-[10px] text-sfl-woodLight font-normal ml-1 group-open:hidden">(click to expand)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="bg-amber-200/90 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-400 dark:border-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span>🖥️</span> Tip: Desktop Mode recommended on mobile
+            </span>
+            <span class="text-xs transition-transform duration-200 group-open:rotate-180">▼</span>
+          </div>
+        </summary>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-medium text-sfl-woodLight">
+        <div class="mt-2 pt-2 border-t border-sfl-cardBorder/50 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-medium text-sfl-woodLight">
           <div class="bg-white/70 dark:bg-amber-950/30 p-2 rounded-lg border border-sfl-cardBorder/40 space-y-0.5">
-            <span class="font-bold text-sfl-dirt block text-xs">1. Link Farm & Sign In</span>
-            <p>Enter your <strong>Farm ID</strong> and sign in to save your targets & enable cloud tracking.</p>
+            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs">1. Link Farm & Sync</span>
+            <p>Enter your <strong>Farm ID</strong> and click <strong>🔄 Sync Inventory</strong> to load resources, trades & dashboard.</p>
           </div>
           <div class="bg-white/70 dark:bg-amber-950/30 p-2 rounded-lg border border-sfl-cardBorder/40 space-y-0.5">
-            <span class="font-bold text-sfl-dirt block text-xs">2. Set Targets & Yields</span>
-            <p>Select items under <strong class="text-amber-800 dark:text-amber-300">"⚙️ Manage Targets"</strong> and adjust your plot crop multipliers.</p>
+            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs">2. Set Targets & Ratios</span>
+            <p>Configure your 🪙:🌸 ratio, tax rate, and wishlist goals under <strong>NFT Wishlist</strong>.</p>
           </div>
           <div class="bg-white/70 dark:bg-amber-950/30 p-2 rounded-lg border border-sfl-cardBorder/40 space-y-0.5">
-            <span class="font-bold text-sfl-dirt block text-xs">3. Automatic Daily Tracking</span>
-            <p>Daily harvest yields, Flower profits, and marketplace trade history update automatically.</p>
+            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs">3. Automated Analytics</span>
+            <p>Track Day / 7 Days / Month resources earned, spent, and trades ledger with live valuations.</p>
           </div>
         </div>
-      </div>
+      </details>
     </div>
   `;
 

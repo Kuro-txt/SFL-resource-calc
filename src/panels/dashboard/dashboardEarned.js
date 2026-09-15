@@ -1,9 +1,12 @@
-import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES } from '../../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES, getCoinFlowerRatio } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getItemPrice(name) {
+  if (name === 'Coins' || normalizeItemKey(name) === 'coins') {
+    return 1 / getCoinFlowerRatio();
+  }
   if (window.allPrices) {
     const cleanKey = normalizeItemKey(name);
     const match = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanKey);
@@ -27,6 +30,7 @@ function fmtDate(dateStr) {
 }
 
 const ITEM_ICONS = {
+  coins: '🪙', coin: '🪙',
   egg: '🥚', milk: '🥛', feather: '🪶', leather: '👞', wool: '🧶',
   merinowool: '🐑', honey: '🍯', wood: '🪵', stone: '🪨', iron: '⛓️',
   gold: '🪙', crimstone: '💎', obsidian: '⬛', salt: '🧂',
@@ -106,6 +110,19 @@ export function getLocalEarnedRows(timeRange = '7d') {
         totalFlowers += flowers;
       });
 
+      // Include Coins earned as a resource
+      const rawActs = Array.isArray(e.cropActivityYields) ? e.cropActivityYields
+        : (Array.isArray(e.crop_activity_yields) ? e.crop_activity_yields : []);
+      const coinObj = rawActs.find(a => a && (a.type === 'coins' || a.crop === 'Coins')) || e.coins;
+      const coinsEarned = parseFloat(coinObj?.coinsEarned || coinObj?.earned || 0);
+
+      if (coinsEarned > 0) {
+        const ratio = getCoinFlowerRatio();
+        const coinFlowers = parseFloat((coinsEarned / ratio).toFixed(3));
+        items['Coins'] = { qty: Math.round(coinsEarned), flowers: coinFlowers };
+        totalFlowers += coinFlowers;
+      }
+
       return {
         date: e.date || e.yield_date || '',
         items,
@@ -174,19 +191,20 @@ export function renderEarnedSection(mountEl, timeRange = '7d') {
           <div class="bg-gradient-to-r from-emerald-500 to-green-600 h-2 rounded-full transition-all duration-500" style="width:${pct}%"></div>
         </div>
         <div class="text-right shrink-0 font-mono">
-          <span class="font-bold text-sfl-dirt dark:text-amber-100">+${qty.toFixed(1)}</span>
+          <span class="font-bold text-sfl-dirt dark:text-amber-100">+${name === 'Coins' ? Math.round(qty).toLocaleString() : qty.toFixed(1)}</span>
           <span class="text-sfl-green text-[11px] ml-1 font-semibold">(${flowers.toFixed(3)} 🌸)</span>
         </div>
       </div>`;
   }).join('');
 
   const recentHtml = rows.slice(0, 8).map(r => {
-    const chips = Object.entries(r.items).slice(0, 5).map(([name, { qty }]) =>
-      `<span class="inline-flex items-center gap-0.5 bg-green-100/90 dark:bg-green-950/50 text-sfl-green border border-sfl-green/30 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-2xs">
-        <span>+${qty.toFixed(1)}</span>
+    const chips = Object.entries(r.items).slice(0, 5).map(([name, { qty }]) => {
+      const formattedQty = name === 'Coins' ? Math.round(qty).toLocaleString() : qty.toFixed(1);
+      return `<span class="inline-flex items-center gap-0.5 bg-green-100/90 dark:bg-green-950/50 text-sfl-green border border-sfl-green/30 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-2xs">
+        <span>+${formattedQty}</span>
         <span>${name}</span>
-      </span>`
-    ).join(' ');
+      </span>`;
+    }).join(' ');
     const extraCount = Object.keys(r.items).length - 5;
 
     return `
@@ -207,7 +225,7 @@ export function renderEarnedSection(mountEl, timeRange = '7d') {
     <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
       <div>
         <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-          <span>🌾</span> Harvested Resources
+          <span>🌾</span> Resources & Coins Earned
         </h4>
         <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • ${totalItemsCount.toFixed(0)} items produced</p>
       </div>

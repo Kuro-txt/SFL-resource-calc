@@ -208,6 +208,22 @@ export function getItemTaxRate(itemName, globalTaxRate = null) {
   return isGlobalTaxItem(itemName) ? globalTaxRate : 0.10;
 }
 
+export const DEFAULT_COIN_FLOWER_RATIO = 1000;
+
+export function getCoinFlowerRatio() {
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('sfl_coin_flower_ratio');
+    const val = parseFloat(saved);
+    if (!isNaN(val) && val > 0) return val;
+  }
+  const ratioInput = typeof document !== 'undefined' ? document.getElementById('coin-flower-ratio-input') : null;
+  if (ratioInput) {
+    const val = parseFloat(ratioInput.value);
+    if (!isNaN(val) && val > 0) return val;
+  }
+  return DEFAULT_COIN_FLOWER_RATIO;
+}
+
 if (typeof window !== 'undefined') {
   window.BACKEND_URL = BACKEND_URL;
   window.SUPABASE_URL = SUPABASE_URL;
@@ -226,4 +242,6 @@ if (typeof window !== 'undefined') {
   window.ALLOWED_ITEM_KEYS = ALLOWED_ITEM_KEYS;
   window.ALLOWED_ITEM_NAMES = ALLOWED_ITEM_NAMES;
   window.isAllowedDifferenceItem = isAllowedDifferenceItem;
+  window.DEFAULT_COIN_FLOWER_RATIO = DEFAULT_COIN_FLOWER_RATIO;
+  window.getCoinFlowerRatio = getCoinFlowerRatio;
 }

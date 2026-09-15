@@ -1,8 +1,11 @@
-import { BACKEND_URL } from '../config/constants.js';
+import { BACKEND_URL, getCoinFlowerRatio } from '../config/constants.js';
 import { ApiService } from '../services/api.js';
 import { fetchMarketplaceTrades } from '../panels/tradeHistory/index.js';
 import { renderNpcCards } from '../panels/npc/npcGiftsPanel.js';
 import { renderWishlist } from '../panels/wishlistPanel.js';
+import { loadPrices } from '../panels/calculatorPanel.js';
+import { loadCloudYieldHistory, updatePreHarvestUI } from '../panels/trackerPanel.js';
+import { mountDashboard } from '../panels/dashboard/dashboardPanel.js';
 
 window.farmInventoryData = window.farmInventoryData || {};
 window.farmNpcData = window.farmNpcData || JSON.parse(localStorage.getItem('sfl_farm_npcs') || '{}');
@@ -15,11 +18,73 @@ export function renderAuthBar() {
 
   container.innerHTML = `
     <div class="space-y-3">
-      <!-- AUTHENTICATION BAR -->
-      <div id="auth-panel" class="bg-sfl-wood text-amber-100 p-3 rounded-xl border-2 border-sfl-dirt flex flex-col sm:flex-row justify-between items-center gap-3 shadow-md">
+      <!-- GLOBAL FARM SYNC & SETTINGS PANEL -->
+      <div class="bg-sfl-card/95 dark:bg-amber-950/40 p-3.5 sm:p-4 rounded-2xl border-2 border-sfl-cardBorder dark:border-amber-800/40 shadow-sm space-y-2.5">
+        <div class="flex flex-col lg:flex-row items-stretch lg:items-end justify-between gap-3">
+          <!-- Left: Farm ID, Tax Rate, Coin:Flower Ratio, API Key -->
+          <div class="flex flex-wrap items-end gap-2.5 flex-1">
+            <!-- Farm ID -->
+            <div class="w-28 sm:w-32">
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 mb-1 flex items-center gap-1">
+                <span>🚜</span> Farm ID
+              </label>
+              <input type="number" id="farm-id" placeholder="e.g. 12345" min="1" step="1"
+                class="w-full sfl-input rounded-xl px-2.5 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 shadow-2xs">
+            </div>
+
+            <!-- Global Tax Rate -->
+            <div class="w-28 sm:w-32">
+              <label for="tax-select" class="block text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 mb-1 flex items-center gap-1">
+                <span>🏷️</span> Tax Rate
+              </label>
+              <select id="tax-select"
+                class="w-full sfl-input rounded-xl px-2 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 dark:bg-amber-900/40 cursor-pointer shadow-2xs">
+                <option value="0">0% (None)</option>
+                <option value="0.05">5%</option>
+                <option value="0.075">7.5%</option>
+                <option value="0.10" selected>10%</option>
+                <option value="0.125">12.5%</option>
+                <option value="0.15">15%</option>
+              </select>
+            </div>
+
+            <!-- Coin : Flower Ratio -->
+            <div class="w-28 sm:w-32">
+              <label for="coin-flower-ratio-input" class="block text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 mb-1 flex items-center gap-1" title="Number of Coins per 1 Flower token">
+                <span>🪙:🌸</span> Ratio
+              </label>
+              <input type="number" id="coin-flower-ratio-input" placeholder="1000" min="1" step="10" value="1000"
+                class="w-full sfl-input rounded-xl px-2.5 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 shadow-2xs" title="Coin to Flower conversion ratio for dashboard calculations">
+            </div>
+
+            <!-- Optional API Key -->
+            <div class="w-32 sm:w-36">
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 mb-1 flex items-center gap-1">
+                <span>🔑</span> API Key <span class="font-normal opacity-75">(Opt)</span>
+              </label>
+              <input type="password" id="api-key" placeholder="Custom Token" autocomplete="off"
+                class="w-full sfl-input rounded-xl px-2.5 py-1.5 text-xs text-sfl-dirt dark:text-amber-100 shadow-2xs">
+            </div>
+          </div>
+
+          <!-- Right: Sync Button -->
+          <div class="shrink-0 flex items-end">
+            <button type="button" id="import-farm-btn"
+              class="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-black px-5 py-2.5 rounded-xl border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+              <span>🔄</span>
+              <span>Sync Inventory</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="sync-status" class="text-xs text-center font-bold text-sfl-woodLight dark:text-amber-300 min-h-[18px]"></div>
+      </div>
+
+      <!-- COMPACT MULTI-DEVICE CLOUD AUTH BAR -->
+      <div id="auth-panel" class="bg-sfl-wood/95 text-amber-100 p-2.5 rounded-xl border-2 border-sfl-dirt flex flex-col sm:flex-row justify-between items-center gap-2 shadow-sm text-xs">
         <form id="auth-logged-out" onsubmit="return false;" class="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span class="text-xs font-bold text-amber-200 flex items-center gap-1.5">
-            <span>☁️</span> Multi-Device Sync: Log in to save settings & snapshots across devices
+          <span class="text-[11px] font-semibold text-amber-200 flex items-center gap-1.5">
+            <span>☁️</span> <strong>Cloud Sync:</strong> Sign in to backup your snapshots & settings across devices
           </span>
           <div class="flex items-center gap-2 w-full sm:w-auto">
             <input type="email" id="auth-email" placeholder="Email" autocomplete="username" class="sfl-input px-2 py-1 text-xs text-sfl-dirt rounded w-full sm:w-36">
@@ -31,49 +96,10 @@ export function renderAuthBar() {
 
         <div id="auth-logged-in" class="hidden w-full flex justify-between items-center">
           <span class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-            <span>✅</span> Logged in as: <span id="user-email-display" class="text-white font-semibold"></span>
+            <span>✅</span> Cloud Sync Active: <span id="user-email-display" class="text-white font-semibold"></span>
           </span>
           <button id="btn-logout" class="bg-sfl-accent text-white font-bold px-3 py-1 rounded text-xs hover:bg-red-700 transition cursor-pointer">Sign Out</button>
         </div>
-      </div>
-
-      <!-- GLOBAL FARM SYNC PANEL -->
-      <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder space-y-3 shadow-sm">
-        <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
-          <span>🔑</span> SYNC FARM, INVENTORY & TRADES
-        </h3>
-        <form onsubmit="return false;" class="space-y-3">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-bold text-sfl-wood mb-1">Farm ID</label>
-              <input type="number" id="farm-id" placeholder="e.g. 12345" min="1" step="1" class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm text-sfl-dirt">
-              <!-- GLOBAL TAX RATE DIRECTLY BELOW FARM ID -->
-              <div class="mt-2 flex items-center justify-between gap-2 bg-amber-100/70 dark:bg-amber-950/60 px-2.5 py-1.5 rounded-lg border border-amber-300/70 dark:border-amber-700/60 shadow-2xs">
-                <label for="tax-select" class="text-[11px] font-bold text-sfl-wood dark:text-amber-200 uppercase whitespace-nowrap flex items-center gap-1">
-                  <span>🏷️</span> Global Tax Rate:
-                </label>
-                <select id="tax-select" class="sfl-input rounded-md px-2 py-0.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 dark:bg-amber-900/40 dark:border-amber-700/60 cursor-pointer w-28">
-                  <option value="0">0% (None)</option>
-                  <option value="0.05">5%</option>
-                  <option value="0.075">7.5%</option>
-                  <option value="0.10" selected>10%</option>
-                  <option value="0.125">12.5%</option>
-                  <option value="0.15">15%</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-sfl-wood mb-1">
-                API Key / Token <span class="text-sfl-woodLight font-normal">(Optional)</span>
-              </label>
-              <input type="password" id="api-key" placeholder="Paste custom Key/Token" autocomplete="off" class="w-full sfl-input rounded-lg px-3 py-1.5 text-sm text-sfl-dirt">
-            </div>
-          </div>
-          <button type="button" id="import-farm-btn" class="w-full bg-sfl-wood text-amber-200 font-bold py-2.5 px-3 rounded-lg border-2 border-sfl-dirt text-sm hover:bg-sfl-woodLight transition flex items-center justify-center gap-2 cursor-pointer shadow-xs">
-            🔄 Sync Farm, Inventory & Trades Now
-          </button>
-        </form>
-        <p id="sync-status" class="text-xs text-center font-bold text-sfl-woodLight min-h-[16px]"></p>
       </div>
     </div>
   `;
@@ -102,37 +128,38 @@ function bindFarmSyncEvents() {
     if (typeof window.renderSnapshotHistory === 'function') window.renderSnapshotHistory();
     if (typeof window.renderCropTrackerRows === 'function') window.renderCropTrackerRows();
     if (typeof window.renderCurrentTradeView === 'function') window.renderCurrentTradeView();
+    if (typeof window.refreshDashboardView === 'function') window.refreshDashboardView();
   });
-}
 
-function startSyncCooldown() {
-  const syncBtn = document.getElementById('import-farm-btn');
-  if (!syncBtn) return;
-  let timeLeft = 20;
-  syncBtn.disabled = true;
+  const savedRatio = localStorage.getItem('sfl_coin_flower_ratio') || '1000';
+  const ratioEl = document.getElementById('coin-flower-ratio-input');
+  if (savedRatio && ratioEl) ratioEl.value = savedRatio;
 
-  window.syncCooldownTimer = setInterval(() => {
-    timeLeft--;
-    if (timeLeft > 0) {
-      syncBtn.textContent = `⏳ Please wait ${timeLeft}s...`;
-    } else {
-      clearInterval(window.syncCooldownTimer);
-      syncBtn.disabled = false;
-      syncBtn.textContent = '🔄 Sync Farm, Inventory & Trades Now';
+  ratioEl?.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    if (!isNaN(val) && val > 0) {
+      localStorage.setItem('sfl_coin_flower_ratio', val.toString());
+      if (typeof window.refreshDashboardView === 'function') {
+        window.refreshDashboardView();
+      }
     }
-  }, 1000);
+  });
 }
 
 export async function handleFarmSync() {
   const farmIdEl = document.getElementById('farm-id');
   const apiKeyEl = document.getElementById('api-key');
   const status = document.getElementById('sync-status');
+  const syncBtn = document.getElementById('import-farm-btn');
 
-  const farmId = farmIdEl ? farmIdEl.value.trim() : '';
-  const apiKey = apiKeyEl ? apiKeyEl.value.trim() : '';
+  const farmId = farmIdEl ? farmIdEl.value.trim() : (localStorage.getItem('sfl_farm_id') || '');
+  const apiKey = apiKeyEl ? apiKeyEl.value.trim() : (localStorage.getItem('sfl_api_key') || '');
 
   if (!farmId) {
-    if (status) status.textContent = '❌ Please enter a Farm ID.';
+    if (status) {
+      status.innerHTML = `<span class="text-rose-600 dark:text-rose-400 font-bold">❌ Please enter a Farm ID to sync.</span>`;
+    }
+    farmIdEl?.focus();
     return;
   }
 
@@ -142,15 +169,22 @@ export async function handleFarmSync() {
     localStorage.setItem('sfl_api_key', apiKey);
   }
 
-  if (status) status.textContent = '⏳ Syncing farm inventory, NPCs & saving trades to cloud...';
-  
-  window.syncCount++;
-  if (window.syncCount >= 2) {
-    startSyncCooldown();
+  // Update button and status to active loading state
+  if (syncBtn) {
+    syncBtn.disabled = true;
+    syncBtn.innerHTML = `<span class="inline-block animate-spin mr-1.5">🔄</span> <span>Syncing...</span>`;
+  }
+  if (status) {
+    status.innerHTML = `<span class="text-amber-700 dark:text-amber-300 font-bold animate-pulse">⏳ Syncing Farm #${farmId} (Inventory, Prices, Trades & Cloud Yields)...</span>`;
   }
 
   try {
-    const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
+    // 1. Fetch live prices & farm full data in parallel
+    const [_, farmObj] = await Promise.all([
+      loadPrices(true).catch(e => console.warn("Prices sync note:", e.message)),
+      ApiService.getFarmFullData(farmId, apiKey, { force: true })
+    ]);
+
     window.farmData = farmObj;
     window.farmInventoryData = farmObj?.inventory || {};
     window.farmNpcData = farmObj?.npcs || {};
@@ -162,34 +196,65 @@ export async function handleFarmSync() {
       } catch (_) {}
     }
 
-    let totalItemsCount = Object.keys(window.farmInventoryData).length;
-    let totalNpcsCount = Object.keys(window.farmNpcData).length;
-
-    // Trigger panel updates for NPC & Wishlist
-    renderNpcCards();
-    renderWishlist();
-
-    // Automatically trigger daily snapshots & yields sync from cloud
-    if (typeof window.loadCloudYieldHistory === 'function') {
-      window.loadCloudYieldHistory(true).catch(e => console.warn("Yield sync notice:", e.message));
-    }
-
-    // Automatically trigger trade history sync and cloud archiving in background
-    let tradeMsg = '';
+    // 2. Fetch Marketplace Trades & save to cloud
+    let tradesCount = 0;
     try {
       const tradeRes = await fetchMarketplaceTrades(true);
       if (tradeRes && tradeRes.success) {
-        tradeMsg = ` & saved ${tradeRes.count} trades to cloud`;
+        tradesCount = tradeRes.count || (tradeRes.trades?.length || 0);
       }
     } catch (tradeErr) {
       console.warn("Marketplace trade auto-sync warning:", tradeErr.message);
     }
 
+    // 3. Fetch Cloud Yields & Daily Snapshots
+    try {
+      await loadCloudYieldHistory(true);
+    } catch (yieldErr) {
+      console.warn("Cloud yield auto-sync warning:", yieldErr.message);
+    }
+
+    // 4. Update Pre-Harvest Baseline UI
+    try {
+      await updatePreHarvestUI();
+    } catch (_) {}
+
+    // 5. Update Crop Tracker Live Diff if active
+    if (typeof window.fetchLiveCropDiff === 'function') {
+      try { window.fetchLiveCropDiff(); } catch (_) {}
+    }
+
+    // 6. Refresh active UI panels
+    renderNpcCards();
+    renderWishlist();
+    if (typeof window.renderSnapshotHistory === 'function') {
+      window.renderSnapshotHistory();
+    }
+    if (typeof window.renderCurrentTradeView === 'function') {
+      window.renderCurrentTradeView();
+    }
+    if (typeof window.mountDashboard === 'function') {
+      await window.mountDashboard();
+    }
+
+    const totalItemsCount = Object.keys(window.farmInventoryData).length;
+
     if (status) {
-      status.textContent = `✅ Synced ${totalItemsCount} items, ${totalNpcsCount} NPCs${tradeMsg} (Farm #${farmId})!`;
+      status.innerHTML = `
+        <span class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 px-3 py-1 rounded-full shadow-2xs">
+          <span>✅</span>
+          <span>Synced Farm #${farmId}: <strong>${totalItemsCount}</strong> items • <strong>${tradesCount}</strong> trades • Dashboard refreshed!</span>
+        </span>`;
     }
 
   } catch (err) {
-    if (status) status.textContent = err.message;
+    if (status) {
+      status.innerHTML = `<span class="text-rose-600 dark:text-rose-400 font-bold">❌ ${err.message}</span>`;
+    }
+  } finally {
+    if (syncBtn) {
+      syncBtn.disabled = false;
+      syncBtn.innerHTML = `<span>🔄</span> <span>Sync Inventory</span>`;
+    }
   }
 }

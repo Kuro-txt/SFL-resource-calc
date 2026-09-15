@@ -1,5 +1,5 @@
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, getBettyUnitPrice } from '../utils/formatters.js';
-import { FLOWER_IMG_SMALL_HTML, getItemTaxRate } from '../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML, getItemTaxRate, BACKEND_URL } from '../config/constants.js';
 
 window.editingSnapshotDate = window.editingSnapshotDate || null;
 
@@ -373,7 +373,7 @@ export async function loadCloudYieldHistory(force = false) {
   // Fallback to Backend /api/yields endpoint (backed by Supabase)
   if (cloudYields.length === 0 && (farmId || activeUser?.id)) {
     try {
-      const url = `${backend}/api/yields?farmId=${encodeURIComponent(farmId)}&userId=${encodeURIComponent(activeUser?.id || '')}${force ? `&_t=${Date.now()}` : ''}`;
+      const url = `${BACKEND_URL}/api/yields?farmId=${encodeURIComponent(farmId)}&userId=${encodeURIComponent(activeUser?.id || '')}${force ? `&_t=${Date.now()}` : ''}`;
       const res = await fetch(url);
       const json = await res.json();
       if (json.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -419,8 +419,8 @@ export async function loadCloudYieldHistory(force = false) {
         try { cloudActs = JSON.parse(cloudActs); } catch(e) { cloudActs = []; }
       }
 
-      let effectiveCrops = cloudCrops.length > 0 ? cloudCrops : [];
-      if (effectiveCrops.length === 0 && Array.isArray(cloudActs) && cloudActs.length > 0) {
+      let effectiveCrops = cloudCrops;
+      if (effectiveCrops.length === 0 && cloudActs.length > 0) {
         effectiveCrops = cloudActs.map(c => ({
           name: c.crop || c.name || 'Crop',
           qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
@@ -449,7 +449,12 @@ export async function loadCloudYieldHistory(force = false) {
     const finalHistory = Array.from(mergedMap.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     localStorage.setItem('sfl_daily_snapshots', JSON.stringify(finalHistory));
     renderSnapshotHistory();
+    if (typeof window.refreshDashboardView === 'function') {
+      window.refreshDashboardView();
+    }
+    return finalHistory;
   }
+  return [];
 }
 
 window.editSnapshotRow = editSnapshotRow;
