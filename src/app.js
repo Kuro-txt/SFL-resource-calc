@@ -5,7 +5,6 @@ import { renderNavTabs } from './components/navTabs.js';
 import { initAuth } from './services/auth.js';
 import { PanelManager } from './services/panelManager.js';
 import { initCalculatorPanel } from './panels/calculatorPanel.js';
-import { initCropTrackerPanel } from './panels/cropTracker/index.js';
 import { initTradeHistoryPanel, fetchMarketplaceTrades } from './panels/tradeHistory/index.js';
 import { initNpcGiftsPanel, renderNpcCards } from './panels/npc/npcGiftsPanel.js';
 import { initTrackerPanel, loadCloudYieldHistory } from './panels/trackerPanel.js';
@@ -22,7 +21,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderNavTabs();
 
   initCalculatorPanel();
-  initCropTrackerPanel();
   initTradeHistoryPanel();
   initNpcGiftsPanel();
   initTrackerPanel();
@@ -45,10 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadCloudYieldHistory();
       }
     }
-  });
-
-  PanelManager.register('croptracker', {
-    onMount: () => console.log("Crop Tracker V1 Active")
   });
 
   PanelManager.register('tradehistory', {

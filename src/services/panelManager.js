@@ -4,7 +4,6 @@ let activePanelId = null;
 const TAB_TO_HASH = {
   dashboard: 'dashboard',
   calc: 'daily',
-  croptracker: 'crops',
   tradehistory: 'trades',
   npc: 'npc',
   wishlist: 'wishlist'
@@ -15,9 +14,9 @@ const HASH_TO_TAB = {
   daily: 'calc',
   calc: 'calc',
   'daily-tracker': 'calc',
-  crops: 'croptracker',
-  croptracker: 'croptracker',
-  'crop-tracker': 'croptracker',
+  crops: 'dashboard',
+  croptracker: 'dashboard',
+  'crop-tracker': 'dashboard',
   trades: 'tradehistory',
   tradehistory: 'tradehistory',
   'trade-history': 'tradehistory',
@@ -35,7 +34,7 @@ export const PanelManager = {
   },
 
   switch(targetId, updateUrlHash = true) {
-    const validTabs = ['dashboard', 'calc', 'croptracker', 'tradehistory', 'npc', 'wishlist'];
+    const validTabs = ['dashboard', 'calc', 'tradehistory', 'npc', 'wishlist'];
     if (!validTabs.includes(targetId)) {
       targetId = 'dashboard';
     }
@@ -46,7 +45,6 @@ export const PanelManager = {
 
     validTabs.forEach(id => {
       let sectionId = `${id}-section`;
-      if (id === 'croptracker') sectionId = 'crop-tracker-section';
       if (id === 'tradehistory') sectionId = 'trade-history-section';
       if (id === 'npc') sectionId = 'npc-gifts-section';
 
@@ -91,7 +89,6 @@ export const PanelManager = {
   initTabs() {
     document.getElementById('tab-dashboard-btn')?.addEventListener('click', () => this.switch('dashboard'));
     document.getElementById('tab-calc-btn')?.addEventListener('click', () => this.switch('calc'));
-    document.getElementById('tab-croptracker-btn')?.addEventListener('click', () => this.switch('croptracker'));
     document.getElementById('tab-tradehistory-btn')?.addEventListener('click', () => this.switch('tradehistory'));
     document.getElementById('tab-npc-btn')?.addEventListener('click', () => this.switch('npc'));
     document.getElementById('tab-wishlist-btn')?.addEventListener('click', () => this.switch('wishlist'));
