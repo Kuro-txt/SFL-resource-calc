@@ -20,8 +20,23 @@ function getItemPrice(name) {
   return 0.01;
 }
 
-// Items to ignore when computing spent (these naturally decrease but aren't "spent")
-const IGNORE_ITEMS = new Set(['Flower', 'SFL', 'Coin', 'Gem', 'Block Buck', 'Love Letter']);
+const ITEM_ICONS = {
+  egg: '🥚', milk: '🥛', feather: '🪶', leather: '👞', wool: '🧶',
+  merinowool: '🐑', honey: '🍯', wood: '🪵', stone: '🪨', iron: '⛓️',
+  gold: '🪙', crimstone: '💎', obsidian: '⬛', salt: '🧂',
+  sunflower: '🌻', potato: '🥔', pumpkin: '🎃', carrot: '🥕', cabbage: '🥬',
+  beetroot: '🟣', cauliflower: '🥦', parsnip: '🥕', eggplant: '🍆', corn: '🌽',
+  radish: '🔴', wheat: '🌾', kale: '🥬', soybean: '🫘', barley: '🌾'
+};
+
+function getItemIcon(name) {
+  const clean = normalizeItemKey(name);
+  return ITEM_ICONS[clean] || '📦';
+}
+
+const IGNORE_ITEMS = new Set([
+  'flower', 'sfl', 'coin', 'coins', 'gem', 'blockbuck', 'loveletter', 'currentcoins'
+]);
 
 export async function loadSpentData() {
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
@@ -37,20 +52,20 @@ export async function loadSpentData() {
 
   if (error || !data || data.length < 2) return [];
 
-  // Diff consecutive rows: if stock decreased, item was spent
   const result = {};
   for (let i = 1; i < data.length; i++) {
     const prev = data[i - 1].stock || {};
     const curr = data[i].stock || {};
-    const fromDate = data[i - 1].snapshot_date;
-    const toDate = data[i].snapshot_date;
 
     const allItems = new Set([...Object.keys(prev), ...Object.keys(curr)]);
     allItems.forEach(item => {
-      if (IGNORE_ITEMS.has(item)) return;
+      const clean = normalizeItemKey(item);
+      if (IGNORE_ITEMS.has(clean)) return;
+
       const prevQty = parseFloat(prev[item]) || 0;
       const currQty = parseFloat(curr[item]) || 0;
       const consumed = prevQty - currQty;
+
       if (consumed > 0.01) {
         if (!result[item]) result[item] = { qty: 0, flowers: 0 };
         result[item].qty += consumed;
@@ -67,41 +82,87 @@ export async function loadSpentData() {
 export async function renderSpentSection(mountEl) {
   if (!mountEl) return;
 
-  mountEl.innerHTML = `<p class="text-xs text-sfl-woodLight italic text-center py-4">⏳ Loading consumed items...</p>`;
+  mountEl.innerHTML = `
+    <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
+      <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+        <span>💸</span> Resource Consumption
+      </h4>
+    </div>
+    <p class="text-xs text-sfl-woodLight italic text-center py-6">⏳ Analyzing stock baselines...</p>`;
 
   const user = window.currentUser;
   if (!user) {
-    mountEl.innerHTML = `<p class="text-xs text-sfl-woodLight italic text-center py-4">Sign in to see consumed items.</p>`;
+    mountEl.innerHTML = `
+      <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
+        <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+          <span>💸</span> Resource Consumption
+        </h4>
+      </div>
+      <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
+        <span class="text-2xl mb-1 block">🔒</span>
+        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">Sign In Required</p>
+        <p class="text-[11px] text-sfl-woodLight mt-1">Log in with your account to load multi-day consumption history.</p>
+      </div>`;
     return;
   }
 
   const items = await loadSpentData();
 
   if (items.length === 0) {
-    mountEl.innerHTML = `<p class="text-xs text-sfl-woodLight italic text-center py-4">No consumption data yet (needs 2+ daily baselines).</p>`;
+    mountEl.innerHTML = `
+      <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
+        <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+          <span>💸</span> Resource Consumption
+        </h4>
+      </div>
+      <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
+        <span class="text-2xl mb-1 block">📉</span>
+        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Consumption Detected</p>
+        <p class="text-[11px] text-sfl-woodLight mt-1">Requires 2+ daily 00:00 UTC snapshots to compute net consumed resources.</p>
+      </div>`;
     return;
   }
 
   const grandFlowers = items.reduce((s, v) => s + v.flowers, 0);
   const maxFlowers = items[0]?.flowers || 1;
 
-  const barsHtml = items.slice(0, 8).map(({ name, qty, flowers }) => {
-    const pct = Math.round((flowers / maxFlowers) * 100);
+  const barsHtml = items.map(({ name, qty, flowers }) => {
+    const pct = Math.min(100, Math.max(8, Math.round((flowers / maxFlowers) * 100)));
+    const icon = getItemIcon(name);
     return `
-      <div class="flex items-center gap-2 text-xs">
-        <span class="w-20 text-right font-bold text-sfl-dirt truncate shrink-0">${name}</span>
-        <div class="flex-1 bg-amber-100 rounded-full h-2.5 overflow-hidden">
-          <div class="bg-orange-400 h-2.5 rounded-full" style="width:${pct}%"></div>
+      <div class="group flex items-center gap-2.5 text-xs py-1 hover:bg-orange-100/40 dark:hover:bg-orange-950/30 px-2 rounded-lg transition">
+        <span class="text-sm shrink-0">${icon}</span>
+        <div class="w-24 truncate font-bold text-sfl-dirt dark:text-amber-100 shrink-0" title="${name}">
+          ${name}
         </div>
-        <span class="w-28 font-mono text-orange-600 shrink-0 text-right">-${qty.toFixed(1)} (${flowers.toFixed(3)} 🌸)</span>
+        <div class="flex-1 bg-amber-200/60 dark:bg-amber-900/40 rounded-full h-2 overflow-hidden">
+          <div class="bg-gradient-to-r from-orange-400 to-amber-500 h-2 rounded-full transition-all duration-500" style="width:${pct}%"></div>
+        </div>
+        <div class="text-right shrink-0 font-mono">
+          <span class="font-bold text-orange-700 dark:text-orange-400">-${qty.toFixed(1)}</span>
+          <span class="text-sfl-woodLight text-[11px] ml-1">(${flowers.toFixed(3)} 🌸)</span>
+        </div>
       </div>`;
   }).join('');
 
   mountEl.innerHTML = `
-    <div class="flex items-center justify-between mb-3">
-      <h4 class="text-xs font-bold text-sfl-wood uppercase tracking-wide">💸 Items Spent (Last 7 Days)</h4>
-      <span class="font-mono text-sm font-bold text-orange-600">${grandFlowers.toFixed(3)} 🌸 Used</span>
+    <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
+      <div>
+        <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+          <span>💸</span> Resource Consumption
+        </h4>
+        <p class="text-[10px] text-sfl-woodLight">Last 7 days • Crafting, chores & feeding</p>
+      </div>
+      <div class="text-right">
+        <span class="font-mono text-sm font-bold text-orange-700 dark:text-orange-400 bg-orange-100/80 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">
+          ${grandFlowers.toFixed(3)} 🌸 Used
+        </span>
+      </div>
     </div>
-    <div class="space-y-1.5">${barsHtml}</div>
-    <p class="text-[10px] text-sfl-woodLight italic mt-3">Based on stock snapshots — reflects net consumption between midnight baselines.</p>`;
+    <div class="max-h-60 overflow-y-auto pr-1 space-y-0.5">
+      ${barsHtml}
+    </div>
+    <p class="text-[10px] text-sfl-woodLight italic mt-3 pt-2 border-t border-amber-100 dark:border-amber-900/40">
+      * Computed between midnight baselines. Excludes market trades.
+    </p>`;
 }

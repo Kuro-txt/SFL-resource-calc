@@ -26,6 +26,21 @@ function fmtDate(dateStr) {
   } catch { return dateStr; }
 }
 
+const ITEM_ICONS = {
+  egg: '🥚', milk: '🥛', feather: '🪶', leather: '👞', wool: '🧶',
+  merinowool: '🐑', honey: '🍯', wood: '🪵', stone: '🪨', iron: '⛓️',
+  gold: '🪙', crimstone: '💎', obsidian: '⬛', salt: '🧂',
+  sunflower: '🌻', potato: '🥔', pumpkin: '🎃', carrot: '🥕', cabbage: '🥬',
+  beetroot: '🟣', cauliflower: '🥦', parsnip: '🥕', eggplant: '🍆', corn: '🌽',
+  radish: '🔴', wheat: '🌾', kale: '🥬', soybean: '🫘', barley: '🌾',
+  tomato: '🍅', apple: '🍎', orange: '🍊', blueberry: '🫐', banana: '🍌'
+};
+
+function getItemIcon(name) {
+  const clean = normalizeItemKey(name);
+  return ITEM_ICONS[clean] || '🌾';
+}
+
 // ─── Data loading ─────────────────────────────────────────────────────────────
 
 export function getLocalEarnedRows() {
@@ -83,52 +98,112 @@ export function aggregateLocalEarned() {
 
 // ─── Render ───────────────────────────────────────────────────────────────────
 
+let currentEarnedTab = 'ranking';
+
 export function renderEarnedSection(mountEl) {
   if (!mountEl) return;
 
   const rows = getLocalEarnedRows();
   const totals = aggregateLocalEarned();
   const grandFlowers = Object.values(totals).reduce((s, v) => s + v.flowers, 0);
+  const totalItemsCount = Object.values(totals).reduce((s, v) => s + v.qty, 0);
   const sortedItems = Object.entries(totals).sort((a, b) => b[1].flowers - a[1].flowers);
 
   if (sortedItems.length === 0) {
-    mountEl.innerHTML = `<p class="text-xs text-sfl-woodLight italic text-center py-4">No harvest data yet. Run the daily tracker first!</p>`;
+    mountEl.innerHTML = `
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-bold text-sfl-wood uppercase flex items-center gap-1.5">
+          <span>🌾</span> Harvest Production
+        </span>
+      </div>
+      <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
+        <span class="text-2xl mb-1 block">🚜</span>
+        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Harvest Sessions Recorded</p>
+        <p class="text-[11px] text-sfl-woodLight mt-1">Run a harvest sync in the Daily Tracker to populate your 21-day production history.</p>
+      </div>`;
     return;
   }
 
   const maxFlowers = sortedItems[0]?.[1]?.flowers || 1;
-  const barsHtml = sortedItems.slice(0, 8).map(([name, { qty, flowers }]) => {
-    const pct = Math.round((flowers / maxFlowers) * 100);
+
+  const barsHtml = sortedItems.map(([name, { qty, flowers }]) => {
+    const pct = Math.min(100, Math.max(8, Math.round((flowers / maxFlowers) * 100)));
+    const icon = getItemIcon(name);
     return `
-      <div class="flex items-center gap-2 text-xs">
-        <span class="w-20 text-right font-bold text-sfl-dirt truncate shrink-0">${name}</span>
-        <div class="flex-1 bg-amber-100 rounded-full h-2.5 overflow-hidden">
-          <div class="bg-sfl-green h-2.5 rounded-full" style="width:${pct}%"></div>
+      <div class="group flex items-center gap-2.5 text-xs py-1 hover:bg-amber-100/40 dark:hover:bg-amber-900/30 px-2 rounded-lg transition">
+        <span class="text-sm shrink-0">${icon}</span>
+        <div class="w-24 truncate font-bold text-sfl-dirt dark:text-amber-100 shrink-0" title="${name}">
+          ${name}
         </div>
-        <span class="w-28 font-mono text-sfl-green shrink-0 text-right">+${qty.toFixed(1)} (${flowers.toFixed(3)} 🌸)</span>
+        <div class="flex-1 bg-amber-200/60 dark:bg-amber-900/40 rounded-full h-2 overflow-hidden">
+          <div class="bg-gradient-to-r from-emerald-500 to-green-600 h-2 rounded-full transition-all duration-500" style="width:${pct}%"></div>
+        </div>
+        <div class="text-right shrink-0 font-mono">
+          <span class="font-bold text-sfl-dirt dark:text-amber-100">+${qty.toFixed(1)}</span>
+          <span class="text-sfl-green text-[11px] ml-1 font-semibold">(${flowers.toFixed(3)} 🌸)</span>
+        </div>
       </div>`;
   }).join('');
 
-  const recentHtml = rows.slice(0, 5).map(r => {
-    const chips = Object.entries(r.items).map(([name, { qty }]) =>
-      `<span class="bg-green-100 text-sfl-green border border-sfl-green/40 text-[10px] font-bold px-1.5 py-0.5 rounded">+${qty.toFixed(1)} ${name}</span>`
+  const recentHtml = rows.slice(0, 6).map(r => {
+    const chips = Object.entries(r.items).slice(0, 5).map(([name, { qty }]) =>
+      `<span class="inline-flex items-center gap-0.5 bg-green-100/90 dark:bg-green-950/50 text-sfl-green border border-sfl-green/30 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-2xs">
+        <span>+${qty.toFixed(1)}</span>
+        <span>${name}</span>
+      </span>`
     ).join(' ');
+    const extraCount = Object.keys(r.items).length - 5;
+
     return `
-      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5 border-b border-amber-100 last:border-0">
-        <span class="text-[11px] font-bold text-sfl-wood w-14 shrink-0">${fmtDate(r.date)}</span>
-        <span class="flex flex-wrap gap-1">${chips}</span>
-        <span class="ml-auto font-mono text-sfl-green text-[11px] shrink-0">${r.totalFlowers.toFixed(3)} 🌸</span>
+      <div class="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-amber-200/60 dark:border-amber-800/40 last:border-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="bg-sfl-wood text-amber-100 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-2xs">${fmtDate(r.date)}</span>
+          <div class="flex flex-wrap items-center gap-1">
+            ${chips}
+            ${extraCount > 0 ? `<span class="text-[10px] text-sfl-woodLight font-semibold">+${extraCount} more</span>` : ''}
+          </div>
+        </div>
+        <span class="font-mono text-xs font-bold text-sfl-green whitespace-nowrap">${r.totalFlowers.toFixed(3)} 🌸</span>
       </div>`;
   }).join('');
 
   mountEl.innerHTML = `
-    <div class="flex items-center justify-between mb-3">
-      <h4 class="text-xs font-bold text-sfl-wood uppercase tracking-wide">🌾 Items Earned (Last 21 Days)</h4>
-      <span class="font-mono text-sm font-bold text-sfl-green">${grandFlowers.toFixed(3)} 🌸</span>
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
+      <div>
+        <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+          <span>🌾</span> Harvested Resources
+        </h4>
+        <p class="text-[10px] text-sfl-woodLight">Last 21 days • ${totalItemsCount.toFixed(0)} items produced</p>
+      </div>
+      <div class="text-right">
+        <span class="font-mono text-sm font-bold text-sfl-green bg-green-100/80 dark:bg-green-950/40 border border-green-300 dark:border-green-800 px-2 py-0.5 rounded-lg shadow-2xs">
+          ${grandFlowers.toFixed(3)} 🌸
+        </span>
+      </div>
     </div>
-    <div class="space-y-1.5 mb-4">${barsHtml}</div>
-    <div class="mt-3">
-      <p class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wide mb-1">Recent Days</p>
-      ${recentHtml}
+
+    <!-- Segmented Tab Switcher -->
+    <div class="flex items-center gap-1 bg-amber-100/70 dark:bg-amber-950/60 p-1 rounded-lg border border-amber-300/60 dark:border-amber-800 mb-3">
+      <button id="dash-earned-tab-rank" class="flex-1 py-1 px-2 rounded-md text-[11px] font-bold transition cursor-pointer ${currentEarnedTab === 'ranking' ? 'bg-sfl-wood text-amber-200 shadow-xs' : 'text-sfl-woodLight hover:text-sfl-dirt'}">
+        📊 Top Items Breakdown (${sortedItems.length})
+      </button>
+      <button id="dash-earned-tab-feed" class="flex-1 py-1 px-2 rounded-md text-[11px] font-bold transition cursor-pointer ${currentEarnedTab === 'feed' ? 'bg-sfl-wood text-amber-200 shadow-xs' : 'text-sfl-woodLight hover:text-sfl-dirt'}">
+        📅 Daily Harvest Log (${rows.length} Days)
+      </button>
+    </div>
+
+    <!-- Tab Content -->
+    <div id="dash-earned-content" class="max-h-60 overflow-y-auto pr-1">
+      ${currentEarnedTab === 'ranking' ? `<div class="space-y-0.5">${barsHtml}</div>` : `<div class="space-y-0">${recentHtml}</div>`}
     </div>`;
+
+  document.getElementById('dash-earned-tab-rank')?.addEventListener('click', () => {
+    currentEarnedTab = 'ranking';
+    renderEarnedSection(mountEl);
+  });
+  document.getElementById('dash-earned-tab-feed')?.addEventListener('click', () => {
+    currentEarnedTab = 'feed';
+    renderEarnedSection(mountEl);
+  });
 }
