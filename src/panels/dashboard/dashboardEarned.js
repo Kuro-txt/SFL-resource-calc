@@ -43,14 +43,36 @@ function getItemIcon(name) {
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
 
-export function getLocalEarnedRows() {
+export function getLocalEarnedRows(timeRange = '7d') {
   let history = [];
   try { history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]'); }
   catch { history = []; }
   if (!Array.isArray(history)) return [];
 
+  const now = Date.now();
+  let minDateStr = '';
+  let maxDateStr = '';
+
+  if (timeRange === 'daily') {
+    // Today UTC (or the single most recent recorded day if today has no data yet)
+    const todayStr = new Date().toISOString().split('T')[0];
+    const hasToday = history.some(h => (h.date || h.yield_date) === todayStr);
+    minDateStr = hasToday ? todayStr : (history[0]?.date || history[0]?.yield_date || todayStr);
+    maxDateStr = minDateStr;
+  } else if (timeRange === '7d') {
+    minDateStr = new Date(now - 7 * 86400 * 1000).toISOString().split('T')[0];
+  } else if (timeRange === 'month') {
+    minDateStr = new Date(now - 30 * 86400 * 1000).toISOString().split('T')[0];
+  }
+
   return history
-    .filter(e => e && ((parseFloat(e.totalCount || e.total_count) > 0) || (Array.isArray(e.crops) && e.crops.length > 0)))
+    .filter(e => {
+      if (!e) return false;
+      const d = e.date || e.yield_date || '';
+      if (timeRange === 'daily') return d === minDateStr;
+      if (minDateStr && d < minDateStr) return false;
+      return (parseFloat(e.totalCount || e.total_count) > 0) || (Array.isArray(e.crops) && e.crops.length > 0);
+    })
     .map(e => {
       const rawCrops = Array.isArray(e.crops) ? e.crops
         : (Array.isArray(e.cropActivityYields)
@@ -83,8 +105,8 @@ export function getLocalEarnedRows() {
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
-export function aggregateLocalEarned() {
-  const rows = getLocalEarnedRows();
+export function aggregateLocalEarned(timeRange = '7d') {
+  const rows = getLocalEarnedRows(timeRange);
   const totals = {};
   rows.forEach(r => {
     Object.entries(r.items).forEach(([name, { qty, flowers }]) => {
@@ -100,26 +122,28 @@ export function aggregateLocalEarned() {
 
 let currentEarnedTab = 'ranking';
 
-export function renderEarnedSection(mountEl) {
+export function renderEarnedSection(mountEl, timeRange = '7d') {
   if (!mountEl) return;
 
-  const rows = getLocalEarnedRows();
-  const totals = aggregateLocalEarned();
+  const rows = getLocalEarnedRows(timeRange);
+  const totals = aggregateLocalEarned(timeRange);
   const grandFlowers = Object.values(totals).reduce((s, v) => s + v.flowers, 0);
   const totalItemsCount = Object.values(totals).reduce((s, v) => s + v.qty, 0);
   const sortedItems = Object.entries(totals).sort((a, b) => b[1].flowers - a[1].flowers);
+
+  const rangeLabel = timeRange === 'daily' ? 'Today' : (timeRange === '7d' ? 'Last 7 Days' : 'Last 30 Days');
 
   if (sortedItems.length === 0) {
     mountEl.innerHTML = `
       <div class="flex items-center justify-between mb-2">
         <span class="text-xs font-bold text-sfl-wood uppercase flex items-center gap-1.5">
-          <span>🌾</span> Harvest Production
+          <span>🌾</span> Harvest Production (${rangeLabel})
         </span>
       </div>
       <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
         <span class="text-2xl mb-1 block">🚜</span>
-        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Harvest Sessions Recorded</p>
-        <p class="text-[11px] text-sfl-woodLight mt-1">Run a harvest sync in the Daily Tracker to populate your 21-day production history.</p>
+        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Harvest Sessions in ${rangeLabel}</p>
+        <p class="text-[11px] text-sfl-woodLight mt-1">Switch time filters or sync harvest data in the Daily Tracker.</p>
       </div>`;
     return;
   }
@@ -145,7 +169,7 @@ export function renderEarnedSection(mountEl) {
       </div>`;
   }).join('');
 
-  const recentHtml = rows.slice(0, 6).map(r => {
+  const recentHtml = rows.slice(0, 8).map(r => {
     const chips = Object.entries(r.items).slice(0, 5).map(([name, { qty }]) =>
       `<span class="inline-flex items-center gap-0.5 bg-green-100/90 dark:bg-green-950/50 text-sfl-green border border-sfl-green/30 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-2xs">
         <span>+${qty.toFixed(1)}</span>
@@ -174,7 +198,7 @@ export function renderEarnedSection(mountEl) {
         <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
           <span>🌾</span> Harvested Resources
         </h4>
-        <p class="text-[10px] text-sfl-woodLight">Last 21 days • ${totalItemsCount.toFixed(0)} items produced</p>
+        <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • ${totalItemsCount.toFixed(0)} items produced</p>
       </div>
       <div class="text-right">
         <span class="font-mono text-sm font-bold text-sfl-green bg-green-100/80 dark:bg-green-950/40 border border-green-300 dark:border-green-800 px-2 py-0.5 rounded-lg shadow-2xs">
@@ -200,10 +224,10 @@ export function renderEarnedSection(mountEl) {
 
   document.getElementById('dash-earned-tab-rank')?.addEventListener('click', () => {
     currentEarnedTab = 'ranking';
-    renderEarnedSection(mountEl);
+    renderEarnedSection(mountEl, timeRange);
   });
   document.getElementById('dash-earned-tab-feed')?.addEventListener('click', () => {
     currentEarnedTab = 'feed';
-    renderEarnedSection(mountEl);
+    renderEarnedSection(mountEl, timeRange);
   });
 }

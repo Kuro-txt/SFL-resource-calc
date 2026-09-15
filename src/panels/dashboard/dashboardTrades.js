@@ -19,16 +19,35 @@ function getItemIcon(name) {
   return ITEM_ICONS[clean] || '📦';
 }
 
-export function getTradeSummary() {
+export function getTradeSummary(timeRange = '7d') {
   const trades = tradeHistoryData?.trades || [];
   if (trades.length === 0) return null;
 
   const farmId = String(tradeHistoryData?.id || localStorage.getItem('sfl_farm_id') || '').trim();
 
+  let minTimestamp = 0;
+  const now = Date.now();
+  if (timeRange === 'daily') {
+    minTimestamp = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z').getTime();
+  } else if (timeRange === '7d') {
+    minTimestamp = now - 7 * 86400 * 1000;
+  } else if (timeRange === 'month') {
+    minTimestamp = now - 30 * 86400 * 1000;
+  }
+
+  const filteredTrades = trades.filter(t => {
+    const fulfilledAt = parseInt(t.fulfilledAt || 0, 10);
+    return !minTimestamp || fulfilledAt >= minTimestamp;
+  });
+
+  if (filteredTrades.length === 0 && trades.length > 0) {
+    return { totalSold: 0, totalBought: 0, netSfl: 0, topItems: [], total: 0 };
+  }
+
   let totalSold = 0, totalBought = 0, netSfl = 0;
   const itemMap = {};
 
-  trades.forEach(t => {
+  filteredTrades.forEach(t => {
     const amounts = getTradeAmounts(t, farmId);
     const isSeller = amounts.isSeller;
     const sfl = parseFloat(t.sfl || 0);
@@ -57,19 +76,20 @@ export function getTradeSummary() {
     .sort((a, b) => (b[1].sfl || 0) - (a[1].sfl || 0))
     .slice(0, 4);
 
-  return { totalSold, totalBought, netSfl, topItems, total: trades.length };
+  return { totalSold, totalBought, netSfl, topItems, total: filteredTrades.length };
 }
 
-export async function renderTradesSection(mountEl) {
+export async function renderTradesSection(mountEl, timeRange = '7d') {
   if (!mountEl) return;
 
-  const summary = getTradeSummary();
+  const rangeLabel = timeRange === 'daily' ? 'Today' : (timeRange === '7d' ? 'Last 7 Days' : 'Last 30 Days');
+  const summary = getTradeSummary(timeRange);
 
   if (!summary) {
     mountEl.innerHTML = `
       <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
         <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-          <span>📜</span> Marketplace Trades
+          <span>📜</span> Marketplace Trades (${rangeLabel})
         </h4>
       </div>
       <div class="text-center py-6 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
@@ -91,7 +111,7 @@ export async function renderTradesSection(mountEl) {
         </div>
         <p class="text-xs text-sfl-woodLight italic text-center py-6">⏳ Fetching marketplace profile & TiDB Cloud...</p>`;
       await fetchMarketplaceTrades(false);
-      renderTradesSection(mountEl);
+      renderTradesSection(mountEl, timeRange);
     });
     return;
   }
@@ -124,7 +144,7 @@ export async function renderTradesSection(mountEl) {
         <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
           <span>📜</span> P2P Marketplace
         </h4>
-        <p class="text-[10px] text-sfl-woodLight">${total} total fulfilled trades</p>
+        <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • ${total} trades fulfilled</p>
       </div>
       <button id="dash-goto-trades" class="text-[11px] font-bold text-sfl-wood dark:text-amber-300 hover:underline cursor-pointer flex items-center gap-1">
         <span>Ledger</span>
@@ -150,9 +170,9 @@ export async function renderTradesSection(mountEl) {
 
     ${topItems.length > 0 ? `
     <div class="space-y-0.5 max-h-48 overflow-y-auto pr-1">
-      <p class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider mb-1">Top Traded Items</p>
+      <p class="text-[10px] font-bold text-sfl-woodLight uppercase tracking-wider mb-1">Top Traded Items (${rangeLabel})</p>
       ${topHtml}
-    </div>` : ''}`;
+    </div>` : `<p class="text-[11px] text-sfl-woodLight italic text-center py-2">No completed trades in ${rangeLabel}.</p>`}`;
 
   document.getElementById('dash-goto-trades')?.addEventListener('click', () => PanelManager.switch('tradehistory'));
 }

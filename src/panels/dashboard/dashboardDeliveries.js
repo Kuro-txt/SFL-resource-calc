@@ -1,5 +1,5 @@
 ﻿// ─── Balances & Coins Section ───────────────────────────────────────────────
-// Displays Coins, Flowers, and SFL balances alongside daily coin flow without counting deliveries.
+// Displays Coins, Flowers, and SFL balances alongside daily/multi-day coin flow without counting deliveries.
 
 export function parseBalances(farmData) {
   if (!farmData) return { totalCoins: 0, totalFlowers: 0, totalSfl: 0 };
@@ -12,9 +12,53 @@ export function parseBalances(farmData) {
   return { totalCoins: coins, totalFlowers: flowers, totalSfl: sfl };
 }
 
-export function renderDeliveriesSection(mountEl) {
+export function aggregateCoinsForRange(timeRange = '7d') {
+  let history = [];
+  try { history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]'); }
+  catch { history = []; }
+  if (!Array.isArray(history) || history.length === 0) {
+    return { netCoins: 0, coinsEarned: 0, coinsSpent: 0 };
+  }
+
+  const now = Date.now();
+  let minDateStr = '';
+  if (timeRange === 'daily') {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const hasToday = history.some(h => (h.date || h.yield_date) === todayStr);
+    minDateStr = hasToday ? todayStr : (history[0]?.date || history[0]?.yield_date || todayStr);
+  } else if (timeRange === '7d') {
+    minDateStr = new Date(now - 7 * 86400 * 1000).toISOString().split('T')[0];
+  } else if (timeRange === 'month') {
+    minDateStr = new Date(now - 30 * 86400 * 1000).toISOString().split('T')[0];
+  }
+
+  let totalNet = 0;
+  let totalEarned = 0;
+  let totalSpent = 0;
+  let count = 0;
+
+  history.forEach(h => {
+    const d = h.date || h.yield_date || '';
+    if (timeRange === 'daily' && d !== minDateStr) return;
+    if (minDateStr && d < minDateStr) return;
+
+    const rawActs = h.cropActivityYields || h.crop_activity_yields || [];
+    const coinsObj = (Array.isArray(rawActs) ? rawActs.find(a => a && (a.type === 'coins' || a.crop === 'Coins')) : null) || h.coins;
+    if (coinsObj) {
+      totalNet += parseFloat(coinsObj.netCoins || coinsObj.net || 0);
+      totalEarned += parseFloat(coinsObj.coinsEarned || coinsObj.earned || 0);
+      totalSpent += parseFloat(coinsObj.coinsSpent || coinsObj.spent || 0);
+      count++;
+    }
+  });
+
+  return { netCoins: totalNet, coinsEarned: totalEarned, coinsSpent: totalSpent, count };
+}
+
+export function renderDeliveriesSection(mountEl, timeRange = '7d') {
   if (!mountEl) return;
 
+  const rangeLabel = timeRange === 'daily' ? 'Today' : (timeRange === '7d' ? '7-Day' : '30-Day');
   const farmData = window.farmData || window.currentFarmData;
   if (!farmData) {
     mountEl.innerHTML = `
@@ -32,30 +76,16 @@ export function renderDeliveriesSection(mountEl) {
   }
 
   const { totalCoins, totalFlowers, totalSfl } = parseBalances(farmData);
+  const coinStats = aggregateCoinsForRange(timeRange);
 
-  let latestCoinsStats = null;
-  try {
-    const history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]');
-    if (Array.isArray(history) && history.length > 0) {
-      for (const h of history) {
-        const rawActs = h.cropActivityYields || h.crop_activity_yields || [];
-        const found = (Array.isArray(rawActs) ? rawActs.find(a => a && (a.type === 'coins' || a.crop === 'Coins')) : null) || h.coins;
-        if (found) {
-          latestCoinsStats = found;
-          break;
-        }
-      }
-    }
-  } catch (_) {}
+  const netCoinsVal = coinStats.netCoins;
+  const earnedCoinsVal = coinStats.coinsEarned;
+  const spentCoinsVal = coinStats.coinsSpent;
 
-  const netCoinsVal = latestCoinsStats ? parseFloat(latestCoinsStats.netCoins || latestCoinsStats.net || 0) : 0;
-  const earnedCoinsVal = latestCoinsStats ? parseFloat(latestCoinsStats.coinsEarned || latestCoinsStats.earned || 0) : 0;
-  const spentCoinsVal = latestCoinsStats ? parseFloat(latestCoinsStats.coinsSpent || latestCoinsStats.spent || 0) : 0;
-
-  const coinSubtext = latestCoinsStats ? `
+  const coinSubtext = coinStats.count > 0 ? `
     <span class="inline-flex items-center gap-0.5 text-[10px] font-mono font-bold ${netCoinsVal >= 0 ? 'text-green-700 dark:text-emerald-400 bg-green-100 dark:bg-green-950/60 border border-green-300 dark:border-green-800' : 'text-red-700 dark:text-rose-400 bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800'} px-2 py-0.5 rounded-full mt-1">
       <span>${netCoinsVal >= 0 ? '▲ +' : '▼ '}${Math.round(netCoinsVal).toLocaleString()}</span>
-      <span>today</span>
+      <span>${rangeLabel.toLowerCase()}</span>
     </span>` : '';
 
   mountEl.innerHTML = `
@@ -87,14 +117,14 @@ export function renderDeliveriesSection(mountEl) {
       </div>
     </div>
 
-    <!-- Daily Coin Flow -->
+    <!-- Period Coin Flow -->
     <div class="bg-white/60 dark:bg-amber-950/30 rounded-xl border border-amber-200/60 dark:border-amber-800/40 p-3 space-y-2">
-      <p class="text-[10px] font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wider">Today's Coin Flow (00:00 → 22:00 UTC)</p>
+      <p class="text-[10px] font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wider">Coin Flow (${rangeLabel})</p>
       
       <div class="flex items-center justify-between text-xs font-mono">
         <span class="text-sfl-woodLight font-semibold flex items-center gap-1">
           <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-          <span>Earned Today:</span>
+          <span>Coins Earned:</span>
         </span>
         <span class="font-bold text-green-700 dark:text-emerald-400">+${Math.round(earnedCoinsVal).toLocaleString()}</span>
       </div>
@@ -102,13 +132,13 @@ export function renderDeliveriesSection(mountEl) {
       <div class="flex items-center justify-between text-xs font-mono">
         <span class="text-sfl-woodLight font-semibold flex items-center gap-1">
           <span class="w-2 h-2 rounded-full bg-orange-500"></span>
-          <span>Spent Today:</span>
+          <span>Coins Spent:</span>
         </span>
         <span class="font-bold text-orange-700 dark:text-orange-400">-${Math.round(spentCoinsVal).toLocaleString()}</span>
       </div>
 
       <div class="pt-1.5 border-t border-amber-200/50 dark:border-amber-800/40 flex items-center justify-between text-xs font-mono font-bold">
-        <span class="text-sfl-wood dark:text-amber-100">Net Flow:</span>
+        <span class="text-sfl-wood dark:text-amber-100">Net Flow (${rangeLabel}):</span>
         <span class="${netCoinsVal >= 0 ? 'text-green-700 dark:text-emerald-400' : 'text-red-600 dark:text-rose-400'}">
           ${netCoinsVal >= 0 ? '+' : ''}${Math.round(netCoinsVal).toLocaleString()}
         </span>

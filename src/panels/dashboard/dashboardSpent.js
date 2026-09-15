@@ -38,24 +38,29 @@ const IGNORE_ITEMS = new Set([
   'flower', 'sfl', 'coin', 'coins', 'gem', 'blockbuck', 'loveletter', 'currentcoins'
 ]);
 
-export async function loadSpentData() {
+export async function loadSpentData(timeRange = '7d') {
   const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
   const user = window.currentUser;
   if (!client || !user) return [];
+
+  const rowLimit = timeRange === 'daily' ? 2 : (timeRange === '7d' ? 8 : 31);
 
   const { data, error } = await client
     .from('preharvest_baselines')
     .select('snapshot_date, stock')
     .eq('user_id', user.id)
-    .order('snapshot_date', { ascending: true })
-    .limit(8);
+    .order('snapshot_date', { ascending: false })
+    .limit(rowLimit);
 
   if (error || !data || data.length < 2) return [];
 
+  // Sort ascending chronologically
+  const chronological = [...data].reverse();
+
   const result = {};
-  for (let i = 1; i < data.length; i++) {
-    const prev = data[i - 1].stock || {};
-    const curr = data[i].stock || {};
+  for (let i = 1; i < chronological.length; i++) {
+    const prev = chronological[i - 1].stock || {};
+    const curr = chronological[i].stock || {};
 
     const allItems = new Set([...Object.keys(prev), ...Object.keys(curr)]);
     allItems.forEach(item => {
@@ -79,8 +84,10 @@ export async function loadSpentData() {
     .sort((a, b) => b.flowers - a.flowers);
 }
 
-export async function renderSpentSection(mountEl) {
+export async function renderSpentSection(mountEl, timeRange = '7d') {
   if (!mountEl) return;
+
+  const rangeLabel = timeRange === 'daily' ? 'Today' : (timeRange === '7d' ? 'Last 7 Days' : 'Last 30 Days');
 
   mountEl.innerHTML = `
     <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
@@ -106,7 +113,7 @@ export async function renderSpentSection(mountEl) {
     return;
   }
 
-  const items = await loadSpentData();
+  const items = await loadSpentData(timeRange);
 
   if (items.length === 0) {
     mountEl.innerHTML = `
@@ -117,7 +124,7 @@ export async function renderSpentSection(mountEl) {
       </div>
       <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
         <span class="text-2xl mb-1 block">📉</span>
-        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Consumption Detected</p>
+        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Consumption in ${rangeLabel}</p>
         <p class="text-[11px] text-sfl-woodLight mt-1">Requires 2+ daily 00:00 UTC snapshots to compute net consumed resources.</p>
       </div>`;
     return;
@@ -151,7 +158,7 @@ export async function renderSpentSection(mountEl) {
         <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
           <span>💸</span> Resource Consumption
         </h4>
-        <p class="text-[10px] text-sfl-woodLight">Last 7 days • Crafting, chores & feeding</p>
+        <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • Crafting, chores & feeding</p>
       </div>
       <div class="text-right">
         <span class="font-mono text-sm font-bold text-orange-700 dark:text-orange-400 bg-orange-100/80 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">
