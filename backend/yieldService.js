@@ -201,6 +201,8 @@ async function processYieldCalculation(supabase) {
       continue;
     }
 
+    const currActivity = currentData.farmActivity || currentData.bumpkin?.activity || (currentData.farm && (currentData.farm.farmActivity || currentData.farm.bumpkin?.activity)) || {};
+
     // ── Fetch Today's P2P Trades (00:00 to 22:00 UTC) ──
     let todayTrades = { tradesBought: {}, tradesSold: {}, rawTradesCount: 0 };
     try {
@@ -229,8 +231,7 @@ async function processYieldCalculation(supabase) {
     let totalSpentCount = 0;
     let totalSpentFlowers = 0;
 
-    // ── Pre-calculate active marketplace listings and current activity ──
-    const currActivity = currentData.farmActivity || currentData.bumpkin?.activity || (currentData.farm && (currentData.farm.farmActivity || currentData.farm.bumpkin?.activity)) || {};
+    // ── Pre-calculate active marketplace listings ──
     const activeListingsObj = currentData.trades?.listings || currentData.listings || (currentData.farm && currentData.farm.trades?.listings) || {};
     const activeListedMap = {};
     if (typeof activeListingsObj === 'object' && activeListingsObj !== null) {
