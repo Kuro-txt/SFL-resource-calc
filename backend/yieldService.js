@@ -229,6 +229,22 @@ async function processYieldCalculation(supabase) {
     let totalSpentCount = 0;
     let totalSpentFlowers = 0;
 
+    // ── Pre-calculate active marketplace listings and current activity ──
+    const currActivity = currentData.farmActivity || currentData.bumpkin?.activity || (currentData.farm && (currentData.farm.farmActivity || currentData.farm.bumpkin?.activity)) || {};
+    const activeListingsObj = currentData.trades?.listings || currentData.listings || (currentData.farm && currentData.farm.trades?.listings) || {};
+    const activeListedMap = {};
+    if (typeof activeListingsObj === 'object' && activeListingsObj !== null) {
+      Object.values(activeListingsObj).forEach(listing => {
+        if (!listing || !listing.items) return;
+        for (const [rawKey, rawQty] of Object.entries(listing.items)) {
+          const clean = String(getItemNameById(rawKey) || rawKey).toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (clean) {
+            activeListedMap[clean] = (activeListedMap[clean] || 0) + parseFloat(rawQty || 0);
+          }
+        }
+      });
+    }
+
     // ── Restrict diff calculations strictly to the 64 whitelisted items ──
     const candidateItems = new Set();
     ALLOWED_ITEM_KEYS.forEach(cleanKey => {
@@ -236,9 +252,10 @@ async function processYieldCalculation(supabase) {
       let currentQty = getStockAmount(currentData.inventory, cleanKey);
       let bought = tradesBought[cleanKey] || 0;
       let sold = tradesSold[cleanKey] || 0;
+      let activeListed = activeListedMap[cleanKey] || 0;
 
-      // Only check items that exist in baseline, current inventory, or today's trades
-      if (baselineQty > 0 || currentQty > 0 || bought > 0 || sold > 0) {
+      // Only check items that exist in baseline, current inventory, active listings, or today's trades
+      if (baselineQty > 0 || currentQty > 0 || bought > 0 || sold > 0 || activeListed > 0) {
         candidateItems.add(cleanKey);
       }
     });
@@ -252,25 +269,33 @@ async function processYieldCalculation(supabase) {
 
       let bought = tradesBought[cleanKey] || 0;
       let sold = tradesSold[cleanKey] || 0;
+      let activeListed = activeListedMap[cleanKey] || 0;
+      let formattedName = formatOfficialItemName(cleanKey);
+
+      let inGameSold = Math.max(0,
+        parseFloat(currActivity[formattedName + ' Sold'] || currActivity[cleanKey + ' Sold'] || 0) -
+        parseFloat(baseActivity[formattedName + ' Sold'] || baseActivity[cleanKey + ' Sold'] || 0)
+      );
+
+      let totalSold = sold + activeListed + inGameSold;
 
       // Net organic inventory movement:
       // Positive = harvested/produced organically
       // Negative = consumed/spent organically on farm
-      let netOrganicDiff = effectiveGrossDiff - bought + sold;
+      let netOrganicDiff = effectiveGrossDiff - bought + totalSold;
       let unitPrice = getFlowerUnitPrice(cleanKey, flatPrices);
-      let formattedName = formatOfficialItemName(cleanKey);
 
-      if (netOrganicDiff > 0.0001 || (netOrganicDiff >= 0 && (bought > 0 || sold > 0))) {
+      if (netOrganicDiff > 0.0001 || (netOrganicDiff >= 0 && (bought > 0 || totalSold > 0))) {
         let harvestedQty = Math.ceil(Math.max(0, netOrganicDiff) * 10) / 10;
         let itemFlowers = Math.ceil((unitPrice * harvestedQty * 0.9) * 1000) / 1000;
 
-        if (harvestedQty > 0 || bought > 0 || sold > 0) {
+        if (harvestedQty > 0 || bought > 0 || totalSold > 0) {
           yieldsList.push({
             name: formattedName,
             qty: harvestedQty,
             flowers: itemFlowers,
             tradeBought: Math.ceil(bought * 10) / 10,
-            tradeSold: Math.ceil(sold * 10) / 10,
+            tradeSold: Math.ceil(totalSold * 10) / 10,
             grossStockDiff: Math.ceil(effectiveGrossDiff * 10) / 10
           });
           totalHarvestCount += harvestedQty;
@@ -285,7 +310,7 @@ async function processYieldCalculation(supabase) {
           qty: consumedQty,
           flowers: itemFlowers,
           tradeBought: Math.ceil(bought * 10) / 10,
-          tradeSold: Math.ceil(sold * 10) / 10,
+          tradeSold: Math.ceil(totalSold * 10) / 10,
           grossStockDiff: Math.ceil(effectiveGrossDiff * 10) / 10
         });
         totalSpentCount += consumedQty;
@@ -294,7 +319,6 @@ async function processYieldCalculation(supabase) {
     });
 
     const baseYields = user.crop_base_yields || {};
-    const currActivity = currentData.farmActivity || {};
     let cropActivityYields = [];
 
     for (let actKey in currActivity) {

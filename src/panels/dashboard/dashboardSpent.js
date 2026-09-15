@@ -3,6 +3,9 @@
 
 import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES, getCoinFlowerRatio } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
+import { tradeHistoryData } from '../tradeHistory/tradeData.js';
+import { ApiService } from '../../services/api.js';
+import { getItemNameById } from '../../data/knownIds.js';
 
 function getItemPrice(name) {
   if (name === 'Coins' || normalizeItemKey(name) === 'coins') {
@@ -56,12 +59,75 @@ export async function loadSpentData(timeRange = '7d') {
   try { history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]'); } catch (_) {}
 
   const now = Date.now();
+  let minTimestamp = 0;
   let minDateStr = '';
   if (timeRange === '7d') {
-    minDateStr = new Date(now - 7 * 86400 * 1000).toISOString().split('T')[0];
+    minTimestamp = now - 7 * 86400 * 1000;
+    minDateStr = new Date(minTimestamp).toISOString().split('T')[0];
   } else if (timeRange === 'month') {
-    minDateStr = new Date(now - 30 * 86400 * 1000).toISOString().split('T')[0];
+    minTimestamp = now - 30 * 86400 * 1000;
+    minDateStr = new Date(minTimestamp).toISOString().split('T')[0];
   }
+
+  const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value?.trim() || '';
+
+  // ── Gather all trade activity (fulfilled sold/bought, active listings, and in-game shop sales) ──
+  const tradesSold = {};
+  const tradesBought = {};
+  const activeListings = {};
+
+  // 1. Fulfilled Trades (from in-memory tradeHistoryData or cloud archive)
+  let tradesList = tradeHistoryData?.trades || [];
+  if (tradesList.length === 0 && farmId) {
+    try {
+      const cloud = await ApiService.getCloudTrades(farmId);
+      if (cloud?.trades && Array.isArray(cloud.trades)) {
+        tradesList = cloud.trades;
+      }
+    } catch (_) {}
+  }
+
+  tradesList.forEach(t => {
+    const fulfilledAt = parseInt(t.fulfilledAt || 0, 10);
+    if (minTimestamp && fulfilledAt > 0 && fulfilledAt < minTimestamp) return;
+
+    const rawName = t.itemName || t.name || t.item || '';
+    const clean = normalizeItemKey((rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName));
+    if (!clean) return;
+
+    const qty = parseFloat(t.quantity || 1);
+    const isSeller = t.tradeType === 'sold' || (t.initiatedBy && String(t.initiatedBy.id || t.initiatedBy) === String(farmId));
+
+    if (isSeller) {
+      tradesSold[clean] = (tradesSold[clean] || 0) + qty;
+    } else {
+      tradesBought[clean] = (tradesBought[clean] || 0) + qty;
+    }
+  });
+
+  // 2. Active Marketplace Listings (escrowed items that left inventory but are not consumed)
+  const allListings = {
+    ...(tradeHistoryData?.listings || {}),
+    ...(window.farmData?.trades?.listings || {}),
+    ...(window.farmData?.farm?.trades?.listings || {})
+  };
+
+  Object.values(allListings).forEach(listing => {
+    if (!listing || !listing.items) return;
+    for (const [rawKey, rawQty] of Object.entries(listing.items)) {
+      const clean = normalizeItemKey(getItemNameById(rawKey) || rawKey);
+      if (clean) {
+        activeListings[clean] = (activeListings[clean] || 0) + parseFloat(rawQty || 0);
+      }
+    }
+  });
+
+  // 3. In-Game Shop Sales (from live farmActivity)
+  const liveActivity = {
+    ...(window.farmData?.farmActivity || {}),
+    ...(window.farmData?.bumpkin?.activity || {}),
+    ...(window.farmData?.farm?.farmActivity || {})
+  };
 
   let hasSavedSpent = false;
   let totalCoinsSpent = 0;
@@ -71,10 +137,12 @@ export async function loadSpentData(timeRange = '7d') {
     const d = h.date || h.yield_date || '';
     if (minDateStr && d < minDateStr) return;
 
-    // Check h.spent array
-    if (Array.isArray(h.spent) && h.spent.length > 0) {
+    const rawSpent = (Array.isArray(h.spent) && h.spent.length > 0) ? h.spent
+      : (Array.isArray(h.cropActivityYields) ? h.cropActivityYields.find(a => a && a.type === 'spent')?.items : null);
+
+    if (Array.isArray(rawSpent) && rawSpent.length > 0) {
       hasSavedSpent = true;
-      h.spent.forEach(item => {
+      rawSpent.forEach(item => {
         const name = item.name || item.crop || item.item;
         if (!name) return;
         const clean = normalizeItemKey(name);
@@ -83,38 +151,21 @@ export async function loadSpentData(timeRange = '7d') {
           return;
         }
         if (!isAllowedDifferenceItem(clean)) return;
+
+        // Deduct sold or active listings
+        const soldOffset = (tradesSold[clean] || 0) + (activeListings[clean] || 0);
+        let qty = parseFloat(item.qty || 0);
+        if (soldOffset > 0) {
+          qty = Math.max(0, qty - soldOffset);
+        }
+        if (qty <= 0.01) return; // Sold or listed item is NOT spent!
+
         const officialName = ALLOWED_ITEM_NAMES[clean] || name;
         if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
-        const qty = parseFloat(item.qty || 0);
         const flowers = parseFloat(item.flowers || (qty * getItemPrice(officialName) * 0.9));
         result[officialName].qty += qty;
         result[officialName].flowers += flowers;
       });
-    } else {
-      // Check cropActivityYields for type === 'spent'
-      const rawActs = h.cropActivityYields || h.crop_activity_yields || [];
-      if (Array.isArray(rawActs)) {
-        const spentAct = rawActs.find(a => a && a.type === 'spent');
-        if (spentAct && Array.isArray(spentAct.items) && spentAct.items.length > 0) {
-          hasSavedSpent = true;
-          spentAct.items.forEach(item => {
-            const name = item.name || item.crop || item.item;
-            if (!name) return;
-            const clean = normalizeItemKey(name);
-            if (clean === 'coins') {
-              totalCoinsSpent += parseFloat(item.qty || 0);
-              return;
-            }
-            if (!isAllowedDifferenceItem(clean)) return;
-            const officialName = ALLOWED_ITEM_NAMES[clean] || name;
-            if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
-            const qty = parseFloat(item.qty || 0);
-            const flowers = parseFloat(item.flowers || (qty * getItemPrice(officialName) * 0.9));
-            result[officialName].qty += qty;
-            result[officialName].flowers += flowers;
-          });
-        }
-      }
     }
 
     // Accumulate coins spent
@@ -125,18 +176,17 @@ export async function loadSpentData(timeRange = '7d') {
     }
   });
 
-  // 2. If no saved spent data in daily snapshots yet, fall back to trade-adjusted preharvest_baselines
+  // 2. Fall back to trade-adjusted preharvest_baselines if no saved spent data
   if (!hasSavedSpent) {
     try {
       const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
       const user = window.currentUser;
-      const farmId = localStorage.getItem('sfl_farm_id');
 
       if (client && (user || farmId)) {
         const rowLimit = timeRange === '7d' ? 8 : 31;
         let query = client
           .from('preharvest_baselines')
-          .select('snapshot_date, stock')
+          .select('snapshot_date, stock, farm_activity')
           .order('snapshot_date', { ascending: false })
           .limit(rowLimit);
 
@@ -146,6 +196,13 @@ export async function loadSpentData(timeRange = '7d') {
         const { data } = await query;
         if (data && data.length >= 2) {
           const chronological = [...data].reverse();
+
+          // Calculate in-game shop sales between earliest and latest baselines
+          const earliestAct = chronological[0]?.farm_activity || {};
+          const latestAct = chronological[chronological.length - 1]?.farm_activity || liveActivity;
+
+          // Track drops per item across consecutive baselines
+          const grossDrops = {};
           for (let i = 1; i < chronological.length; i++) {
             const prev = chronological[i - 1].stock || {};
             const curr = chronological[i].stock || {};
@@ -153,20 +210,36 @@ export async function loadSpentData(timeRange = '7d') {
             const allItems = new Set([...Object.keys(prev), ...Object.keys(curr)]);
             allItems.forEach(item => {
               const clean = normalizeItemKey(item);
-              if (IGNORE_ITEMS.has(clean)) return;
-              if (!isAllowedDifferenceItem(clean)) return;
+              if (IGNORE_ITEMS.has(clean) || !isAllowedDifferenceItem(clean)) return;
 
               const prevQty = parseFloat(prev[item]) || 0;
               const currQty = parseFloat(curr[item]) || 0;
-              const consumed = prevQty - currQty;
-
-              if (consumed > 0.01) {
-                const officialName = ALLOWED_ITEM_NAMES[clean] || item;
-                if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
-                result[officialName].qty += consumed;
-                result[officialName].flowers += parseFloat((consumed * getItemPrice(item)).toFixed(3));
+              const drop = prevQty - currQty;
+              if (drop > 0) {
+                grossDrops[clean] = (grossDrops[clean] || 0) + drop;
               }
             });
+          }
+
+          // Net consumed = Gross Drop + Bought - (Sold + Active Listings + In-Game Shop Sold)
+          for (const [clean, drop] of Object.entries(grossDrops)) {
+            const officialName = ALLOWED_ITEM_NAMES[clean] || clean;
+            const sold = tradesSold[clean] || 0;
+            const bought = tradesBought[clean] || 0;
+            const listed = activeListings[clean] || 0;
+            const shop = Math.max(0, 
+              (parseFloat(latestAct[officialName + ' Sold']) || 0) - 
+              (parseFloat(earliestAct[officialName + ' Sold']) || 0)
+            );
+
+            const totalSoldOffset = sold + listed + shop;
+            const netConsumed = drop + bought - totalSoldOffset;
+
+            if (netConsumed > 0.01) {
+              if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
+              result[officialName].qty += netConsumed;
+              result[officialName].flowers += parseFloat((netConsumed * getItemPrice(officialName) * 0.9).toFixed(3));
+            }
           }
         }
       }
