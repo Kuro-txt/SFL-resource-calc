@@ -1,6 +1,6 @@
 import { tradeHistoryData, getTradeAmounts, isUserSeller, getTradeCounterparty } from './tradeData.js';
 import { getItemNameById } from '../../data/knownIds.js';
-import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
+import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML } from '../../config/constants.js';
 
 export const ITEM_PALETTE = [
   '#10b981', // Emerald
@@ -802,6 +802,19 @@ export function renderItemAnalyticsView(mountEl, farmId) {
   const { title: horizonTitle, buckets } = getTimeBuckets(analyticsTimeHorizon, trades);
   const { series, matchingTrades } = aggregateItemSeries(trades, farmId, selectedList, buckets, analyticsTradeType);
 
+  // Combined metrics across all selected items
+  const combinedTotalSoldSfl = series.reduce((acc, s) => acc + (s.totalSoldSfl || 0), 0);
+  const combinedTotalBoughtSfl = series.reduce((acc, s) => acc + (s.totalBoughtSfl || 0), 0);
+  const combinedTotalGrossSoldSfl = series.reduce((acc, s) => acc + (s.totalGrossSoldSfl || 0), 0);
+  const combinedTotalTax = series.reduce((acc, s) => acc + (s.totalTax || 0), 0);
+  const combinedNetSfl = combinedTotalSoldSfl - combinedTotalBoughtSfl;
+  const combinedTotalSoldQty = series.reduce((acc, s) => acc + (s.totalSoldQty || 0), 0);
+  const combinedTotalBoughtQty = series.reduce((acc, s) => acc + (s.totalBoughtQty || 0), 0);
+  const combinedNetQty = combinedTotalBoughtQty - combinedTotalSoldQty;
+  const combinedTotalSoldCount = series.reduce((acc, s) => acc + (s.totalSoldCount || 0), 0);
+  const combinedTotalBoughtCount = series.reduce((acc, s) => acc + (s.totalBoughtCount || 0), 0);
+  const isNetProfit = combinedNetSfl >= 0;
+
   // Available unselected items to choose from
   const availableItems = tradedItems.filter(item => !selectedItems.has(item.name));
   const filteredItems = itemSearchFilter
@@ -913,26 +926,38 @@ export function renderItemAnalyticsView(mountEl, farmId) {
         </div>
 
         <!-- SELECTED ITEMS DISPLAY (ONLY SHOW ITEMS THAT ARE SELECTED) -->
-        <div class="flex items-center gap-2 flex-wrap min-h-[36px] p-2 border border-amber-200/80 dark:border-amber-800/60 rounded-lg bg-amber-50/40 dark:bg-amber-950/20">
-          <span class="text-xs font-bold text-sfl-wood dark:text-amber-200">
-            Selected (${selectedList.length}):
-          </span>
-          ${selectedList.map(itemName => {
-            const color = getItemColor(itemName, selectedList);
-            const itemData = allTradedItemsAny.find(i => i.name === itemName);
-            const countStr = itemData ? ` (${itemData.count})` : '';
-            return `
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 dark:bg-amber-900/80 text-sfl-dirt dark:text-amber-100 border border-amber-400 dark:border-amber-600 shadow-2xs">
-                <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: ${color};"></span>
-                <span>${itemName}${countStr}</span>
-                <button data-remove-item="${itemName}" class="remove-item-btn ml-1 hover:text-red-500 font-black cursor-pointer" title="Remove ${itemName}">✕</button>
-              </span>
-            `;
-          }).join('')}
-          ${selectedList.length === 0 ? `
-            <span class="text-xs text-sfl-woodLight dark:text-amber-300/60 italic">
-              No items selected. Choose an item from the dropdown or quick search below to view trading analytics.
+        <div class="flex items-center justify-between gap-2 flex-wrap min-h-[36px] p-2.5 border border-amber-200/80 dark:border-amber-800/60 rounded-lg bg-amber-50/40 dark:bg-amber-950/20">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-bold text-sfl-wood dark:text-amber-200">
+              Selected (${selectedList.length}):
             </span>
+            ${selectedList.map(itemName => {
+              const color = getItemColor(itemName, selectedList);
+              const itemData = allTradedItemsAny.find(i => i.name === itemName);
+              const countStr = itemData ? ` (${itemData.count})` : '';
+              return `
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 dark:bg-amber-900/80 text-sfl-dirt dark:text-amber-100 border border-amber-400 dark:border-amber-600 shadow-2xs">
+                  <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: ${color};"></span>
+                  <span>${itemName}${countStr}</span>
+                  <button data-remove-item="${itemName}" class="remove-item-btn ml-1 hover:text-red-500 font-black cursor-pointer" title="Remove ${itemName}">✕</button>
+                </span>
+              `;
+            }).join('')}
+            ${selectedList.length === 0 ? `
+              <span class="text-xs text-sfl-woodLight dark:text-amber-300/60 italic">
+                No items selected. Choose an item from the dropdown or quick search below to view trading analytics.
+              </span>
+            ` : ''}
+          </div>
+
+          ${selectedList.length > 0 ? `
+            <div class="flex items-center gap-1.5 font-mono">
+              <span class="text-[11px] font-bold text-sfl-woodLight dark:text-amber-300/70">Selected Net Flower:</span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black ${isNetProfit ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-400 dark:border-emerald-600' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-400 dark:border-rose-600'} shadow-2xs">
+                <span>${combinedNetSfl >= 0 ? '+' : ''}${combinedNetSfl.toFixed(3)}</span>
+                ${FLOWER_IMG_SMALL_HTML}
+              </span>
+            </div>
           ` : ''}
         </div>
 
@@ -953,6 +978,97 @@ export function renderItemAnalyticsView(mountEl, farmId) {
           </div>
         ` : ''}
       </div>
+
+      <!-- COMBINED SELECTED ITEMS NET FLOWER SUMMARY CARD -->
+      ${selectedList.length > 0 ? `
+        <div class="bg-white/95 dark:bg-amber-950/50 border-2 ${isNetProfit ? 'border-emerald-500/80 dark:border-emerald-600/80 ring-2 ring-emerald-400/20' : 'border-rose-500/80 dark:border-rose-600/80 ring-2 ring-rose-400/20'} rounded-xl p-4 shadow-sm space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-2">
+            <div>
+              <h4 class="text-xs font-black uppercase tracking-wider text-sfl-wood dark:text-amber-200 flex items-center gap-2">
+                <span>🌸</span> Combined Summary: All Selected Items (${selectedList.length})
+              </h4>
+              <p class="text-[11px] text-sfl-woodLight dark:text-amber-300/70 font-semibold">
+                Total Net Flower (SFL) &amp; cumulative volume across ${horizonTitle}
+              </p>
+            </div>
+            <span class="inline-flex items-center gap-1.5 text-xs font-bold font-mono px-3 py-1 rounded-full ${isNetProfit ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-700'}">
+              <span>${isNetProfit ? '🟢 Net Profit' : '🔴 Net Loss/Spend'}:</span>
+              <span class="font-black text-sm">${combinedNetSfl >= 0 ? '+' : ''}${combinedNetSfl.toFixed(3)}</span>
+              ${FLOWER_IMG_SMALL_HTML}
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            
+            <!-- CARD 1: COMBINED NET FLOWER -->
+            <div class="p-3.5 rounded-xl border-2 ${isNetProfit ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800' : 'bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'} flex flex-col justify-between shadow-2xs">
+              <span class="text-[10px] uppercase font-bold text-sfl-woodLight dark:text-amber-300/70 block">
+                Total Net Flower (SFL)
+              </span>
+              <div class="my-1.5">
+                <span class="text-2xl font-black font-mono ${isNetProfit ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'} flex items-center gap-1.5">
+                  <span>${combinedNetSfl >= 0 ? '+' : ''}${combinedNetSfl.toFixed(3)}</span>
+                  ${FLOWER_IMG_HTML}
+                </span>
+              </div>
+              <span class="text-[10px] text-sfl-woodLight dark:text-amber-300/60 font-sans">
+                ${isNetProfit ? 'Net profit across all selected items' : 'Net spend across all selected items'}
+              </span>
+            </div>
+
+            <!-- CARD 2: TOTAL SALES REVENUE -->
+            <div class="p-3.5 rounded-xl border bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200/80 dark:border-emerald-800/50 flex flex-col justify-between shadow-2xs">
+              <span class="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-300 block">
+                🟢 Total Sales Revenue
+              </span>
+              <div class="my-1.5">
+                <span class="text-xl font-black font-mono text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                  <span>+${combinedTotalSoldSfl.toFixed(3)}</span>
+                  ${FLOWER_IMG_SMALL_HTML}
+                </span>
+              </div>
+              <div class="text-[10px] text-sfl-woodLight dark:text-amber-300/70 font-mono flex items-center justify-between">
+                <span>📦 ${combinedTotalSoldQty.toLocaleString()} units</span>
+                <span>${combinedTotalSoldCount} sales</span>
+              </div>
+            </div>
+
+            <!-- CARD 3: TOTAL PURCHASE SPEND -->
+            <div class="p-3.5 rounded-xl border bg-blue-50/60 dark:bg-blue-950/30 border-blue-200/80 dark:border-blue-800/50 flex flex-col justify-between shadow-2xs">
+              <span class="text-[10px] uppercase font-bold text-blue-800 dark:text-blue-300 block">
+                🔵 Total Purchase Spend
+              </span>
+              <div class="my-1.5">
+                <span class="text-xl font-black font-mono text-blue-700 dark:text-blue-400 flex items-center gap-1">
+                  <span>-${combinedTotalBoughtSfl.toFixed(3)}</span>
+                  ${FLOWER_IMG_SMALL_HTML}
+                </span>
+              </div>
+              <div class="text-[10px] text-sfl-woodLight dark:text-amber-300/70 font-mono flex items-center justify-between">
+                <span>📦 ${combinedTotalBoughtQty.toLocaleString()} units</span>
+                <span>${combinedTotalBoughtCount} buys</span>
+              </div>
+            </div>
+
+            <!-- CARD 4: ACTIVITY & NET VOLUME -->
+            <div class="p-3.5 rounded-xl border bg-amber-50/60 dark:bg-amber-950/30 border-amber-200/80 dark:border-amber-800/50 flex flex-col justify-between shadow-2xs">
+              <span class="text-[10px] uppercase font-bold text-sfl-wood dark:text-amber-200 block">
+                📊 Total Activity &amp; Units
+              </span>
+              <div class="my-1.5">
+                <span class="text-xl font-black font-mono text-sfl-wood dark:text-amber-100">
+                  ${matchingTrades.length} trades
+                </span>
+              </div>
+              <div class="text-[10px] text-sfl-woodLight dark:text-amber-300/70 font-mono flex items-center justify-between">
+                <span>Net: ${combinedNetQty >= 0 ? '+' : ''}${combinedNetQty.toLocaleString()} pcs</span>
+                <span>${selectedList.length} items</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      ` : ''}
 
       <!-- GRAPH CARD -->
       ${selectedList.length === 0 ? `
@@ -977,6 +1093,13 @@ export function renderItemAnalyticsView(mountEl, farmId) {
 
             <!-- Color Legend (Click to focus single series) -->
             <div class="flex items-center gap-1.5 flex-wrap text-xs font-mono font-bold">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-2xs font-mono font-bold text-xs bg-amber-100/90 dark:bg-amber-900/80 border-amber-400 dark:border-amber-600 text-sfl-dirt dark:text-amber-100">
+                <span>🌸 All Net:</span>
+                <span class="font-black ${isNetProfit ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}">
+                  ${combinedNetSfl >= 0 ? '+' : ''}${combinedNetSfl.toFixed(3)}
+                </span>
+                ${FLOWER_IMG_SMALL_HTML}
+              </span>
               ${series.map(s => {
                 let badgeText = '';
                 if (analyticsMetric === 'sfl') {
@@ -1082,13 +1205,16 @@ export function renderItemAnalyticsView(mountEl, farmId) {
 
         <!-- TRANSACTION LEDGER TABLE FOR SELECTED ITEMS IN PERIOD ONLY -->
         <div class="border-2 border-sfl-cardBorder dark:border-amber-700/60 rounded-xl overflow-hidden bg-white/95 dark:bg-amber-950/40 shadow-2xs">
-          <div class="bg-amber-100/80 dark:bg-amber-900/60 px-4 py-2.5 border-b border-sfl-cardBorder dark:border-amber-700/60 flex justify-between items-center">
+          <div class="bg-amber-100/80 dark:bg-amber-900/60 px-4 py-2.5 border-b border-sfl-cardBorder dark:border-amber-700/60 flex justify-between items-center flex-wrap gap-2">
             <span class="text-xs font-bold text-sfl-dirt dark:text-amber-100 uppercase tracking-wider flex items-center gap-1.5">
               <span>📜</span> Activity Log for Selected Items in Period
             </span>
-            <span class="text-[11px] font-bold text-sfl-wood dark:text-amber-200 font-mono">
-              ${matchingTrades.length} trades recorded
-            </span>
+            <div class="flex items-center gap-2 font-mono text-[11px] font-bold">
+              <span class="text-sfl-wood dark:text-amber-200">${matchingTrades.length} trades recorded</span>
+              <span class="px-2 py-0.5 rounded border ${isNetProfit ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-700'}">
+                Net: ${combinedNetSfl >= 0 ? '+' : ''}${combinedNetSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
+              </span>
+            </div>
           </div>
 
           <div class="overflow-x-auto">
