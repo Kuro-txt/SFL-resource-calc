@@ -86,16 +86,64 @@ export function renderHeader() {
           <p class="text-xs font-semibold text-sfl-woodLight dark:text-slate-400">Live SFL market prices, NFT wishlist & automated crop tracker</p>
         </div>
 
-        <div class="sm:self-start flex items-center gap-3 pt-2 sm:pt-0">
+        <div class="sm:self-start flex items-center gap-2.5 pt-2 sm:pt-0">
           <!-- THEME TOGGLE BUTTON -->
           <button id="theme-toggle-btn" class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 border-2 border-amber-300 dark:border-slate-600 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer">
             <span>${isDark ? '☀️' : '🌙'}</span>
             <span>${isDark ? 'Light' : 'Dark'}</span>
           </button>
 
-          <button id="donate-btn" class="text-xs font-bold text-amber-900 dark:text-amber-300 hover:underline transition cursor-pointer bg-transparent border-none p-0 whitespace-nowrap">
-            Donate
-          </button>
+          <!-- DONATE WIDGET WITH HUNGRY BLACK CAT SAYING FEED ME -->
+          <div class="relative flex items-center gap-1.5 group/cat cursor-pointer select-none" id="donate-cat-trigger" title="Click to feed me! (copies donation address)">
+            <!-- Speech Bubble pointing to the cat -->
+            <div class="relative bg-amber-200/90 dark:bg-slate-800 text-amber-950 dark:text-amber-300 border border-amber-400/90 dark:border-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-2xs whitespace-nowrap flex items-center gap-1 transition-transform group-hover/cat:scale-105">
+              <span id="donate-bubble-text">Feed me 🐟</span>
+              <!-- Bubble pointer triangle pointing right toward cat -->
+              <span class="absolute -right-1 top-1/2 -translate-y-1/2 border-y-3 border-y-transparent border-l-4 border-l-amber-400/90 dark:border-l-slate-600"></span>
+            </div>
+
+            <!-- Mini Sitting Black Cat SVG -->
+            <div class="transition-transform duration-200 group-hover/cat:-translate-y-0.5 group-hover/cat:rotate-6">
+              <svg class="w-6 h-6 inline-block drop-shadow-xs" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Curled Tail -->
+                <path d="M6,22 C3,20 2,16 4,14 C5,13 6.5,14 6,15 C5,17 5.5,19 8,21 Z" fill="#18181b" stroke="#27272a" stroke-width="0.8" />
+                <!-- Body -->
+                <ellipse cx="14" cy="19" rx="6.5" ry="6" fill="#18181b" stroke="#27272a" stroke-width="0.8" />
+                <!-- Front Paws with Pink Toe Beans -->
+                <ellipse cx="11.5" cy="24" rx="2" ry="1.5" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
+                <ellipse cx="16.5" cy="24" rx="2" ry="1.5" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
+                <circle cx="11.5" cy="24.2" r="0.8" fill="#f472b6" />
+                <circle cx="16.5" cy="24.2" r="0.8" fill="#f472b6" />
+                <!-- Left Ear -->
+                <polygon points="7,10 4,2 11,6" fill="#18181b" />
+                <polygon points="7,9 5,4 10,7" fill="#f472b6" />
+                <!-- Right Ear -->
+                <polygon points="21,10 24,2 17,6" fill="#18181b" />
+                <polygon points="21,9 23,4 18,7" fill="#f472b6" />
+                <!-- Head -->
+                <circle cx="14" cy="11" r="6.5" fill="#18181b" stroke="#27272a" stroke-width="0.8" />
+                <!-- Eyes (Glowing Amber) -->
+                <ellipse cx="11" cy="10.5" rx="1.8" ry="2.2" fill="#f59e0b" />
+                <ellipse cx="17" cy="10.5" rx="1.8" ry="2.2" fill="#f59e0b" />
+                <ellipse cx="11" cy="10.5" rx="0.9" ry="1.8" fill="#09090b" />
+                <ellipse cx="17" cy="10.5" rx="0.9" ry="1.8" fill="#09090b" />
+                <circle cx="10.5" cy="9.8" r="0.7" fill="#ffffff" />
+                <circle cx="16.5" cy="9.8" r="0.7" fill="#ffffff" />
+                <!-- Nose -->
+                <polygon points="14,13 13,12.2 15,12.2" fill="#f472b6" />
+                <!-- Whiskers -->
+                <line x1="9" y1="12.5" x2="4" y2="12" stroke="#ffffff" stroke-width="0.8" stroke-linecap="round" opacity="0.9" />
+                <line x1="9" y1="14" x2="4.5" y2="14.8" stroke="#ffffff" stroke-width="0.8" stroke-linecap="round" opacity="0.9" />
+                <line x1="19" y1="12.5" x2="24" y2="12" stroke="#ffffff" stroke-width="0.8" stroke-linecap="round" opacity="0.9" />
+                <line x1="19" y1="14" x2="23.5" y2="14.8" stroke="#ffffff" stroke-width="0.8" stroke-linecap="round" opacity="0.9" />
+              </svg>
+            </div>
+
+            <!-- Donate Button -->
+            <button id="donate-btn" class="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold px-2.5 py-1 rounded-xl text-xs border-2 border-amber-600 shadow-xs transition cursor-pointer whitespace-nowrap">
+              Donate
+            </button>
+          </div>
         </div>
       </div>
 

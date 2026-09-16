@@ -77,22 +77,43 @@ export function initCalculatorPanel() {
 }
 
 function bindCalculatorEvents() {
-  document.getElementById('donate-btn')?.addEventListener('click', async () => {
+  const handleDonation = async () => {
     const donationAddress = "0xE32d234D63998F5078de9A7E2303233699276642";
     const donateBtn = document.getElementById('donate-btn');
+    const bubbleText = document.getElementById('donate-bubble-text');
 
     try {
       await navigator.clipboard.writeText(donationAddress);
-      const originalText = donateBtn.textContent;
-      donateBtn.textContent = "Copied!";
-      donateBtn.classList.add('text-green-400');
+      if (donateBtn) {
+        donateBtn.textContent = "Copied!";
+        donateBtn.classList.add('bg-emerald-500', 'text-white', 'border-emerald-600');
+      }
+      if (bubbleText) {
+        bubbleText.textContent = "Nom nom! ❤️";
+      }
 
       setTimeout(() => {
-        donateBtn.textContent = originalText;
-        donateBtn.classList.remove('text-green-400');
-      }, 2000);
+        if (donateBtn) {
+          donateBtn.textContent = "Donate";
+          donateBtn.classList.remove('bg-emerald-500', 'text-white', 'border-emerald-600');
+        }
+        if (bubbleText) {
+          bubbleText.textContent = "Feed me 🐟";
+        }
+      }, 2500);
     } catch (err) {
       prompt("Copy your donation address below:", donationAddress);
+    }
+  };
+
+  document.getElementById('donate-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    handleDonation();
+  });
+
+  document.getElementById('donate-cat-trigger')?.addEventListener('click', (e) => {
+    if (e.target.id !== 'donate-btn') {
+      handleDonation();
     }
   });
 }
