@@ -71,10 +71,9 @@ export async function loadSpentData(boundsInput = 'week') {
 
   const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value?.trim() || '';
 
-  // ── Gather all trade activity (fulfilled sold/bought, active listings, and in-game shop sales) ──
+  // ── Gather all trade activity (fulfilled sold/bought and in-game shop sales) ──
   const tradesSold = {};
   const tradesBought = {};
-  const activeListings = {};
 
   // 1. Fulfilled Trades (from in-memory tradeHistoryData or cloud archive)
   let tradesList = tradeHistoryData?.trades || [];
@@ -102,23 +101,6 @@ export async function loadSpentData(boundsInput = 'week') {
       tradesSold[clean] = (tradesSold[clean] || 0) + qty;
     } else {
       tradesBought[clean] = (tradesBought[clean] || 0) + qty;
-    }
-  });
-
-  // 2. Active Marketplace Listings (escrowed items that left inventory but are not consumed)
-  const allListings = {
-    ...(tradeHistoryData?.listings || {}),
-    ...(window.farmData?.trades?.listings || {}),
-    ...(window.farmData?.farm?.trades?.listings || {})
-  };
-
-  Object.values(allListings).forEach(listing => {
-    if (!listing || !listing.items) return;
-    for (const [rawKey, rawQty] of Object.entries(listing.items)) {
-      const clean = normalizeItemKey(getItemNameById(rawKey) || rawKey);
-      if (clean) {
-        activeListings[clean] = (activeListings[clean] || 0) + parseFloat(rawQty || 0);
-      }
     }
   });
 
@@ -152,13 +134,13 @@ export async function loadSpentData(boundsInput = 'week') {
         }
         if (!isAllowedDifferenceItem(clean)) return;
 
-        // Deduct sold or active listings
-        const soldOffset = (tradesSold[clean] || 0) + (activeListings[clean] || 0);
+        // Deduct sold items (ignoring unsold listings)
+        const soldOffset = tradesSold[clean] || 0;
         let qty = parseFloat(item.qty || 0);
         if (soldOffset > 0) {
           qty = Math.max(0, qty - soldOffset);
         }
-        if (qty <= 0.01) return; // Sold or listed item is NOT spent!
+        if (qty <= 0.01) return; // Sold item is NOT spent!
 
         const officialName = ALLOWED_ITEM_NAMES[clean] || name;
         if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
@@ -221,18 +203,17 @@ export async function loadSpentData(boundsInput = 'week') {
             });
           }
 
-          // Net consumed = Gross Drop + Bought - (Sold + Active Listings + In-Game Shop Sold)
+          // Net consumed = Gross Drop + Bought - (Sold + In-Game Shop Sold)
           for (const [clean, drop] of Object.entries(grossDrops)) {
             const officialName = ALLOWED_ITEM_NAMES[clean] || clean;
             const sold = tradesSold[clean] || 0;
             const bought = tradesBought[clean] || 0;
-            const listed = activeListings[clean] || 0;
             const shop = Math.max(0, 
               (parseFloat(latestAct[officialName + ' Sold']) || 0) - 
               (parseFloat(earliestAct[officialName + ' Sold']) || 0)
             );
 
-            const totalSoldOffset = sold + listed + shop;
+            const totalSoldOffset = sold + shop;
             const netConsumed = drop + bought - totalSoldOffset;
 
             if (netConsumed > 0.01) {

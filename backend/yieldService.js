@@ -232,21 +232,6 @@ async function processYieldCalculation(supabase) {
     let totalSpentCount = 0;
     let totalSpentFlowers = 0;
 
-    // ── Pre-calculate active marketplace listings ──
-    const activeListingsObj = currentData.trades?.listings || currentData.listings || (currentData.farm && currentData.farm.trades?.listings) || {};
-    const activeListedMap = {};
-    if (typeof activeListingsObj === 'object' && activeListingsObj !== null) {
-      Object.values(activeListingsObj).forEach(listing => {
-        if (!listing || !listing.items) return;
-        for (const [rawKey, rawQty] of Object.entries(listing.items)) {
-          const clean = String(getItemNameById(rawKey) || rawKey).toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (clean) {
-            activeListedMap[clean] = (activeListedMap[clean] || 0) + parseFloat(rawQty || 0);
-          }
-        }
-      });
-    }
-
     // ── Restrict diff calculations strictly to the 64 whitelisted items ──
     const candidateItems = new Set();
     ALLOWED_ITEM_KEYS.forEach(cleanKey => {
@@ -254,10 +239,9 @@ async function processYieldCalculation(supabase) {
       let currentQty = getStockAmount(currentData.inventory, cleanKey);
       let bought = tradesBought[cleanKey] || 0;
       let sold = tradesSold[cleanKey] || 0;
-      let activeListed = activeListedMap[cleanKey] || 0;
 
-      // Only check items that exist in baseline, current inventory, active listings, or today's trades
-      if (baselineQty > 0 || currentQty > 0 || bought > 0 || sold > 0 || activeListed > 0) {
+      // Only check items that exist in baseline, current inventory, or today's trades
+      if (baselineQty > 0 || currentQty > 0 || bought > 0 || sold > 0) {
         candidateItems.add(cleanKey);
       }
     });
@@ -271,7 +255,6 @@ async function processYieldCalculation(supabase) {
 
       let bought = tradesBought[cleanKey] || 0;
       let sold = tradesSold[cleanKey] || 0;
-      let activeListed = activeListedMap[cleanKey] || 0;
       let formattedName = formatOfficialItemName(cleanKey);
 
       let inGameSold = Math.max(0,
@@ -279,7 +262,8 @@ async function processYieldCalculation(supabase) {
         parseFloat(baseActivity[formattedName + ' Sold'] || baseActivity[cleanKey + ' Sold'] || 0)
       );
 
-      let totalSold = sold + activeListed + inGameSold;
+      // Only items actually fulfilled/sold today are counted in totalSold, ignoring unsold listings
+      let totalSold = sold + inGameSold;
 
       // Net organic inventory movement:
       // Positive = harvested/produced organically
