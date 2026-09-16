@@ -313,7 +313,7 @@ export async function renderSpentSection(mountEl, boundsInput = 'week') {
       <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
         <span class="text-2xl mb-1 block">📉</span>
         <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Consumption in ${rangeLabel}</p>
-        <p class="text-[11px] text-sfl-woodLight mt-1">Navigate days with ◀ / ▶ or sync inventory data.</p>
+        <p class="text-[11px] text-sfl-woodLight mt-1">Navigate days with ◀ / ▶ or click 🔄 Sync Data.</p>
       </div>`;
     return;
   }

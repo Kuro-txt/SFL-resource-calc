@@ -72,7 +72,7 @@ export function renderAuthBar() {
             <button type="button" id="import-farm-btn"
               class="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-black px-5 py-2.5 rounded-xl border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
               <span>🔄</span>
-              <span>Sync Inventory</span>
+              <span>Sync Data</span>
             </button>
           </div>
         </div>
@@ -175,28 +175,14 @@ export async function handleFarmSync() {
     syncBtn.innerHTML = `<span class="inline-block animate-spin mr-1.5">🔄</span> <span>Syncing...</span>`;
   }
   if (status) {
-    status.innerHTML = `<span class="text-amber-700 dark:text-amber-300 font-bold animate-pulse">⏳ Syncing Farm #${farmId} (Inventory, Prices, Trades & Cloud Yields)...</span>`;
+    status.innerHTML = `<span class="text-amber-700 dark:text-amber-300 font-bold animate-pulse">⏳ Syncing Farm #${farmId} (Trades, Market Prices & Cloud Yields)...</span>`;
   }
 
   try {
-    // 1. Fetch live prices & farm full data in parallel
-    const [_, farmObj] = await Promise.all([
-      loadPrices(true).catch(e => console.warn("Prices sync note:", e.message)),
-      ApiService.getFarmFullData(farmId, apiKey, { force: true })
-    ]);
+    // 1. Fetch live market prices from SFL.world
+    await loadPrices(true).catch(e => console.warn("Prices sync note:", e.message));
 
-    window.farmData = farmObj;
-    window.farmInventoryData = farmObj?.inventory || {};
-    window.farmNpcData = farmObj?.npcs || {};
-    localStorage.setItem('sfl_farm_npcs', JSON.stringify(window.farmNpcData));
-    if (typeof window.extractFarmTransferMetrics === 'function') {
-      try {
-        const transfers = window.extractFarmTransferMetrics(farmObj);
-        localStorage.setItem('sfl_farm_transfers', JSON.stringify(transfers));
-      } catch (_) {}
-    }
-
-    // 2. Fetch Marketplace Trades & save to cloud
+    // 2. Fetch Marketplace Trades & save to TiDB Cloud (does not hit farm inventory)
     let tradesCount = 0;
     try {
       const tradeRes = await fetchMarketplaceTrades(true);
@@ -204,24 +190,51 @@ export async function handleFarmSync() {
         tradesCount = tradeRes.count || (tradeRes.trades?.length || 0);
       }
     } catch (tradeErr) {
-      console.warn("Marketplace trade auto-sync warning:", tradeErr.message);
+      console.warn("Marketplace trade sync warning:", tradeErr.message);
     }
 
-    // 3. Fetch Cloud Yields & Daily Snapshots
+    // 3. Fetch Cloud Yields & Daily Snapshots from Supabase
     try {
       await loadCloudYieldHistory(true);
     } catch (yieldErr) {
-      console.warn("Cloud yield auto-sync warning:", yieldErr.message);
+      console.warn("Cloud yield sync warning:", yieldErr.message);
     }
 
-    // 4. Update Pre-Harvest Baseline UI
+    // 4. Update Pre-Harvest Baseline UI from Cloud
     try {
       await updatePreHarvestUI();
     } catch (_) {}
 
-    // 5. Update Crop Tracker Live Diff if active
-    if (typeof window.fetchLiveCropDiff === 'function') {
-      try { window.fetchLiveCropDiff(); } catch (_) {}
+    // 5. Load latest baseline inventory from Supabase (captured automatically by 00:01 UTC cron)
+    const client = window.supabaseClient;
+    const activeUser = window.currentUser;
+    if (client && (activeUser?.id || farmId)) {
+      try {
+        let targetUserId = activeUser?.id;
+        if (!targetUserId && farmId) {
+          const { data: profile } = await client
+            .from('profiles')
+            .select('id')
+            .eq('farm_id', farmId)
+            .maybeSingle();
+          if (profile?.id) targetUserId = profile.id;
+        }
+        if (targetUserId) {
+          const { data: base } = await client
+            .from('preharvest_baselines')
+            .select('stock, farm_activity')
+            .eq('user_id', targetUserId)
+            .order('snapshot_date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (base?.stock) {
+            window.farmInventoryData = base.stock;
+            window.farmData = { inventory: base.stock, farmActivity: base.farm_activity || {} };
+          }
+        }
+      } catch (e) {
+        console.warn("Baseline cloud load note:", e.message);
+      }
     }
 
     // 6. Refresh active UI panels
@@ -237,13 +250,11 @@ export async function handleFarmSync() {
       await window.mountDashboard();
     }
 
-    const totalItemsCount = Object.keys(window.farmInventoryData).length;
-
     if (status) {
       status.innerHTML = `
         <span class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 px-3 py-1 rounded-full shadow-2xs">
           <span>✅</span>
-          <span>Synced Farm #${farmId}: <strong>${totalItemsCount}</strong> items • <strong>${tradesCount}</strong> trades • Dashboard refreshed!</span>
+          <span>Synced Farm #${farmId}: <strong>${tradesCount}</strong> trades • Cloud data & Dashboard refreshed!</span>
         </span>`;
     }
 
@@ -254,7 +265,7 @@ export async function handleFarmSync() {
   } finally {
     if (syncBtn) {
       syncBtn.disabled = false;
-      syncBtn.innerHTML = `<span>🔄</span> <span>Sync Inventory</span>`;
+      syncBtn.innerHTML = `<span>🔄</span> <span>Sync Data</span>`;
     }
   }
 }

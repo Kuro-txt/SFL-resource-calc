@@ -51,7 +51,7 @@ export function renderHeader() {
         <div class="mt-2 pt-2 border-t border-sfl-cardBorder/50 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-medium text-sfl-woodLight">
           <div class="bg-white/70 dark:bg-amber-950/30 p-2 rounded-lg border border-sfl-cardBorder/40 space-y-0.5">
             <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs">1. Link Farm & Sync</span>
-            <p>Enter your <strong>Farm ID</strong> and click <strong>🔄 Sync Inventory</strong> to load resources, trades & dashboard.</p>
+            <p>Enter your <strong>Farm ID</strong> and click <strong>🔄 Sync Data</strong> to load resources, trades & dashboard.</p>
           </div>
           <div class="bg-white/70 dark:bg-amber-950/30 p-2 rounded-lg border border-sfl-cardBorder/40 space-y-0.5">
             <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs">2. Set Targets & Ratios</span>

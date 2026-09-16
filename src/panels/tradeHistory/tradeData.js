@@ -31,15 +31,8 @@ export async function fetchMarketplaceTrades(force = false) {
   if (statusEl) statusEl.textContent = "⏳ Syncing marketplace & TiDB Cloud...";
 
   try {
-    const [data, farmObj] = await Promise.all([
-      ApiService.getMarketplaceProfile(farmId, apiKey, { force }),
-      ApiService.getFarmFullData(farmId, apiKey, { force }).catch(err => {
-        console.warn("Farm transfer data fetch note:", err.message);
-        return window.farmData || null;
-      })
-    ]);
+    const data = await ApiService.getMarketplaceProfile(farmId, apiKey, { force });
     tradeHistoryData = data;
-    if (farmObj) window.farmData = farmObj;
     lastTradeFetchTime = Date.now();
 
     // Format trades for TiDB Cloud archiving
@@ -110,7 +103,7 @@ export async function fetchMarketplaceTrades(force = false) {
     }
 
     populateItemFilterDropdown();
-    renderTradeSummaryMetrics(tradeHistoryData, farmObj || window.farmData);
+    renderTradeSummaryMetrics(tradeHistoryData, window.farmData);
     renderCurrentView();
     if (statusEl) statusEl.textContent = `✅ Synced & Archived (${cloudArchivedCount || tradeHistoryData.trades?.length || 0} Total)`;
     return { success: true, count: cloudArchivedCount || tradeHistoryData.trades?.length || 0 };
