@@ -24,14 +24,14 @@ function getSflHeaders(customApiKey = '') {
 // ── Global Sequential Queue for Farm API Syncs (Concurrency = 1) ───────────
 // Enforces strictly 1-by-1 execution.
 // If an ID fetch succeeds, waits 8 seconds before fetching the next ID.
-// If an ID fetch fails, retries 10 seconds later (up to 2 retries).
+// If an ID fetch fails, retries 8 seconds later (up to 3 retries).
 let syncQueueChain = Promise.resolve();
 let lastSuccessTimestamp = 0;
-const SUCCESS_COOLDOWN_MS = 15000; // 15 seconds wait after successful fetch before next ID to avoid HTTP 429
+const SUCCESS_COOLDOWN_MS = 8000; // 8 seconds wait between farms to avoid HTTP 429
 
 function queueFarmSync(taskFn) {
   const queuedTask = syncQueueChain.then(async () => {
-    // If a previous fetch succeeded, ensure at least 8 seconds have passed before next fetch
+    // Ensure at least 8 seconds have passed before next fetch
     if (lastSuccessTimestamp > 0) {
       const elapsed = Date.now() - lastSuccessTimestamp;
       if (elapsed < SUCCESS_COOLDOWN_MS) {
@@ -58,8 +58,8 @@ function queueFarmSync(taskFn) {
   return queuedTask;
 }
 
-async function fetchFarmFullDataRaw(cleanFarmId, maxRetries = 2, customApiKey = '') {
-  const totalAttempts = 1 + maxRetries; // 1 initial attempt + 2 retries = 3 attempts total
+async function fetchFarmFullDataRaw(cleanFarmId, maxRetries = 3, customApiKey = '') {
+  const totalAttempts = 1 + maxRetries; // 1 initial attempt + 3 retries = 4 attempts total
 
   for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     try {
@@ -97,14 +97,9 @@ async function fetchFarmFullDataRaw(cleanFarmId, maxRetries = 2, customApiKey = 
         throw err;
       }
 
-      // If failed and retries remain (retry 1 on attempt 1 failure, retry 2 on attempt 2 failure)
+      // If failed and retries remain (3 retries of 8s)
       if (attempt <= maxRetries) {
-        let waitTimeSec = 10;
-        if (status === 429) {
-          const retryAfterHeader = err.response?.headers?.['retry-after'];
-          const headerSec = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 0;
-          waitTimeSec = headerSec > 0 ? headerSec : (attempt === 1 ? 15 : 25);
-        }
+        const waitTimeSec = 8;
         const reason = isTimeoutOrAbort ? `Network/Timeout (${err.code || err.message})` : (status ? `HTTP ${status}` : err.message);
         const timeStr = new Date().toISOString().substring(11, 19);
         console.warn(`[${timeStr} UTC] ⚠️ [Farm #${cleanFarmId}] ${reason}. Sleeping ${waitTimeSec}s before retry ${attempt}/${maxRetries}...`);
@@ -120,7 +115,7 @@ async function fetchFarmFullDataRaw(cleanFarmId, maxRetries = 2, customApiKey = 
   return { inventory: {}, farmActivity: {}, npcs: {} };
 }
 
-async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 2, customApiKey = '') {
+async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 3, customApiKey = '') {
   return queueFarmSync(() => fetchFarmFullDataRaw(cleanFarmId, maxRetries, customApiKey));
 }
 

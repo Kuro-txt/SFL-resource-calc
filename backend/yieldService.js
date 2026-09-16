@@ -194,20 +194,19 @@ async function processYieldCalculation(supabase) {
 
     let currentData = { inventory: {}, farmActivity: {}, npcs: {} };
     try {
-      currentData = await fetchFarmFullDataWithRetry(cleanFarmId);
+      currentData = await fetchFarmFullDataWithRetry(cleanFarmId, 3);
     } catch (err) {
-      const is429 = err.response?.status === 429 || (err.message && err.message.includes('429'));
-      const waitMs = is429 ? 20000 : 8000;
-      console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: ${err.message}. Waiting ${(waitMs / 1000)}s...`);
-      await delay(waitMs);
+      console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: ${err.message}. Waiting 8s...`);
+      await delay(8000);
       continue;
     }
 
     const currActivity = currentData.farmActivity || currentData.bumpkin?.activity || (currentData.farm && (currentData.farm.farmActivity || currentData.farm.bumpkin?.activity)) || {};
 
-    // ── Fetch Today's P2P Trades (00:00 to 22:00 UTC) ──
+    // ── Fetch Today's P2P Trades (00:00 to 22:00 UTC) with safe 8s delay ──
     let todayTrades = { tradesBought: {}, tradesSold: {}, rawTradesCount: 0 };
     try {
+      await delay(8000);
       todayTrades = await getTodayTradesForFarm(cleanFarmId, todayDate);
     } catch (err) {
       console.warn(`Notice: Failed to fetch trades for Farm #${cleanFarmId}:`, err.message);
@@ -396,7 +395,7 @@ async function processYieldCalculation(supabase) {
 
     if (totalHarvestCount <= 0 && yieldsList.length === 0 && spentList.length === 0 && cropActivityYields.length === 0 && Math.abs(netCoinsDiff) <= 0 && dailyCoinsEarned <= 0 && dailyCoinsSpent <= 0) {
       console.log(`ℹ️ [Yield Calculation] No harvest/trade/spent/coin activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
-      await delay(15000);
+      await delay(8000);
       continue;
     }
 
@@ -416,7 +415,7 @@ async function processYieldCalculation(supabase) {
       console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
     }
 
-    await delay(15000);
+    await delay(8000);
   }
 
   console.log(`🏁 [Yield Calculation] Completed: ${savedYieldsCount} farm yields saved to Supabase.`);

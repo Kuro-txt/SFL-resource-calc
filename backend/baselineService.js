@@ -17,7 +17,7 @@ async function processBaselineSnapshot(supabase) {
     const cleanFarmId = String(user.farm_id).trim();
 
     try {
-      const farmData = await fetchFarmFullDataWithRetry(cleanFarmId);
+      const farmData = await fetchFarmFullDataWithRetry(cleanFarmId, 3);
       const inventory = { ...(farmData.inventory || {}) };
       const farmActivity = { ...(farmData.farmActivity || {}) };
       const coins = parseFloat(farmData.coins || farmData.balance || 0);

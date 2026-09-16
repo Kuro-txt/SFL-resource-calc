@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   }
 
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-  const maxRetries = 2;
+  const maxRetries = 3;
   const totalAttempts = 1 + maxRetries;
 
   for (let attempt = 1; attempt <= totalAttempts; attempt++) {
@@ -39,8 +39,8 @@ export default async function handler(req, res) {
 
       if (!response.ok) {
         if ((response.status === 429 || response.status >= 500) && attempt <= maxRetries) {
-          console.warn(`⚠️ [Farm #${farmId}] HTTP ${response.status}. Retrying in 10s... (Retry ${attempt}/${maxRetries})`);
-          await delay(10000);
+          console.warn(`⚠️ [Farm #${farmId}] HTTP ${response.status}. Sleeping 8s before retry ${attempt}/${maxRetries}...`);
+          await delay(8000);
           continue;
         }
         return res.status(response.status).json({ 
@@ -53,8 +53,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, farm: data });
     } catch (error) {
       if (attempt <= maxRetries) {
-        console.warn(`⚠️ [Farm #${farmId}] Network error (${error.message}). Retrying in 10s... (Retry ${attempt}/${maxRetries})`);
-        await delay(10000);
+        console.warn(`⚠️ [Farm #${farmId}] Network error (${error.message}). Sleeping 8s before retry ${attempt}/${maxRetries}...`);
+        await delay(8000);
       } else {
         return res.status(500).json({ error: 'Server connection failed', details: error.message });
       }

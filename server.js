@@ -152,7 +152,7 @@ app.get('/api/get-farm', async (req, res) => {
 
   try {
     const farmData = await fetchFarmFullDataWithRetry(
-      cleanFarmId, 2, cleanApiKey
+      cleanFarmId, 3, cleanApiKey
     );
     const result = { success: true, farm: farmData };
     setServerCache(cacheKey, result);
