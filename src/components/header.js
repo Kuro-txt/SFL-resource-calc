@@ -64,22 +64,40 @@ export function renderHeader() {
             </div>
 
             <!-- Cute Little Black Paws with Pink Toe Beans resting on top of banner edge -->
-            <div class="absolute top-[19px] left-1/2 -translate-x-1/2 flex items-center justify-center gap-3.5 z-20 pointer-events-none">
-              <!-- Left Paw -->
-              <svg class="w-4 h-3.5 -rotate-6 transition-transform duration-300 group-hover:-translate-y-1" viewBox="0 0 16 14" fill="none">
-                <ellipse cx="8" cy="7" rx="7" ry="6" fill="#18181b" stroke="#3f3f46" stroke-width="1.2" />
-                <ellipse cx="5" cy="5" rx="1.3" ry="1.8" fill="#f472b6" />
-                <ellipse cx="8" cy="4" rx="1.3" ry="1.8" fill="#f472b6" />
-                <ellipse cx="11" cy="5" rx="1.3" ry="1.8" fill="#f472b6" />
-                <ellipse cx="8" cy="8.5" rx="2.5" ry="1.8" fill="#f472b6" />
+            <div class="absolute top-[20px] left-1/2 -translate-x-1/2 flex items-end justify-center gap-5 z-20 pointer-events-none">
+              <!-- Left Paw: slightly angled inward -->
+              <svg class="w-6 h-5 rotate-6 transition-transform duration-300 group-hover:-translate-y-1" viewBox="0 0 24 20" fill="none">
+                <!-- Main Pad -->
+                <ellipse cx="12" cy="13" rx="9" ry="6" fill="#18181b" stroke="#3f3f46" stroke-width="1" />
+                <!-- 4 Toe Beans across the top -->
+                <ellipse cx="5"  cy="9"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
+                <ellipse cx="9"  cy="7"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
+                <ellipse cx="15" cy="7"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
+                <ellipse cx="19" cy="9"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
+                <!-- Pink inner toe pads -->
+                <ellipse cx="5"  cy="9"  rx="1.2" ry="1.6" fill="#f472b6" />
+                <ellipse cx="9"  cy="7"  rx="1.2" ry="1.6" fill="#f472b6" />
+                <ellipse cx="15" cy="7"  rx="1.2" ry="1.6" fill="#f472b6" />
+                <ellipse cx="19" cy="9"  rx="1.2" ry="1.6" fill="#f472b6" />
+                <!-- Pink main pad center -->
+                <ellipse cx="12" cy="13.5" rx="4" ry="2.8" fill="#f472b6" opacity="0.85" />
               </svg>
-              <!-- Right Paw -->
-              <svg class="w-4 h-3.5 rotate-6 transition-transform duration-300 group-hover:-translate-y-1" viewBox="0 0 16 14" fill="none">
-                <ellipse cx="8" cy="7" rx="7" ry="6" fill="#18181b" stroke="#3f3f46" stroke-width="1.2" />
-                <ellipse cx="5" cy="5" rx="1.3" ry="1.8" fill="#f472b6" />
-                <ellipse cx="8" cy="4" rx="1.3" ry="1.8" fill="#f472b6" />
-                <ellipse cx="11" cy="5" rx="1.3" ry="1.8" fill="#f472b6" />
-                <ellipse cx="8" cy="8.5" rx="2.5" ry="1.8" fill="#f472b6" />
+              <!-- Right Paw: slightly angled inward (mirrored) -->
+              <svg class="w-6 h-5 -rotate-6 transition-transform duration-300 group-hover:-translate-y-1" viewBox="0 0 24 20" fill="none">
+                <!-- Main Pad -->
+                <ellipse cx="12" cy="13" rx="9" ry="6" fill="#18181b" stroke="#3f3f46" stroke-width="1" />
+                <!-- 4 Toe Beans across the top -->
+                <ellipse cx="5"  cy="9"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
+                <ellipse cx="9"  cy="7"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
+                <ellipse cx="15" cy="7"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
+                <ellipse cx="19" cy="9"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
+                <!-- Pink inner toe pads -->
+                <ellipse cx="5"  cy="9"  rx="1.2" ry="1.6" fill="#f472b6" />
+                <ellipse cx="9"  cy="7"  rx="1.2" ry="1.6" fill="#f472b6" />
+                <ellipse cx="15" cy="7"  rx="1.2" ry="1.6" fill="#f472b6" />
+                <ellipse cx="19" cy="9"  rx="1.2" ry="1.6" fill="#f472b6" />
+                <!-- Pink main pad center -->
+                <ellipse cx="12" cy="13.5" rx="4" ry="2.8" fill="#f472b6" opacity="0.85" />
               </svg>
             </div>
           </div>
