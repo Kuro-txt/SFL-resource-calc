@@ -11,79 +11,76 @@ export function renderHeader() {
         <div class="hidden sm:block w-28"></div>
 
         <div class="text-center space-y-1">
-          <!-- BANNER WRAPPER WITH PEEKING CAT FROM ABOVE -->
-          <div class="relative inline-block group cursor-default pt-16">
+          <!-- BANNER WRAPPER WITH PEEKING CAT -->
+          <div class="relative inline-block group cursor-default pt-7">
 
-            <!-- PEEKING CAT - z-20, above and IN FRONT of banner, slides DOWN on hover -->
-            <div class="cat-peeker absolute -top-10 left-1/2 -translate-x-1/2 z-20 pointer-events-none transition-all duration-300 ease-out group-hover:translate-y-3">
-              <svg class="w-16 h-14 drop-shadow-lg" viewBox="0 0 64 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- PEEKING CAT: BEHIND the banner (z-0), tucked down so ears & eyes peek over the rim -->
+            <div class="cat-peeker absolute top-0 left-1/2 -translate-x-1/2 z-0 pointer-events-none transition-all duration-300 ease-out group-hover:-translate-y-2">
+              <svg class="w-16 h-14" viewBox="0 0 64 56" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <!-- Left Ear -->
                 <polygon points="14,22 6,4 24,13" fill="#18181b" />
                 <polygon points="14,20 9,7 21,14" fill="#f472b6" />
                 <!-- Right Ear -->
                 <polygon points="50,22 58,4 40,13" fill="#18181b" />
                 <polygon points="50,20 55,7 43,14" fill="#f472b6" />
-                <!-- Head Base -->
-                <path d="M14,22 C14,12 22,10 32,10 C42,10 50,12 50,22 C55,24 59,30 58,36 C57,43 51,48 44,50 C38,52 26,52 20,50 C13,48 7,43 6,36 C5,30 9,24 14,22 Z" fill="#18181b" stroke="#27272a" stroke-width="1" />
-                <!-- Forehead Highlight -->
+
+                <!-- Head Base (Midnight Obsidian Black) -->
+                <path d="M14,22 C14,12 22,10 32,10 C42,10 50,12 50,22 C55,24 59,30 58,36 C57,43 51,48 44,50 C38,52 26,52 20,50 C13,48 7,43 6,36 C5,30 9,24 14,22 Z" fill="#18181b" stroke="#27272a" stroke-width="1.2" />
+
+                <!-- Forehead Brow Tone -->
                 <path d="M26,16 Q32,14 38,16" stroke="#3f3f46" stroke-width="1.5" stroke-linecap="round" fill="none" />
-                <!-- Muzzle -->
-                <ellipse cx="32" cy="40" rx="11" ry="7" fill="#27272a" />
-                <!-- Eyes: Glowing Amber -->
-                <ellipse cx="22" cy="28" rx="4.5" ry="5.5" fill="#f59e0b" />
-                <ellipse cx="42" cy="28" rx="4.5" ry="5.5" fill="#f59e0b" />
-                <ellipse cx="22" cy="28" rx="2.5" ry="4.5" fill="#09090b" />
-                <ellipse cx="42" cy="28" rx="2.5" ry="4.5" fill="#09090b" />
-                <circle cx="20.5" cy="25.5" r="1.8" fill="#ffffff" />
-                <circle cx="40.5" cy="25.5" r="1.8" fill="#ffffff" />
-                <circle cx="23.5" cy="29.5" r="1" fill="#fde68a" />
-                <circle cx="43.5" cy="29.5" r="1" fill="#fde68a" />
-                <!-- Nose & Smile -->
+
+                <!-- Eyes (Radiant Glowing Amber) -->
+                <ellipse cx="22" cy="27" rx="5" ry="5.5" fill="#f59e0b" />
+                <ellipse cx="42" cy="27" rx="5" ry="5.5" fill="#f59e0b" />
+                <!-- Pupils -->
+                <ellipse cx="22" cy="27" rx="2.5" ry="4.5" fill="#09090b" />
+                <ellipse cx="42" cy="27" rx="2.5" ry="4.5" fill="#09090b" />
+                <!-- Sparkles -->
+                <circle cx="20.5" cy="25" r="1.8" fill="#ffffff" />
+                <circle cx="40.5" cy="25" r="1.8" fill="#ffffff" />
+                <circle cx="23.5" cy="28.5" r="1" fill="#fde68a" />
+                <circle cx="43.5" cy="28.5" r="1" fill="#fde68a" />
+
+                <!-- Nose -->
                 <polygon points="32,34 30,32 34,32" fill="#ec4899" />
                 <path d="M29,35 Q32,38 32,36 Q32,38 35,35" stroke="#f472b6" stroke-width="1.4" fill="none" stroke-linecap="round" />
-                <!-- White Whiskers -->
-                <line x1="10" y1="34" x2="2"  y2="33" stroke="#f4f4f5" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
-                <line x1="10" y1="37" x2="1"  y2="39" stroke="#f4f4f5" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
-                <line x1="54" y1="34" x2="62" y2="33" stroke="#f4f4f5" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
-                <line x1="54" y1="37" x2="63" y2="39" stroke="#f4f4f5" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+
+                <!-- Whiskers -->
+                <line x1="10" y1="33" x2="2" y2="31" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+                <line x1="10" y1="36" x2="1" y2="38" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+                <line x1="54" y1="33" x2="62" y2="31" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+                <line x1="54" y1="36" x2="63" y2="38" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
               </svg>
             </div>
 
-            <!-- PAWS gripping over the TOP rim of the banner (toes pointing DOWN, z-30 over banner) -->
-            <div class="absolute top-[28px] left-1/2 -translate-x-1/2 flex items-start justify-center gap-6 z-30 pointer-events-none transition-all duration-300 ease-out group-hover:translate-y-3">
-              <!-- Left Paw: flipped so toes hang DOWN over banner edge, angled inward -->
-              <svg class="w-6 h-5 -rotate-6 scale-y-[-1] transition-transform duration-300" viewBox="0 0 24 20" fill="none">
-                <ellipse cx="12" cy="13" rx="9"   ry="6"   fill="#18181b" stroke="#3f3f46" stroke-width="1" />
-                <ellipse cx="5"  cy="9"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
-                <ellipse cx="9"  cy="7"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
-                <ellipse cx="15" cy="7"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
-                <ellipse cx="19" cy="9"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
-                <ellipse cx="5"  cy="9"  rx="1.2" ry="1.6" fill="#f472b6" />
-                <ellipse cx="9"  cy="7"  rx="1.2" ry="1.6" fill="#f472b6" />
-                <ellipse cx="15" cy="7"  rx="1.2" ry="1.6" fill="#f472b6" />
-                <ellipse cx="19" cy="9"  rx="1.2" ry="1.6" fill="#f472b6" />
-                <ellipse cx="12" cy="13.5" rx="4" ry="2.8" fill="#f472b6" opacity="0.85" />
-              </svg>
-              <!-- Right Paw: flipped, mirrored angle -->
-              <svg class="w-6 h-5 rotate-6 scale-y-[-1] transition-transform duration-300" viewBox="0 0 24 20" fill="none">
-                <ellipse cx="12" cy="13" rx="9"   ry="6"   fill="#18181b" stroke="#3f3f46" stroke-width="1" />
-                <ellipse cx="5"  cy="9"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
-                <ellipse cx="9"  cy="7"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
-                <ellipse cx="15" cy="7"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
-                <ellipse cx="19" cy="9"  rx="2.2" ry="2.8" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
-                <ellipse cx="5"  cy="9"  rx="1.2" ry="1.6" fill="#f472b6" />
-                <ellipse cx="9"  cy="7"  rx="1.2" ry="1.6" fill="#f472b6" />
-                <ellipse cx="15" cy="7"  rx="1.2" ry="1.6" fill="#f472b6" />
-                <ellipse cx="19" cy="9"  rx="1.2" ry="1.6" fill="#f472b6" />
-                <ellipse cx="12" cy="13.5" rx="4" ry="2.8" fill="#f472b6" opacity="0.85" />
-              </svg>
-            </div>
-
-            <!-- MAIN BANNER PILL — z-10 so cat head & paws layer in front of it -->
+            <!-- MAIN BANNER PILL (relative z-10 so it sits in front of the cat body!) -->
             <div class="relative z-10 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 dark:from-slate-900 dark:via-amber-950/70 dark:to-slate-900 border-2 border-amber-600 dark:border-amber-500/50 px-7 py-2 rounded-full shadow-lg shadow-amber-500/25 dark:shadow-amber-500/10 backdrop-blur-sm transition-all duration-200">
               <h1 class="text-2xl sm:text-4xl font-pixel tracking-wider font-bold text-amber-950 dark:text-amber-300 flex items-center gap-2 justify-center uppercase drop-shadow-xs">
                 <span>🌻</span> Sun-Flux
               </h1>
+            </div>
+
+            <!-- PAWS: z-20 hooked directly over the top rim of the banner -->
+            <div class="absolute top-[22px] left-1/2 -translate-x-1/2 flex items-center justify-center gap-6 z-20 pointer-events-none transition-transform duration-300 group-hover:-translate-y-1">
+              <!-- Left Paw gripping the ledge -->
+              <svg class="w-5 h-4" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2,4 C2,1.8 3.8,0 6,0 L14,0 C16.2,0 18,1.8 18,4 L18,10 C18,13.3 15.3,16 12,16 L8,16 C4.7,16 2,13.3 2,10 Z" fill="#18181b" stroke="#3f3f46" stroke-width="1" />
+                <line x1="7" y1="5" x2="7" y2="13" stroke="#27272a" stroke-width="1.2" stroke-linecap="round" />
+                <line x1="13" y1="5" x2="13" y2="13" stroke="#27272a" stroke-width="1.2" stroke-linecap="round" />
+                <ellipse cx="4.8" cy="11" rx="1.5" ry="2" fill="#f472b6" />
+                <ellipse cx="10" cy="12" rx="1.5" ry="2" fill="#f472b6" />
+                <ellipse cx="15.2" cy="11" rx="1.5" ry="2" fill="#f472b6" />
+              </svg>
+              <!-- Right Paw gripping the ledge -->
+              <svg class="w-5 h-4" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2,4 C2,1.8 3.8,0 6,0 L14,0 C16.2,0 18,1.8 18,4 L18,10 C18,13.3 15.3,16 12,16 L8,16 C4.7,16 2,13.3 2,10 Z" fill="#18181b" stroke="#3f3f46" stroke-width="1" />
+                <line x1="7" y1="5" x2="7" y2="13" stroke="#27272a" stroke-width="1.2" stroke-linecap="round" />
+                <line x1="13" y1="5" x2="13" y2="13" stroke="#27272a" stroke-width="1.2" stroke-linecap="round" />
+                <ellipse cx="4.8" cy="11" rx="1.5" ry="2" fill="#f472b6" />
+                <ellipse cx="10" cy="12" rx="1.5" ry="2" fill="#f472b6" />
+                <ellipse cx="15.2" cy="11" rx="1.5" ry="2" fill="#f472b6" />
+              </svg>
             </div>
           </div>
           <p class="text-xs font-semibold text-sfl-woodLight dark:text-slate-400">Live SFL market prices, NFT wishlist & automated crop tracker</p>
