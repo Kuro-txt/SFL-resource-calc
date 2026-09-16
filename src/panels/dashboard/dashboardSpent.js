@@ -62,7 +62,7 @@ export async function loadSpentData(boundsInput = 'week') {
 
   const bounds = (typeof boundsInput === 'object' && boundsInput?.minDateStr)
     ? boundsInput
-    : getDateRangeBounds(boundsInput || 'week');
+    : getDateRangeBounds(boundsInput || 'day');
 
   const minTimestamp = bounds.minTimestamp || 0;
   const maxTimestamp = bounds.maxTimestamp || Infinity;
@@ -245,12 +245,12 @@ export async function loadSpentData(boundsInput = 'week') {
 
 let currentSpentCategory = 'all';
 
-export async function renderSpentSection(mountEl, boundsInput = 'week') {
+export async function renderSpentSection(mountEl, boundsInput = 'day') {
   if (!mountEl) return;
 
   const bounds = (typeof boundsInput === 'object' && boundsInput?.label)
     ? boundsInput
-    : getDateRangeBounds(boundsInput || 'week');
+    : getDateRangeBounds(boundsInput || 'day');
 
   const rangeLabel = bounds.label || 'Selected Range';
   const allSpentItems = await loadSpentData(bounds);

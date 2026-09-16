@@ -8,7 +8,7 @@ import { renderSpentSection, loadSpentData } from './dashboardSpent.js';
 
 let initialized = false;
 let activeTimeRange = 'day'; // 'day' | 'week' | 'month'
-let activeTimeOffset = 0;    // 0 = current/today, 1 = 1 period back, 2 = 2 periods back, etc.
+let activeTimeOffset = 1;    // 0 = current/today, 1 = yesterday (default), 2 = 2 periods back, etc.
 
 export function getDateRangeBounds(timeRange = activeTimeRange, offset = activeTimeOffset) {
   const now = new Date();
@@ -201,9 +201,10 @@ function renderTimeRangeControls() {
 }
 
 function switchTimeRange(newRange) {
-  if (activeTimeRange === newRange && activeTimeOffset === 0) return;
+  const defaultOffset = (newRange === 'day') ? 1 : 0;
+  if (activeTimeRange === newRange && activeTimeOffset === defaultOffset) return;
   activeTimeRange = newRange;
-  activeTimeOffset = 0; // Reset offset to current when changing range
+  activeTimeOffset = defaultOffset; // Reset offset: yesterday for day, 0 for week/month
   renderTimeRangeControls();
   populateSections();
 }
@@ -261,7 +262,7 @@ function renderTemplate() {
       <div class="bg-sfl-card/95 dark:bg-amber-950/40 p-4 rounded-2xl border-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
         <div>
           <h3 class="text-sm sm:text-base font-bold text-sfl-wood dark:text-amber-200 uppercase flex items-center gap-2">
-            <span>📊</span> Farm Command Center
+            <span>📊</span> Dashboard
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
             Track harvests, consumption, and net organic yields. Swipe left/right or use arrows to navigate history.

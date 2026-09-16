@@ -107,7 +107,7 @@ export function getLocalEarnedRows(boundsInput = 'week') {
 
   const bounds = (typeof boundsInput === 'object' && boundsInput?.minDateStr)
     ? boundsInput
-    : getDateRangeBounds(boundsInput || 'week');
+    : getDateRangeBounds(boundsInput || 'day');
 
   return history
     .filter(e => {
@@ -182,12 +182,12 @@ export function aggregateLocalEarned(boundsInput = 'week') {
 
 let currentEarnedCategory = 'all';
 
-export function renderEarnedSection(mountEl, boundsInput = 'week') {
+export function renderEarnedSection(mountEl, boundsInput = 'day') {
   if (!mountEl) return;
 
   const bounds = (typeof boundsInput === 'object' && boundsInput?.label)
     ? boundsInput
-    : getDateRangeBounds(boundsInput || 'week');
+    : getDateRangeBounds(boundsInput || 'day');
 
   const totals = aggregateLocalEarned(bounds);
   const grandFlowers = Object.values(totals).reduce((s, v) => s + v.flowers, 0);
