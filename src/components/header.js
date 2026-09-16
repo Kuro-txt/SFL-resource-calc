@@ -12,8 +12,8 @@ export function renderHeader() {
 
         <div class="text-center space-y-1">
           <div class="inline-block bg-sfl-wood text-amber-200 border-2 border-sfl-dirt px-6 py-1.5 rounded-full shadow-md">
-            <h1 class="text-2xl sm:text-4xl font-pixel tracking-wider font-bold text-amber-300 flex items-center gap-2 justify-center">
-              <span>🌻</span> SFL RESOURCE CALCULATOR
+            <h1 class="text-2xl sm:text-4xl font-pixel tracking-wider font-bold text-amber-300 flex items-center gap-2 justify-center uppercase">
+              <span>🌻</span> Sun-Flux
             </h1>
           </div>
           <p class="text-xs font-semibold text-sfl-woodLight">Live SFL market prices, NFT wishlist & automated crop tracker</p>
@@ -37,7 +37,7 @@ export function renderHeader() {
         <summary class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 cursor-pointer list-none select-none font-bold text-xs sm:text-sm text-sfl-wood">
           <div class="flex items-center gap-1.5">
             <span>📖</span>
-            <span>How to Use SFL Calculator</span>
+            <span>How to Use Sun-Flux</span>
             <span class="text-[10px] text-sfl-woodLight font-normal ml-1 group-open:hidden">(click to expand)</span>
           </div>
           <div class="flex items-center gap-2">
