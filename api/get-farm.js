@@ -39,8 +39,8 @@ export default async function handler(req, res) {
 
       if (!response.ok) {
         if ((response.status === 429 || response.status >= 500) && attempt <= maxRetries) {
-          console.warn(`⚠️ [Farm #${farmId}] HTTP ${response.status}. Sleeping 8s before retry ${attempt}/${maxRetries}...`);
-          await delay(8000);
+          console.warn(`⚠️ [Farm #${farmId}] HTTP ${response.status}. Sleeping 10s before retry ${attempt}/${maxRetries}...`);
+          await delay(10000);
           continue;
         }
         return res.status(response.status).json({ 
@@ -53,8 +53,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, farm: data });
     } catch (error) {
       if (attempt <= maxRetries) {
-        console.warn(`⚠️ [Farm #${farmId}] Network error (${error.message}). Sleeping 8s before retry ${attempt}/${maxRetries}...`);
-        await delay(8000);
+        console.warn(`⚠️ [Farm #${farmId}] Network error (${error.message}). Sleeping 10s before retry ${attempt}/${maxRetries}...`);
+        await delay(10000);
       } else {
         return res.status(500).json({ error: 'Server connection failed', details: error.message });
       }

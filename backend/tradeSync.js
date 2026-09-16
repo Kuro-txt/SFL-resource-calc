@@ -26,9 +26,9 @@ async function fetchMarketplaceTradesRaw(farmId, apiKey = '', maxRetries = 3) {
       }
       if (attempt <= maxRetries) {
         const timeStr = new Date().toISOString().substring(11, 19);
-        console.warn(`[${timeStr} UTC] ⚠️ [Farm #${farmId}] Trade fetch failed (${err.message}). Sleeping 8s before retry ${attempt}/${maxRetries}...`);
-        await delay(8000);
-        console.log(`[${new Date().toISOString().substring(11, 19)} UTC] 🔄 [Farm #${farmId}] Finished waiting 8s. Retrying attempt ${attempt + 1}/${totalAttempts} now...`);
+        console.warn(`[${timeStr} UTC] ⚠️ [Farm #${farmId}] Trade fetch failed (${err.message}). Sleeping 10s before retry ${attempt}/${maxRetries}...`);
+        await delay(10000);
+        console.log(`[${new Date().toISOString().substring(11, 19)} UTC] 🔄 [Farm #${farmId}] Finished waiting 10s. Retrying attempt ${attempt + 1}/${totalAttempts} now...`);
       } else {
         const timeStr = new Date().toISOString().substring(11, 19);
         console.error(`[${timeStr} UTC] ❌ [Farm #${farmId}] Trade fetch failed after ${maxRetries} retries: ${err.message}`);
@@ -44,7 +44,7 @@ async function fetchMarketplaceTradesWithRetry(farmId, apiKey = '', maxRetries =
 }
 
 async function processAutoSyncTrades(supabase) {
-  console.log("🚀 [Auto-Sync Trades] Starting 4x daily marketplace trades auto-sync (:33 UTC, 8s gap, 3 retries)...");
+  console.log("🚀 [Auto-Sync Trades] Starting 4x daily marketplace trades auto-sync (:33 UTC, 10s gap, 3 retries)...");
   
   const farmMap = new Map();
 
@@ -88,7 +88,7 @@ async function processAutoSyncTrades(supabase) {
 
   for (let i = 0; i < farmEntries.length; i++) {
     const [farmId, apiKey] = farmEntries[i];
-    console.log(`[${i + 1}/${farmEntries.length}] ⏳ Fetching trades for Farm #${farmId} (3 retries, 8s gap)...`);
+    console.log(`[${i + 1}/${farmEntries.length}] ⏳ Fetching trades for Farm #${farmId} (3 retries, 10s gap)...`);
 
     try {
       const rawTrades = await fetchMarketplaceTradesWithRetry(farmId, apiKey, 3);
@@ -164,10 +164,10 @@ async function processAutoSyncTrades(supabase) {
       console.warn(`⚠️ [Auto-Sync Trades] Error syncing Farm #${farmId}: ${err.message}`);
     }
 
-    // Strict 8-second gap between farms to comply with SFL rate limits
+    // Strict 10-second gap between farms to comply with SFL rate limits
     if (i < farmEntries.length - 1) {
-      console.log(`⏳ Waiting 8s before next farm (rate limit safe)...`);
-      await delay(8000);
+      console.log(`⏳ Waiting 10s before next farm (rate limit safe)...`);
+      await delay(10000);
     }
   }
 

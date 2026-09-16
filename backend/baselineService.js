@@ -45,7 +45,7 @@ async function processBaselineSnapshot(supabase) {
       console.error(`❌ Failed baseline snapshot for Farm #${cleanFarmId}: ${err.message}`);
     }
 
-    await delay(8000);
+    await delay(10000);
   }
   return { success: true, processed: users.length };
 }
