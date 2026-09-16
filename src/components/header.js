@@ -86,24 +86,24 @@ export function renderHeader() {
           <p class="text-xs font-semibold text-sfl-woodLight dark:text-slate-400">Live SFL market prices, NFT wishlist & automated crop tracker</p>
         </div>
 
-        <div class="sm:self-start flex items-center gap-2.5 pt-2 sm:pt-0">
+        <div class="sm:self-start flex items-end gap-2.5 pt-1 sm:pt-0">
           <!-- THEME TOGGLE BUTTON -->
           <button id="theme-toggle-btn" class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 border-2 border-amber-300 dark:border-slate-600 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer">
             <span>${isDark ? '☀️' : '🌙'}</span>
             <span>${isDark ? 'Light' : 'Dark'}</span>
           </button>
 
-          <!-- DONATE WIDGET WITH HUNGRY BLACK CAT SAYING FEED ME -->
-          <div class="relative flex items-center gap-1.5 group/cat cursor-pointer select-none" id="donate-cat-trigger" title="Click to feed me! (copies donation address)">
-            <!-- Speech Bubble pointing to the cat -->
-            <div class="relative bg-amber-200/90 dark:bg-slate-800 text-amber-950 dark:text-amber-300 border border-amber-400/90 dark:border-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-2xs whitespace-nowrap flex items-center gap-1 transition-transform group-hover/cat:scale-105">
+          <!-- DONATE WIDGET: CAT & SPEECH BUBBLE PERCHED DIRECTLY ABOVE DONATE BUTTON -->
+          <div class="relative flex flex-col items-center group/cat cursor-pointer select-none -mt-4 sm:-mt-5" id="donate-cat-trigger" title="Click to feed me! (copies donation address)">
+            <!-- Speech Bubble above cat with downward pointer -->
+            <div class="relative mb-0.5 bg-amber-200/95 dark:bg-slate-800 text-amber-950 dark:text-amber-300 border border-amber-400/90 dark:border-slate-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-2xs whitespace-nowrap flex items-center gap-0.5 transition-transform group-hover/cat:scale-105">
               <span id="donate-bubble-text">Feed me 🐟</span>
-              <!-- Bubble pointer triangle pointing right toward cat -->
-              <span class="absolute -right-1 top-1/2 -translate-y-1/2 border-y-3 border-y-transparent border-l-4 border-l-amber-400/90 dark:border-l-slate-600"></span>
+              <!-- Downward pointer triangle -->
+              <span class="absolute -bottom-1 left-1/2 -translate-x-1/2 border-x-3 border-x-transparent border-t-3 border-t-amber-400/90 dark:border-t-slate-600"></span>
             </div>
 
-            <!-- Mini Sitting Black Cat SVG -->
-            <div class="transition-transform duration-200 group-hover/cat:-translate-y-0.5 group-hover/cat:rotate-6">
+            <!-- Mini Sitting Black Cat perched directly on top of Donate button -->
+            <div class="-mb-1.5 z-10 transition-transform duration-200 group-hover/cat:-translate-y-1">
               <svg class="w-6 h-6 inline-block drop-shadow-xs" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <!-- Curled Tail -->
                 <path d="M6,22 C3,20 2,16 4,14 C5,13 6.5,14 6,15 C5,17 5.5,19 8,21 Z" fill="#18181b" stroke="#27272a" stroke-width="0.8" />
@@ -139,8 +139,8 @@ export function renderHeader() {
               </svg>
             </div>
 
-            <!-- Donate Button -->
-            <button id="donate-btn" class="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold px-2.5 py-1 rounded-xl text-xs border-2 border-amber-600 shadow-xs transition cursor-pointer whitespace-nowrap">
+            <!-- Donate Button directly below cat -->
+            <button id="donate-btn" class="relative z-0 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold px-2.5 py-1 rounded-xl text-xs border-2 border-amber-600 shadow-xs transition cursor-pointer whitespace-nowrap">
               Donate
             </button>
           </div>
