@@ -17,40 +17,42 @@ export function renderHeader() {
             <div class="cat-peeker absolute -top-4 left-1/2 -translate-x-1/2 z-0 pointer-events-none transition-all duration-300 ease-out group-hover:-translate-y-2 group-hover:scale-110">
               <svg class="w-16 h-14 drop-shadow-md" viewBox="0 0 64 56" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <!-- Left Ear -->
-                <polygon points="14,22 6,4 24,13" fill="#ea580c" />
+                <polygon points="14,22 6,4 24,13" fill="#18181b" />
                 <polygon points="14,20 9,7 21,14" fill="#f472b6" />
                 <!-- Right Ear -->
-                <polygon points="50,22 58,4 40,13" fill="#ea580c" />
+                <polygon points="50,22 58,4 40,13" fill="#18181b" />
                 <polygon points="50,20 55,7 43,14" fill="#f472b6" />
 
-                <!-- Head Base -->
-                <path d="M14,22 C14,12 22,10 32,10 C42,10 50,12 50,22 C55,24 59,30 58,36 C57,43 51,48 44,50 C38,52 26,52 20,50 C13,48 7,43 6,36 C5,30 9,24 14,22 Z" fill="#f59e0b" />
+                <!-- Head Base (Midnight Obsidian Black with subtle rim tone) -->
+                <path d="M14,22 C14,12 22,10 32,10 C42,10 50,12 50,22 C55,24 59,30 58,36 C57,43 51,48 44,50 C38,52 26,52 20,50 C13,48 7,43 6,36 C5,30 9,24 14,22 Z" fill="#18181b" stroke="#27272a" stroke-width="1" />
                 
-                <!-- Tabby Forehead Stripes -->
-                <polygon points="32,12 30,20 34,20" fill="#b45309" />
-                <polygon points="25,14 24,21 27,21" fill="#b45309" />
-                <polygon points="39,14 37,21 40,21" fill="#b45309" />
+                <!-- Subtle Forehead Brow Highlight -->
+                <path d="M26,16 Q32,14 38,16" stroke="#3f3f46" stroke-width="1.5" stroke-linecap="round" fill="none" />
 
-                <!-- Cheeks/Muzzle (Cream White) -->
-                <ellipse cx="32" cy="38" rx="13" ry="9" fill="#fffbeb" />
+                <!-- Cheeks/Muzzle Area -->
+                <ellipse cx="32" cy="40" rx="11" ry="7" fill="#27272a" />
 
-                <!-- Eyes (Big glossy emerald green with sparkles) -->
-                <ellipse cx="22" cy="28" rx="4.5" ry="5.5" fill="#047857" />
-                <ellipse cx="42" cy="28" rx="4.5" ry="5.5" fill="#047857" />
-                <circle cx="20.5" cy="26" r="2" fill="#ffffff" />
-                <circle cx="40.5" cy="26" r="2" fill="#ffffff" />
-                <circle cx="23.5" cy="29.5" r="1.2" fill="#a7f3d0" />
-                <circle cx="43.5" cy="29.5" r="1.2" fill="#a7f3d0" />
+                <!-- Eyes (Radiant Glowing Golden-Amber with Glossy Reflections) -->
+                <ellipse cx="22" cy="28" rx="4.5" ry="5.5" fill="#f59e0b" />
+                <ellipse cx="42" cy="28" rx="4.5" ry="5.5" fill="#f59e0b" />
+                <!-- Pupils -->
+                <ellipse cx="22" cy="28" rx="2.5" ry="4.5" fill="#09090b" />
+                <ellipse cx="42" cy="28" rx="2.5" ry="4.5" fill="#09090b" />
+                <!-- Eye Sparkles -->
+                <circle cx="20.5" cy="25.5" r="1.8" fill="#ffffff" />
+                <circle cx="40.5" cy="25.5" r="1.8" fill="#ffffff" />
+                <circle cx="23.5" cy="29.5" r="1" fill="#fde68a" />
+                <circle cx="43.5" cy="29.5" r="1" fill="#fde68a" />
 
                 <!-- Cute Pink Nose & Smile -->
                 <polygon points="32,34 30,32 34,32" fill="#ec4899" />
-                <path d="M29,35 Q32,38 32,36 Q32,38 35,35" stroke="#92400e" stroke-width="1.5" fill="none" stroke-linecap="round" />
+                <path d="M29,35 Q32,38 32,36 Q32,38 35,35" stroke="#f472b6" stroke-width="1.4" fill="none" stroke-linecap="round" />
 
-                <!-- Whiskers -->
-                <line x1="10" y1="34" x2="3" y2="33" stroke="#78350f" stroke-width="1.2" stroke-linecap="round" opacity="0.8" />
-                <line x1="10" y1="37" x2="2" y2="39" stroke="#78350f" stroke-width="1.2" stroke-linecap="round" opacity="0.8" />
-                <line x1="54" y1="34" x2="61" y2="33" stroke="#78350f" stroke-width="1.2" stroke-linecap="round" opacity="0.8" />
-                <line x1="54" y1="37" x2="62" y2="39" stroke="#78350f" stroke-width="1.2" stroke-linecap="round" opacity="0.8" />
+                <!-- Crisp White Whiskers (Stand out brilliantly on black coat) -->
+                <line x1="10" y1="34" x2="2" y2="33" stroke="#f4f4f5" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+                <line x1="10" y1="37" x2="1" y2="39" stroke="#f4f4f5" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+                <line x1="54" y1="34" x2="62" y2="33" stroke="#f4f4f5" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+                <line x1="54" y1="37" x2="63" y2="39" stroke="#f4f4f5" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
               </svg>
             </div>
 
@@ -61,21 +63,23 @@ export function renderHeader() {
               </h1>
             </div>
 
-            <!-- Cute Little Paws resting on top of banner edge -->
+            <!-- Cute Little Black Paws with Pink Toe Beans resting on top of banner edge -->
             <div class="absolute top-[18px] left-1/2 -translate-x-1/2 w-28 sm:w-32 flex justify-between z-20 pointer-events-none">
               <!-- Left Paw -->
               <svg class="w-4 h-3.5 -rotate-6 transition-transform duration-300 group-hover:-translate-y-1" viewBox="0 0 16 14" fill="none">
-                <ellipse cx="8" cy="7" rx="7" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.2" />
-                <ellipse cx="5" cy="5" rx="1.5" ry="2" fill="#fed7aa" />
-                <ellipse cx="8" cy="4" rx="1.5" ry="2" fill="#fed7aa" />
-                <ellipse cx="11" cy="5" rx="1.5" ry="2" fill="#fed7aa" />
+                <ellipse cx="8" cy="7" rx="7" ry="6" fill="#18181b" stroke="#3f3f46" stroke-width="1.2" />
+                <ellipse cx="5" cy="5" rx="1.3" ry="1.8" fill="#f472b6" />
+                <ellipse cx="8" cy="4" rx="1.3" ry="1.8" fill="#f472b6" />
+                <ellipse cx="11" cy="5" rx="1.3" ry="1.8" fill="#f472b6" />
+                <ellipse cx="8" cy="8.5" rx="2.5" ry="1.8" fill="#f472b6" />
               </svg>
               <!-- Right Paw -->
               <svg class="w-4 h-3.5 rotate-6 transition-transform duration-300 group-hover:-translate-y-1" viewBox="0 0 16 14" fill="none">
-                <ellipse cx="8" cy="7" rx="7" ry="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.2" />
-                <ellipse cx="5" cy="5" rx="1.5" ry="2" fill="#fed7aa" />
-                <ellipse cx="8" cy="4" rx="1.5" ry="2" fill="#fed7aa" />
-                <ellipse cx="11" cy="5" rx="1.5" ry="2" fill="#fed7aa" />
+                <ellipse cx="8" cy="7" rx="7" ry="6" fill="#18181b" stroke="#3f3f46" stroke-width="1.2" />
+                <ellipse cx="5" cy="5" rx="1.3" ry="1.8" fill="#f472b6" />
+                <ellipse cx="8" cy="4" rx="1.3" ry="1.8" fill="#f472b6" />
+                <ellipse cx="11" cy="5" rx="1.3" ry="1.8" fill="#f472b6" />
+                <ellipse cx="8" cy="8.5" rx="2.5" ry="1.8" fill="#f472b6" />
               </svg>
             </div>
           </div>
