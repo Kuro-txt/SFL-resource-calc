@@ -64,7 +64,7 @@ export function renderHeader() {
             </div>
 
             <!-- Cute Little Black Paws with Pink Toe Beans resting on top of banner edge -->
-            <div class="absolute top-[18px] left-1/2 -translate-x-1/2 w-28 sm:w-32 flex justify-between z-20 pointer-events-none">
+            <div class="absolute top-[19px] left-1/2 -translate-x-1/2 flex items-center justify-center gap-3.5 z-20 pointer-events-none">
               <!-- Left Paw -->
               <svg class="w-4 h-3.5 -rotate-6 transition-transform duration-300 group-hover:-translate-y-1" viewBox="0 0 16 14" fill="none">
                 <ellipse cx="8" cy="7" rx="7" ry="6" fill="#18181b" stroke="#3f3f46" stroke-width="1.2" />
