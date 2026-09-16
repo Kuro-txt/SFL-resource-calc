@@ -157,12 +157,12 @@ function renderTimeRangeControls() {
   const bounds = getDateRangeBounds(activeTimeRange, activeTimeOffset);
 
   const btnClass = (range) => range === activeTimeRange
-    ? 'bg-sfl-wood text-amber-200 border-2 border-sfl-dirt shadow-xs font-bold'
-    : 'text-sfl-woodLight hover:text-sfl-dirt dark:hover:text-amber-100 font-semibold';
+    ? 'bg-amber-500 text-stone-950 dark:bg-amber-400 dark:text-slate-950 border-2 border-amber-600 dark:border-amber-300 shadow-xs font-bold'
+    : 'text-sfl-woodLight hover:text-sfl-dirt dark:text-slate-400 dark:hover:text-amber-200 font-semibold';
 
   container.innerHTML = `
     <!-- Range Selector Tabs (Day, Week, Month) -->
-    <div class="inline-flex items-center bg-amber-100/80 dark:bg-amber-950/70 p-1 rounded-xl border border-amber-300/80 dark:border-amber-800 shadow-2xs">
+    <div class="inline-flex items-center bg-amber-100/90 dark:bg-slate-800/90 p-1 rounded-xl border border-amber-300/80 dark:border-slate-700 shadow-2xs">
       <button id="dash-range-btn-day" class="px-2.5 py-1 rounded-lg text-xs transition cursor-pointer ${btnClass('day')}">
         📅 Day
       </button>
@@ -175,9 +175,9 @@ function renderTimeRangeControls() {
     </div>
 
     <!-- Date Range Navigator Pager (Previous / Next Arrows & Date Label) -->
-    <div class="inline-flex items-center gap-1.5 bg-amber-100/80 dark:bg-amber-950/70 px-2 py-1 rounded-xl border border-amber-300/80 dark:border-amber-800 shadow-2xs">
+    <div class="inline-flex items-center gap-1.5 bg-amber-100/90 dark:bg-slate-800/90 px-2 py-1 rounded-xl border border-amber-300/80 dark:border-slate-700 shadow-2xs">
       <button id="dash-page-prev"
-        class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-200/80 dark:hover:bg-amber-900 text-sfl-wood dark:text-amber-200 transition font-bold text-xs cursor-pointer"
+        class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-200/80 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 transition font-bold text-xs cursor-pointer"
         title="Previous ${activeTimeRange}">
         ◀
       </button>
@@ -185,7 +185,7 @@ function renderTimeRangeControls() {
         ${bounds.label}
       </span>
       <button id="dash-page-next"
-        class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-200/80 dark:hover:bg-amber-900 text-sfl-wood dark:text-amber-200 transition font-bold text-xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+        class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-200/80 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 transition font-bold text-xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
         ${activeTimeOffset === 0 ? 'disabled' : ''}
         title="Next ${activeTimeRange}">
         ▶
@@ -259,12 +259,12 @@ function renderTemplate() {
   container.innerHTML = `
     <div class="space-y-4">
       <!-- Header Banner & Time Range Controls (Day/Week/Month + Pager) -->
-      <div class="bg-sfl-card/95 dark:bg-amber-950/40 p-4 rounded-2xl border-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
+      <div class="bg-sfl-card/95 dark:bg-slate-900/80 p-4 rounded-2xl border-2 border-sfl-cardBorder dark:border-slate-700/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
         <div>
-          <h3 class="text-sm sm:text-base font-bold text-sfl-wood dark:text-amber-200 uppercase flex items-center gap-2">
+          <h3 class="text-sm sm:text-base font-bold text-sfl-wood dark:text-amber-300 uppercase flex items-center gap-2">
             <span>📊</span> Dashboard
           </h3>
-          <p class="text-[11px] text-sfl-woodLight font-semibold">
+          <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-semibold">
             Track harvests, consumption, and net organic yields. Swipe left/right or use arrows to navigate history.
           </p>
         </div>
@@ -275,7 +275,7 @@ function renderTemplate() {
 
           <!-- Refresh Button -->
           <button id="dashboard-refresh-btn"
-            class="bg-sfl-wood text-amber-200 px-3 py-1.5 rounded-lg font-bold text-xs border-2 border-sfl-dirt shadow-md hover:bg-sfl-woodLight transition cursor-pointer flex items-center gap-1 shrink-0">
+            class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 border-2 border-amber-300 dark:border-slate-600 px-3 py-1.5 rounded-xl font-bold text-xs shadow-xs transition cursor-pointer flex items-center gap-1 shrink-0">
             <span>🔄</span>
             <span>Refresh</span>
           </button>

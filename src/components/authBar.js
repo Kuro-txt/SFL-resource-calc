@@ -19,7 +19,7 @@ export function renderAuthBar() {
   container.innerHTML = `
     <div class="space-y-3">
       <!-- GLOBAL FARM SYNC & SETTINGS PANEL -->
-      <div class="bg-sfl-card/95 dark:bg-amber-950/40 p-3.5 sm:p-4 rounded-2xl border-2 border-sfl-cardBorder dark:border-amber-800/40 shadow-sm space-y-2.5">
+      <div class="bg-sfl-card/95 dark:bg-slate-900/80 p-3.5 sm:p-4 rounded-2xl border-2 border-sfl-cardBorder dark:border-slate-700/80 shadow-sm space-y-2.5">
         <div class="flex flex-col lg:flex-row items-stretch lg:items-end justify-between gap-3">
           <!-- Left: Farm ID, Tax Rate, Coin:Flower Ratio, API Key -->
           <div class="flex flex-wrap items-end gap-2.5 flex-1">

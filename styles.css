@@ -409,4 +409,24 @@ input[type=number] {
   filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.8));
 }
 
+/* ========================================================
+   CAT PEEKER ANIMATIONS
+======================================================== */
+@keyframes cat-idle-bob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.cat-peeker {
+  animation: cat-idle-bob 3.5s ease-in-out infinite;
+}
+
+.group:hover .cat-peeker {
+  animation-play-state: paused;
+}
+
 
