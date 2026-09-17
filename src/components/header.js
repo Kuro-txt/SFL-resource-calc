@@ -147,8 +147,8 @@ export function renderHeader() {
             <p>Enter your <strong>Farm ID</strong> and click <strong>🔄 Sync Data</strong> to load resources, trades & dashboard.</p>
           </div>
           <div class="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
-            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs">2. When to Expect Results</span>
-            <p>Trades & inventory load <strong>instantly</strong>. Daily harvest yields calculate at <strong>22:00 UTC</strong> after your first baseline.</p>
+            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs">2. When Do Results Appear?</span>
+            <p>Trades & inventory show <strong>instantly</strong>. If you link today, your first daily harvest report arrives <strong>tomorrow at 22:00 UTC</strong>.</p>
           </div>
           <div class="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
             <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs">3. Automated Analytics</span>
