@@ -60,28 +60,6 @@ export function renderHeader() {
                 <span>🌻</span> Sun-Flux
               </h1>
             </div>
-
-            <!-- PAWS: z-20 hooked directly over the top rim of the banner -->
-            <div class="absolute top-[22px] left-1/2 -translate-x-1/2 flex items-center justify-center gap-6 z-20 pointer-events-none transition-transform duration-300 group-hover:-translate-y-1">
-              <!-- Left Paw gripping the ledge -->
-              <svg class="w-5 h-4" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2,4 C2,1.8 3.8,0 6,0 L14,0 C16.2,0 18,1.8 18,4 L18,10 C18,13.3 15.3,16 12,16 L8,16 C4.7,16 2,13.3 2,10 Z" fill="#18181b" stroke="#3f3f46" stroke-width="1" />
-                <line x1="7" y1="5" x2="7" y2="13" stroke="#27272a" stroke-width="1.2" stroke-linecap="round" />
-                <line x1="13" y1="5" x2="13" y2="13" stroke="#27272a" stroke-width="1.2" stroke-linecap="round" />
-                <ellipse cx="4.8" cy="11" rx="1.5" ry="2" fill="#f472b6" />
-                <ellipse cx="10" cy="12" rx="1.5" ry="2" fill="#f472b6" />
-                <ellipse cx="15.2" cy="11" rx="1.5" ry="2" fill="#f472b6" />
-              </svg>
-              <!-- Right Paw gripping the ledge -->
-              <svg class="w-5 h-4" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2,4 C2,1.8 3.8,0 6,0 L14,0 C16.2,0 18,1.8 18,4 L18,10 C18,13.3 15.3,16 12,16 L8,16 C4.7,16 2,13.3 2,10 Z" fill="#18181b" stroke="#3f3f46" stroke-width="1" />
-                <line x1="7" y1="5" x2="7" y2="13" stroke="#27272a" stroke-width="1.2" stroke-linecap="round" />
-                <line x1="13" y1="5" x2="13" y2="13" stroke="#27272a" stroke-width="1.2" stroke-linecap="round" />
-                <ellipse cx="4.8" cy="11" rx="1.5" ry="2" fill="#f472b6" />
-                <ellipse cx="10" cy="12" rx="1.5" ry="2" fill="#f472b6" />
-                <ellipse cx="15.2" cy="11" rx="1.5" ry="2" fill="#f472b6" />
-              </svg>
-            </div>
           </div>
           <p class="text-xs font-semibold text-sfl-woodLight dark:text-slate-400">Live SFL market prices, NFT wishlist & automated crop tracker</p>
         </div>
