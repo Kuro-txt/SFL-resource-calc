@@ -196,17 +196,15 @@ async function processYieldCalculation(supabase) {
     try {
       currentData = await fetchFarmFullDataWithRetry(cleanFarmId, 3);
     } catch (err) {
-      console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: ${err.message}. Waiting 10s...`);
-      await delay(10000);
+      console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: ${err.message}`);
       continue;
     }
 
     const currActivity = currentData.farmActivity || currentData.bumpkin?.activity || (currentData.farm && (currentData.farm.farmActivity || currentData.farm.bumpkin?.activity)) || {};
 
-    // ── Fetch Today's P2P Trades (00:00 to 22:00 UTC) with safe 10s delay ──
+    // ── Fetch Today's P2P Trades (00:00 to 22:00 UTC) ──
     let todayTrades = { tradesBought: {}, tradesSold: {}, rawTradesCount: 0 };
     try {
-      await delay(10000);
       todayTrades = await getTodayTradesForFarm(cleanFarmId, todayDate);
     } catch (err) {
       console.warn(`Notice: Failed to fetch trades for Farm #${cleanFarmId}:`, err.message);
@@ -398,8 +396,6 @@ async function processYieldCalculation(supabase) {
       savedYieldsCount++;
       console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
     }
-
-    await delay(10000);
   }
 
   console.log(`🏁 [Yield Calculation] Completed: ${savedYieldsCount} farm yields saved to Supabase.`);

@@ -23,15 +23,15 @@ function getSflHeaders(customApiKey = '') {
 
 // ── Global Sequential Queue for Farm API Syncs (Concurrency = 1) ───────────
 // Enforces strictly 1-by-1 execution.
-// If an ID fetch succeeds, waits 10 seconds before fetching the next ID.
-// If an ID fetch fails, retries 10 seconds later (up to 3 retries).
+// If an ID fetch succeeds, waits 11 seconds before fetching the next ID.
+// If an ID fetch fails, retries 11 seconds later (up to 3 retries).
 let syncQueueChain = Promise.resolve();
 let lastSuccessTimestamp = 0;
-const SUCCESS_COOLDOWN_MS = 10000; // 10 seconds wait between farms to avoid HTTP 429
+const SUCCESS_COOLDOWN_MS = 11000; // 11 seconds wait between farms to avoid HTTP 429
 
 function queueFarmSync(taskFn) {
   const queuedTask = syncQueueChain.then(async () => {
-    // Ensure at least 10 seconds have passed before next fetch
+    // Ensure at least 11 seconds have passed before next fetch
     if (lastSuccessTimestamp > 0) {
       const elapsed = Date.now() - lastSuccessTimestamp;
       if (elapsed < SUCCESS_COOLDOWN_MS) {
@@ -97,9 +97,9 @@ async function fetchFarmFullDataRaw(cleanFarmId, maxRetries = 3, customApiKey = 
         throw err;
       }
 
-      // If failed and retries remain (3 retries of 10s)
+      // If failed and retries remain (3 retries of 11s)
       if (attempt <= maxRetries) {
-        const waitTimeSec = 10;
+        const waitTimeSec = 11;
         const reason = isTimeoutOrAbort ? `Network/Timeout (${err.code || err.message})` : (status ? `HTTP ${status}` : err.message);
         const timeStr = new Date().toISOString().substring(11, 19);
         console.warn(`[${timeStr} UTC] ⚠️ [Farm #${cleanFarmId}] ${reason}. Sleeping ${waitTimeSec}s before retry ${attempt}/${maxRetries}...`);

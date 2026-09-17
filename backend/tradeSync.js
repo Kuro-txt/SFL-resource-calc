@@ -26,9 +26,9 @@ async function fetchMarketplaceTradesRaw(farmId, apiKey = '', maxRetries = 3) {
       }
       if (attempt <= maxRetries) {
         const timeStr = new Date().toISOString().substring(11, 19);
-        console.warn(`[${timeStr} UTC] ⚠️ [Farm #${farmId}] Trade fetch failed (${err.message}). Sleeping 10s before retry ${attempt}/${maxRetries}...`);
-        await delay(10000);
-        console.log(`[${new Date().toISOString().substring(11, 19)} UTC] 🔄 [Farm #${farmId}] Finished waiting 10s. Retrying attempt ${attempt + 1}/${totalAttempts} now...`);
+        console.warn(`[${timeStr} UTC] ⚠️ [Farm #${farmId}] Trade fetch failed (${err.message}). Sleeping 11s before retry ${attempt}/${maxRetries}...`);
+        await delay(11000);
+        console.log(`[${new Date().toISOString().substring(11, 19)} UTC] 🔄 [Farm #${farmId}] Finished waiting 11s. Retrying attempt ${attempt + 1}/${totalAttempts} now...`);
       } else {
         const timeStr = new Date().toISOString().substring(11, 19);
         console.error(`[${timeStr} UTC] ❌ [Farm #${farmId}] Trade fetch failed after ${maxRetries} retries: ${err.message}`);
@@ -162,12 +162,6 @@ async function processAutoSyncTrades(supabase) {
       }
     } catch (err) {
       console.warn(`⚠️ [Auto-Sync Trades] Error syncing Farm #${farmId}: ${err.message}`);
-    }
-
-    // Strict 10-second gap between farms to comply with SFL rate limits
-    if (i < farmEntries.length - 1) {
-      console.log(`⏳ Waiting 10s before next farm (rate limit safe)...`);
-      await delay(10000);
     }
   }
 
