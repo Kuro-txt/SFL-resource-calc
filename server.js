@@ -672,14 +672,14 @@ cron.schedule('0 22 * * *', () => {
     .finally(() => { isYieldRunning = false; });
 }, { scheduled: true, timezone: "UTC" });
 
-// 3. Marketplace trades auto-sync 4x daily (:33 UTC)
-cron.schedule('33 0,6,12,18 * * *', () => {
+// 3. Marketplace trades auto-sync 5x daily (02:00, 06:00, 10:00, 14:00, 20:00 UTC)
+cron.schedule('0 2,6,10,14,20 * * *', () => {
   if (isAnySyncRunning()) {
     console.warn('⚠️ [Cron] Trade auto-sync skipped: another sync is already running.');
     return;
   }
   isTradesSyncRunning = true;
-  console.log('⏰ [Cron] Trade auto-sync (4x daily)...');
+  console.log('⏰ [Cron] Trade auto-sync (5x daily)...');
   processAutoSyncTrades(supabase)
     .catch(err => console.error('Trade sync error:', err.message))
     .finally(() => { isTradesSyncRunning = false; });

@@ -44,7 +44,7 @@ async function fetchMarketplaceTradesWithRetry(farmId, apiKey = '', maxRetries =
 }
 
 async function processAutoSyncTrades(supabase) {
-  console.log("🚀 [Auto-Sync Trades] Starting 4x daily marketplace trades auto-sync (:33 UTC, 10s gap, 3 retries)...");
+  console.log("🚀 [Auto-Sync Trades] Starting 5x daily marketplace trades auto-sync (11s gap, 3 retries)...");
   
   const farmMap = new Map();
 
