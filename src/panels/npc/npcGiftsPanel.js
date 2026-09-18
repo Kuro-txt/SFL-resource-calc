@@ -1,7 +1,8 @@
+import { ApiService } from '../../services/api.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
 import { NPC_CATALOG } from './npcData.js';
-import { getNpcFriendship, getItemFlowerPrice, calculateMilestoneProgress } from './npcLogic.js';
+import { getNpcFriendship, getNpcData, getItemFlowerPrice, calculateMilestoneProgress } from './npcLogic.js';
 
 let activeLocationFilter = 'all';
 let favoriteNpcIds = new Set(JSON.parse(localStorage.getItem('sfl_favorite_npcs') || '[]'));
@@ -25,17 +26,25 @@ export function renderNpcGiftsTemplate() {
   container.innerHTML = `
     <div class="space-y-5">
       <!-- HEADER & CONTROLS -->
-      <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
+      <div class="bg-sfl-card/90 dark:bg-slate-900/80 p-4 rounded-xl border-2 border-sfl-cardBorder dark:border-slate-700/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
         <div>
-          <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
+          <h3 class="text-sm font-bold text-sfl-wood dark:text-amber-300 uppercase flex items-center gap-2">
             <span>🎁</span> NPC Gift & Friendship Tracker
           </h3>
-          <p class="text-[11px] text-sfl-woodLight font-semibold">
-            Track live friendship points, milestone rewards, and required flowers.
+          <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-semibold">
+            Track live friendship points, milestone rewards, deliveries, and required flowers.
           </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <!-- FETCH LIVE NPCS BUTTON -->
+          <button type="button" id="npc-fetch-btn"
+            class="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-bold px-3 py-1.5 rounded-lg border border-emerald-800 shadow-xs transition cursor-pointer flex items-center gap-1.5 text-xs whitespace-nowrap"
+            title="Fetch live NPC friendship points & deliveries from Sunflower Land Farm API">
+            <span id="npc-fetch-icon">🔄</span>
+            <span id="npc-fetch-text">Fetch Farm NPCs</span>
+          </button>
+
           <!-- BLOSSOM BONDING SKILL TOGGLE (+2 PTS) -->
           <label class="flex items-center gap-1.5 bg-pink-100/90 dark:bg-pink-950/40 border border-pink-300 dark:border-pink-800 px-2.5 py-1 rounded-lg shadow-xs cursor-pointer select-none">
             <input type="checkbox" id="blossom-bonding-toggle" ${hasBlossomBonding ? 'checked' : ''} class="w-3.5 h-3.5 text-pink-600 rounded border-pink-400 focus:ring-0 cursor-pointer">
@@ -43,10 +52,10 @@ export function renderNpcGiftsTemplate() {
           </label>
 
           <!-- SEARCH -->
-          <input type="text" id="npc-search-input" placeholder="Search NPC or Flower..." class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt w-full sm:w-40 focus:ring-1 focus:ring-sfl-gold">
+          <input type="text" id="npc-search-input" placeholder="Search NPC or Flower..." class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-100 w-full sm:w-36 focus:ring-1 focus:ring-sfl-gold">
 
           <!-- LOCATION FILTER -->
-          <select id="npc-location-filter" class="sfl-input rounded-lg px-2 py-1 text-xs font-bold text-sfl-dirt cursor-pointer">
+          <select id="npc-location-filter" class="sfl-input rounded-lg px-2 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-100 cursor-pointer">
             <option value="all">📍 All Locations</option>
             <option value="Plaza">Plaza</option>
             <option value="Beach">Beach</option>
@@ -55,16 +64,27 @@ export function renderNpcGiftsTemplate() {
         </div>
       </div>
 
+      <!-- SYNC STATUS NOTIFICATION BANNER -->
+      <div id="npc-sync-status" class="hidden text-xs text-center font-bold py-1.5 px-3 rounded-lg border transition-all"></div>
+
       <!-- OVERVIEW METRICS -->
       <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 shadow-inner">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-center items-center">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center items-center">
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">NPCs Tracked</span>
-            <h2 id="npc-total-count" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-dirt mt-0.5">14</h2>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-300 block">NPCs Tracked</span>
+            <h2 id="npc-total-count" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-dirt dark:text-amber-100 mt-0.5">14</h2>
+          </div>
+          <div class="border-l border-sfl-cardBorder/40 px-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-gold block">⭐ Favorited</span>
+            <h2 id="npc-favorited-count" class="text-xl sm:text-2xl font-pixel font-bold text-amber-700 dark:text-amber-300 mt-0.5">0</h2>
           </div>
           <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-gold block">⭐ Favorited</span>
-            <h2 id="npc-favorited-count" class="text-xl sm:text-2xl font-pixel font-bold text-amber-700 mt-0.5">0</h2>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-green dark:text-emerald-400 block">🎁 Ready to Claim</span>
+            <h2 id="npc-claimable-count" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green dark:text-emerald-300 mt-0.5">0</h2>
+          </div>
+          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-woodLight dark:text-slate-400 block">🚜 Farm Live Sync</span>
+            <h2 id="npc-farm-sync-display" class="text-xs sm:text-sm font-mono font-bold text-sfl-wood dark:text-amber-200 mt-1.5 truncate">Not Synced</h2>
           </div>
         </div>
       </div>
@@ -79,6 +99,7 @@ export function initNpcGiftsPanel() {
   renderNpcGiftsTemplate();
   renderNpcCards();
 
+  document.getElementById('npc-fetch-btn')?.addEventListener('click', handleFetchNpcData);
   document.getElementById('npc-search-input')?.addEventListener('input', renderNpcCards);
   document.getElementById('npc-location-filter')?.addEventListener('change', (e) => {
     activeLocationFilter = e.target.value;
@@ -91,6 +112,67 @@ export function initNpcGiftsPanel() {
     renderNpcCards();
   });
 }
+
+export async function handleFetchNpcData() {
+  const farmIdEl = document.getElementById('farm-id');
+  const apiKeyEl = document.getElementById('api-key');
+  const statusEl = document.getElementById('npc-sync-status');
+  const btn = document.getElementById('npc-fetch-btn');
+  const icon = document.getElementById('npc-fetch-icon');
+  const text = document.getElementById('npc-fetch-text');
+
+  const farmId = farmIdEl?.value.trim() || localStorage.getItem('sfl_farm_id') || '';
+  const apiKey = apiKeyEl?.value.trim() || localStorage.getItem('sfl_api_key') || '';
+
+  if (!farmId) {
+    if (statusEl) {
+      statusEl.className = 'text-xs text-center font-bold py-1.5 px-3 rounded-lg border bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border-rose-300 dark:border-rose-700 block';
+      statusEl.innerHTML = '❌ Please enter your Farm ID in the top bar to fetch live NPC data.';
+    }
+    farmIdEl?.focus();
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  if (icon) icon.className = 'inline-block animate-spin';
+  if (text) text.textContent = 'Fetching...';
+  if (statusEl) {
+    statusEl.className = 'text-xs text-center font-bold py-1.5 px-3 rounded-lg border bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300 dark:border-amber-700 block animate-pulse';
+    statusEl.innerHTML = `⏳ Fetching live NPC friendship & deliveries for Farm #${farmId} from Sunflower Land API...`;
+  }
+
+  try {
+    const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
+    const npcs = farmObj?.npcs || farmObj?.farm?.npcs || (farmObj?.blacksmith ? farmObj : {});
+    const npcKeys = Object.keys(npcs);
+
+    if (npcKeys.length > 0) {
+      window.farmNpcData = npcs;
+      localStorage.setItem('sfl_farm_npcs', JSON.stringify(npcs));
+      localStorage.setItem('sfl_farm_npcs_synced_at', Date.now().toString());
+
+      renderNpcCards();
+
+      if (statusEl) {
+        statusEl.className = 'text-xs text-center font-bold py-1.5 px-3 rounded-lg border bg-emerald-100 text-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 block';
+        statusEl.innerHTML = `✅ Successfully fetched live data for ${npcKeys.length} NPCs from Farm #${farmId}!`;
+      }
+    } else {
+      throw new Error("No NPC data returned in farm response.");
+    }
+  } catch (err) {
+    console.error("NPC fetch error:", err);
+    if (statusEl) {
+      statusEl.className = 'text-xs text-center font-bold py-1.5 px-3 rounded-lg border bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border-rose-300 dark:border-rose-700 block';
+      statusEl.innerHTML = `❌ Failed to fetch NPC data: ${err.message}`;
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+    if (icon) icon.className = '';
+    if (text) text.textContent = 'Fetch Farm NPCs';
+  }
+}
+window.handleFetchNpcData = handleFetchNpcData;
 
 export function renderNpcCards() {
   const grid = document.getElementById('npc-cards-grid');
@@ -118,14 +200,19 @@ export function renderNpcCards() {
     return 0;
   });
 
+  let claimableCount = 0;
+
   const countEl = document.getElementById('npc-total-count');
   const favEl = document.getElementById('npc-favorited-count');
+  const claimableEl = document.getElementById('npc-claimable-count');
+  const farmSyncEl = document.getElementById('npc-farm-sync-display');
 
   if (countEl) countEl.textContent = `${fullNpcList.length} NPCs`;
   if (favEl) favEl.textContent = `${favoriteNpcIds.size}`;
 
   if (filteredNpcs.length === 0) {
     grid.innerHTML = `<div class="col-span-full py-8 text-center text-sfl-woodLight italic">No NPCs found matching your criteria.</div>`;
+    if (claimableEl) claimableEl.textContent = '0';
     return;
   }
 
@@ -133,10 +220,16 @@ export function renderNpcCards() {
 
   filteredNpcs.forEach(npc => {
     const isFav = favoriteNpcIds.has(npc.id);
-    const friendship = getNpcFriendship(npc.id, liveNpcData);
+    const npcEntry = getNpcData(npc.id, liveNpcData);
+    const friendship = npcEntry.friendship || getNpcFriendship(npc.id, liveNpcData);
     const points = parseInt(friendship.points || 0, 10);
     const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
     const unclaimed = Math.max(0, points - claimedAt);
+    const deliveryCount = parseInt(npcEntry.deliveryCount || 0, 10);
+
+    if (unclaimed > 0) {
+      claimableCount++;
+    }
 
     const progress = calculateMilestoneProgress(npc, points);
 
@@ -158,7 +251,7 @@ export function renderNpcCards() {
       return `
         <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2.5 py-1.5 rounded text-xs gap-2">
           <div class="flex items-center gap-1.5 overflow-hidden">
-            <span class="font-bold text-sfl-dirt truncate">${favName}</span>
+            <span class="font-bold text-sfl-dirt dark:text-amber-100 truncate">${favName}</span>
             <span class="text-[10px] font-mono font-extrabold text-amber-800 dark:text-amber-300 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded shrink-0">
               ${effectivePts} pts
             </span>
@@ -179,38 +272,43 @@ export function renderNpcCards() {
     const card = document.createElement('div');
     card.className = `p-3.5 rounded-xl border-2 transition shadow-sm space-y-3 relative ${
       isFav ? 'ring-2 ring-sfl-gold/60' : ''
-    } bg-white/90 dark:bg-amber-950/30 border-sfl-cardBorder`;
+    } bg-white/90 dark:bg-amber-950/30 border-sfl-cardBorder dark:border-amber-900/50`;
 
     card.innerHTML = `
       <!-- TOP HEADER -->
-      <div class="flex justify-between items-center border-b border-sfl-cardBorder/40 pb-2">
+      <div class="flex justify-between items-center border-b border-sfl-cardBorder/40 dark:border-amber-900/40 pb-2">
         <div class="flex items-center gap-2">
           <span class="text-2xl">${npc.icon}</span>
           <div>
             <div class="flex items-center gap-1.5">
-              <h4 class="font-bold text-sfl-dirt text-sm">${npc.name}</h4>
+              <h4 class="font-bold text-sfl-dirt dark:text-amber-200 text-sm">${npc.name}</h4>
               <button onclick="toggleFavoriteNpc('${npc.id}')" title="${isFav ? 'Remove Favorite' : 'Favorite NPC'}" class="text-xs transition-transform hover:scale-125 cursor-pointer leading-none">
                 ${isFav ? '⭐' : '☆'}
               </button>
             </div>
-            <span class="text-[10px] text-sfl-woodLight font-semibold">📍 ${npc.location}</span>
+            <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-semibold">📍 ${npc.location}</span>
           </div>
         </div>
+        ${deliveryCount > 0 ? `
+          <span class="text-[10px] font-mono font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-700 shadow-2xs shrink-0" title="Total completed deliveries">
+            📦 ${deliveryCount} deliveries
+          </span>
+        ` : ''}
       </div>
 
       <!-- FRIENDSHIP POINTS & CLAIM STATS -->
-      <div class="grid grid-cols-3 gap-1.5 bg-amber-900/10 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-600/20 text-center font-mono">
+      <div class="grid grid-cols-3 gap-1.5 bg-amber-900/10 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-600/20 dark:border-amber-800/30 text-center font-mono">
         <div>
-          <span class="text-[9px] font-bold text-sfl-wood uppercase block">Total Pts</span>
-          <span class="text-xs font-black text-sfl-dirt">${points}</span>
+          <span class="text-[9px] font-bold text-sfl-wood dark:text-amber-300 uppercase block">Total Pts</span>
+          <span class="text-xs font-black text-sfl-dirt dark:text-amber-100">${points}</span>
         </div>
-        <div class="border-l border-amber-600/20 px-1">
-          <span class="text-[9px] font-bold text-sfl-wood uppercase block">Last Claim</span>
-          <span class="text-xs font-bold text-sfl-woodLight">${claimedAt} pts</span>
+        <div class="border-l border-amber-600/20 dark:border-amber-800/30 px-1">
+          <span class="text-[9px] font-bold text-sfl-wood dark:text-amber-300 uppercase block">Last Claim</span>
+          <span class="text-xs font-bold text-sfl-woodLight dark:text-slate-400">${claimedAt} pts</span>
         </div>
-        <div class="border-l border-amber-600/20 px-1">
-          <span class="text-[9px] font-bold text-sfl-green uppercase block">Unclaimed</span>
-          <span class="text-xs font-black ${unclaimed > 0 ? 'text-sfl-green font-extrabold' : 'text-sfl-woodLight'}">+${unclaimed}</span>
+        <div class="border-l border-amber-600/20 dark:border-amber-800/30 px-1">
+          <span class="text-[9px] font-bold text-sfl-green dark:text-emerald-400 uppercase block">Unclaimed</span>
+          <span class="text-xs font-black ${unclaimed > 0 ? 'text-sfl-green dark:text-emerald-400 font-extrabold' : 'text-sfl-woodLight dark:text-slate-500'}">+${unclaimed}</span>
         </div>
       </div>
 
@@ -229,7 +327,7 @@ export function renderNpcCards() {
           <div class="bg-gradient-to-r from-amber-500 to-sfl-green h-full rounded-full transition-all duration-300" style="width: ${progress.percentage}%"></div>
         </div>
 
-        <div class="flex justify-between items-center text-[10px] text-sfl-woodLight font-mono pt-0.5">
+        <div class="flex justify-between items-center text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono pt-0.5">
           <span>Target: <strong class="text-sfl-dirt dark:text-amber-200">${progress.nextMilestone} pts</strong></span>
           <span class="text-sfl-accent dark:text-amber-400 font-bold">${progress.pointsNeeded} pts needed</span>
         </div>
@@ -241,7 +339,7 @@ export function renderNpcCards() {
 
       <!-- FAVORITE FLOWERS WITH POINTS & FLOWERS NEEDED -->
       <div class="space-y-1.5">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood flex items-center gap-1">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-300 flex items-center gap-1">
           <span>🌸</span> Favorite Flowers:
         </span>
         <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
@@ -252,6 +350,21 @@ export function renderNpcCards() {
 
     grid.appendChild(card);
   });
+
+  if (claimableEl) claimableEl.textContent = `${claimableCount}`;
+  if (farmSyncEl) {
+    const savedFarmId = localStorage.getItem('sfl_farm_id');
+    const syncedAt = localStorage.getItem('sfl_farm_npcs_synced_at');
+    if (savedFarmId && syncedAt) {
+      const elapsedMins = Math.floor((Date.now() - parseInt(syncedAt, 10)) / 60000);
+      const timeText = elapsedMins < 1 ? 'Just now' : `${elapsedMins}m ago`;
+      farmSyncEl.innerHTML = `<span class="text-emerald-700 dark:text-emerald-400">#${savedFarmId}</span> <span class="text-[10px] font-normal text-sfl-woodLight dark:text-slate-400">(${timeText})</span>`;
+    } else if (savedFarmId) {
+      farmSyncEl.innerHTML = `<span class="text-sfl-dirt dark:text-amber-200">#${savedFarmId}</span> <span class="text-[10px] font-normal text-sfl-woodLight dark:text-slate-400">(cached)</span>`;
+    } else {
+      farmSyncEl.textContent = 'Not Synced';
+    }
+  }
 }
 
 window.renderNpcCards = renderNpcCards;

@@ -1,21 +1,26 @@
 import { getBettyUnitPrice, normalizeItemKey } from '../../utils/formatters.js';
 
-export function getNpcFriendship(npcId, liveNpcData) {
+export function getNpcData(npcId, liveNpcData) {
   if (!liveNpcData || typeof liveNpcData !== 'object') return {};
 
-  if (liveNpcData[npcId]?.friendship) {
-    return liveNpcData[npcId].friendship;
+  if (liveNpcData[npcId]) {
+    return liveNpcData[npcId];
   }
 
-  const cleanTarget = npcId.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const cleanTarget = String(npcId).toLowerCase().replace(/[^a-z0-9]/g, '');
   for (let key in liveNpcData) {
-    const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanKey = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
     if (cleanKey === cleanTarget) {
-      return liveNpcData[key]?.friendship || {};
+      return liveNpcData[key] || {};
     }
   }
 
   return {};
+}
+
+export function getNpcFriendship(npcId, liveNpcData) {
+  const data = getNpcData(npcId, liveNpcData);
+  return data.friendship || {};
 }
 
 export function getItemFlowerPrice(cleanKey) {
