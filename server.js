@@ -134,6 +134,35 @@ app.get('/api/get-data', async (req, res) => {
   }
 });
 
+app.get('/api/get-exchange', async (req, res) => {
+  const force = req.query.force === 'true';
+  const cacheKey = 'sfl_exchange';
+  if (!force) {
+    const cached = getServerCache(cacheKey, 60 * 1000); // 60s
+    if (cached) {
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+  }
+  try {
+    const response = await axios.get('https://sfl.world/api/v1.1/exchange', {
+      headers: SFL_WORLD_HEADERS, timeout: 10000
+    });
+    setServerCache(cacheKey, response.data);
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.setHeader('X-Cache', 'MISS');
+    res.json(response.data);
+  } catch (err) {
+    const stale = serverCache.get(cacheKey)?.data;
+    if (stale) {
+      res.setHeader('X-Cache', 'STALE');
+      return res.json(stale);
+    }
+    res.status(500).json({ error: 'Failed to fetch exchange data', details: err.message });
+  }
+});
+
 app.get('/api/get-farm', async (req, res) => {
   const { farmId, apiKey, force } = req.query;
   if (!farmId) return res.status(400).json({ error: 'Farm ID is required' });

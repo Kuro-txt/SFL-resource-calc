@@ -69,6 +69,52 @@ export const ApiService = {
     });
   },
 
+  async getExchangeRates({ force = false } = {}) {
+    const cacheKey = 'api_exchange';
+    if (!force) {
+      const cached = getCached(cacheKey, 60 * 1000); // 60s
+      if (cached) return cached;
+    }
+    return fetchDeduplicated(cacheKey, async () => {
+      try {
+        let data = null;
+        // 1. Try Backend server proxy
+        try {
+          const url = `${BACKEND_URL}/api/get-exchange${force ? '?force=true' : ''}`;
+          const response = await fetch(url);
+          if (response.ok) data = await response.json();
+        } catch (e) {}
+
+        // 2. Try Vercel serverless proxy if backend proxy didn't succeed
+        if (!data) {
+          try {
+            const url = `/api/get-exchange${force ? '?force=true' : ''}`;
+            const response = await fetch(url);
+            if (response.ok) data = await response.json();
+          } catch (e) {}
+        }
+
+        // 3. Try direct SFL world exchange API
+        if (!data) {
+          try {
+            const response = await fetch('https://sfl.world/api/v1.1/exchange');
+            if (response.ok) data = await response.json();
+          } catch (e) {}
+        }
+
+        if (data && data.gems) {
+          setCached(cacheKey, data);
+          return data;
+        }
+
+        return clientCache.get(cacheKey)?.data || null;
+      } catch (err) {
+        console.warn("⚠️ Failed to load live exchange rates:", err.message);
+        return clientCache.get(cacheKey)?.data || null;
+      }
+    });
+  },
+
   async getFarmFullData(farmId, apiKey = '', { force = false } = {}) {
     if (!farmId) throw new Error('Farm ID is required.');
     const cleanFarmId = String(farmId).trim();

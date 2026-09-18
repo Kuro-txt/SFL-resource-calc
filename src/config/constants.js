@@ -224,6 +224,16 @@ export function getCoinFlowerRatio() {
   return DEFAULT_COIN_FLOWER_RATIO;
 }
 
+export const DEFAULT_GEM_PACKS = {
+  "100": { "gem": 100, "usd": 1.29, "sfl1": 0.0801, "sfl": 8.0137, "pol": 12.7754 },
+  "650": { "gem": 650, "usd": 6.49, "sfl1": 0.0620, "sfl": 40.3171, "pol": 64.2731 },
+  "1350": { "gem": 1350, "usd": 12.99, "sfl1": 0.0598, "sfl": 80.6963, "pol": 128.6452 },
+  "2800": { "gem": 2800, "usd": 25.99, "sfl1": 0.0577, "sfl": 161.4548, "pol": 257.3895 },
+  "7400": { "gem": 7400, "usd": 64.99, "sfl1": 0.0546, "sfl": 403.7301, "pol": 643.6223 },
+  "15500": { "gem": 15500, "usd": 129.99, "sfl1": 0.0521, "sfl": 807.5223, "pol": 1287.3435 },
+  "200000": { "gem": 200000, "usd": 1299.99, "sfl1": 0.0404, "sfl": 8075.7822, "pol": 12874.3268 }
+};
+
 if (typeof window !== 'undefined') {
   window.BACKEND_URL = BACKEND_URL;
   window.SUPABASE_URL = SUPABASE_URL;
@@ -244,4 +254,5 @@ if (typeof window !== 'undefined') {
   window.isAllowedDifferenceItem = isAllowedDifferenceItem;
   window.DEFAULT_COIN_FLOWER_RATIO = DEFAULT_COIN_FLOWER_RATIO;
   window.getCoinFlowerRatio = getCoinFlowerRatio;
+  window.DEFAULT_GEM_PACKS = DEFAULT_GEM_PACKS;
 }

@@ -1,4 +1,4 @@
-import { BACKEND_URL, getCoinFlowerRatio } from '../config/constants.js';
+import { BACKEND_URL, getCoinFlowerRatio, DEFAULT_GEM_PACKS } from '../config/constants.js';
 import { ApiService } from '../services/api.js';
 import { fetchMarketplaceTrades } from '../panels/tradeHistory/index.js';
 import { renderNpcCards } from '../panels/npc/npcGiftsPanel.js';
@@ -55,6 +55,54 @@ export function renderAuthBar() {
               </label>
               <input type="number" id="coin-flower-ratio-input" placeholder="1000" min="1" step="10" value="1000"
                 class="w-full sfl-input rounded-xl px-2.5 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 shadow-2xs" title="Coin to Flower conversion ratio for dashboard calculations">
+            </div>
+
+            <!-- Gem Packs Exchange Option -->
+            <div class="relative w-36 sm:w-44" id="gem-packs-wrapper">
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 mb-1 flex items-center justify-between" title="Flower per Gem exchange rates from sfl.world">
+                <span class="flex items-center gap-1"><span>💎</span> Gem Packs</span>
+                <span id="gem-packs-badge" class="text-[9px] text-amber-700 dark:text-amber-400 font-normal">7 packs</span>
+              </label>
+              
+              <button type="button" id="gem-packs-btn"
+                class="w-full sfl-input rounded-xl px-2.5 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 bg-amber-50/80 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 border border-amber-300 dark:border-slate-600 shadow-2xs cursor-pointer flex items-center justify-between gap-1 transition select-none"
+                title="Click to view Flower price per Gem for all 7 Gem packs">
+                <span class="truncate flex items-center gap-1">
+                  <span id="gem-packs-btn-label">💎 Rates / Pack</span>
+                </span>
+                <span id="gem-packs-arrow" class="text-[10px] text-sfl-woodLight dark:text-slate-400 transition-transform duration-200">▼</span>
+              </button>
+
+              <!-- Dropdown Menu Popover -->
+              <div id="gem-packs-dropdown"
+                class="hidden absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-80 sm:w-96 bg-white dark:bg-slate-900 border-2 border-amber-400/90 dark:border-slate-700 rounded-2xl shadow-2xl p-3 text-xs space-y-2.5 max-h-[80vh] overflow-y-auto">
+                
+                <div class="flex items-center justify-between pb-2 border-b border-amber-200 dark:border-slate-800">
+                  <div>
+                    <div class="font-bold text-sfl-dirt dark:text-amber-300 flex items-center gap-1.5 text-xs">
+                      <span>💎</span> Gem Exchange Packs
+                    </div>
+                    <div class="text-[10px] text-sfl-woodLight dark:text-slate-400">Total & Per Gem Price (🌸 Flower / USD)</div>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <button type="button" id="gem-packs-reset-btn" class="text-[10px] font-bold text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200 px-1.5 py-0.5 rounded bg-amber-100/60 dark:bg-slate-800 transition cursor-pointer" title="Reset selection">
+                      Reset
+                    </button>
+                    <button type="button" id="gem-packs-refresh-btn" class="p-1 rounded-lg hover:bg-amber-100 dark:hover:bg-slate-800 text-sfl-wood dark:text-slate-300 text-xs transition cursor-pointer" title="Refresh live exchange rates">
+                      🔄
+                    </button>
+                  </div>
+                </div>
+
+                <div id="gem-packs-list" class="space-y-1.5">
+                  <!-- Dynamically rendered 7 packs -->
+                </div>
+
+                <div class="pt-2 border-t border-amber-200/70 dark:border-slate-800 flex items-center justify-between text-[10px] text-sfl-woodLight dark:text-slate-400">
+                  <span class="truncate">Source: sfl.world/api/v1.1/exchange</span>
+                  <span id="gem-packs-status-tag" class="font-mono text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-slate-800 text-amber-800 dark:text-amber-300 font-semibold">Live Rates</span>
+                </div>
+              </div>
             </div>
 
             <!-- Optional API Key -->
@@ -122,6 +170,188 @@ function bindFarmSyncEvents() {
       }
     }
   });
+
+  setupGemPacksDropdown();
+}
+
+export function setupGemPacksDropdown() {
+  const btn = document.getElementById('gem-packs-btn');
+  const dropdown = document.getElementById('gem-packs-dropdown');
+  const arrow = document.getElementById('gem-packs-arrow');
+  const list = document.getElementById('gem-packs-list');
+  const wrapper = document.getElementById('gem-packs-wrapper');
+  const refreshBtn = document.getElementById('gem-packs-refresh-btn');
+  const resetBtn = document.getElementById('gem-packs-reset-btn');
+  const labelEl = document.getElementById('gem-packs-btn-label');
+  const statusTag = document.getElementById('gem-packs-status-tag');
+  const badge = document.getElementById('gem-packs-badge');
+
+  if (!btn || !dropdown || !list) return;
+
+  let currentGemsData = DEFAULT_GEM_PACKS;
+  let selectedPackKey = localStorage.getItem('sfl_selected_gem_pack') || '';
+
+  function renderList(gemsMap) {
+    if (!gemsMap || typeof gemsMap !== 'object') return;
+    currentGemsData = gemsMap;
+
+    const packs = Object.values(gemsMap)
+      .map(p => ({
+        gem: Number(p.gem || 0),
+        usd: Number(p.usd || 0),
+        sfl1: Number(p.sfl1 || 0),
+        sfl: Number(p.sfl || 0),
+        pol: Number(p.pol || 0)
+      }))
+      .filter(p => p.gem > 0)
+      .sort((a, b) => a.gem - b.gem);
+
+    if (badge) badge.textContent = `${packs.length} packs`;
+
+    if (packs.length === 0) {
+      list.innerHTML = `<div class="text-center py-3 text-sfl-woodLight dark:text-slate-400">No gem packs available.</div>`;
+      return;
+    }
+
+    list.innerHTML = packs.map(pack => {
+      const isSelected = selectedPackKey && String(pack.gem) === String(selectedPackKey);
+      const isBestValue = pack.gem >= 200000;
+      return `
+        <div class="gem-pack-item flex items-center justify-between p-2 rounded-xl border transition cursor-pointer select-none ${
+          isSelected
+            ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-500 shadow-2xs'
+            : 'bg-amber-50/60 dark:bg-slate-800/60 border-amber-200/80 dark:border-slate-700/80 hover:bg-amber-100/70 dark:hover:bg-slate-700/70'
+        }" data-gem="${pack.gem}">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg ${
+              isSelected ? 'bg-amber-400 text-stone-900' : 'bg-amber-200/80 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200'
+            } flex items-center justify-center font-bold text-sm shrink-0">
+              💎
+            </div>
+            <div>
+              <div class="font-bold text-xs text-sfl-dirt dark:text-amber-200 flex items-center gap-1.5">
+                <span>${pack.gem.toLocaleString()} Gems</span>
+                <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-normal">($${pack.usd.toFixed(2)})</span>
+                ${isBestValue ? '<span class="text-[9px] bg-amber-500 text-stone-950 font-bold px-1.5 py-0.2 rounded-full uppercase">Best</span>' : ''}
+                ${isSelected ? '<span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">✓</span>' : ''}
+              </div>
+              <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono">
+                Total: <strong class="text-amber-950 dark:text-amber-300 font-semibold">${pack.sfl.toFixed(2)} 🌸</strong>
+                <span class="opacity-75">(${pack.pol.toFixed(1)} POL)</span>
+              </div>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <span class="inline-block px-2 py-0.5 rounded-lg ${
+              isSelected
+                ? 'bg-emerald-600 text-white font-bold'
+                : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-bold'
+            } font-mono text-[11px]">
+              ${pack.sfl1.toFixed(4)} 🌸
+            </span>
+            <div class="text-[9px] text-sfl-woodLight dark:text-slate-500 mt-0.5 font-sans">per gem</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    updateButtonLabel();
+
+    list.querySelectorAll('.gem-pack-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const gemVal = el.getAttribute('data-gem');
+        if (selectedPackKey === gemVal) {
+          selectedPackKey = '';
+          localStorage.removeItem('sfl_selected_gem_pack');
+        } else {
+          selectedPackKey = gemVal;
+          localStorage.setItem('sfl_selected_gem_pack', gemVal);
+        }
+        renderList(currentGemsData);
+        dropdown.classList.add('hidden');
+        arrow.classList.remove('rotate-180');
+      });
+    });
+  }
+
+  function updateButtonLabel() {
+    if (!labelEl) return;
+    if (selectedPackKey && currentGemsData[selectedPackKey]) {
+      const p = currentGemsData[selectedPackKey];
+      const sfl1 = Number(p.sfl1 || 0).toFixed(4);
+      labelEl.innerHTML = `<span>💎 ${Number(p.gem).toLocaleString()}:</span> <span class="text-emerald-700 dark:text-emerald-400 font-mono font-bold">${sfl1} 🌸</span>`;
+    } else {
+      labelEl.innerHTML = `<span>💎 Gem Packs (7)</span>`;
+    }
+  }
+
+  // Toggle Dropdown
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const isHidden = dropdown.classList.contains('hidden');
+    if (isHidden) {
+      dropdown.classList.remove('hidden');
+      arrow.classList.add('rotate-180');
+      fetchExchange(false);
+    } else {
+      dropdown.classList.add('hidden');
+      arrow.classList.remove('rotate-180');
+    }
+  };
+
+  // Close when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!wrapper?.contains(e.target)) {
+      dropdown.classList.add('hidden');
+      arrow.classList.remove('rotate-180');
+    }
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      dropdown.classList.add('hidden');
+      arrow.classList.remove('rotate-180');
+    }
+  });
+
+  // Reset button
+  if (resetBtn) {
+    resetBtn.onclick = (e) => {
+      e.stopPropagation();
+      selectedPackKey = '';
+      localStorage.removeItem('sfl_selected_gem_pack');
+      renderList(currentGemsData);
+    };
+  }
+
+  // Refresh button
+  if (refreshBtn) {
+    refreshBtn.onclick = (e) => {
+      e.stopPropagation();
+      fetchExchange(true);
+    };
+  }
+
+  async function fetchExchange(force = false) {
+    if (statusTag) statusTag.textContent = force ? "Refreshing..." : "Updating...";
+    if (refreshBtn) refreshBtn.classList.add('animate-spin');
+    try {
+      const data = await ApiService.getExchangeRates({ force });
+      if (data && data.gems) {
+        renderList(data.gems);
+        if (statusTag) statusTag.textContent = "Live " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+    } catch (err) {
+      console.warn("Could not refresh exchange rates:", err.message);
+      if (statusTag) statusTag.textContent = "Offline (Cached)";
+    } finally {
+      if (refreshBtn) refreshBtn.classList.remove('animate-spin');
+    }
+  }
+
+  renderList(DEFAULT_GEM_PACKS);
+  fetchExchange(false);
 }
 
 export async function handleFarmSync() {
