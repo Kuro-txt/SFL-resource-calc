@@ -234,6 +234,24 @@ export const DEFAULT_GEM_PACKS = {
   "200000": { "gem": 200000, "usd": 1299.99, "sfl1": 0.0404, "sfl": 8075.7822, "pol": 12874.3268 }
 };
 
+export function getSelectedGemPack() {
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem('sfl_selected_gem_pack') || null;
+  }
+  return null;
+}
+
+export function getSelectedGemRate() {
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('sfl_selected_gem_rate');
+    if (saved) {
+      const val = parseFloat(saved);
+      if (!isNaN(val) && val > 0) return val;
+    }
+  }
+  return null;
+}
+
 if (typeof window !== 'undefined') {
   window.BACKEND_URL = BACKEND_URL;
   window.SUPABASE_URL = SUPABASE_URL;
@@ -255,4 +273,6 @@ if (typeof window !== 'undefined') {
   window.DEFAULT_COIN_FLOWER_RATIO = DEFAULT_COIN_FLOWER_RATIO;
   window.getCoinFlowerRatio = getCoinFlowerRatio;
   window.DEFAULT_GEM_PACKS = DEFAULT_GEM_PACKS;
+  window.getSelectedGemPack = getSelectedGemPack;
+  window.getSelectedGemRate = getSelectedGemRate;
 }

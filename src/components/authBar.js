@@ -188,8 +188,54 @@ export function setupGemPacksDropdown() {
 
   if (!btn || !dropdown || !list) return;
 
-  let currentGemsData = DEFAULT_GEM_PACKS;
+  // 1. Restore cached exchange data from localStorage if present
+  let cachedExchange = null;
+  try {
+    const rawCache = localStorage.getItem('sfl_exchange_gems_cache');
+    if (rawCache) cachedExchange = JSON.parse(rawCache);
+  } catch (e) {}
+
+  let currentGemsData = (cachedExchange && typeof cachedExchange === 'object' && Object.keys(cachedExchange).length > 0)
+    ? cachedExchange
+    : DEFAULT_GEM_PACKS;
+
+  // 2. Restore selected pack from localStorage
   let selectedPackKey = localStorage.getItem('sfl_selected_gem_pack') || '';
+
+  function persistSelection(gemKey, packData) {
+    if (gemKey && packData) {
+      selectedPackKey = String(gemKey);
+      try {
+        localStorage.setItem('sfl_selected_gem_pack', selectedPackKey);
+        localStorage.setItem('sfl_selected_gem_rate', String(packData.sfl1 || ''));
+        localStorage.setItem('sfl_selected_gem_total_sfl', String(packData.sfl || ''));
+        localStorage.setItem('sfl_selected_gem_usd', String(packData.usd || ''));
+        localStorage.setItem('sfl_selected_gem_data', JSON.stringify(packData));
+      } catch (e) {}
+      window.selectedGemPack = selectedPackKey;
+      window.selectedGemRate = Number(packData.sfl1 || 0);
+    } else {
+      selectedPackKey = '';
+      try {
+        localStorage.removeItem('sfl_selected_gem_pack');
+        localStorage.removeItem('sfl_selected_gem_rate');
+        localStorage.removeItem('sfl_selected_gem_total_sfl');
+        localStorage.removeItem('sfl_selected_gem_usd');
+        localStorage.removeItem('sfl_selected_gem_data');
+      } catch (e) {}
+      window.selectedGemPack = null;
+      window.selectedGemRate = null;
+    }
+
+    try {
+      window.dispatchEvent(new CustomEvent('gemPackChanged', {
+        detail: {
+          gem: selectedPackKey ? Number(selectedPackKey) : null,
+          pack: packData || null
+        }
+      }));
+    } catch (e) {}
+  }
 
   function renderList(gemsMap) {
     if (!gemsMap || typeof gemsMap !== 'object') return;
@@ -213,6 +259,11 @@ export function setupGemPacksDropdown() {
       return;
     }
 
+    // Keep stored selection rate in sync with latest rates
+    if (selectedPackKey && gemsMap[selectedPackKey]) {
+      persistSelection(selectedPackKey, gemsMap[selectedPackKey]);
+    }
+
     list.innerHTML = packs.map(pack => {
       const isSelected = selectedPackKey && String(pack.gem) === String(selectedPackKey);
       const isBestValue = pack.gem >= 200000;
@@ -233,7 +284,7 @@ export function setupGemPacksDropdown() {
                 <span>${pack.gem.toLocaleString()} Gems</span>
                 <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-normal">($${pack.usd.toFixed(2)})</span>
                 ${isBestValue ? '<span class="text-[9px] bg-amber-500 text-stone-950 font-bold px-1.5 py-0.2 rounded-full uppercase">Best</span>' : ''}
-                ${isSelected ? '<span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">✓</span>' : ''}
+                ${isSelected ? '<span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">✓ Selected</span>' : ''}
               </div>
               <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono">
                 Total: <strong class="text-amber-950 dark:text-amber-300 font-semibold">${pack.sfl.toFixed(2)} 🌸</strong>
@@ -261,11 +312,11 @@ export function setupGemPacksDropdown() {
       el.addEventListener('click', () => {
         const gemVal = el.getAttribute('data-gem');
         if (selectedPackKey === gemVal) {
-          selectedPackKey = '';
-          localStorage.removeItem('sfl_selected_gem_pack');
+          // Deselect
+          persistSelection('', null);
         } else {
-          selectedPackKey = gemVal;
-          localStorage.setItem('sfl_selected_gem_pack', gemVal);
+          const packData = currentGemsData[gemVal];
+          persistSelection(gemVal, packData);
         }
         renderList(currentGemsData);
         dropdown.classList.add('hidden');
@@ -315,17 +366,16 @@ export function setupGemPacksDropdown() {
     }
   });
 
-  // Reset button
+  // Reset button: clears selection from localStorage
   if (resetBtn) {
     resetBtn.onclick = (e) => {
       e.stopPropagation();
-      selectedPackKey = '';
-      localStorage.removeItem('sfl_selected_gem_pack');
+      persistSelection('', null);
       renderList(currentGemsData);
     };
   }
 
-  // Refresh button
+  // Refresh button: fetches fresh live rates
   if (refreshBtn) {
     refreshBtn.onclick = (e) => {
       e.stopPropagation();
@@ -339,6 +389,10 @@ export function setupGemPacksDropdown() {
     try {
       const data = await ApiService.getExchangeRates({ force });
       if (data && data.gems) {
+        // Cache in localStorage for immediate load next time
+        try {
+          localStorage.setItem('sfl_exchange_gems_cache', JSON.stringify(data.gems));
+        } catch (e) {}
         renderList(data.gems);
         if (statusTag) statusTag.textContent = "Live " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       }
@@ -350,7 +404,9 @@ export function setupGemPacksDropdown() {
     }
   }
 
-  renderList(DEFAULT_GEM_PACKS);
+  // Initial render from local cache or defaults
+  renderList(currentGemsData);
+  // Fetch live exchange data in background
   fetchExchange(false);
 }
 
