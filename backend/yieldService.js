@@ -17,17 +17,82 @@ function formatOfficialItemName(cleanKey) {
   return cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
 }
 
+const fs = require('fs');
+const path = require('path');
+const LOCAL_PRICE_CACHE_PATH = path.join(__dirname, 'lastMarketPrices.json');
+
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const SFL_WORLD_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
-  'Referer': 'https://sfl.world/',
-  'Origin': 'https://sfl.world',
-  'Sec-Fetch-Dest': 'empty',
-  'Sec-Fetch-Mode': 'cors',
-  'Sec-Fetch-Site': 'same-origin'
+  'Referer': 'https://sfl.world/'
 };
+
+let cachedMarketPrices = null;
+
+function loadLocalPriceCache() {
+  try {
+    if (fs.existsSync(LOCAL_PRICE_CACHE_PATH)) {
+      const raw = fs.readFileSync(LOCAL_PRICE_CACHE_PATH, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    // non-fatal
+  }
+  return null;
+}
+
+function saveLocalPriceCache(data) {
+  try {
+    fs.writeFileSync(LOCAL_PRICE_CACHE_PATH, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    // non-fatal
+  }
+}
+
+cachedMarketPrices = loadLocalPriceCache();
+
+async function fetchMarketPricesWithRetry(maxRetries = 3, timeoutMs = 20000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const priceRes = await axios.get('https://sfl.world/api/v1/prices', {
+        headers: SFL_WORLD_HEADERS,
+        timeout: timeoutMs
+      });
+      let rawData = priceRes.data;
+      if (typeof rawData === 'string') {
+        if (rawData.includes('<!DOCTYPE html>') || rawData.includes('Cloudflare')) {
+          throw new Error('Cloudflare challenge page returned');
+        }
+        rawData = JSON.parse(rawData);
+      }
+      const extracted = extractPrices(rawData || {});
+      if (extracted && Object.keys(extracted).length > 0) {
+        cachedMarketPrices = extracted;
+        saveLocalPriceCache(extracted);
+        return extracted;
+      }
+      console.warn(`⚠️ [Market Prices] Empty price payload received on attempt ${attempt}/${maxRetries}`);
+    } catch (err) {
+      console.warn(`⚠️ [Market Prices] Attempt ${attempt}/${maxRetries} failed: ${err.message}${err.response ? ` (status ${err.response.status})` : ''}`);
+      if (attempt < maxRetries) {
+        await delay(2000 * attempt);
+      }
+    }
+  }
+
+  if (cachedMarketPrices && Object.keys(cachedMarketPrices).length > 0) {
+    console.warn("⚠️ [Market Prices] All fetch attempts failed. Using cached market prices as fallback.");
+    return cachedMarketPrices;
+  }
+
+  console.warn("⚠️ [Market Prices] All fetch attempts failed and no cached prices available. Defaulting to shop prices.");
+  return {};
+}
 const SFL_PLOT_CROPS = new Set([
   'sunflower', 'potato', 'pumpkin', 'carrot', 'cabbage',
   'beetroot', 'cauliflower', 'parsnip', 'eggplant', 'corn',
@@ -85,13 +150,7 @@ async function processYieldCalculation(supabase) {
     return { success: false, error: error?.message || 'No user profiles found' };
   }
 
-  let flatPrices = {};
-  try {
-    const priceRes = await axios.get('https://sfl.world/api/v1/prices', { headers: SFL_WORLD_HEADERS, timeout: 10000 });
-    flatPrices = extractPrices(priceRes.data || {});
-  } catch (e) {
-    console.warn("⚠️ Price API fetch failed, defaulting to shop prices.");
-  }
+  const flatPrices = await fetchMarketPricesWithRetry(3, 20000);
 
   function getFlowerUnitPrice(cleanKey) {
     let matchedKey = Object.keys(flatPrices).find(k => {
@@ -810,7 +869,7 @@ async function aggregateCompletedWeeks(supabase, forceAll = false) {
 
       if (fl <= 0) {
         const cleanKey = name.replace(/\[.*?\]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-        const unitPrice = getFlowerUnitPrice(cleanKey);
+        const unitPrice = getFlowerUnitPrice(cleanKey, cachedMarketPrices || {});
         fl = Math.round((unitPrice * qty * 0.9) * 1000) / 1000;
       }
 
@@ -944,7 +1003,7 @@ async function recalculateWeekForUser(supabase, userId, dateStr) {
 
       if (fl <= 0) {
         const cleanKey = name.replace(/\[.*?\]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-        const unitPrice = getFlowerUnitPrice(cleanKey);
+        const unitPrice = getFlowerUnitPrice(cleanKey, cachedMarketPrices || {});
         fl = Math.round((unitPrice * qty * 0.9) * 1000) / 1000;
       }
 
@@ -983,6 +1042,7 @@ async function recalculateWeekForUser(supabase, userId, dateStr) {
 
 module.exports = {
   processYieldCalculation,
+  fetchMarketPricesWithRetry,
   backfillDailyYields,
   repairMissingBaselines,
   getWeekRangeUTC,

@@ -40,11 +40,7 @@ const SFL_WORLD_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
-  'Referer': 'https://sfl.world/',
-  'Origin': 'https://sfl.world',
-  'Sec-Fetch-Dest': 'empty',
-  'Sec-Fetch-Mode': 'cors',
-  'Sec-Fetch-Site': 'same-origin'
+  'Referer': 'https://sfl.world/'
 };
 
 // ── Middleware ─────────────────────────────────────────────────────────────
@@ -118,7 +114,7 @@ app.get('/api/get-data', async (req, res) => {
   }
   try {
     const response = await axios.get('https://sfl.world/api/v1/prices', {
-      headers: SFL_WORLD_HEADERS, timeout: 10000
+      headers: SFL_WORLD_HEADERS, timeout: 20000
     });
     setServerCache(cacheKey, response.data);
     res.setHeader('Cache-Control', 'public, max-age=60');
@@ -147,7 +143,7 @@ app.get('/api/get-exchange', async (req, res) => {
   }
   try {
     const response = await axios.get('https://sfl.world/api/v1.1/exchange', {
-      headers: SFL_WORLD_HEADERS, timeout: 10000
+      headers: SFL_WORLD_HEADERS, timeout: 20000
     });
     setServerCache(cacheKey, response.data);
     res.setHeader('Cache-Control', 'public, max-age=60');
@@ -216,7 +212,7 @@ app.get('/api/get-land', async (req, res) => {
   try {
     const response = await axios.get(
       `https://sfl.world/api/v1/land/${encodeURIComponent(cleanFarmId)}`,
-      { headers: SFL_WORLD_HEADERS, timeout: 10000 }
+      { headers: SFL_WORLD_HEADERS, timeout: 20000 }
     );
     const result = { success: true, land: response.data };
     setServerCache(cacheKey, result);
@@ -293,7 +289,7 @@ app.get('/api/nfts', async (req, res) => {
 
   try {
     const response = await axios.get('https://sfl.world/api/v1/nfts', {
-      headers: SFL_WORLD_HEADERS, timeout: 12000
+      headers: SFL_WORLD_HEADERS, timeout: 20000
     });
     let rawData = response.data;
     if (typeof rawData === 'string') {
