@@ -223,6 +223,12 @@ async function processYieldCalculation(supabase) {
     const endCoinsSpent = parseFloat(currActivity['Coins Spent'] || 0);
     const dailyCoinsSpent = Math.max(0, Math.round((endCoinsSpent - startCoinsSpent) * 100) / 100);
 
+    // ── Gems tracking at 22:00 UTC (comparing 22:00 UTC with 00:00 UTC baseline) ──
+    const baselineGems = parseFloat(baselineStock['Gem'] || baselineStock['gem'] || baselineStock['Gems'] || baselineStock['gems'] || 0);
+    const currentGems = parseFloat(currentData.inventory?.Gem || currentData.inventory?.gem || currentData.inventory?.Gems || currentData.inventory?.gems || 0);
+    const netGemsDiff = Math.round((currentGems - baselineGems) * 10) / 10;
+    const dailyGemsSpent = netGemsDiff < 0 ? Math.abs(netGemsDiff) : 0;
+
     let yieldsList = [];
     let spentList = [];
     let totalHarvestCount = 0;
@@ -361,6 +367,30 @@ async function processYieldCalculation(supabase) {
       }
     }
 
+    // Include gems summary in cropActivityYields
+    if (dailyGemsSpent > 0 || Math.abs(netGemsDiff) > 0) {
+      cropActivityYields.push({
+        type: 'gems',
+        crop: 'Gems',
+        startGems: baselineGems,
+        endGems: currentGems,
+        netGems: netGemsDiff,
+        gemsSpent: dailyGemsSpent
+      });
+
+      // If negative difference (gems decreased), record in spentList as a spent resource
+      if (dailyGemsSpent > 0) {
+        const gemFlowerVal = Math.ceil((dailyGemsSpent * 0.06408) * 1000) / 1000;
+        spentList.push({
+          name: 'Gems',
+          qty: dailyGemsSpent,
+          flowers: gemFlowerVal
+        });
+        totalSpentCount += dailyGemsSpent;
+        totalSpentFlowers += gemFlowerVal;
+      }
+    }
+
     // Deterministically sort yields and spent items by flower value descending
     yieldsList.sort((a, b) => (b.flowers || 0) - (a.flowers || 0));
     spentList.sort((a, b) => (b.flowers || 0) - (a.flowers || 0));
@@ -375,8 +405,8 @@ async function processYieldCalculation(supabase) {
       });
     }
 
-    if (totalHarvestCount <= 0 && yieldsList.length === 0 && spentList.length === 0 && cropActivityYields.length === 0 && Math.abs(netCoinsDiff) <= 0 && dailyCoinsEarned <= 0 && dailyCoinsSpent <= 0) {
-      console.log(`ℹ️ [Yield Calculation] No harvest/trade/spent/coin activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
+    if (totalHarvestCount <= 0 && yieldsList.length === 0 && spentList.length === 0 && cropActivityYields.length === 0 && Math.abs(netCoinsDiff) <= 0 && dailyCoinsEarned <= 0 && dailyCoinsSpent <= 0 && Math.abs(netGemsDiff) <= 0 && dailyGemsSpent <= 0) {
+      console.log(`ℹ️ [Yield Calculation] No harvest/trade/spent/coin/gem activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
       await delay(10000);
       continue;
     }

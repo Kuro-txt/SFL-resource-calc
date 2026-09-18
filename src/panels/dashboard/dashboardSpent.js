@@ -27,6 +27,29 @@ export function getGemFlowerPrice() {
   return baseRate * (isDiscount ? 0.8 : 1.0);
 }
 
+export function getNextDateStr(dateStr) {
+  try {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().split('T')[0];
+  } catch {
+    return dateStr;
+  }
+}
+
+export function getDateRangeList(minStr, maxStr) {
+  const list = [];
+  if (!minStr) return list;
+  if (!maxStr || minStr === maxStr) return [minStr];
+  let curr = new Date(minStr + 'T00:00:00Z');
+  const end = new Date(maxStr + 'T00:00:00Z');
+  while (curr <= end) {
+    list.push(curr.toISOString().split('T')[0]);
+    curr.setUTCDate(curr.getUTCDate() + 1);
+  }
+  return list;
+}
+
 export function getGemCount(stock) {
   if (!stock || typeof stock !== 'object') return 0;
   if (stock.Gem !== undefined) return parseFloat(stock.Gem) || 0;
@@ -246,50 +269,110 @@ export async function loadSpentData(boundsInput = 'week') {
     });
   }
 
-  let inventoryGemsSpent = 0;
-  const grossDrops = {};
+  // ── 2. Day-by-day 22:00 UTC vs 00:00 UTC Gems Difference Calculation ──
+  // Per user rule: Compare 22:00 UTC gems with 00:00 UTC baseline gems; if difference is negative, show in spend for gems.
+  const targetDates = getDateRangeList(minDateStr, maxDateStr);
+  const baselineMap = new Map();
+  chronological.forEach(b => {
+    if (b.snapshot_date) baselineMap.set(b.snapshot_date, b);
+  });
 
-  if (allSnapshots.length >= 2) {
+  const snapshotMap = new Map();
+  history.forEach(h => {
+    const d = h.date || h.yield_date;
+    if (d) snapshotMap.set(d, h);
+  });
+
+  let gemsSpentFromDiffs = 0;
+  let activeDayMeta = null;
+
+  for (const dateStr of targetDates) {
+    const isToday = (dateStr === todayUtcStr);
+    const snap = snapshotMap.get(dateStr);
+    const snapActs = Array.isArray(snap?.cropActivityYields) ? snap.cropActivityYields
+      : (Array.isArray(snap?.crop_activity_yields) ? snap.crop_activity_yields : []);
+    const snapGems = snapActs.find(a => a && a.type === 'gems') || snap?.gems;
+
+    // 1. Get 00:00 UTC Baseline Gems
+    let startGems = null;
+    if (snapGems && snapGems.startGems !== undefined) {
+      startGems = parseFloat(snapGems.startGems);
+    } else if (baselineMap.has(dateStr)) {
+      startGems = getGemCount(baselineMap.get(dateStr).stock);
+    } else {
+      const prior = chronological.filter(b => b.snapshot_date <= dateStr);
+      if (prior.length > 0) {
+        startGems = getGemCount(prior[prior.length - 1].stock);
+      }
+    }
+
+    // 2. Get 22:00 UTC (or Live) Gems
+    let endGems = null;
+    if (isToday) {
+      if (liveStock) {
+        endGems = getGemCount(liveStock);
+      } else if (snapGems && snapGems.endGems !== undefined) {
+        endGems = parseFloat(snapGems.endGems);
+      }
+    } else {
+      if (snapGems && snapGems.endGems !== undefined) {
+        endGems = parseFloat(snapGems.endGems);
+      } else {
+        const nextDayStr = getNextDateStr(dateStr);
+        if (baselineMap.has(nextDayStr)) {
+          endGems = getGemCount(baselineMap.get(nextDayStr).stock);
+        } else {
+          const later = chronological.filter(b => b.snapshot_date > dateStr);
+          if (later.length > 0) {
+            endGems = getGemCount(later[0].stock);
+          }
+        }
+      }
+    }
+
+    // 3. Compute Difference: 22 UTC minus 0 UTC
+    if (startGems !== null && endGems !== null) {
+      const diff = Math.round((endGems - startGems) * 10) / 10;
+      // If difference is negative, show in spend for gems
+      if (diff < 0) {
+        const daySpent = Math.abs(diff);
+        gemsSpentFromDiffs += daySpent;
+        activeDayMeta = { date: dateStr, startGems, endGems, diff, isToday };
+      }
+    }
+  }
+
+  // Consolidate gems spent
+  if (gemsSpentFromDiffs > 0) {
+    totalGemsSpent = Math.max(totalGemsSpent, gemsSpentFromDiffs);
+  }
+
+  // Fallback resources calculation for crops/items if no saved spent
+  const grossDrops = {};
+  if (!hasSavedSpent && allSnapshots.length >= 2) {
     for (let i = 1; i < allSnapshots.length; i++) {
       const prevSnap = allSnapshots[i - 1];
       const currSnap = allSnapshots[i];
       const stepDate = currSnap.isLive ? todayUtcStr : (prevSnap.snapshot_date || '');
 
-      // Check if this step's date falls within the selected date range
       const inRange = (!minDateStr || stepDate >= minDateStr) && (!maxDateStr || stepDate <= maxDateStr);
       if (!inRange) continue;
 
-      // Calculate Gem Drop: Only positive drops = spent! If negative (gained) or zero, show none.
-      const prevGems = getGemCount(prevSnap.stock);
-      const currGems = getGemCount(currSnap.stock);
-      const gemDrop = prevGems - currGems;
-      if (gemDrop > 0) {
-        inventoryGemsSpent += gemDrop;
-      }
+      const prev = prevSnap.stock || {};
+      const curr = currSnap.stock || {};
+      const allItems = new Set([...Object.keys(prev), ...Object.keys(curr)]);
+      allItems.forEach(item => {
+        const clean = normalizeItemKey(item);
+        if (IGNORE_ITEMS.has(clean) || !isAllowedDifferenceItem(clean)) return;
 
-      // If no saved spent records for crops, also track resource drops
-      if (!hasSavedSpent) {
-        const prev = prevSnap.stock || {};
-        const curr = currSnap.stock || {};
-        const allItems = new Set([...Object.keys(prev), ...Object.keys(curr)]);
-        allItems.forEach(item => {
-          const clean = normalizeItemKey(item);
-          if (IGNORE_ITEMS.has(clean) || !isAllowedDifferenceItem(clean)) return;
-
-          const prevQty = parseFloat(prev[item]) || 0;
-          const currQty = parseFloat(curr[item]) || 0;
-          const drop = prevQty - currQty;
-          if (drop > 0) {
-            grossDrops[clean] = (grossDrops[clean] || 0) + drop;
-          }
-        });
-      }
+        const prevQty = parseFloat(prev[item]) || 0;
+        const currQty = parseFloat(curr[item]) || 0;
+        const drop = prevQty - currQty;
+        if (drop > 0) {
+          grossDrops[clean] = (grossDrops[clean] || 0) + drop;
+        }
+      });
     }
-  }
-
-  // Consolidate gems spent from inventory (prioritizing inventory baseline diffs)
-  if (inventoryGemsSpent > 0) {
-    totalGemsSpent = Math.max(totalGemsSpent, inventoryGemsSpent);
   }
 
   // Fallback resources calculation if no saved spent
@@ -331,15 +414,17 @@ export async function loadSpentData(boundsInput = 'week') {
     result['Gems'] = {
       qty: Math.ceil(totalGemsSpent * 10) / 10,
       flowers: gemSpentFlowers,
-      unitPrice: gemPrice
+      unitPrice: gemPrice,
+      dayMeta: activeDayMeta
     };
   }
 
   return Object.entries(result)
-    .map(([name, { qty, flowers }]) => ({
+    .map(([name, item]) => ({
+      ...item,
       name,
-      qty: Math.ceil(qty * 10) / 10,
-      flowers: parseFloat(flowers.toFixed(3))
+      qty: Math.ceil(item.qty * 10) / 10,
+      flowers: parseFloat(item.flowers.toFixed(3))
     }))
     .sort((a, b) => b.flowers - a.flowers);
 }
@@ -471,6 +556,13 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
     const discountBadge = isDiscount ? '<span class="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold ml-1 bg-emerald-100/80 dark:bg-emerald-950/50 px-1 py-0.5 rounded border border-emerald-300/60 dark:border-emerald-700/60">-20%</span>' : '';
     const marginClass = inGrid ? '' : 'mb-2.5';
 
+    let diffSubtitle = `1💎 = ${gemPrice.toFixed(4)}🌸 • ${packLabel}`;
+    if (gemsData.dayMeta && gemsData.dayMeta.startGems !== null && gemsData.dayMeta.endGems !== null) {
+      const { startGems, endGems, diff, isToday } = gemsData.dayMeta;
+      const endLabel = isToday ? 'Live' : '22 UTC';
+      diffSubtitle = `0 UTC: ${Math.round(startGems).toLocaleString()} ➔ ${endLabel}: ${Math.round(endGems).toLocaleString()} (${diff} 💎) • ${packLabel}`;
+    }
+
     return `
       <div class="bg-gradient-to-r from-sky-500/15 via-blue-500/20 to-cyan-500/15 dark:from-sky-950/50 dark:to-cyan-950/40 border border-sky-500/40 dark:border-sky-600/50 p-2.5 rounded-xl flex items-center justify-between shadow-2xs ${marginClass}">
         <div class="flex items-center gap-2">
@@ -487,7 +579,7 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
           <span class="font-mono text-xs font-bold text-sky-700 dark:text-sky-300 bg-sky-100/90 dark:bg-sky-950/80 border border-sky-300 dark:border-sky-800 px-2 py-0.5 rounded-lg shadow-2xs">
             -${gemsData.flowers.toFixed(3)} 🌸
           </span>
-          <p class="text-[9px] text-sfl-woodLight font-mono mt-0.5">1💎 = ${gemPrice.toFixed(4)}🌸 • ${packLabel}</p>
+          <p class="text-[9px] text-sfl-woodLight font-mono mt-0.5">${diffSubtitle}</p>
         </div>
       </div>`;
   }
