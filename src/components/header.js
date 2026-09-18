@@ -64,81 +64,29 @@ export function renderHeader() {
           <p class="text-xs font-semibold text-sfl-woodLight dark:text-slate-400">Live SFL market prices, NFT wishlist & automated crop tracker</p>
         </div>
 
-        <div class="sm:self-start flex items-end gap-2.5 pt-1 sm:pt-0">
+        <div class="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2.5 pt-1 sm:pt-0 sm:self-start">
           <!-- THEME TOGGLE BUTTON -->
           <button id="theme-toggle-btn" class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 border-2 border-amber-300 dark:border-slate-600 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer">
             <span>${isDark ? '☀️' : '🌙'}</span>
             <span>${isDark ? 'Light' : 'Dark'}</span>
           </button>
 
-          <!-- DONATE WIDGET: CAT & SPEECH BUBBLE PERCHED DIRECTLY ABOVE DONATE BUTTON -->
-          <div class="relative flex flex-col items-center group/cat cursor-pointer select-none -mt-4 sm:-mt-5" id="donate-cat-trigger" title="Click to feed me! (copies donation address)">
-            <!-- Speech Bubble above cat with downward pointer -->
-            <div class="relative mb-0.5 bg-amber-200/95 dark:bg-slate-800 text-amber-950 dark:text-amber-300 border border-amber-400/90 dark:border-slate-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-2xs whitespace-nowrap flex items-center gap-0.5 transition-transform group-hover/cat:scale-105">
-              <span id="donate-bubble-text">Feed me 🐟</span>
-              <!-- Downward pointer triangle -->
-              <span class="absolute -bottom-1 left-1/2 -translate-x-1/2 border-x-3 border-x-transparent border-t-3 border-t-amber-400/90 dark:border-t-slate-600"></span>
-            </div>
-
-            <!-- Mini Sitting Black Cat perched directly on top of Donate button -->
-            <div class="-mb-1.5 z-10 transition-transform duration-200 group-hover/cat:-translate-y-1">
-              <svg class="w-6 h-6 inline-block drop-shadow-xs" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- Curled Tail -->
-                <path d="M6,22 C3,20 2,16 4,14 C5,13 6.5,14 6,15 C5,17 5.5,19 8,21 Z" fill="#18181b" stroke="#27272a" stroke-width="0.8" />
-                <!-- Body -->
-                <ellipse cx="14" cy="19" rx="6.5" ry="6" fill="#18181b" stroke="#27272a" stroke-width="0.8" />
-                <!-- Front Paws with Pink Toe Beans -->
-                <ellipse cx="11.5" cy="24" rx="2" ry="1.5" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
-                <ellipse cx="16.5" cy="24" rx="2" ry="1.5" fill="#18181b" stroke="#3f3f46" stroke-width="0.8" />
-                <circle cx="11.5" cy="24.2" r="0.8" fill="#f472b6" />
-                <circle cx="16.5" cy="24.2" r="0.8" fill="#f472b6" />
-                <!-- Left Ear -->
-                <polygon points="7,10 4,2 11,6" fill="#18181b" />
-                <polygon points="7,9 5,4 10,7" fill="#f472b6" />
-                <!-- Right Ear -->
-                <polygon points="21,10 24,2 17,6" fill="#18181b" />
-                <polygon points="21,9 23,4 18,7" fill="#f472b6" />
-                <!-- Head -->
-                <circle cx="14" cy="11" r="6.5" fill="#18181b" stroke="#27272a" stroke-width="0.8" />
-                <!-- Eyes (Glowing Amber) -->
-                <ellipse cx="11" cy="10.5" rx="1.8" ry="2.2" fill="#f59e0b" />
-                <ellipse cx="17" cy="10.5" rx="1.8" ry="2.2" fill="#f59e0b" />
-                <ellipse cx="11" cy="10.5" rx="0.9" ry="1.8" fill="#09090b" />
-                <ellipse cx="17" cy="10.5" rx="0.9" ry="1.8" fill="#09090b" />
-                <circle cx="10.5" cy="9.8" r="0.7" fill="#ffffff" />
-                <circle cx="16.5" cy="9.8" r="0.7" fill="#ffffff" />
-                <!-- Nose -->
-                <polygon points="14,13 13,12.2 15,12.2" fill="#f472b6" />
-                <!-- Whiskers -->
-                <line x1="9" y1="12.5" x2="4" y2="12" stroke="#ffffff" stroke-width="0.8" stroke-linecap="round" opacity="0.9" />
-                <line x1="9" y1="14" x2="4.5" y2="14.8" stroke="#ffffff" stroke-width="0.8" stroke-linecap="round" opacity="0.9" />
-                <line x1="19" y1="12.5" x2="24" y2="12" stroke="#ffffff" stroke-width="0.8" stroke-linecap="round" opacity="0.9" />
-                <line x1="19" y1="14" x2="23.5" y2="14.8" stroke="#ffffff" stroke-width="0.8" stroke-linecap="round" opacity="0.9" />
-              </svg>
-            </div>
-
-            <!-- Donate Button directly below cat -->
-            <button id="donate-btn" class="relative z-0 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold px-2.5 py-1 rounded-xl text-xs border-2 border-amber-600 shadow-xs transition cursor-pointer whitespace-nowrap">
-              Donate
-            </button>
-          </div>
+          <!-- DONATE BUTTON -->
+          <button id="donate-btn" class="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold px-3 py-1.5 rounded-xl text-xs border-2 border-amber-600 shadow-xs transition cursor-pointer whitespace-nowrap" title="Copy donation address (Polygon POL)">
+            Donate
+          </button>
         </div>
       </div>
 
       <!-- COMPACT COLLAPSIBLE GUIDE BOX AT THE TOP OF PAGE -->
       <details class="group/guide bg-amber-50/90 dark:bg-slate-900/80 border-2 border-amber-300/80 dark:border-slate-700/80 rounded-2xl p-2.5 sm:p-3 text-xs text-sfl-wood dark:text-slate-200 shadow-sm transition-all">
-        <summary class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 cursor-pointer list-none select-none font-bold text-xs sm:text-sm text-sfl-wood dark:text-amber-300">
+        <summary class="flex items-center justify-between cursor-pointer list-none select-none font-bold text-xs sm:text-sm text-sfl-wood dark:text-amber-300">
           <div class="flex items-center gap-1.5">
             <span>📖</span>
             <span>How to Use Sun-Flux</span>
             <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-normal ml-1 group-open/guide:hidden">(click to expand)</span>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="bg-amber-200/90 dark:bg-slate-800 text-amber-900 dark:text-amber-300 border border-amber-400 dark:border-slate-600 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
-              <span>🖥️</span> Tip: Desktop Mode recommended on mobile
-            </span>
-            <span class="text-xs transition-transform duration-200 group-open/guide:rotate-180">▼</span>
-          </div>
+          <span class="text-xs transition-transform duration-200 group-open/guide:rotate-180">▼</span>
         </summary>
 
         <div class="mt-2.5 pt-2.5 border-t border-amber-200/80 dark:border-slate-700/80 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[11px] font-medium text-sfl-woodLight dark:text-slate-400">

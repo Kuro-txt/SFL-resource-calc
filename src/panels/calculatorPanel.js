@@ -80,25 +80,18 @@ function bindCalculatorEvents() {
   const handleDonation = async () => {
     const donationAddress = "0xE32d234D63998F5078de9A7E2303233699276642";
     const donateBtn = document.getElementById('donate-btn');
-    const bubbleText = document.getElementById('donate-bubble-text');
 
     try {
       await navigator.clipboard.writeText(donationAddress);
       if (donateBtn) {
-        donateBtn.textContent = "Copied!";
+        donateBtn.textContent = "Copied! ❤️";
         donateBtn.classList.add('bg-emerald-500', 'text-white', 'border-emerald-600');
-      }
-      if (bubbleText) {
-        bubbleText.textContent = "Nom nom! ❤️";
       }
 
       setTimeout(() => {
         if (donateBtn) {
           donateBtn.textContent = "Donate";
           donateBtn.classList.remove('bg-emerald-500', 'text-white', 'border-emerald-600');
-        }
-        if (bubbleText) {
-          bubbleText.textContent = "Feed me 🐟";
         }
       }, 2500);
     } catch (err) {
@@ -109,12 +102,6 @@ function bindCalculatorEvents() {
   document.getElementById('donate-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
     handleDonation();
-  });
-
-  document.getElementById('donate-cat-trigger')?.addEventListener('click', (e) => {
-    if (e.target.id !== 'donate-btn') {
-      handleDonation();
-    }
   });
 }
 
