@@ -252,6 +252,14 @@ export function getSelectedGemRate() {
   return null;
 }
 
+export function isGemDiscountActive() {
+  if (typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('sfl_gem_discount_active');
+    return saved === null ? true : saved === 'true';
+  }
+  return true;
+}
+
 if (typeof window !== 'undefined') {
   window.BACKEND_URL = BACKEND_URL;
   window.SUPABASE_URL = SUPABASE_URL;
@@ -275,4 +283,5 @@ if (typeof window !== 'undefined') {
   window.DEFAULT_GEM_PACKS = DEFAULT_GEM_PACKS;
   window.getSelectedGemPack = getSelectedGemPack;
   window.getSelectedGemRate = getSelectedGemRate;
+  window.isGemDiscountActive = isGemDiscountActive;
 }

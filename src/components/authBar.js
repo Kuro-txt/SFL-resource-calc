@@ -94,6 +94,24 @@ export function renderAuthBar() {
                   </div>
                 </div>
 
+                <!-- 20% Discount Option Banner & Toggle -->
+                <div class="flex items-center justify-between p-2 rounded-xl bg-gradient-to-r from-amber-100/90 to-amber-50/70 dark:from-amber-950/60 dark:to-slate-800/70 border border-amber-300/90 dark:border-amber-700/60 shadow-2xs">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm">🏷️</span>
+                    <div>
+                      <div class="font-bold text-xs text-amber-950 dark:text-amber-200 flex items-center gap-1.5">
+                        <span>20% Gem Discount</span>
+                        <span class="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.2 rounded-full uppercase">-20%</span>
+                      </div>
+                      <div class="text-[10px] text-sfl-woodLight dark:text-slate-400">Save 20% on total & per-gem rate</div>
+                    </div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" id="gem-discount-toggle" class="sr-only peer" checked>
+                    <div class="w-8 h-4.5 bg-stone-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
+
                 <div id="gem-packs-list" class="space-y-1.5">
                   <!-- Dynamically rendered 7 packs -->
                 </div>
@@ -185,6 +203,7 @@ export function setupGemPacksDropdown() {
   const labelEl = document.getElementById('gem-packs-btn-label');
   const statusTag = document.getElementById('gem-packs-status-tag');
   const badge = document.getElementById('gem-packs-badge');
+  const discountToggle = document.getElementById('gem-discount-toggle');
 
   if (!btn || !dropdown || !list) return;
 
@@ -199,21 +218,53 @@ export function setupGemPacksDropdown() {
     ? cachedExchange
     : DEFAULT_GEM_PACKS;
 
-  // 2. Restore selected pack from localStorage
+  // 2. Restore 20% discount setting from localStorage (defaults to true)
+  const savedDiscount = localStorage.getItem('sfl_gem_discount_active');
+  let isDiscountActive = savedDiscount === null ? true : (savedDiscount === 'true');
+  if (discountToggle) {
+    discountToggle.checked = isDiscountActive;
+    discountToggle.onchange = (e) => {
+      isDiscountActive = e.target.checked;
+      try {
+        localStorage.setItem('sfl_gem_discount_active', String(isDiscountActive));
+      } catch (err) {}
+      if (selectedPackKey && currentGemsData[selectedPackKey]) {
+        persistSelection(selectedPackKey, currentGemsData[selectedPackKey]);
+      }
+      renderList(currentGemsData);
+    };
+  }
+
+  // 3. Restore selected pack from localStorage
   let selectedPackKey = localStorage.getItem('sfl_selected_gem_pack') || '';
 
   function persistSelection(gemKey, packData) {
     if (gemKey && packData) {
       selectedPackKey = String(gemKey);
+      const discountMultiplier = isDiscountActive ? 0.8 : 1.0;
+      const rate = Number(packData.sfl1 || 0) * discountMultiplier;
+      const totalSfl = Number(packData.sfl || 0) * discountMultiplier;
+      const usd = Number(packData.usd || 0) * discountMultiplier;
+
       try {
         localStorage.setItem('sfl_selected_gem_pack', selectedPackKey);
-        localStorage.setItem('sfl_selected_gem_rate', String(packData.sfl1 || ''));
-        localStorage.setItem('sfl_selected_gem_total_sfl', String(packData.sfl || ''));
-        localStorage.setItem('sfl_selected_gem_usd', String(packData.usd || ''));
-        localStorage.setItem('sfl_selected_gem_data', JSON.stringify(packData));
+        localStorage.setItem('sfl_selected_gem_rate', String(rate));
+        localStorage.setItem('sfl_selected_gem_total_sfl', String(totalSfl));
+        localStorage.setItem('sfl_selected_gem_usd', String(usd));
+        localStorage.setItem('sfl_selected_gem_discount_active', String(isDiscountActive));
+        localStorage.setItem('sfl_selected_gem_discount_pct', isDiscountActive ? '20' : '0');
+        localStorage.setItem('sfl_selected_gem_base_rate', String(packData.sfl1 || ''));
+        localStorage.setItem('sfl_selected_gem_data', JSON.stringify({
+          ...packData,
+          discountActive: isDiscountActive,
+          discountPct: 20,
+          effectiveRate: rate,
+          effectiveTotalSfl: totalSfl,
+          effectiveUsd: usd
+        }));
       } catch (e) {}
       window.selectedGemPack = selectedPackKey;
-      window.selectedGemRate = Number(packData.sfl1 || 0);
+      window.selectedGemRate = rate;
     } else {
       selectedPackKey = '';
       try {
@@ -221,6 +272,9 @@ export function setupGemPacksDropdown() {
         localStorage.removeItem('sfl_selected_gem_rate');
         localStorage.removeItem('sfl_selected_gem_total_sfl');
         localStorage.removeItem('sfl_selected_gem_usd');
+        localStorage.removeItem('sfl_selected_gem_discount_active');
+        localStorage.removeItem('sfl_selected_gem_discount_pct');
+        localStorage.removeItem('sfl_selected_gem_base_rate');
         localStorage.removeItem('sfl_selected_gem_data');
       } catch (e) {}
       window.selectedGemPack = null;
@@ -231,6 +285,8 @@ export function setupGemPacksDropdown() {
       window.dispatchEvent(new CustomEvent('gemPackChanged', {
         detail: {
           gem: selectedPackKey ? Number(selectedPackKey) : null,
+          rate: window.selectedGemRate,
+          discountActive: isDiscountActive,
           pack: packData || null
         }
       }));
@@ -252,14 +308,14 @@ export function setupGemPacksDropdown() {
       .filter(p => p.gem > 0)
       .sort((a, b) => a.gem - b.gem);
 
-    if (badge) badge.textContent = `${packs.length} packs`;
+    if (badge) badge.textContent = `${packs.length} packs${isDiscountActive ? ' (-20%)' : ''}`;
 
     if (packs.length === 0) {
       list.innerHTML = `<div class="text-center py-3 text-sfl-woodLight dark:text-slate-400">No gem packs available.</div>`;
       return;
     }
 
-    // Keep stored selection rate in sync with latest rates
+    // Keep stored selection rate in sync with latest rates and discount
     if (selectedPackKey && gemsMap[selectedPackKey]) {
       persistSelection(selectedPackKey, gemsMap[selectedPackKey]);
     }
@@ -267,6 +323,10 @@ export function setupGemPacksDropdown() {
     list.innerHTML = packs.map(pack => {
       const isSelected = selectedPackKey && String(pack.gem) === String(selectedPackKey);
       const isBestValue = pack.gem >= 200000;
+      const sfl1Val = isDiscountActive ? (pack.sfl1 * 0.8) : pack.sfl1;
+      const sflVal = isDiscountActive ? (pack.sfl * 0.8) : pack.sfl;
+      const usdVal = isDiscountActive ? (pack.usd * 0.8) : pack.usd;
+
       return `
         <div class="gem-pack-item flex items-center justify-between p-2 rounded-xl border transition cursor-pointer select-none ${
           isSelected
@@ -282,25 +342,34 @@ export function setupGemPacksDropdown() {
             <div>
               <div class="font-bold text-xs text-sfl-dirt dark:text-amber-200 flex items-center gap-1.5">
                 <span>${pack.gem.toLocaleString()} Gems</span>
-                <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-normal">($${pack.usd.toFixed(2)})</span>
+                <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-normal">
+                  $${usdVal.toFixed(2)}
+                  ${isDiscountActive ? `<span class="line-through opacity-60 text-[9px] ml-0.5">$${pack.usd.toFixed(2)}</span>` : ''}
+                </span>
                 ${isBestValue ? '<span class="text-[9px] bg-amber-500 text-stone-950 font-bold px-1.5 py-0.2 rounded-full uppercase">Best</span>' : ''}
                 ${isSelected ? '<span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">✓ Selected</span>' : ''}
               </div>
               <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono">
-                Total: <strong class="text-amber-950 dark:text-amber-300 font-semibold">${pack.sfl.toFixed(2)} 🌸</strong>
-                <span class="opacity-75">(${pack.pol.toFixed(1)} POL)</span>
+                Total: <strong class="text-amber-950 dark:text-amber-300 font-semibold">${sflVal.toFixed(2)} 🌸</strong>
+                ${isDiscountActive ? `<span class="line-through opacity-60 ml-0.5 font-normal">${pack.sfl.toFixed(2)} 🌸</span>` : ''}
+                <span class="opacity-75 ml-1">(${pack.pol.toFixed(1)} POL)</span>
               </div>
             </div>
           </div>
           <div class="text-right shrink-0">
-            <span class="inline-block px-2 py-0.5 rounded-lg ${
-              isSelected
-                ? 'bg-emerald-600 text-white font-bold'
-                : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-bold'
-            } font-mono text-[11px]">
-              ${pack.sfl1.toFixed(4)} 🌸
-            </span>
-            <div class="text-[9px] text-sfl-woodLight dark:text-slate-500 mt-0.5 font-sans">per gem</div>
+            <div class="flex items-center justify-end gap-1">
+              <span class="inline-block px-2 py-0.5 rounded-lg ${
+                isSelected
+                  ? 'bg-emerald-600 text-white font-bold'
+                  : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-bold'
+              } font-mono text-[11px]">
+                ${sfl1Val.toFixed(4)} 🌸
+              </span>
+              ${isDiscountActive ? '<span class="text-[9px] bg-rose-500 text-white font-bold px-1 py-0.2 rounded">-20%</span>' : ''}
+            </div>
+            <div class="text-[9px] text-sfl-woodLight dark:text-slate-500 mt-0.5 font-sans">
+              ${isDiscountActive ? `<span class="line-through opacity-60 mr-1">${pack.sfl1.toFixed(4)}</span>` : ''}per gem
+            </div>
           </div>
         </div>
       `;
@@ -329,10 +398,13 @@ export function setupGemPacksDropdown() {
     if (!labelEl) return;
     if (selectedPackKey && currentGemsData[selectedPackKey]) {
       const p = currentGemsData[selectedPackKey];
-      const sfl1 = Number(p.sfl1 || 0).toFixed(4);
-      labelEl.innerHTML = `<span>💎 ${Number(p.gem).toLocaleString()}:</span> <span class="text-emerald-700 dark:text-emerald-400 font-mono font-bold">${sfl1} 🌸</span>`;
+      const rate = isDiscountActive ? (p.sfl1 * 0.8) : p.sfl1;
+      const sfl1 = Number(rate || 0).toFixed(4);
+      labelEl.innerHTML = `<span>💎 ${Number(p.gem).toLocaleString()}:</span> <span class="text-emerald-700 dark:text-emerald-400 font-mono font-bold">${sfl1} 🌸</span>${isDiscountActive ? '<span class="text-[9px] text-rose-600 dark:text-rose-400 font-bold ml-0.5">(-20%)</span>' : ''}`;
     } else {
-      labelEl.innerHTML = `<span>💎 Gem Packs (7)</span>`;
+      labelEl.innerHTML = isDiscountActive
+        ? `<span>💎 Gem Packs <span class="text-rose-600 dark:text-rose-400 text-[10px] font-bold">(-20%)</span></span>`
+        : `<span>💎 Gem Packs (7)</span>`;
     }
   }
 
