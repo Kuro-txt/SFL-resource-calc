@@ -4,7 +4,7 @@
 // with historical date range navigation (previous/next arrows and touch swipe).
 
 import { renderEarnedSection, aggregateLocalEarned } from './dashboardEarned.js';
-import { renderSpentSection, loadSpentData } from './dashboardSpent.js';
+import { renderSpentSection, loadSpentData, clearBaselineMemoryCache } from './dashboardSpent.js';
 
 let initialized = false;
 let activeTimeRange = 'day'; // 'day' | 'week' | 'month'
@@ -89,7 +89,7 @@ export function getDateRangeBounds(timeRange = activeTimeRange, offset = activeT
   };
 }
 
-async function renderKpiBanner(bounds = getDateRangeBounds()) {
+async function renderKpiBanner(bounds = getDateRangeBounds(), preloadedSpentItems = null) {
   const mount = document.getElementById('dash-kpi-banner');
   if (!mount) return;
 
@@ -103,7 +103,7 @@ async function renderKpiBanner(bounds = getDateRangeBounds()) {
   let grandSpentFlowers = 0;
   let totalSpentItems = 0;
   try {
-    const spentItems = await loadSpentData(bounds);
+    const spentItems = preloadedSpentItems || (await loadSpentData(bounds));
     grandSpentFlowers = spentItems.reduce((s, v) => s + (v.flowers || 0), 0);
     totalSpentItems = spentItems.reduce((s, v) => s + (v.qty || 0), 0);
   } catch (_) {}
@@ -201,6 +201,16 @@ function renderTimeRangeControls() {
   document.getElementById('dash-page-next')?.addEventListener('click', () => navigatePeriod(-1));
 }
 
+function updateDateNavigationUI() {
+  const bounds = getDateRangeBounds(activeTimeRange, activeTimeOffset);
+  const dateLabel = document.getElementById('dash-date-label');
+  if (dateLabel) dateLabel.textContent = bounds.label;
+  const nextBtn = document.getElementById('dash-page-next');
+  if (nextBtn) {
+    nextBtn.disabled = (activeTimeOffset === 0);
+  }
+}
+
 function switchTimeRange(newRange) {
   const defaultOffset = (newRange === 'day') ? 1 : 0;
   if (activeTimeRange === newRange && activeTimeOffset === defaultOffset) return;
@@ -214,7 +224,7 @@ function navigatePeriod(delta) {
   const newOffset = activeTimeOffset + delta;
   if (newOffset < 0) return; // Cannot navigate into future
   activeTimeOffset = newOffset;
-  renderTimeRangeControls();
+  updateDateNavigationUI();
   populateSections();
 }
 
@@ -303,12 +313,35 @@ function renderTemplate() {
   setupSwipeGestures();
 }
 
-export async function populateSections(boundsInput = null) {
+let activeRenderId = 0;
+
+export async function populateSections(boundsInput = null, force = false) {
+  const renderId = ++activeRenderId;
   const bounds = boundsInput || getDateRangeBounds(activeTimeRange, activeTimeOffset);
-  await renderKpiBanner(bounds);
-  renderEarnedSection(document.getElementById('dash-earned-mount'), bounds);
-  await renderSpentSection(document.getElementById('dash-spent-mount'), bounds);
-  await renderKpiBanner(bounds);
+
+  const container = document.getElementById('dashboard-section');
+  if (container) {
+    container.classList.add('transition-opacity', 'duration-150');
+    container.classList.add('opacity-80');
+  }
+
+  try {
+    // 1. Single spent data fetch (hits in-memory RAM cache in 0ms if already cached)
+    const spentItems = await loadSpentData(bounds, force);
+
+    // If another date navigation occurred while waiting, drop this stale render
+    if (renderId !== activeRenderId) return;
+
+    // 2. Coordinated single-pass render across all sections in one frame
+    renderKpiBanner(bounds, spentItems);
+    renderEarnedSection(document.getElementById('dash-earned-mount'), bounds);
+    renderSpentSection(document.getElementById('dash-spent-mount'), bounds, spentItems);
+  } finally {
+    if (renderId === activeRenderId && container) {
+      container.classList.remove('opacity-80');
+      container.classList.add('opacity-100');
+    }
+  }
 }
 
 export function initDashboardPanel() {
@@ -317,7 +350,8 @@ export function initDashboardPanel() {
   initialized = true;
 
   document.getElementById('dashboard-refresh-btn')?.addEventListener('click', () => {
-    populateSections();
+    clearBaselineMemoryCache();
+    populateSections(null, true);
   });
 }
 
@@ -328,7 +362,8 @@ export async function mountDashboard() {
     renderTemplate();
     renderTimeRangeControls();
     document.getElementById('dashboard-refresh-btn')?.addEventListener('click', () => {
-      populateSections();
+      clearBaselineMemoryCache();
+      populateSections(null, true);
     });
   }
   await populateSections();

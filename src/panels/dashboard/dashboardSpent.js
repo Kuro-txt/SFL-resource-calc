@@ -112,7 +112,18 @@ const IGNORE_ITEMS = new Set([
   'flower', 'sfl', 'coin', 'coins', 'gem', 'blockbuck', 'loveletter', 'currentcoins'
 ]);
 
-export async function loadSpentData(boundsInput = 'week') {
+// ── In-Memory RAM Caches (0 bytes written to localStorage) ─────────────────────
+const baselineMemoryCache = new Map();
+const spentDataMemoryCache = new Map();
+const BASELINE_CACHE_TTL = 3 * 60 * 1000; // 3 minutes TTL in RAM
+const SPENT_CACHE_TTL = 3 * 60 * 1000;    // 3 minutes TTL in RAM
+
+export function clearBaselineMemoryCache() {
+  baselineMemoryCache.clear();
+  spentDataMemoryCache.clear();
+}
+
+export async function loadSpentData(boundsInput = 'week', force = false) {
   const result = {};
   let history = [];
   try { history = JSON.parse(localStorage.getItem('sfl_daily_snapshots') || '[]'); } catch (_) {}
@@ -127,6 +138,15 @@ export async function loadSpentData(boundsInput = 'week') {
   const maxDateStr = bounds.maxDateStr || '';
 
   const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value?.trim() || '';
+
+  // 0. Check in-memory RAM cache for precomputed spent items
+  const spentCacheKey = `${farmId}_${minDateStr}_${maxDateStr}_${bounds.timeRange || ''}`;
+  if (!force) {
+    const cachedSpent = spentDataMemoryCache.get(spentCacheKey);
+    if (cachedSpent && (Date.now() - cachedSpent.timestamp < SPENT_CACHE_TTL)) {
+      return cachedSpent.data;
+    }
+  }
 
   // ── Gather all trade activity (fulfilled sold/bought and in-game shop sales) ──
   const tradesSold = {};
@@ -236,22 +256,29 @@ export async function loadSpentData(boundsInput = 'week') {
 
   let baselineRows = [];
   if (client && (user || farmId)) {
-    try {
-      const rowLimit = timeRange === 'month' ? 35 : (timeRange === '7d' || timeRange === 'week' ? 15 : 8);
-      let query = client
-        .from('preharvest_baselines')
-        .select('snapshot_date, stock, farm_activity')
-        .order('snapshot_date', { ascending: false })
-        .limit(rowLimit);
+    const baselineCacheKey = `baselines_${user?.id || farmId}`;
+    const cachedBaselines = baselineMemoryCache.get(baselineCacheKey);
 
-      if (user?.id) query = query.eq('user_id', user.id);
-      else if (farmId) query = query.eq('farm_id', farmId);
+    if (!force && cachedBaselines && (Date.now() - cachedBaselines.timestamp < BASELINE_CACHE_TTL)) {
+      baselineRows = cachedBaselines.data;
+    } else {
+      try {
+        let query = client
+          .from('preharvest_baselines')
+          .select('snapshot_date, stock, farm_activity')
+          .order('snapshot_date', { ascending: false })
+          .limit(35); // 35 rows covers Day, Week, and Month navigations at once in RAM
 
-      const { data } = await query;
-      if (data && Array.isArray(data)) {
-        baselineRows = data;
-      }
-    } catch (_) {}
+        if (user?.id) query = query.eq('user_id', user.id);
+        else if (farmId) query = query.eq('farm_id', farmId);
+
+        const { data } = await query;
+        if (data && Array.isArray(data)) {
+          baselineRows = data;
+          baselineMemoryCache.set(baselineCacheKey, { data, timestamp: Date.now() });
+        }
+      } catch (_) {}
+    }
   }
 
   // Combine chronological baselines + live inventory
@@ -419,7 +446,7 @@ export async function loadSpentData(boundsInput = 'week') {
     };
   }
 
-  return Object.entries(result)
+  const finalItems = Object.entries(result)
     .map(([name, item]) => ({
       ...item,
       name,
@@ -427,11 +454,14 @@ export async function loadSpentData(boundsInput = 'week') {
       flowers: parseFloat(item.flowers.toFixed(3))
     }))
     .sort((a, b) => b.flowers - a.flowers);
+
+  spentDataMemoryCache.set(spentCacheKey, { data: finalItems, timestamp: Date.now() });
+  return finalItems;
 }
 
 let currentSpentCategory = 'all';
 
-export async function renderSpentSection(mountEl, boundsInput = 'day') {
+export async function renderSpentSection(mountEl, boundsInput = 'day', preloadedSpentItems = null) {
   if (!mountEl) return;
 
   const bounds = (typeof boundsInput === 'object' && boundsInput?.label)
@@ -439,7 +469,7 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
     : getDateRangeBounds(boundsInput || 'day');
 
   const rangeLabel = bounds.label || 'Selected Range';
-  const allSpentItems = await loadSpentData(bounds);
+  const allSpentItems = preloadedSpentItems || (await loadSpentData(bounds));
 
   // Extract Coins and Gems
   const coinsData = allSpentItems.find(i => i.name === 'Coins') || null;
@@ -683,7 +713,7 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
       mountEl.querySelectorAll('.dash-spent-cat-btn').forEach(b => {
         b.addEventListener('click', () => {
           currentSpentCategory = b.getAttribute('data-cat');
-          renderSpentSection(mountEl, boundsInput);
+          renderSpentSection(mountEl, boundsInput, allSpentItems);
         });
       });
     });
