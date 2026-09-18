@@ -93,8 +93,11 @@ export async function fetchLiveCropDiff() {
     hasBaselineForToday = true;
     if (statusEl) statusEl.textContent = "⏳ Fetching live farm activity...";
 
-    const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
     const farmObj = await ApiService.getFarmFullData(farmId, apiKey);
+    if (farmObj) {
+      window.farmData = farmObj;
+      window.farmInventoryData = farmObj.inventory || farmObj.farm?.inventory || null;
+    }
     const currentActivity = farmObj.farmActivity || farmObj.activity || {};
 
     activeHarvestDiffs.length = 0; // Clear instead of reassign to keep reference
@@ -156,6 +159,10 @@ export async function saveCurrentActivityAsBaseline() {
 
   try {
     const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
+    if (farmObj) {
+      window.farmData = farmObj;
+      window.farmInventoryData = farmObj.inventory || farmObj.farm?.inventory || null;
+    }
     const inventory = farmObj.inventory || {};
     const farmActivity = farmObj.farmActivity || farmObj.activity || {};
 

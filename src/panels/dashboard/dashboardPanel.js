@@ -124,7 +124,7 @@ async function renderKpiBanner(bounds = getDateRangeBounds()) {
       </div>
     </div>
 
-    <!-- Box 2: Resources & Coins Spent -->
+    <!-- Box 2: Resources, Coins & Gems Spent -->
     <div class="bg-sfl-card/90 dark:bg-amber-950/40 p-3.5 rounded-xl border-2 border-orange-600/30 shadow-sm flex items-center gap-3">
       <div class="w-11 h-11 rounded-xl bg-orange-100 dark:bg-orange-950/70 border border-orange-300 dark:border-orange-800 flex items-center justify-center text-2xl shrink-0">
         💸
@@ -132,7 +132,7 @@ async function renderKpiBanner(bounds = getDateRangeBounds()) {
       <div class="truncate">
         <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Spent</p>
         <p class="font-mono text-base sm:text-xl font-bold text-orange-700 dark:text-orange-400 truncate">-${grandSpentFlowers.toFixed(3)} 🌸</p>
-        <p class="text-[10px] text-sfl-woodLight font-mono">${Math.round(totalSpentItems).toLocaleString()} items & coins</p>
+        <p class="text-[10px] text-sfl-woodLight font-mono">${Math.round(totalSpentItems).toLocaleString()} items & currency</p>
       </div>
     </div>
 

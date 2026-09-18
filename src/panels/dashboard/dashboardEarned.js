@@ -127,6 +127,7 @@ export function getLocalEarnedRows(boundsInput = 'week') {
       rawCrops.forEach(c => {
         const rawName = c.name || c.item || c.crop || 'Item';
         const clean = normalizeItemKey(rawName);
+        if (clean === 'gem' || clean === 'gems') return; // Never show gems in earned (only spent not gained, if gained show none)
         if (!isAllowedDifferenceItem(clean)) return;
 
         const name = ALLOWED_ITEM_NAMES[clean] || rawName;

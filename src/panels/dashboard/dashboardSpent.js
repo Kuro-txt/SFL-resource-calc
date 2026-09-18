@@ -1,7 +1,17 @@
 // ─── Items Spent Section ──────────────────────────────────────────────────────
 // Diffs consecutive preharvest_baselines.stock rows to compute items consumed.
 
-import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES, getCoinFlowerRatio } from '../../config/constants.js';
+import { 
+  FLOWER_IMG_SMALL_HTML, 
+  RESOURCE_FLOWER_FALLBACK_PRICES, 
+  isAllowedDifferenceItem, 
+  ALLOWED_ITEM_NAMES, 
+  getCoinFlowerRatio,
+  DEFAULT_GEM_PACKS,
+  getSelectedGemPack,
+  getSelectedGemRate,
+  isGemDiscountActive
+} from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
 import { tradeHistoryData } from '../tradeHistory/tradeData.js';
 import { ApiService } from '../../services/api.js';
@@ -9,27 +19,51 @@ import { getItemNameById } from '../../data/knownIds.js';
 import { getDateRangeBounds } from './dashboardPanel.js';
 import { ITEM_CATEGORIES, CATEGORY_META, getItemCategory } from './dashboardEarned.js';
 
+export function getGemFlowerPrice() {
+  const selectedRate = typeof getSelectedGemRate === 'function' ? getSelectedGemRate() : null;
+  if (selectedRate && selectedRate > 0) return selectedRate;
+  const isDiscount = typeof isGemDiscountActive === 'function' ? isGemDiscountActive() : true;
+  const baseRate = DEFAULT_GEM_PACKS?.['100']?.sfl1 || 0.0801;
+  return baseRate * (isDiscount ? 0.8 : 1.0);
+}
+
+export function getGemCount(stock) {
+  if (!stock || typeof stock !== 'object') return 0;
+  if (stock.Gem !== undefined) return parseFloat(stock.Gem) || 0;
+  if (stock.gem !== undefined) return parseFloat(stock.gem) || 0;
+  if (stock.Gems !== undefined) return parseFloat(stock.Gems) || 0;
+  if (stock.gems !== undefined) return parseFloat(stock.gems) || 0;
+  const key = Object.keys(stock).find(k => {
+    const c = normalizeItemKey(k);
+    return c === 'gem' || c === 'gems';
+  });
+  return key ? (parseFloat(stock[key]) || 0) : 0;
+}
+
 function getItemPrice(name) {
-  if (name === 'Coins' || normalizeItemKey(name) === 'coins') {
+  const clean = normalizeItemKey(name);
+  if (clean === 'coins' || clean === 'coin') {
     return 1 / getCoinFlowerRatio();
   }
+  if (clean === 'gem' || clean === 'gems') {
+    return getGemFlowerPrice();
+  }
   if (window.allPrices) {
-    const cleanKey = normalizeItemKey(name);
-    const match = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanKey);
+    const match = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === clean);
     if (match) {
       const p = parseFloat(window.allPrices[match]) || 0;
       if (p > 0) return p > 100 ? p / 1000 : p;
     }
   }
-  const betty = getBettyUnitPrice(normalizeItemKey(name));
+  const betty = getBettyUnitPrice(clean);
   if (betty !== null && betty > 0) return betty;
-  const fallback = RESOURCE_FLOWER_FALLBACK_PRICES[normalizeItemKey(name)];
+  const fallback = RESOURCE_FLOWER_FALLBACK_PRICES[clean];
   if (fallback && fallback > 0) return fallback;
   return 0.01;
 }
 
 const ITEM_ICONS = {
-  coins: '🪙', coin: '🪙',
+  coins: '🪙', coin: '🪙', gem: '💎', gems: '💎',
   egg: '🥚', milk: '🥛', feather: '🪶', leather: '👞', wool: '🧶',
   merinowool: '🐑', honey: '🍯', wood: '🪵', stone: '🪨', iron: '⛓️',
   gold: '🪙', crimstone: '💎', obsidian: '⬛', salt: '🧂',
@@ -111,8 +145,11 @@ export async function loadSpentData(boundsInput = 'week') {
     ...(window.farmData?.farm?.farmActivity || {})
   };
 
+  const timeRange = bounds.timeRange || (typeof boundsInput === 'string' ? boundsInput : 'day');
+
   let hasSavedSpent = false;
   let totalCoinsSpent = 0;
+  let totalGemsSpent = 0;
 
   // 1. First, check sfl_daily_snapshots for saved spent records
   history.forEach(h => {
@@ -130,6 +167,11 @@ export async function loadSpentData(boundsInput = 'week') {
         const clean = normalizeItemKey(name);
         if (clean === 'coins') {
           totalCoinsSpent += parseFloat(item.qty || 0);
+          return;
+        }
+        if (clean === 'gem' || clean === 'gems') {
+          const gemQty = parseFloat(item.qty || 0);
+          if (gemQty > 0) totalGemsSpent += gemQty;
           return;
         }
         if (!isAllowedDifferenceItem(clean)) return;
@@ -156,75 +198,123 @@ export async function loadSpentData(boundsInput = 'week') {
     if (coinsObj && coinsObj.coinsSpent) {
       totalCoinsSpent = Math.max(totalCoinsSpent, parseFloat(coinsObj.coinsSpent || 0));
     }
+
+    // Check for saved gems in cropActivityYields or snapshot
+    const gemsObj = (Array.isArray(rawActs) ? rawActs.find(a => a && (a.type === 'gems' || a.crop === 'Gems')) : null) || h.gems;
+    if (gemsObj && gemsObj.gemsSpent) {
+      const gSpent = parseFloat(gemsObj.gemsSpent || 0);
+      if (gSpent > 0) totalGemsSpent += gSpent;
+    }
   });
 
-  // 2. Fall back to trade-adjusted preharvest_baselines if no saved spent data
-  if (!hasSavedSpent) {
+  // 2. Compute Gems spent (and fallback resources spent) from preharvest_baselines & live inventory
+  const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
+  const user = window.currentUser;
+
+  let baselineRows = [];
+  if (client && (user || farmId)) {
     try {
-      const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
-      const user = window.currentUser;
+      const rowLimit = timeRange === 'month' ? 35 : (timeRange === '7d' || timeRange === 'week' ? 15 : 8);
+      let query = client
+        .from('preharvest_baselines')
+        .select('snapshot_date, stock, farm_activity')
+        .order('snapshot_date', { ascending: false })
+        .limit(rowLimit);
 
-      if (client && (user || farmId)) {
-        const rowLimit = timeRange === '7d' ? 8 : 31;
-        let query = client
-          .from('preharvest_baselines')
-          .select('snapshot_date, stock, farm_activity')
-          .order('snapshot_date', { ascending: false })
-          .limit(rowLimit);
+      if (user?.id) query = query.eq('user_id', user.id);
+      else if (farmId) query = query.eq('farm_id', farmId);
 
-        if (user?.id) query = query.eq('user_id', user.id);
-        else if (farmId) query = query.eq('farm_id', farmId);
-
-        const { data } = await query;
-        if (data && data.length >= 2) {
-          const chronological = [...data].reverse();
-
-          // Calculate in-game shop sales between earliest and latest baselines
-          const earliestAct = chronological[0]?.farm_activity || {};
-          const latestAct = chronological[chronological.length - 1]?.farm_activity || liveActivity;
-
-          // Track drops per item across consecutive baselines
-          const grossDrops = {};
-          for (let i = 1; i < chronological.length; i++) {
-            const prev = chronological[i - 1].stock || {};
-            const curr = chronological[i].stock || {};
-
-            const allItems = new Set([...Object.keys(prev), ...Object.keys(curr)]);
-            allItems.forEach(item => {
-              const clean = normalizeItemKey(item);
-              if (IGNORE_ITEMS.has(clean) || !isAllowedDifferenceItem(clean)) return;
-
-              const prevQty = parseFloat(prev[item]) || 0;
-              const currQty = parseFloat(curr[item]) || 0;
-              const drop = prevQty - currQty;
-              if (drop > 0) {
-                grossDrops[clean] = (grossDrops[clean] || 0) + drop;
-              }
-            });
-          }
-
-          // Net consumed = Gross Drop + Bought - (Sold + In-Game Shop Sold)
-          for (const [clean, drop] of Object.entries(grossDrops)) {
-            const officialName = ALLOWED_ITEM_NAMES[clean] || clean;
-            const sold = tradesSold[clean] || 0;
-            const bought = tradesBought[clean] || 0;
-            const shop = Math.max(0, 
-              (parseFloat(latestAct[officialName + ' Sold']) || 0) - 
-              (parseFloat(earliestAct[officialName + ' Sold']) || 0)
-            );
-
-            const totalSoldOffset = sold + shop;
-            const netConsumed = drop + bought - totalSoldOffset;
-
-            if (netConsumed > 0.01) {
-              if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
-              result[officialName].qty += netConsumed;
-              result[officialName].flowers += parseFloat((netConsumed * getItemPrice(officialName) * 0.9).toFixed(3));
-            }
-          }
-        }
+      const { data } = await query;
+      if (data && Array.isArray(data)) {
+        baselineRows = data;
       }
     } catch (_) {}
+  }
+
+  // Combine chronological baselines + live inventory
+  const chronological = [...baselineRows].sort((a, b) => (a.snapshot_date || '').localeCompare(b.snapshot_date || ''));
+  const liveStock = window.farmInventoryData || window.farmData?.inventory || window.farmData?.farm?.inventory || null;
+  const todayUtcStr = new Date().toISOString().split('T')[0];
+
+  const allSnapshots = [...chronological];
+  if (liveStock && typeof liveStock === 'object') {
+    allSnapshots.push({
+      snapshot_date: todayUtcStr,
+      stock: liveStock,
+      farm_activity: liveActivity,
+      isLive: true
+    });
+  }
+
+  let inventoryGemsSpent = 0;
+  const grossDrops = {};
+
+  if (allSnapshots.length >= 2) {
+    for (let i = 1; i < allSnapshots.length; i++) {
+      const prevSnap = allSnapshots[i - 1];
+      const currSnap = allSnapshots[i];
+      const stepDate = currSnap.isLive ? todayUtcStr : (prevSnap.snapshot_date || '');
+
+      // Check if this step's date falls within the selected date range
+      const inRange = (!minDateStr || stepDate >= minDateStr) && (!maxDateStr || stepDate <= maxDateStr);
+      if (!inRange) continue;
+
+      // Calculate Gem Drop: Only positive drops = spent! If negative (gained) or zero, show none.
+      const prevGems = getGemCount(prevSnap.stock);
+      const currGems = getGemCount(currSnap.stock);
+      const gemDrop = prevGems - currGems;
+      if (gemDrop > 0) {
+        inventoryGemsSpent += gemDrop;
+      }
+
+      // If no saved spent records for crops, also track resource drops
+      if (!hasSavedSpent) {
+        const prev = prevSnap.stock || {};
+        const curr = currSnap.stock || {};
+        const allItems = new Set([...Object.keys(prev), ...Object.keys(curr)]);
+        allItems.forEach(item => {
+          const clean = normalizeItemKey(item);
+          if (IGNORE_ITEMS.has(clean) || !isAllowedDifferenceItem(clean)) return;
+
+          const prevQty = parseFloat(prev[item]) || 0;
+          const currQty = parseFloat(curr[item]) || 0;
+          const drop = prevQty - currQty;
+          if (drop > 0) {
+            grossDrops[clean] = (grossDrops[clean] || 0) + drop;
+          }
+        });
+      }
+    }
+  }
+
+  // Consolidate gems spent from inventory (prioritizing inventory baseline diffs)
+  if (inventoryGemsSpent > 0) {
+    totalGemsSpent = Math.max(totalGemsSpent, inventoryGemsSpent);
+  }
+
+  // Fallback resources calculation if no saved spent
+  if (!hasSavedSpent && Object.keys(grossDrops).length > 0) {
+    const earliestAct = chronological[0]?.farm_activity || {};
+    const latestAct = chronological[chronological.length - 1]?.farm_activity || liveActivity;
+
+    for (const [clean, drop] of Object.entries(grossDrops)) {
+      const officialName = ALLOWED_ITEM_NAMES[clean] || clean;
+      const sold = tradesSold[clean] || 0;
+      const bought = tradesBought[clean] || 0;
+      const shop = Math.max(0, 
+        (parseFloat(latestAct[officialName + ' Sold']) || 0) - 
+        (parseFloat(earliestAct[officialName + ' Sold']) || 0)
+      );
+
+      const totalSoldOffset = sold + shop;
+      const netConsumed = drop + bought - totalSoldOffset;
+
+      if (netConsumed > 0.01) {
+        if (!result[officialName]) result[officialName] = { qty: 0, flowers: 0 };
+        result[officialName].qty += netConsumed;
+        result[officialName].flowers += parseFloat((netConsumed * getItemPrice(officialName) * 0.9).toFixed(3));
+      }
+    }
   }
 
   // Add Coins if spent > 0
@@ -232,6 +322,17 @@ export async function loadSpentData(boundsInput = 'week') {
     const ratio = getCoinFlowerRatio();
     const coinSpentFlowers = parseFloat((totalCoinsSpent / ratio).toFixed(3));
     result['Coins'] = { qty: Math.round(totalCoinsSpent), flowers: coinSpentFlowers };
+  }
+
+  // Add Gems ONLY if spent > 0 (if gained or none, show none)
+  if (totalGemsSpent > 0) {
+    const gemPrice = getGemFlowerPrice();
+    const gemSpentFlowers = parseFloat((totalGemsSpent * gemPrice).toFixed(3));
+    result['Gems'] = {
+      qty: Math.ceil(totalGemsSpent * 10) / 10,
+      flowers: gemSpentFlowers,
+      unitPrice: gemPrice
+    };
   }
 
   return Object.entries(result)
@@ -255,10 +356,12 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
   const rangeLabel = bounds.label || 'Selected Range';
   const allSpentItems = await loadSpentData(bounds);
 
-  // Extract Coins
+  // Extract Coins and Gems
   const coinsData = allSpentItems.find(i => i.name === 'Coins') || null;
-  const nonCoinItems = allSpentItems
-    .filter(i => i.name !== 'Coins')
+  const gemsData = allSpentItems.find(i => i.name === 'Gems') || null;
+
+  const nonCurrencyItems = allSpentItems
+    .filter(i => i.name !== 'Coins' && i.name !== 'Gems')
     .map(i => ({
       ...i,
       category: getItemCategory(i.name)
@@ -269,21 +372,21 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
 
   // Category counts
   const counts = {
-    all: nonCoinItems.length,
-    crops: nonCoinItems.filter(i => i.category === 'crops').length,
-    resources: nonCoinItems.filter(i => i.category === 'resources').length,
-    animals: nonCoinItems.filter(i => i.category === 'animals').length,
-    special: nonCoinItems.filter(i => i.category === 'special').length
+    all: nonCurrencyItems.length,
+    crops: nonCurrencyItems.filter(i => i.category === 'crops').length,
+    resources: nonCurrencyItems.filter(i => i.category === 'resources').length,
+    animals: nonCurrencyItems.filter(i => i.category === 'animals').length,
+    special: nonCurrencyItems.filter(i => i.category === 'special').length
   };
 
-  if (nonCoinItems.length === 0 && !coinsData) {
+  if (nonCurrencyItems.length === 0 && !coinsData && !gemsData) {
     mountEl.innerHTML = `
       <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
         <div>
           <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-            <span>💸</span> Resources & Coins Spent
+            <span>💸</span> Resources, Coins & Gems Spent
           </h4>
-          <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • Crafting, chores & coins spent</p>
+          <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • Crafting, chores, coins & gems spent</p>
         </div>
         <div class="text-right">
           <span class="font-mono text-sm font-bold text-orange-700 dark:text-orange-400 bg-orange-100/80 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">
@@ -301,8 +404,8 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
 
   function getItemsListHtml() {
     const visibleItems = currentSpentCategory === 'all'
-      ? nonCoinItems
-      : nonCoinItems.filter(i => i.category === currentSpentCategory);
+      ? nonCurrencyItems
+      : nonCurrencyItems.filter(i => i.category === currentSpentCategory);
 
     if (visibleItems.length === 0) {
       return `
@@ -337,11 +440,12 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
     }).join('');
   }
 
-  function getCoinsBannerHtml() {
+  function getCoinsBannerHtml(inGrid = false) {
     if (!coinsData || coinsData.qty <= 0) return '';
     const ratio = getCoinFlowerRatio();
+    const marginClass = inGrid ? '' : 'mb-2.5';
     return `
-      <div class="bg-gradient-to-r from-orange-500/15 via-amber-500/20 to-orange-500/15 dark:from-orange-950/50 dark:to-amber-950/40 border border-orange-500/40 dark:border-orange-600/50 p-2.5 rounded-xl flex items-center justify-between shadow-2xs mb-2.5">
+      <div class="bg-gradient-to-r from-orange-500/15 via-amber-500/20 to-orange-500/15 dark:from-orange-950/50 dark:to-amber-950/40 border border-orange-500/40 dark:border-orange-600/50 p-2.5 rounded-xl flex items-center justify-between shadow-2xs ${marginClass}">
         <div class="flex items-center gap-2">
           <span class="text-2xl">🪙</span>
           <div>
@@ -356,6 +460,54 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
           <p class="text-[9px] text-sfl-woodLight font-mono mt-0.5">1🌸 = ${ratio.toLocaleString()}🪙</p>
         </div>
       </div>`;
+  }
+
+  function getGemsBannerHtml(inGrid = false) {
+    if (!gemsData || gemsData.qty <= 0) return '';
+    const gemPrice = getGemFlowerPrice();
+    const isDiscount = isGemDiscountActive();
+    const selectedPack = getSelectedGemPack();
+    const packLabel = selectedPack ? `${selectedPack} Pack` : '100 Pack';
+    const discountBadge = isDiscount ? '<span class="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold ml-1 bg-emerald-100/80 dark:bg-emerald-950/50 px-1 py-0.5 rounded border border-emerald-300/60 dark:border-emerald-700/60">-20%</span>' : '';
+    const marginClass = inGrid ? '' : 'mb-2.5';
+
+    return `
+      <div class="bg-gradient-to-r from-sky-500/15 via-blue-500/20 to-cyan-500/15 dark:from-sky-950/50 dark:to-cyan-950/40 border border-sky-500/40 dark:border-sky-600/50 p-2.5 rounded-xl flex items-center justify-between shadow-2xs ${marginClass}">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">💎</span>
+          <div>
+            <div class="flex items-center gap-1">
+              <p class="text-[10px] font-bold uppercase text-sky-800 dark:text-sky-300 tracking-wider">Gems Spent</p>
+              ${discountBadge}
+            </div>
+            <p class="font-mono text-sm font-bold text-sky-900 dark:text-sky-100">-${(gemsData.qty % 1 === 0 ? gemsData.qty.toLocaleString() : gemsData.qty.toFixed(1))} Gems</p>
+          </div>
+        </div>
+        <div class="text-right">
+          <span class="font-mono text-xs font-bold text-sky-700 dark:text-sky-300 bg-sky-100/90 dark:bg-sky-950/80 border border-sky-300 dark:border-sky-800 px-2 py-0.5 rounded-lg shadow-2xs">
+            -${gemsData.flowers.toFixed(3)} 🌸
+          </span>
+          <p class="text-[9px] text-sfl-woodLight font-mono mt-0.5">1💎 = ${gemPrice.toFixed(4)}🌸 • ${packLabel}</p>
+        </div>
+      </div>`;
+  }
+
+  function getCurrencyBannersHtml() {
+    const hasCoins = coinsData && coinsData.qty > 0;
+    const hasGems = gemsData && gemsData.qty > 0;
+
+    if (!hasCoins && !hasGems) return '';
+
+    if (hasCoins && hasGems) {
+      return `
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-2.5">
+          ${getCoinsBannerHtml(true)}
+          ${getGemsBannerHtml(true)}
+        </div>`;
+    }
+
+    if (hasCoins) return getCoinsBannerHtml(false);
+    return getGemsBannerHtml(false);
   }
 
   function getCategoryPillsHtml() {
@@ -382,14 +534,17 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
       </div>`;
   }
 
+  const currencyCount = (coinsData ? 1 : 0) + (gemsData ? 1 : 0);
+  const totalDisplayCount = nonCurrencyItems.length + currencyCount;
+
   mountEl.innerHTML = `
     <!-- Header -->
     <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
       <div>
         <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-          <span>💸</span> Resources & Coins Spent
+          <span>💸</span> Resources, Coins & Gems Spent
         </h4>
-        <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • Crafting, chores & coins spent</p>
+        <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • Crafting, chores, coins & gems spent</p>
       </div>
       <div class="text-right">
         <span class="font-mono text-sm font-bold text-orange-700 dark:text-orange-400 bg-orange-100/80 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">
@@ -398,8 +553,8 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
       </div>
     </div>
 
-    <!-- Featured Coins Spent Card -->
-    ${getCoinsBannerHtml()}
+    <!-- Featured Coins & Gems Spent Banners -->
+    ${getCurrencyBannersHtml()}
 
     <!-- Section Title & Category Filter Pills -->
     <div class="mb-1">
@@ -408,7 +563,7 @@ export async function renderSpentSection(mountEl, boundsInput = 'day') {
           <span>📊</span> Item Breakdown
         </h5>
         <span class="text-[10px] font-bold text-sfl-woodLight bg-amber-200/50 dark:bg-amber-900/40 px-2 py-0.5 rounded-full">
-          ${nonCoinItems.length + (coinsData ? 1 : 0)} items & coins
+          ${totalDisplayCount} ${totalDisplayCount === 1 ? 'item' : 'items'} & currency
         </span>
       </div>
       <div id="dash-spent-cat-pills">${getCategoryPillsHtml()}</div>
