@@ -97,6 +97,7 @@ async function renderKpiBanner(bounds = getDateRangeBounds()) {
   const totals = aggregateLocalEarned(bounds);
   const grandFlowers = Object.values(totals).reduce((s, v) => s + (v.flowers || 0), 0);
   const totalItems = Object.values(totals).reduce((s, v) => s + (v.qty || 0), 0);
+  const grandTax = Object.values(totals).reduce((s, v) => s + (v.taxAmount || 0), 0);
 
   // 2. Spent Output (including Coins spent converted via user ratio)
   let grandSpentFlowers = 0;
@@ -117,9 +118,9 @@ async function renderKpiBanner(bounds = getDateRangeBounds()) {
         🌾
       </div>
       <div class="truncate">
-        <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Earned</p>
+        <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Earned (After Tax)</p>
         <p class="font-mono text-base sm:text-xl font-bold text-sfl-green truncate">+${grandFlowers.toFixed(3)} 🌸</p>
-        <p class="text-[10px] text-sfl-woodLight font-mono">${Math.round(totalItems).toLocaleString()} items & coins</p>
+        <p class="text-[10px] text-sfl-woodLight font-mono">${Math.round(totalItems).toLocaleString()} items & coins${grandTax > 0 ? ` • -${grandTax.toFixed(3)} 🌸 tax` : ''}</p>
       </div>
     </div>
 

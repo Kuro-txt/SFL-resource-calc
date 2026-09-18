@@ -1,5 +1,5 @@
-import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES, getCoinFlowerRatio } from '../../config/constants.js';
-import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
+import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES, getCoinFlowerRatio, getItemTaxRate } from '../../config/constants.js';
+import { normalizeItemKey, getBettyUnitPrice, roundUpToThreeDecimals } from '../../utils/formatters.js';
 import { getDateRangeBounds } from './dashboardPanel.js';
 
 // ─── Categories & Icons ───────────────────────────────────────────────────────
@@ -131,18 +131,23 @@ export function getLocalEarnedRows(boundsInput = 'week') {
 
         const name = ALLOWED_ITEM_NAMES[clean] || rawName;
         const qty = parseFloat(c.qty) || 0;
-        let flowers = parseFloat(c.flowers) || 0;
-        if (flowers <= 0 || flowers > qty * 1.5) {
-          flowers = parseFloat((getItemPrice(name) * qty).toFixed(3));
-        }
         if (qty <= 0) return;
-        if (!items[name]) items[name] = { qty: 0, flowers: 0 };
+
+        const unitPrice = (parseFloat(c.unitPrice) > 0) ? parseFloat(c.unitPrice) : getItemPrice(name);
+        const grossFlowers = unitPrice * qty;
+        const effectiveTaxRate = getItemTaxRate(name);
+        const flowers = roundUpToThreeDecimals(grossFlowers * (1 - effectiveTaxRate));
+        const taxAmount = Math.max(0, grossFlowers - flowers);
+
+        if (!items[name]) items[name] = { qty: 0, flowers: 0, grossFlowers: 0, taxAmount: 0 };
         items[name].qty += qty;
         items[name].flowers += flowers;
+        items[name].grossFlowers += grossFlowers;
+        items[name].taxAmount += taxAmount;
         totalFlowers += flowers;
       });
 
-      // Include Coins earned as a resource
+      // Include Coins earned as a resource (untaxed currency)
       const rawActs = Array.isArray(e.cropActivityYields) ? e.cropActivityYields
         : (Array.isArray(e.crop_activity_yields) ? e.crop_activity_yields : []);
       const coinObj = rawActs.find(a => a && (a.type === 'coins' || a.crop === 'Coins')) || e.coins;
@@ -151,7 +156,7 @@ export function getLocalEarnedRows(boundsInput = 'week') {
       if (coinsEarned > 0) {
         const ratio = getCoinFlowerRatio();
         const coinFlowers = parseFloat((coinsEarned / ratio).toFixed(3));
-        items['Coins'] = { qty: Math.round(coinsEarned), flowers: coinFlowers };
+        items['Coins'] = { qty: Math.round(coinsEarned), flowers: coinFlowers, grossFlowers: coinFlowers, taxAmount: 0 };
         totalFlowers += coinFlowers;
       }
 
@@ -169,10 +174,12 @@ export function aggregateLocalEarned(boundsInput = 'week') {
   const rows = getLocalEarnedRows(boundsInput);
   const totals = {};
   rows.forEach(r => {
-    Object.entries(r.items).forEach(([name, { qty, flowers }]) => {
-      if (!totals[name]) totals[name] = { qty: 0, flowers: 0 };
-      totals[name].qty += qty;
-      totals[name].flowers += flowers;
+    Object.entries(r.items).forEach(([name, data]) => {
+      if (!totals[name]) totals[name] = { qty: 0, flowers: 0, grossFlowers: 0, taxAmount: 0 };
+      totals[name].qty += data.qty;
+      totals[name].flowers += data.flowers;
+      totals[name].grossFlowers += (data.grossFlowers || data.flowers);
+      totals[name].taxAmount += (data.taxAmount || 0);
     });
   });
   return totals;
@@ -192,6 +199,11 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
   const totals = aggregateLocalEarned(bounds);
   const grandFlowers = Object.values(totals).reduce((s, v) => s + v.flowers, 0);
   const totalItemsCount = Object.values(totals).reduce((s, v) => s + v.qty, 0);
+  const grandTaxAmount = Object.values(totals).reduce((s, v) => s + (v.taxAmount || 0), 0);
+
+  const savedTax = typeof localStorage !== 'undefined' ? localStorage.getItem('sfl_tax_rate') : null;
+  const currentTaxRate = savedTax !== null ? parseFloat(savedTax) : 0.10;
+  const taxPct = Math.round(currentTaxRate * 100);
 
   // Extract Coins for dedicated prominent card
   const coinsData = totals['Coins'] || null;
@@ -199,10 +211,12 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
   // Classify all other items
   const nonCoinItems = Object.entries(totals)
     .filter(([name]) => name !== 'Coins')
-    .map(([name, { qty, flowers }]) => ({
+    .map(([name, { qty, flowers, grossFlowers, taxAmount }]) => ({
       name,
       qty,
       flowers: parseFloat(flowers.toFixed(3)),
+      grossFlowers: parseFloat((grossFlowers || flowers).toFixed(3)),
+      taxAmount: parseFloat((taxAmount || 0).toFixed(3)),
       category: getItemCategory(name)
     }))
     .sort((a, b) => b.flowers - a.flowers);
@@ -255,14 +269,18 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
 
     const maxFlowers = visibleItems[0]?.flowers || 1;
 
-    return visibleItems.map(({ name, qty, flowers, category }) => {
+    return visibleItems.map(({ name, qty, flowers, grossFlowers, taxAmount, category }) => {
       const pct = Math.min(100, Math.max(8, Math.round((flowers / maxFlowers) * 100)));
       const icon = getItemIcon(name);
       const catMeta = CATEGORY_META[category] || { label: category, icon: '🌾' };
       const formattedQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
+      const taxTooltip = taxAmount > 0 
+        ? `Gross: ${grossFlowers.toFixed(3)} 🌸 | Tax (${taxPct}%): -${taxAmount.toFixed(3)} 🌸 | Net: ${flowers.toFixed(3)} 🌸`
+        : `Value: ${flowers.toFixed(3)} 🌸`;
 
       return `
-        <div class="group flex items-center gap-2.5 text-xs py-1.5 hover:bg-emerald-100/40 dark:hover:bg-emerald-950/30 px-2 rounded-lg transition border border-transparent hover:border-emerald-200/50 dark:hover:border-emerald-800/40">
+        <div class="group flex items-center gap-2.5 text-xs py-1.5 hover:bg-emerald-100/40 dark:hover:bg-emerald-950/30 px-2 rounded-lg transition border border-transparent hover:border-emerald-200/50 dark:hover:border-emerald-800/40"
+          title="${taxTooltip}">
           <span class="text-base shrink-0">${icon}</span>
           <div class="w-24 sm:w-28 truncate shrink-0">
             <span class="font-bold text-sfl-dirt dark:text-amber-100" title="${name}">${name}</span>
@@ -331,10 +349,11 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
         <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
           <span>🌾</span> Resources & Coins Earned
         </h4>
-        <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • ${totalItemsCount.toFixed(0)} items produced</p>
+        <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • ${totalItemsCount.toFixed(0)} items produced • Net after ${taxPct}% tax ${grandTaxAmount > 0 ? `(-${grandTaxAmount.toFixed(3)} 🌸)` : ''}</p>
       </div>
       <div class="text-right">
-        <span class="font-mono text-sm font-bold text-sfl-green bg-green-100/80 dark:bg-green-950/40 border border-green-300 dark:border-green-800 px-2 py-0.5 rounded-lg shadow-2xs">
+        <span class="font-mono text-sm font-bold text-sfl-green bg-green-100/80 dark:bg-green-950/40 border border-green-300 dark:border-green-800 px-2 py-0.5 rounded-lg shadow-2xs"
+          title="Gross: ${(grandFlowers + grandTaxAmount).toFixed(3)} 🌸 | Total Tax: -${grandTaxAmount.toFixed(3)} 🌸">
           ${grandFlowers.toFixed(3)} 🌸
         </span>
       </div>
