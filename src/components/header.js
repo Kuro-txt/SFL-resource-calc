@@ -156,6 +156,35 @@ export function renderHeader() {
           </div>
         </div>
       </details>
+
+      <!-- COMPACT MULTI-DEVICE CLOUD AUTH BAR (Directly below How to Use) -->
+      <div id="auth-panel" class="bg-sfl-wood/95 dark:bg-slate-900/90 text-amber-100 p-2.5 rounded-2xl border-2 border-sfl-dirt dark:border-slate-700/80 flex flex-col sm:flex-row justify-between items-center gap-2 shadow-sm text-xs">
+        <form id="auth-logged-out" onsubmit="return false;" class="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span class="text-[11px] font-semibold text-amber-200 dark:text-amber-300 flex items-center gap-1.5">
+            <span>☁️</span> <strong>Cloud Sync:</strong> Sign in to backup your snapshots & settings across devices
+          </span>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <input type="email" id="auth-email" placeholder="Email" autocomplete="username" class="sfl-input px-2 py-1 text-xs text-sfl-dirt rounded w-full sm:w-36">
+            <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password" class="sfl-input px-2 py-1 text-xs text-sfl-dirt rounded w-full sm:w-32">
+            <button type="button" id="btn-login" class="bg-sfl-green text-white font-bold px-3 py-1 rounded text-xs hover:bg-green-700 transition whitespace-nowrap cursor-pointer">Sign In</button>
+            <button type="button" id="btn-signup" class="bg-amber-600 text-white font-bold px-3 py-1 rounded text-xs hover:bg-amber-700 transition whitespace-nowrap cursor-pointer">Sign Up</button>
+          </div>
+        </form>
+
+        <div id="auth-logged-in" class="hidden w-full flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-bold text-amber-300 dark:text-amber-300 flex items-center gap-1.5">
+              <span>✅</span> Cloud Sync Active:
+            </span>
+            <span id="user-email-display" class="text-white font-semibold font-mono text-xs select-all"></span>
+            <button type="button" id="toggle-username-btn" class="bg-amber-900/70 hover:bg-amber-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-200 hover:text-white px-2 py-0.5 rounded-lg transition cursor-pointer text-xs font-bold flex items-center gap-1 border border-amber-400/40 dark:border-slate-600 shadow-2xs" title="Hide or show username">
+              <span id="toggle-username-icon">👁️</span>
+              <span id="toggle-username-text" class="text-[10px]">Hide</span>
+            </button>
+          </div>
+          <button id="btn-logout" class="bg-sfl-accent text-white font-bold px-3 py-1 rounded text-xs hover:bg-red-700 transition cursor-pointer shrink-0">Sign Out</button>
+        </div>
+      </div>
     </div>
   `;
 

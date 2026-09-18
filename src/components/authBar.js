@@ -79,28 +79,6 @@ export function renderAuthBar() {
 
         <div id="sync-status" class="text-xs text-center font-bold text-sfl-woodLight dark:text-amber-300 min-h-[18px]"></div>
       </div>
-
-      <!-- COMPACT MULTI-DEVICE CLOUD AUTH BAR -->
-      <div id="auth-panel" class="bg-sfl-wood/95 text-amber-100 p-2.5 rounded-xl border-2 border-sfl-dirt flex flex-col sm:flex-row justify-between items-center gap-2 shadow-sm text-xs">
-        <form id="auth-logged-out" onsubmit="return false;" class="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span class="text-[11px] font-semibold text-amber-200 flex items-center gap-1.5">
-            <span>☁️</span> <strong>Cloud Sync:</strong> Sign in to backup your snapshots & settings across devices
-          </span>
-          <div class="flex items-center gap-2 w-full sm:w-auto">
-            <input type="email" id="auth-email" placeholder="Email" autocomplete="username" class="sfl-input px-2 py-1 text-xs text-sfl-dirt rounded w-full sm:w-36">
-            <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password" class="sfl-input px-2 py-1 text-xs text-sfl-dirt rounded w-full sm:w-32">
-            <button type="button" id="btn-login" class="bg-sfl-green text-white font-bold px-3 py-1 rounded text-xs hover:bg-green-700 transition whitespace-nowrap cursor-pointer">Sign In</button>
-            <button type="button" id="btn-signup" class="bg-amber-600 text-white font-bold px-3 py-1 rounded text-xs hover:bg-amber-700 transition whitespace-nowrap cursor-pointer">Sign Up</button>
-          </div>
-        </form>
-
-        <div id="auth-logged-in" class="hidden w-full flex justify-between items-center">
-          <span class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-            <span>✅</span> Cloud Sync Active: <span id="user-email-display" class="text-white font-semibold"></span>
-          </span>
-          <button id="btn-logout" class="bg-sfl-accent text-white font-bold px-3 py-1 rounded text-xs hover:bg-red-700 transition cursor-pointer">Sign Out</button>
-        </div>
-      </div>
     </div>
   `;
 

@@ -39,14 +39,41 @@ export async function initAuth() {
   });
 }
 
+export function updateUsernameDisplay() {
+  const emailDisplay = document.getElementById('user-email-display');
+  const toggleIcon = document.getElementById('toggle-username-icon');
+  const toggleText = document.getElementById('toggle-username-text');
+
+  if (!window.currentUser?.email) return;
+
+  const isHidden = localStorage.getItem('sfl_hide_username') === 'true';
+  const email = window.currentUser.email;
+
+  if (emailDisplay) {
+    if (isHidden) {
+      emailDisplay.textContent = '••••••••';
+      emailDisplay.title = 'Username hidden (Click eye to reveal)';
+    } else {
+      emailDisplay.textContent = email;
+      emailDisplay.title = email;
+    }
+  }
+
+  if (toggleIcon) {
+    toggleIcon.textContent = isHidden ? '🙈' : '👁️';
+  }
+  if (toggleText) {
+    toggleText.textContent = isHidden ? 'Show' : 'Hide';
+  }
+}
+
 export async function setLoggedInUser(user) {
   window.currentUser = user;
   
   document.getElementById('auth-logged-out')?.classList.add('hidden');
   document.getElementById('auth-logged-in')?.classList.remove('hidden');
   
-  const emailDisplay = document.getElementById('user-email-display');
-  if (emailDisplay) emailDisplay.textContent = user.email;
+  updateUsernameDisplay();
 
   await loadCloudUserData();
 
@@ -259,6 +286,12 @@ function bindAuthEventListeners() {
 
   document.getElementById('btn-logout')?.addEventListener('click', async () => {
     if (window.supabaseClient) await window.supabaseClient.auth.signOut();
+  });
+
+  document.getElementById('toggle-username-btn')?.addEventListener('click', () => {
+    const isCurrentlyHidden = localStorage.getItem('sfl_hide_username') === 'true';
+    localStorage.setItem('sfl_hide_username', (!isCurrentlyHidden).toString());
+    updateUsernameDisplay();
   });
 
   const syncFarmIdToCloud = debounce(async (farmId) => {
