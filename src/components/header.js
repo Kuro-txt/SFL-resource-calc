@@ -65,6 +65,12 @@ export function renderHeader() {
         </div>
 
         <div class="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2.5 pt-1 sm:pt-0 sm:self-start">
+          <!-- GUIDE BUTTON -->
+          <button id="guide-toggle-btn" class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 border-2 border-amber-300 dark:border-slate-600 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer whitespace-nowrap" title="How to Use Sun-Flux guide">
+            <span>📖</span>
+            <span>Guide</span>
+          </button>
+
           <!-- THEME TOGGLE BUTTON -->
           <button id="theme-toggle-btn" class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 border-2 border-amber-300 dark:border-slate-600 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer">
             <span>${isDark ? '☀️' : '🌙'}</span>
@@ -79,28 +85,41 @@ export function renderHeader() {
       </div>
 
       <!-- COMPACT COLLAPSIBLE GUIDE BOX AT THE TOP OF PAGE -->
-      <details class="group/guide bg-amber-50/90 dark:bg-slate-900/80 border-2 border-amber-300/80 dark:border-slate-700/80 rounded-2xl p-2.5 sm:p-3 text-xs text-sfl-wood dark:text-slate-200 shadow-sm transition-all">
+      <details id="sunflux-guide-details" class="group/guide bg-amber-50/95 dark:bg-slate-900/90 border-2 border-amber-300/80 dark:border-slate-700/80 rounded-2xl p-2.5 sm:p-3 text-xs text-sfl-wood dark:text-slate-200 shadow-sm transition-all">
         <summary class="flex items-center justify-between cursor-pointer list-none select-none font-bold text-xs sm:text-sm text-sfl-wood dark:text-amber-300">
-          <div class="flex items-center gap-1.5">
+          <div class="flex items-center gap-2 flex-wrap">
             <span>📖</span>
             <span>How to Use Sun-Flux</span>
+            <span class="bg-rose-500 text-white font-black text-[9px] sm:text-[10px] px-2 py-0.5 rounded-md uppercase tracking-wider shadow-2xs animate-pulse">PLEASE READ</span>
             <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-normal ml-1 group-open/guide:hidden">(click to expand)</span>
           </div>
-          <span class="text-xs transition-transform duration-200 group-open/guide:rotate-180">▼</span>
+          <span class="text-xs transition-transform duration-200 group-open/guide:rotate-180 text-sfl-woodLight dark:text-amber-300">▼</span>
         </summary>
 
-        <div class="mt-2.5 pt-2.5 border-t border-amber-200/80 dark:border-slate-700/80 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[11px] font-medium text-sfl-woodLight dark:text-slate-400">
+        <div class="mt-2.5 pt-2.5 border-t border-amber-200/80 dark:border-slate-700/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-[11px] font-medium text-sfl-woodLight dark:text-slate-400">
           <div class="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
-            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs">1. Link Farm & Sync</span>
-            <p>Enter your <strong>Farm ID</strong> and click <strong>🔄 Sync Data</strong> to load resources, trades & dashboard.</p>
+            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
+              <span>🚜</span> 1. Link Farm & Sync
+            </span>
+            <p>Enter your numeric <strong>Farm ID</strong> in the top header and click <strong>🔄 Sync Data</strong>. Your live inventory, bank balance, and trade ledger will load immediately.</p>
           </div>
           <div class="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
-            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs">2. When Do Results Appear?</span>
-            <p>Trades & inventory show <strong>instantly</strong>. If you link today, your first daily harvest report arrives <strong>tomorrow at 22:00 UTC</strong>.</p>
+            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
+              <span>⏱️</span> 2. When Do Reports Appear?
+            </span>
+            <p>Sun-Flux calculates daily net harvest & expenses against automated <strong>00:00 UTC baselines</strong>. If you link your farm today, your first daily harvest report will arrive <strong>tomorrow at 22:00 UTC</strong>.</p>
           </div>
           <div class="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
-            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs">3. Automated Analytics</span>
-            <p>Track Day / 7 Days / Month resources earned, spent, and trades ledger with live valuations.</p>
+            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
+              <span>⚖️</span> 3. Marketplace & USD
+            </span>
+            <p>Trades are auto-synced 5x daily and permanently archived in the cloud. Every trade automatically deducts in-game tax and freezes the live SFL/USD exchange rate.</p>
+          </div>
+          <div class="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
+            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
+              <span>☁️</span> 4. Cloud Account Backup
+            </span>
+            <p>Sign up or log in using the cloud bar below to sync your tracked items, baseline history, and custom targets seamlessly across all your devices.</p>
           </div>
         </div>
       </details>
@@ -136,24 +155,36 @@ export function renderHeader() {
     </div>
   `;
 
-  bindThemeEvents();
+  bindHeaderEvents();
 }
 
-function bindThemeEvents() {
+function bindHeaderEvents() {
   const toggleBtn = document.getElementById('theme-toggle-btn');
-  if (!toggleBtn) return;
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const isCurrentlyDark = document.documentElement.classList.contains('dark');
+      
+      if (isCurrentlyDark) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('sfl_theme', 'light');
+        toggleBtn.innerHTML = `<span>🌙</span><span>Dark</span>`;
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('sfl_theme', 'dark');
+        toggleBtn.innerHTML = `<span>☀️</span><span>Light</span>`;
+      }
+    });
+  }
 
-  toggleBtn.addEventListener('click', () => {
-    const isCurrentlyDark = document.documentElement.classList.contains('dark');
-    
-    if (isCurrentlyDark) {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('sfl_theme', 'light');
-      toggleBtn.innerHTML = `<span>🌙</span><span>Dark</span>`;
-    } else {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('sfl_theme', 'dark');
-      toggleBtn.innerHTML = `<span>☀️</span><span>Light</span>`;
-    }
-  });
+  const guideBtn = document.getElementById('guide-toggle-btn');
+  const guideDetails = document.getElementById('sunflux-guide-details');
+  if (guideBtn && guideDetails) {
+    guideBtn.addEventListener('click', () => {
+      guideDetails.open = !guideDetails.open;
+      if (guideDetails.open) {
+        guideDetails.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+  }
 }
+
