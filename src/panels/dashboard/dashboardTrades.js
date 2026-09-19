@@ -1,7 +1,7 @@
-﻿// ─── Trades Summary Section ───────────────────────────────────────────────────
+// ─── Trades Summary Section ───────────────────────────────────────────────────
 // Reads in-memory tradeHistoryData; shows compact summary + link to Trade History tab.
 
-import { tradeHistoryData, fetchMarketplaceTrades, getTradeAmounts } from '../tradeHistory/tradeData.js';
+import { tradeHistoryData, fetchMarketplaceTrades, getTradeAmounts, currentSflUsdRate } from '../tradeHistory/tradeData.js';
 import { PanelManager } from '../../services/panelManager.js';
 import { normalizeItemKey } from '../../utils/formatters.js';
 
@@ -41,10 +41,10 @@ export function getTradeSummary(timeRange = '7d') {
   });
 
   if (filteredTrades.length === 0 && trades.length > 0) {
-    return { totalSold: 0, totalBought: 0, netSfl: 0, topItems: [], total: 0 };
+    return { totalSold: 0, totalBought: 0, netSfl: 0, netUsd: 0, topItems: [], total: 0 };
   }
 
-  let totalSold = 0, totalBought = 0, netSfl = 0;
+  let totalSold = 0, totalBought = 0, netSfl = 0, netUsd = 0;
   const itemMap = {};
 
   filteredTrades.forEach(t => {
@@ -53,13 +53,16 @@ export function getTradeSummary(timeRange = '7d') {
     const sfl = parseFloat(t.sfl || 0);
     const qty = parseFloat(t.quantity || 1);
     const name = t.itemName || 'Unknown';
+    const sflUsd = parseFloat(t.sflUsd || t.sfl_usd) || currentSflUsdRate || 0;
 
     if (isSeller) {
       totalSold++;
       netSfl += amounts.netSfl;
+      if (sflUsd > 0) netUsd += (amounts.netSfl * sflUsd);
     } else {
       totalBought++;
       netSfl -= sfl;
+      if (sflUsd > 0) netUsd -= (sfl * sflUsd);
     }
 
     if (!itemMap[name]) itemMap[name] = { sold: 0, bought: 0, sfl: 0, tradesCount: 0 };
@@ -76,8 +79,9 @@ export function getTradeSummary(timeRange = '7d') {
     .sort((a, b) => (b[1].sfl || 0) - (a[1].sfl || 0))
     .slice(0, 4);
 
-  return { totalSold, totalBought, netSfl, topItems, total: filteredTrades.length };
+  return { totalSold, totalBought, netSfl, netUsd, topItems, total: filteredTrades.length };
 }
+
 
 export async function renderTradesSection(mountEl, timeRange = '7d') {
   if (!mountEl) return;
@@ -116,7 +120,7 @@ export async function renderTradesSection(mountEl, timeRange = '7d') {
     return;
   }
 
-  const { totalSold, totalBought, netSfl, topItems, total } = summary;
+  const { totalSold, totalBought, netSfl, netUsd, topItems, total } = summary;
   const isProfitable = netSfl >= 0;
   const netColor = isProfitable ? 'text-sfl-green dark:text-emerald-400' : 'text-red-600 dark:text-rose-400';
   const netBg = isProfitable ? 'bg-green-100/90 dark:bg-green-950/50 border-green-300 dark:border-green-800' : 'bg-red-100/90 dark:bg-red-950/50 border-red-300 dark:border-red-800';
@@ -165,6 +169,7 @@ export async function renderTradesSection(mountEl, timeRange = '7d') {
       <div class="${netBg} border rounded-xl p-2 shadow-2xs">
         <p class="text-[10px] text-sfl-woodLight font-bold uppercase tracking-wider">Net SFL</p>
         <p class="font-mono font-bold ${netColor} text-sm sm:text-base">${isProfitable ? '+' : ''}${netSfl.toFixed(2)}</p>
+        ${Math.abs(netUsd) > 0 ? `<p class="text-[10px] font-bold ${netColor} opacity-85">(${netUsd >= 0 ? '+' : '-'}$${Math.abs(netUsd).toFixed(2)})</p>` : ''}
       </div>
     </div>
 

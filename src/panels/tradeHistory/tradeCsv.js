@@ -1,5 +1,5 @@
 import { getItemNameById } from '../../data/knownIds.js';
-import { getTradeAmounts, getTradeCounterparty, tradeHistoryData } from './tradeData.js';
+import { getTradeAmounts, getTradeCounterparty, tradeHistoryData, currentSflUsdRate } from './tradeData.js';
 
 export function exportTradesToCsv() {
   const trades = tradeHistoryData?.trades || [];
@@ -9,7 +9,7 @@ export function exportTradesToCsv() {
   }
 
   const farmId = String(tradeHistoryData.id || localStorage.getItem('sfl_farm_id') || '').trim();
-  const headers = ["Date", "Type", "Item Name", "Item ID", "Quantity", "Gross SFL", "Tax", "Net SFL", "Unit Price", "Counterparty", "Source", "Trade ID"];
+  const headers = ["Date", "Type", "Item Name", "Item ID", "Quantity", "Gross SFL", "Tax", "Net SFL", "SFL Rate (USD)", "Net Value (USD)", "Unit Price (SFL)", "Unit Price (USD)", "Counterparty", "Source", "Trade ID"];
   
   const rows = trades.map(t => {
     const amounts = getTradeAmounts(t, farmId);
@@ -23,6 +23,13 @@ export function exportTradesToCsv() {
     const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
     const counterparty = getTradeCounterparty(t, farmId, isSeller);
 
+    const sflUsd = parseFloat(t.sflUsd || t.sfl_usd) || currentSflUsdRate || 0;
+    const tradeSfl = isSeller ? amounts.netSfl : amounts.grossSfl;
+    const usdValue = (t.usdValue !== undefined && t.usdValue !== null)
+      ? parseFloat(t.usdValue)
+      : (sflUsd > 0 ? (tradeSfl * sflUsd) : 0);
+    const unitPriceUsd = sflUsd > 0 ? (unitPrice * sflUsd) : 0;
+
     return [
       `"${rawDate}"`,
       `"${isSeller ? 'SOLD' : 'BOUGHT'}"`,
@@ -32,12 +39,16 @@ export function exportTradesToCsv() {
       amounts.grossSfl.toFixed(4),
       amounts.tax.toFixed(4),
       amounts.netSfl.toFixed(4),
+      sflUsd > 0 ? sflUsd.toFixed(4) : '',
+      usdValue > 0 ? usdValue.toFixed(4) : '',
       unitPrice.toFixed(4),
+      unitPriceUsd > 0 ? unitPriceUsd.toFixed(4) : '',
       `"${counterparty}"`,
       `"${t.source || 'listing'}"`,
       `"${t.id || ''}"`
     ].join(',');
   });
+
 
   const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
   const encodedUri = encodeURI(csvContent);

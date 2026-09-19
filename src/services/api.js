@@ -284,7 +284,7 @@ export const ApiService = {
     });
   },
 
-  async syncTradesToCloud(farmId, trades) {
+  async syncTradesToCloud(farmId, trades, exchange = null) {
     if (!farmId || !Array.isArray(trades) || trades.length === 0) return null;
     const cleanFarmId = String(farmId).trim();
     const endpoints = ['/api/trades'];
@@ -292,12 +292,15 @@ export const ApiService = {
       endpoints.push(`${BACKEND_URL}/api/trades`);
     }
 
+    const payload = { farmId: cleanFarmId, trades };
+    if (exchange) payload.exchange = exchange;
+
     for (const url of endpoints) {
       try {
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ farmId: cleanFarmId, trades })
+          body: JSON.stringify(payload)
         });
         const text = await response.text();
         if (text.trim().startsWith('<')) continue;

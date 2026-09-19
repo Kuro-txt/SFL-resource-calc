@@ -7,6 +7,7 @@ import { getItemTaxRate, isGlobalTaxItem } from '../../config/constants.js';
 export let tradeHistoryData = null;
 export let cloudArchivedCount = 0;
 export let lastTradeFetchTime = 0;
+export let currentSflUsdRate = 0;
 
 export async function fetchMarketplaceTrades(force = false) {
   const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim();
@@ -31,7 +32,15 @@ export async function fetchMarketplaceTrades(force = false) {
   if (statusEl) statusEl.textContent = "⏳ Syncing marketplace & TiDB Cloud...";
 
   try {
-    const data = await ApiService.getMarketplaceProfile(farmId, apiKey, { force });
+    const [data, exchange] = await Promise.all([
+      ApiService.getMarketplaceProfile(farmId, apiKey, { force }),
+      ApiService.getExchangeRates({ force }).catch(() => null)
+    ]);
+
+    if (exchange?.sfl?.usd) {
+      currentSflUsdRate = parseFloat(exchange.sfl.usd) || 0;
+    }
+
     tradeHistoryData = data;
     lastTradeFetchTime = Date.now();
 
@@ -49,6 +58,9 @@ export async function fetchMarketplaceTrades(force = false) {
       const otherId = otherParty?.id || null;
       const amounts = getTradeAmounts(t, myFarmIdStr);
 
+      const tradeSflAmount = isSeller ? amounts.netSfl : amounts.grossSfl;
+      const usdValue = currentSflUsdRate > 0 ? Math.round((tradeSflAmount * currentSflUsdRate) * 10000) / 10000 : null;
+
       return {
         id: t.id,
         farmId: myFarmIdStr,
@@ -58,6 +70,8 @@ export async function fetchMarketplaceTrades(force = false) {
         sfl: parseFloat(t.sfl || 0),
         tax: amounts.tax,
         netSfl: amounts.netSfl,
+        sflUsd: currentSflUsdRate > 0 ? currentSflUsdRate : null,
+        usdValue: usdValue,
         tradeType: isSeller ? 'sold' : 'bought',
         source: t.source || 'listing',
         counterpartyId: otherId,
@@ -66,9 +80,9 @@ export async function fetchMarketplaceTrades(force = false) {
       };
     });
 
-    // 1. Sync live batch to TiDB Cloud
+    // 1. Sync live batch to TiDB Cloud with exchange rate
     try {
-      const syncRes = await ApiService.syncTradesToCloud(farmId, formattedForCloud);
+      const syncRes = await ApiService.syncTradesToCloud(farmId, formattedForCloud, exchange);
       if (syncRes?.totalArchivedTrades) {
         cloudArchivedCount = syncRes.totalArchivedTrades;
       }
@@ -86,11 +100,19 @@ export async function fetchMarketplaceTrades(force = false) {
           if (!t.itemName || t.itemName.startsWith('Item #')) {
             t.itemName = getItemNameById(t.itemId || t.itemName);
           }
+          if (t.sfl_usd && !t.sflUsd) t.sflUsd = parseFloat(t.sfl_usd);
+          if (t.usd_value && !t.usdValue) t.usdValue = parseFloat(t.usd_value);
           tradesMap.set(t.id, t);
         });
         formattedForCloud.forEach(t => {
           if (!t.itemName || t.itemName.startsWith('Item #')) {
             t.itemName = getItemNameById(t.itemId || t.itemName);
+          }
+          // If live trade didn't have historical sflUsd but cloud trade does, preserve cloud's historical rate
+          const existing = tradesMap.get(t.id);
+          if (existing?.sflUsd) {
+            t.sflUsd = existing.sflUsd;
+            t.usdValue = existing.usdValue;
           }
           tradesMap.set(t.id, t);
         });

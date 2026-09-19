@@ -1,6 +1,6 @@
 const axios = require('axios');
 const { getSflHeaders, queueFarmSync, delay } = require('./farmApi');
-const { getTiDBPool } = require('./db');
+const { getTiDBPool, recordExchangeRateInCloud } = require('./db');
 const { getItemNameById } = require('./knownIds');
 
 async function fetchMarketplaceTradesRaw(farmId, apiKey = '', maxRetries = 3) {
@@ -84,6 +84,27 @@ async function processAutoSyncTrades(supabase) {
   const farmEntries = Array.from(farmMap.entries());
   console.log(`📋 [Auto-Sync Trades] Found ${farmEntries.length} registered farms to sync.`);
 
+  // Fetch live exchange rate to lock in current USD price for newly synced trades
+  let currentSflUsd = null;
+  try {
+    const exRes = await axios.get('https://sfl.world/api/v1.1/exchange', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+      },
+      timeout: 10000
+    });
+    if (exRes.data?.sfl?.usd) {
+      currentSflUsd = parseFloat(exRes.data.sfl.usd);
+      const pool = getTiDBPool();
+      if (pool) {
+        await recordExchangeRateInCloud(pool, exRes.data);
+      }
+    }
+  } catch (exErr) {
+    console.warn("Notice: Auto-sync exchange rate fetch:", exErr.message);
+  }
+
   let totalSynced = 0;
 
   for (let i = 0; i < farmEntries.length; i++) {
@@ -133,16 +154,22 @@ async function processAutoSyncTrades(supabase) {
             const fulfilledAt = parseInt(t.fulfilledAt || Date.now(), 10);
             const fulfilledDate = new Date(fulfilledAt).toISOString().slice(0, 19).replace('T', ' ');
 
+            const sflUsd = currentSflUsd || null;
+            const tradeSfl = isSeller ? netSfl : sfl;
+            const usdValue = sflUsd ? Math.round((tradeSfl * sflUsd) * 10000) / 10000 : null;
+
             const insertSql = `
               INSERT INTO user_trades 
-              (id, farm_id, item_id, item_name, quantity, sfl, tax, net_sfl, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (id, farm_id, item_id, item_name, quantity, sfl, tax, net_sfl, sfl_usd, usd_value, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON DUPLICATE KEY UPDATE 
                 item_name = VALUES(item_name),
                 quantity = VALUES(quantity),
                 sfl = VALUES(sfl),
                 tax = VALUES(tax),
                 net_sfl = VALUES(net_sfl),
+                sfl_usd = COALESCE(user_trades.sfl_usd, VALUES(sfl_usd)),
+                usd_value = COALESCE(user_trades.usd_value, VALUES(usd_value)),
                 unit_price = VALUES(unit_price),
                 trade_type = VALUES(trade_type),
                 source = VALUES(source),
@@ -151,7 +178,7 @@ async function processAutoSyncTrades(supabase) {
             `;
 
             await pool.query(insertSql, [
-              id, farmId, itemId, itemName, quantity, sfl, tax, netSfl, unitPrice, tradeType, source, otherId, otherName, fulfilledAt, fulfilledDate
+              id, farmId, itemId, itemName, quantity, sfl, tax, netSfl, sflUsd, usdValue, unitPrice, tradeType, source, otherId, otherName, fulfilledAt, fulfilledDate
             ]);
           }
         }

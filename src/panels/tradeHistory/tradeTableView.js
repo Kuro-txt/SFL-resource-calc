@@ -1,6 +1,6 @@
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { getItemNameById } from '../../data/knownIds.js';
-import { getTradeAmounts, isUserSeller, getTradeCounterparty, tradeHistoryData } from './tradeData.js';
+import { getTradeAmounts, isUserSeller, getTradeCounterparty, tradeHistoryData, currentSflUsdRate } from './tradeData.js';
 import { currentFilter, selectedItemFilter, calculateItemTradeMetrics } from './tradeFilters.js';
 import { searchQuery } from './index.js';
 
@@ -46,6 +46,13 @@ export function renderTradesTableView(mountEl, farmId) {
     const qty = parseFloat(t.quantity || 1);
     const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
 
+    const sflUsd = parseFloat(t.sflUsd || t.sfl_usd) || currentSflUsdRate || 0;
+    const tradeSfl = isSeller ? amounts.netSfl : amounts.grossSfl;
+    const usdValue = (t.usdValue !== undefined && t.usdValue !== null)
+      ? parseFloat(t.usdValue)
+      : (sflUsd > 0 ? (tradeSfl * sflUsd) : 0);
+    const unitPriceUsd = sflUsd > 0 ? (unitPrice * sflUsd) : 0;
+
     const rawDate = t.fulfilledAt;
     let dateStr = 'Recent';
     if (rawDate) {
@@ -65,13 +72,19 @@ export function renderTradesTableView(mountEl, farmId) {
         <td class="px-2 py-2.5 whitespace-nowrap">${badge}</td>
         <td class="px-3 py-2.5 font-bold text-sfl-dirt dark:text-amber-100">${itemName}</td>
         <td class="px-2 py-2.5 font-mono font-bold text-sfl-wood dark:text-amber-200">${qty.toLocaleString()}</td>
-        <td class="px-2 py-2.5 font-mono text-sfl-woodLight dark:text-amber-300/70">${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</td>
+        <td class="px-2 py-2.5 font-mono text-sfl-woodLight dark:text-amber-300/70 whitespace-nowrap">
+          <div>${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</div>
+          ${unitPriceUsd > 0 ? `<div class="text-[10px] text-sfl-wood/70 dark:text-amber-300/60 font-normal">($${unitPriceUsd < 0.01 ? unitPriceUsd.toFixed(4) : unitPriceUsd.toFixed(3)})</div>` : ''}
+        </td>
         <td class="px-3 py-2.5 font-medium text-sfl-wood dark:text-amber-200">
           ${isSeller ? 'To: ' : 'From: '}<strong>${otherUser}</strong>
         </td>
-        <td class="px-3 py-2.5 font-mono font-bold text-right ${isSeller ? 'text-emerald-600 dark:text-emerald-400' : 'text-sfl-wood dark:text-amber-200'}">
-          <div>${isSeller ? '+' : '-'}${amounts.netSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</div>
-          ${isSeller && amounts.tax > 0 ? `<div class="text-[9px] font-normal text-sfl-woodLight dark:text-amber-300/60">Gross: ${amounts.grossSfl.toFixed(3)} • Tax: -${amounts.tax.toFixed(3)}</div>` : ''}
+        <td class="px-3 py-2.5 font-mono font-bold text-right whitespace-nowrap ${isSeller ? 'text-emerald-600 dark:text-emerald-400' : 'text-sfl-wood dark:text-amber-200'}">
+          <div class="flex items-center justify-end gap-1.5">
+            <span>${isSeller ? '+' : '-'}${amounts.netSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+            ${usdValue > 0 ? `<span class="text-[11px] font-bold ${isSeller ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/60 px-1 py-0.2 rounded' : 'text-blue-700 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-950/60 px-1 py-0.2 rounded'}">($${usdValue.toFixed(2)})</span>` : ''}
+          </div>
+          ${isSeller && amounts.tax > 0 ? `<div class="text-[9px] font-normal text-sfl-woodLight dark:text-amber-300/60">Gross: ${amounts.grossSfl.toFixed(3)} • Tax: -${amounts.tax.toFixed(3)}${sflUsd > 0 ? ` • @ $${sflUsd.toFixed(4)}/🌸` : ''}</div>` : (sflUsd > 0 ? `<div class="text-[9px] font-normal text-sfl-woodLight dark:text-amber-300/60">@ $${sflUsd.toFixed(4)}/🌸</div>` : '')}
         </td>
       </tr>
     `;
@@ -87,7 +100,7 @@ export function renderTradesTableView(mountEl, farmId) {
           <th class="px-2 py-2.5">Quantity</th>
           <th class="px-2 py-2.5">Unit Price</th>
           <th class="px-3 py-2.5">Counterparty</th>
-          <th class="px-3 py-2.5 text-right">Total SFL</th>
+          <th class="px-3 py-2.5 text-right">Total SFL / USD</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-sfl-cardBorder/40 font-medium">
@@ -120,6 +133,13 @@ export function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
     const qty = parseFloat(t.quantity || 1);
     const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
 
+    const sflUsd = parseFloat(t.sflUsd || t.sfl_usd) || currentSflUsdRate || 0;
+    const tradeSfl = isSeller ? amounts.netSfl : amounts.grossSfl;
+    const usdValue = (t.usdValue !== undefined && t.usdValue !== null)
+      ? parseFloat(t.usdValue)
+      : (sflUsd > 0 ? (tradeSfl * sflUsd) : 0);
+    const unitPriceUsd = sflUsd > 0 ? (unitPrice * sflUsd) : 0;
+
     const dateObj = t.fulfilledAt ? new Date(t.fulfilledAt) : null;
     const timeStr = dateObj && !isNaN(dateObj.getTime())
       ? dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -137,13 +157,19 @@ export function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
         <td class="px-2 py-2 whitespace-nowrap">${badge}</td>
         <td class="px-3 py-2 font-bold text-sfl-dirt dark:text-amber-100">${itemName}</td>
         <td class="px-2 py-2 font-mono font-bold text-sfl-wood dark:text-amber-200">${qty.toLocaleString()}</td>
-        <td class="px-2 py-2 font-mono text-sfl-woodLight dark:text-amber-300/70 text-xs">${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</td>
+        <td class="px-2 py-2 font-mono text-sfl-woodLight dark:text-amber-300/70 text-xs whitespace-nowrap">
+          <div>${unitPrice.toFixed(4)} ${FLOWER_IMG_SMALL_HTML}</div>
+          ${unitPriceUsd > 0 ? `<div class="text-[9px] text-sfl-wood/70 dark:text-amber-300/60 font-normal">($${unitPriceUsd < 0.01 ? unitPriceUsd.toFixed(4) : unitPriceUsd.toFixed(3)})</div>` : ''}
+        </td>
         <td class="px-3 py-2 font-medium text-sfl-wood dark:text-amber-200 text-xs">
           ${isSeller ? 'To: ' : 'From: '}<strong>${otherUser}</strong>
         </td>
-        <td class="px-3 py-2 font-mono font-bold text-right ${isSeller ? 'text-emerald-600 dark:text-emerald-400' : 'text-sfl-wood dark:text-amber-200'}">
-          <div>${isSeller ? '+' : '-'}${amounts.netSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</div>
-          ${isSeller && amounts.tax > 0 ? `<div class="text-[9px] font-normal text-sfl-woodLight dark:text-amber-300/60">Net (-${amounts.tax.toFixed(3)} tax)</div>` : ''}
+        <td class="px-3 py-2 font-mono font-bold text-right whitespace-nowrap ${isSeller ? 'text-emerald-600 dark:text-emerald-400' : 'text-sfl-wood dark:text-amber-200'}">
+          <div class="flex items-center justify-end gap-1.5">
+            <span>${isSeller ? '+' : '-'}${amounts.netSfl.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>
+            ${usdValue > 0 ? `<span class="text-[10px] font-bold ${isSeller ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-100/70 dark:bg-emerald-950/60 px-1 py-0.2 rounded' : 'text-blue-700 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-950/60 px-1 py-0.2 rounded'}">($${usdValue.toFixed(2)})</span>` : ''}
+          </div>
+          ${isSeller && amounts.tax > 0 ? `<div class="text-[9px] font-normal text-sfl-woodLight dark:text-amber-300/60">Net (-${amounts.tax.toFixed(3)} tax)${sflUsd > 0 ? ` • @ $${sflUsd.toFixed(4)}` : ''}</div>` : (sflUsd > 0 ? `<div class="text-[9px] font-normal text-sfl-woodLight dark:text-amber-300/60">@ $${sflUsd.toFixed(4)}</div>` : '')}
         </td>
       </tr>
     `;
@@ -170,7 +196,7 @@ export function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
               <th class="px-2 py-2">Quantity</th>
               <th class="px-2 py-2">Unit Price</th>
               <th class="px-3 py-2">Counterparty</th>
-              <th class="px-3 py-2 text-right">Total SFL</th>
+              <th class="px-3 py-2 text-right">Total SFL / USD</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-sfl-cardBorder/40 dark:divide-amber-700/40 font-medium bg-white dark:bg-transparent">
@@ -180,4 +206,5 @@ export function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
       </div>
     </div>
   `;
+
 }

@@ -1,5 +1,5 @@
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
-import { getTradeAmounts } from './tradeData.js';
+import { getTradeAmounts, currentSflUsdRate } from './tradeData.js';
 
 export function extractFarmTransferMetrics(farmObj) {
   if (!farmObj || typeof farmObj !== 'object') {
@@ -133,14 +133,17 @@ export function renderTradeSummaryMetrics(profileData, farmData = null) {
   // Start of current month (1st of month at 00:00:00)
   const monthStartTime = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0, 0).getTime();
 
-  let todaySales = 0, todayBuys = 0, todayCount = 0;
-  let weekSales = 0, weekBuys = 0, weekCount = 0;
-  let monthSales = 0, monthBuys = 0, monthCount = 0;
+  let todaySales = 0, todayBuys = 0, todayCount = 0, todaySalesUsd = 0, todayBuysUsd = 0;
+  let weekSales = 0, weekBuys = 0, weekCount = 0, weekSalesUsd = 0, weekBuysUsd = 0;
+  let monthSales = 0, monthBuys = 0, monthCount = 0, monthSalesUsd = 0, monthBuysUsd = 0;
   let totalSales = 0, totalBuys = 0;
 
   trades.forEach(t => {
     const { isSeller, netSfl, grossSfl } = getTradeAmounts(t, farmId);
     const time = Number(t.fulfilledAt || 0);
+
+    const sflUsd = parseFloat(t.sflUsd || t.sfl_usd) || currentSflUsdRate || 0;
+    const tradeUsd = sflUsd > 0 ? ((isSeller ? netSfl : grossSfl) * sflUsd) : 0;
 
     let isToday = false;
     if (time > 0) {
@@ -156,63 +159,88 @@ export function renderTradeSummaryMetrics(profileData, farmData = null) {
 
     if (isSeller) {
       totalSales += netSfl;
-      if (isToday) { todaySales += netSfl; todayCount++; }
-      if (isThisWeek) { weekSales += netSfl; weekCount++; }
-      if (isThisMonth) { monthSales += netSfl; monthCount++; }
+      if (isToday) { todaySales += netSfl; todaySalesUsd += tradeUsd; todayCount++; }
+      if (isThisWeek) { weekSales += netSfl; weekSalesUsd += tradeUsd; weekCount++; }
+      if (isThisMonth) { monthSales += netSfl; monthSalesUsd += tradeUsd; monthCount++; }
     } else {
       totalBuys += grossSfl;
-      if (isToday) { todayBuys += grossSfl; todayCount++; }
-      if (isThisWeek) { weekBuys += grossSfl; weekCount++; }
-      if (isThisMonth) { monthBuys += grossSfl; monthCount++; }
+      if (isToday) { todayBuys += grossSfl; todayBuysUsd += tradeUsd; todayCount++; }
+      if (isThisWeek) { weekBuys += grossSfl; weekBuysUsd += tradeUsd; weekCount++; }
+      if (isThisMonth) { monthBuys += grossSfl; monthBuysUsd += tradeUsd; monthCount++; }
     }
   });
 
   const userSummaryEl = document.getElementById('trade-user-summary');
   if (userSummaryEl) {
-    userSummaryEl.textContent = `Player: ${user} • Level: ${level} • Lifetime Market Volume: ${totalTradesCount.toLocaleString()} trades`;
+    const rateNote = currentSflUsdRate > 0 ? ` • 1 🌸 = $${currentSflUsdRate.toFixed(4)} USD` : '';
+    userSummaryEl.textContent = `Player: ${user} • Level: ${level} • Lifetime Market Volume: ${totalTradesCount.toLocaleString()} trades${rateNote}`;
   }
 
   // 1. TODAY
   const todayNet = todaySales - todayBuys;
+  const todayNetUsd = todaySalesUsd - todayBuysUsd;
   const todayNetEl = document.getElementById('trade-metric-today-net');
   if (todayNetEl) {
     todayNetEl.className = `text-lg font-black font-mono ${todayNet > 0 ? 'text-sfl-green dark:text-emerald-400' : (todayNet < 0 ? 'text-sfl-accent dark:text-rose-400' : 'text-sfl-wood dark:text-amber-100')}`;
-    todayNetEl.innerHTML = `${todayNet >= 0 ? '+' : ''}${todayNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
+    const usdSub = Math.abs(todayNetUsd) > 0 ? ` <span class="text-xs font-semibold opacity-85">(${todayNetUsd >= 0 ? '+' : '-'}$${Math.abs(todayNetUsd).toFixed(2)})</span>` : '';
+    todayNetEl.innerHTML = `${todayNet >= 0 ? '+' : ''}${todayNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}${usdSub}`;
   }
   const todayCountEl = document.getElementById('trade-metric-today-count');
   if (todayCountEl) todayCountEl.textContent = `${todayCount} ${todayCount === 1 ? 'trade' : 'trades'}`;
   const todaySalesEl = document.getElementById('trade-metric-today-sales');
-  if (todaySalesEl) todaySalesEl.textContent = `+${todaySales.toFixed(3)}`;
+  if (todaySalesEl) {
+    const sUsd = todaySalesUsd > 0 ? ` ($${todaySalesUsd.toFixed(2)})` : '';
+    todaySalesEl.textContent = `+${todaySales.toFixed(3)}${sUsd}`;
+  }
   const todayBuysEl = document.getElementById('trade-metric-today-buys');
-  if (todayBuysEl) todayBuysEl.textContent = `-${todayBuys.toFixed(3)}`;
+  if (todayBuysEl) {
+    const bUsd = todayBuysUsd > 0 ? ` ($${todayBuysUsd.toFixed(2)})` : '';
+    todayBuysEl.textContent = `-${todayBuys.toFixed(3)}${bUsd}`;
+  }
 
   // 2. WEEK
   const weekNet = weekSales - weekBuys;
+  const weekNetUsd = weekSalesUsd - weekBuysUsd;
   const weekNetEl = document.getElementById('trade-metric-week-net');
   if (weekNetEl) {
     weekNetEl.className = `text-lg font-black font-mono ${weekNet > 0 ? 'text-sfl-green dark:text-emerald-400' : (weekNet < 0 ? 'text-sfl-accent dark:text-rose-400' : 'text-sfl-wood dark:text-amber-100')}`;
-    weekNetEl.innerHTML = `${weekNet >= 0 ? '+' : ''}${weekNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
+    const usdSub = Math.abs(weekNetUsd) > 0 ? ` <span class="text-xs font-semibold opacity-85">(${weekNetUsd >= 0 ? '+' : '-'}$${Math.abs(weekNetUsd).toFixed(2)})</span>` : '';
+    weekNetEl.innerHTML = `${weekNet >= 0 ? '+' : ''}${weekNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}${usdSub}`;
   }
   const weekCountEl = document.getElementById('trade-metric-week-count');
   if (weekCountEl) weekCountEl.textContent = `${weekCount} ${weekCount === 1 ? 'trade' : 'trades'}`;
   const weekSalesEl = document.getElementById('trade-metric-week-sales');
-  if (weekSalesEl) weekSalesEl.textContent = `+${weekSales.toFixed(3)}`;
+  if (weekSalesEl) {
+    const wsUsd = weekSalesUsd > 0 ? ` ($${weekSalesUsd.toFixed(2)})` : '';
+    weekSalesEl.textContent = `+${weekSales.toFixed(3)}${wsUsd}`;
+  }
   const weekBuysEl = document.getElementById('trade-metric-week-buys');
-  if (weekBuysEl) weekBuysEl.textContent = `-${weekBuys.toFixed(3)}`;
+  if (weekBuysEl) {
+    const wbUsd = weekBuysUsd > 0 ? ` ($${weekBuysUsd.toFixed(2)})` : '';
+    weekBuysEl.textContent = `-${weekBuys.toFixed(3)}${wbUsd}`;
+  }
 
   // 3. MONTH
   const monthNet = monthSales - monthBuys;
+  const monthNetUsd = monthSalesUsd - monthBuysUsd;
   const monthNetEl = document.getElementById('trade-metric-month-net');
   if (monthNetEl) {
     monthNetEl.className = `text-lg font-black font-mono ${monthNet > 0 ? 'text-sfl-green dark:text-emerald-400' : (monthNet < 0 ? 'text-sfl-accent dark:text-rose-400' : 'text-sfl-wood dark:text-amber-100')}`;
-    monthNetEl.innerHTML = `${monthNet >= 0 ? '+' : ''}${monthNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}`;
+    const usdSub = Math.abs(monthNetUsd) > 0 ? ` <span class="text-xs font-semibold opacity-85">(${monthNetUsd >= 0 ? '+' : '-'}$${Math.abs(monthNetUsd).toFixed(2)})</span>` : '';
+    monthNetEl.innerHTML = `${monthNet >= 0 ? '+' : ''}${monthNet.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}${usdSub}`;
   }
   const monthCountEl = document.getElementById('trade-metric-month-count');
   if (monthCountEl) monthCountEl.textContent = `${monthCount} ${monthCount === 1 ? 'trade' : 'trades'}`;
   const monthSalesEl = document.getElementById('trade-metric-month-sales');
-  if (monthSalesEl) monthSalesEl.textContent = `+${monthSales.toFixed(3)}`;
+  if (monthSalesEl) {
+    const msUsd = monthSalesUsd > 0 ? ` ($${monthSalesUsd.toFixed(2)})` : '';
+    monthSalesEl.textContent = `+${monthSales.toFixed(3)}${msUsd}`;
+  }
   const monthBuysEl = document.getElementById('trade-metric-month-buys');
-  if (monthBuysEl) monthBuysEl.textContent = `-${monthBuys.toFixed(3)}`;
+  if (monthBuysEl) {
+    const mbUsd = monthBuysUsd > 0 ? ` ($${monthBuysUsd.toFixed(2)})` : '';
+    monthBuysEl.textContent = `-${monthBuys.toFixed(3)}${mbUsd}`;
+  }
 
   // 4. ON-CHAIN FLOWER TRANSFERS (DEPOSITS & WITHDRAWALS)
   let transfers = null;

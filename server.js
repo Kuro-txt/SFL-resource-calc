@@ -19,6 +19,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 // ── Backend service modules ────────────────────────────────────────────────
 // Note: TiDB is used exclusively for marketplace trades in backend/tradeSync.js & api/trades.js
+const { getTiDBPool, recordExchangeRateInCloud } = require('./backend/db');
 const { CROP_FLOWER_PRICES }                     = require('./backend/prices');
 const { fetchFarmFullDataWithRetry, getSflHeaders, formatNftItem } = require('./backend/farmApi');
 const { processBaselineSnapshot }                = require('./backend/baselineService');
@@ -146,9 +147,19 @@ app.get('/api/get-exchange', async (req, res) => {
       headers: SFL_WORLD_HEADERS, timeout: 20000
     });
     setServerCache(cacheKey, response.data);
+
+    // Save exchange rate snapshot to cloud asynchronously (throttled to 15m)
+    try {
+      const pool = getTiDBPool();
+      if (pool && response.data) {
+        recordExchangeRateInCloud(pool, response.data).catch(() => {});
+      }
+    } catch (e) {}
+
     res.setHeader('Cache-Control', 'public, max-age=60');
     res.setHeader('X-Cache', 'MISS');
     res.json(response.data);
+
   } catch (err) {
     const stale = serverCache.get(cacheKey)?.data;
     if (stale) {
