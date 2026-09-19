@@ -96,33 +96,22 @@ export function renderHeader() {
           <span class="text-xs transition-transform duration-200 group-open/guide:rotate-180 text-sfl-woodLight dark:text-amber-300">▼</span>
         </summary>
 
-        <div class="mt-2.5 pt-2.5 border-t border-amber-200/80 dark:border-slate-700/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-[11px] font-medium text-sfl-woodLight dark:text-slate-400">
-          <div class="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
+        <div class="mt-2.5 pt-2.5 border-t border-amber-200/80 dark:border-slate-700/80 grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] font-medium text-sfl-woodLight dark:text-slate-400">
+          <div class="bg-white/80 dark:bg-slate-800/80 p-3 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
             <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
               <span>🚜</span> 1. Link Farm & Sync
             </span>
             <p>Enter your numeric <strong>Farm ID</strong> in the top header and click <strong>🔄 Sync Data</strong>. Your live inventory, bank balance, and trade ledger will load immediately.</p>
           </div>
-          <div class="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
+          <div class="bg-white/80 dark:bg-slate-800/80 p-3 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
             <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
               <span>⏱️</span> 2. When Do Reports Appear?
             </span>
             <p>Sun-Flux calculates daily net harvest & expenses against automated <strong>00:00 UTC baselines</strong>. If you link your farm today, your first daily harvest report will arrive <strong>tomorrow at 22:00 UTC</strong>.</p>
           </div>
-          <div class="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
-            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
-              <span>⚖️</span> 3. Marketplace & USD
-            </span>
-            <p>Trades are auto-synced 5x daily and permanently archived in the cloud. Every trade automatically deducts in-game tax and freezes the live SFL/USD exchange rate.</p>
-          </div>
-          <div class="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
-            <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
-              <span>☁️</span> 4. Cloud Account Backup
-            </span>
-            <p>Sign up or log in using the cloud bar below to sync your tracked items, baseline history, and custom targets seamlessly across all your devices.</p>
-          </div>
         </div>
       </details>
+
 
       <!-- COMPACT MULTI-DEVICE CLOUD AUTH BAR (Directly below How to Use) -->
       <div id="auth-panel" class="bg-sfl-wood/95 dark:bg-slate-900/90 text-amber-100 p-2.5 rounded-2xl border-2 border-sfl-dirt dark:border-slate-700/80 flex flex-col sm:flex-row justify-between items-center gap-2 shadow-sm text-xs">
