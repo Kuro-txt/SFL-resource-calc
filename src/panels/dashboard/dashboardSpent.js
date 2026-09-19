@@ -283,11 +283,24 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
 
   // Combine chronological baselines + live inventory
   const chronological = [...baselineRows].sort((a, b) => (a.snapshot_date || '').localeCompare(b.snapshot_date || ''));
-  const liveStock = window.farmInventoryData || window.farmData?.inventory || window.farmData?.farm?.inventory || null;
+  const rawLiveStock = window.farmInventoryData || window.farmData?.inventory || window.farmData?.farm?.inventory || null;
+  let liveStock = (rawLiveStock && typeof rawLiveStock === 'object' && Object.keys(rawLiveStock).length > 0) ? rawLiveStock : null;
+
+  if (!liveStock) {
+    try {
+      const cachedInv = JSON.parse(localStorage.getItem('sfl_farm_inventory') || '{}');
+      if (cachedInv && typeof cachedInv === 'object' && Object.keys(cachedInv).length > 0) {
+        liveStock = cachedInv;
+        window.farmInventoryData = cachedInv;
+      }
+    } catch (_) {}
+  }
+
+  const hasLiveStock = liveStock && typeof liveStock === 'object' && Object.keys(liveStock).length > 0;
   const todayUtcStr = new Date().toISOString().split('T')[0];
 
   const allSnapshots = [...chronological];
-  if (liveStock && typeof liveStock === 'object') {
+  if (hasLiveStock) {
     allSnapshots.push({
       snapshot_date: todayUtcStr,
       stock: liveStock,
@@ -336,7 +349,7 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
     // 2. Get 22:00 UTC (or Live) Gems
     let endGems = null;
     if (isToday) {
-      if (liveStock) {
+      if (hasLiveStock) {
         endGems = getGemCount(liveStock);
       } else if (snapGems && snapGems.endGems !== undefined) {
         endGems = parseFloat(snapGems.endGems);

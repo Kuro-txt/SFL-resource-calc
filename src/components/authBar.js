@@ -7,7 +7,9 @@ import { loadPrices } from '../panels/calculatorPanel.js';
 import { loadCloudYieldHistory, updatePreHarvestUI } from '../panels/trackerPanel.js';
 import { mountDashboard } from '../panels/dashboard/dashboardPanel.js';
 
-window.farmInventoryData = window.farmInventoryData || {};
+let savedInventory = {};
+try { savedInventory = JSON.parse(localStorage.getItem('sfl_farm_inventory') || '{}'); } catch (_) {}
+window.farmInventoryData = (window.farmInventoryData && Object.keys(window.farmInventoryData).length > 0) ? window.farmInventoryData : savedInventory;
 window.farmNpcData = window.farmNpcData || JSON.parse(localStorage.getItem('sfl_farm_npcs') || '{}');
 window.syncCount = window.syncCount || 0;
 window.syncCooldownTimer = window.syncCooldownTimer || null;
@@ -565,6 +567,7 @@ export async function handleFarmSync() {
             .maybeSingle();
           if (base?.stock) {
             window.farmInventoryData = base.stock;
+            try { localStorage.setItem('sfl_farm_inventory', JSON.stringify(base.stock)); } catch (_) {}
             window.farmData = { inventory: base.stock, farmActivity: base.farm_activity || {} };
           }
         }

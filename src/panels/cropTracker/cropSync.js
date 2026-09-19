@@ -96,7 +96,11 @@ export async function fetchLiveCropDiff() {
     const farmObj = await ApiService.getFarmFullData(farmId, apiKey);
     if (farmObj) {
       window.farmData = farmObj;
-      window.farmInventoryData = farmObj.inventory || farmObj.farm?.inventory || null;
+      const inv = farmObj.inventory || farmObj.farm?.inventory || null;
+      window.farmInventoryData = inv;
+      if (inv && typeof inv === 'object' && Object.keys(inv).length > 0) {
+        try { localStorage.setItem('sfl_farm_inventory', JSON.stringify(inv)); } catch (_) {}
+      }
     }
     const currentActivity = farmObj.farmActivity || farmObj.activity || {};
 
@@ -161,7 +165,11 @@ export async function saveCurrentActivityAsBaseline() {
     const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
     if (farmObj) {
       window.farmData = farmObj;
-      window.farmInventoryData = farmObj.inventory || farmObj.farm?.inventory || null;
+      const inv = farmObj.inventory || farmObj.farm?.inventory || null;
+      window.farmInventoryData = inv;
+      if (inv && typeof inv === 'object' && Object.keys(inv).length > 0) {
+        try { localStorage.setItem('sfl_farm_inventory', JSON.stringify(inv)); } catch (_) {}
+      }
     }
     const inventory = farmObj.inventory || {};
     const farmActivity = farmObj.farmActivity || farmObj.activity || {};
