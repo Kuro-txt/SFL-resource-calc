@@ -78,7 +78,7 @@ export function initCalculatorPanel() {
 
 function bindCalculatorEvents() {
   const handleDonation = async () => {
-    const donationAddress = "0xE32d234D63998F5078de9A7E2303233699276642";
+    const donationAddress = "0x55b97223202457d427a68389346da9a9314d0511";
     const donateBtn = document.getElementById('donate-btn');
 
     try {
