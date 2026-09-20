@@ -101,7 +101,7 @@ export function renderHeader() {
             <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
               <span>🚜</span> 1. Register, Link Farm ID & Sync
             </span>
-            <p><strong>Registering an account below is a must</strong> — automated 00:00 UTC baselines, daily harvest reports, and 5x daily trade auto-sync run exclusively for registered profiles. Enter your numeric <strong>Farm ID</strong> in the top header and click <strong>🔄 Sync Data</strong> to link your farm and load live data.</p>
+            <p><strong>Registering an account below is a must</strong>. Enter your numeric <strong>Farm ID</strong> in the top header and click <strong>🔄 Sync Data</strong> to link your farm and load your live data.</p>
           </div>
           <div class="bg-white/80 dark:bg-slate-800/80 p-3 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
             <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
