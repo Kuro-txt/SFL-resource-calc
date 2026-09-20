@@ -99,9 +99,9 @@ export function renderHeader() {
         <div class="mt-2.5 pt-2.5 border-t border-amber-200/80 dark:border-slate-700/80 grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] font-medium text-sfl-woodLight dark:text-slate-400">
           <div class="bg-white/80 dark:bg-slate-800/80 p-3 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
             <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
-              <span>🚜</span> 1. Link Farm & Sync
+              <span>🚜</span> 1. Register, Link Farm ID & Sync
             </span>
-            <p>Enter your numeric <strong>Farm ID</strong> in the top header and click <strong>🔄 Sync Data</strong>. Your live inventory, bank balance, and trade ledger will load immediately.</p>
+            <p><strong>Registering an account below is a must</strong> — automated 00:00 UTC baselines, daily harvest reports, and 5x daily trade auto-sync run exclusively for registered profiles. Enter your numeric <strong>Farm ID</strong> in the top header and click <strong>🔄 Sync Data</strong> to link your farm and load live data.</p>
           </div>
           <div class="bg-white/80 dark:bg-slate-800/80 p-3 rounded-xl border border-amber-200/70 dark:border-slate-700/70 space-y-1">
             <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
