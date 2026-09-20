@@ -113,13 +113,23 @@ async function processAutoSyncTrades(supabase) {
             // In a listing (or default):
             // initiatedBy = SELLER (who created the listing to sell)
             // fulfilledBy = BUYER (who purchased the listing)
-            const isOffer = t.source === 'offer';
-            const isSeller = isOffer ? (fulfId === myFarmIdStr) : (initId === myFarmIdStr);
+            const sellerId = String(t.seller?.id || t.seller || '').trim();
+            const buyerId = String(t.buyer?.id || t.buyer || '').trim();
+            const isOffer = String(t.source || t.type || t.collection || '').toLowerCase().includes('offer');
+
+            let isSeller = false;
+            if (sellerId && sellerId === myFarmIdStr) {
+              isSeller = true;
+            } else if (buyerId && buyerId === myFarmIdStr) {
+              isSeller = false;
+            } else if (initId || fulfId) {
+              isSeller = isOffer ? (fulfId === myFarmIdStr) : (initId === myFarmIdStr);
+            }
 
             // Counterparty is ALWAYS the other party (the party whose ID does NOT match myFarmId)
             const otherParty = (initId === myFarmIdStr) ? t.fulfilledBy : t.initiatedBy;
             const otherName = otherParty?.username || (otherParty?.id ? `Farm #${otherParty.id}` : '');
-            const otherId = otherParty?.id || null;
+            const otherId = otherParty?.id || (isSeller ? buyerId : sellerId) || null;
 
             const itemId = parseInt(t.itemId || 0, 10);
             const isEconomy = t.collection === 'economies' || Boolean(t.economy);
@@ -218,8 +228,18 @@ async function getTodayTradesForFarm(farmId, todayDate) {
             const myFarmIdStr = String(cleanFarmId).trim();
             const initId = String(t.initiatedBy?.id || '').trim();
             const fulfId = String(t.fulfilledBy?.id || '').trim();
-            const isOffer = t.source === 'offer';
-            const isSeller = isOffer ? (fulfId === myFarmIdStr) : (initId === myFarmIdStr);
+            const sellerId = String(t.seller?.id || t.seller || '').trim();
+            const buyerId = String(t.buyer?.id || t.buyer || '').trim();
+            const isOffer = String(t.source || t.type || t.collection || '').toLowerCase().includes('offer');
+
+            let isSeller = false;
+            if (sellerId && sellerId === myFarmIdStr) {
+              isSeller = true;
+            } else if (buyerId && buyerId === myFarmIdStr) {
+              isSeller = false;
+            } else if (initId || fulfId) {
+              isSeller = isOffer ? (fulfId === myFarmIdStr) : (initId === myFarmIdStr);
+            }
             const tradeType = isSeller ? 'sold' : 'bought';
             const rawName = t.itemName || t.name;
             const itemId = parseInt(t.itemId || 0, 10);

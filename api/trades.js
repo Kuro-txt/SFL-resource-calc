@@ -282,7 +282,7 @@ export default async function handler(req, res) {
         const itemName = String(resolvedName || `Item #${itemId}`).substring(0, 128);
         const quantity = parseFloat(t.quantity || 1);
         const sfl = parseFloat(t.sfl || 0);
-        const tradeType = String(t.tradeType || 'sold').toLowerCase();
+        const tradeType = String(t.tradeType || t.trade_type || 'bought').toLowerCase();
         let tax = parseFloat(t.tax || 0);
         if (tradeType === 'sold' && (!tax || tax <= 0)) {
           tax = Math.round((sfl * 0.10) * 10000) / 10000;

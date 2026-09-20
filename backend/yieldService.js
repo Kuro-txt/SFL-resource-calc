@@ -17,6 +17,37 @@ function formatOfficialItemName(cleanKey) {
   return cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1);
 }
 
+function getActivityDeltaForItem(cleanKey, currActivity, baseActivity) {
+  if (!currActivity || typeof currActivity !== 'object') return null;
+  const normKey = (k) => k.toLowerCase().replace(/[^a-z0-9]/g, '');
+  
+  const targetPatterns = [
+    `${cleanKey}collected`,
+    `${cleanKey}harvested`,
+    `${cleanKey}mined`,
+    `${cleanKey}rockmined`,
+    `${cleanKey}produced`
+  ];
+  
+  if (cleanKey === 'wood') {
+    targetPatterns.push('treechopped', 'basictreechopped', 'woodchopped');
+  }
+
+  let totalDelta = null;
+
+  for (const actKey of Object.keys(currActivity)) {
+    const cleanAct = normKey(actKey);
+    if (targetPatterns.includes(cleanAct)) {
+      const start = parseFloat(baseActivity?.[actKey] || 0);
+      const end = parseFloat(currActivity[actKey] || 0);
+      const diff = Math.max(0, end - start);
+      totalDelta = (totalDelta === null ? 0 : totalDelta) + diff;
+    }
+  }
+
+  return totalDelta;
+}
+
 const fs = require('fs');
 const path = require('path');
 const LOCAL_PRICE_CACHE_PATH = path.join(__dirname, 'lastMarketPrices.json');
@@ -334,11 +365,20 @@ async function processYieldCalculation(supabase) {
       let netOrganicDiff = effectiveGrossDiff - bought + totalSold;
       let unitPrice = getFlowerUnitPrice(cleanKey, flatPrices);
 
-      if (netOrganicDiff > 0.0001 || (netOrganicDiff >= 0 && (bought > 0 || totalSold > 0))) {
+      // ── Ground-Truth Activity Verification ──
+      // If an in-game activity counter exists for this item (animals, minerals, trees, crops)
+      // and showed 0 delta today, the farm DID NOT produce this item organically.
+      // Any positive inventory jump was from external purchases/transfers.
+      const activityDelta = getActivityDeltaForItem(cleanKey, currActivity, baseActivity);
+      if (activityDelta !== null && activityDelta <= 0 && netOrganicDiff > 0) {
+        netOrganicDiff = 0;
+      }
+
+      if (netOrganicDiff > 0.0001) {
         let harvestedQty = Math.ceil(Math.max(0, netOrganicDiff) * 10) / 10;
         let itemFlowers = Math.ceil((unitPrice * harvestedQty * 0.9) * 1000) / 1000;
 
-        if (harvestedQty > 0 || bought > 0 || totalSold > 0) {
+        if (harvestedQty > 0) {
           yieldsList.push({
             name: formattedName,
             qty: harvestedQty,

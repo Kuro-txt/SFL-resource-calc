@@ -198,12 +198,18 @@ export function getTradeAmounts(trade, farmId) {
 
 export function isUserSeller(trade, myFarmId) {
   const myIdStr = String(myFarmId || '').trim();
-  const initId = String(trade.initiatedBy?.id || trade.seller || '').trim();
-  const fulfId = String(trade.fulfilledBy?.id || trade.buyer || '').trim();
+  const sellerId = String(trade.seller?.id || trade.seller || '').trim();
+  const buyerId = String(trade.buyer?.id || trade.buyer || '').trim();
+  if (sellerId && sellerId === myIdStr) return true;
+  if (buyerId && buyerId === myIdStr) return false;
+
+  const initId = String(trade.initiatedBy?.id || '').trim();
+  const fulfId = String(trade.fulfilledBy?.id || '').trim();
+  const isOffer = String(trade.source || trade.type || trade.collection || '').toLowerCase().includes('offer');
 
   // If trade has initiator or fulfiller data (definitive truth from SFL API)
   if (initId || fulfId) {
-    if (trade.source === 'offer') {
+    if (isOffer) {
       // In an offer:
       // initiatedBy = BUYER (who created offer to buy)
       // fulfilledBy = SELLER (who accepted offer to sell)
