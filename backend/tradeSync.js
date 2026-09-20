@@ -48,7 +48,7 @@ async function processAutoSyncTrades(supabase) {
   
   const farmMap = new Map();
 
-  // 1. Fetch registered users from Supabase profiles
+  // Fetch registered users strictly from Supabase profiles
   try {
     const { data: profiles, error: pErr } = await supabase.from('profiles').select('id, farm_id');
     if (!pErr && Array.isArray(profiles)) {
@@ -63,26 +63,9 @@ async function processAutoSyncTrades(supabase) {
     console.warn("Notice: Supabase profiles query:", e.message);
   }
 
-  // 2. Fetch distinct farms from TiDB Cloud
-  try {
-    const pool = getTiDBPool();
-    if (pool) {
-      const [rows] = await pool.query("SELECT DISTINCT farm_id FROM user_trades;");
-      if (Array.isArray(rows)) {
-        rows.forEach(r => {
-          if (r.farm_id) {
-            const cleanId = String(r.farm_id).trim();
-            if (!farmMap.has(cleanId)) farmMap.set(cleanId, '');
-          }
-        });
-      }
-    }
-  } catch (e) {
-    console.warn("Notice: TiDB user_trades query:", e.message);
-  }
-
   const farmEntries = Array.from(farmMap.entries());
-  console.log(`📋 [Auto-Sync Trades] Found ${farmEntries.length} registered farms to sync.`);
+  console.log(`📋 [Auto-Sync Trades] Found ${farmEntries.length} registered profile farms to sync.`);
+
 
   // Fetch live exchange rate to lock in current USD price for newly synced trades
   let currentSflUsd = null;
