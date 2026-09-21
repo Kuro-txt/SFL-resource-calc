@@ -51,13 +51,13 @@ export async function unlockAppGate(user, farmId) {
   if (gateMount) gateMount.classList.add('hidden');
   if (mainApp) mainApp.classList.remove('hidden');
 
-  await setLoggedInUser(user);
-
   if (farmId) {
     const farmIdEl = document.getElementById('farm-id');
     if (farmIdEl) farmIdEl.value = farmId;
     localStorage.setItem('sfl_farm_id', farmId);
   }
+
+  await setLoggedInUser(user);
 
   // Trigger global data sync so farm data immediately loads
   if (typeof window.syncGlobalFarmData === 'function') {
@@ -98,6 +98,7 @@ export function updateUsernameDisplay() {
 
 export async function setLoggedInUser(user) {
   window.currentUser = user;
+  document.documentElement.classList.remove('sfl-pre-authed');
   
   // Unlock / Reveal Main App and hide Welcome Gate
   const gateMount = document.getElementById('welcome-gate-mount');
