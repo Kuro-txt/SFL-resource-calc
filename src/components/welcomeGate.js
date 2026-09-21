@@ -233,15 +233,16 @@ export function renderWelcomeGate() {
                 >
               </div>
 
-              <!-- SUBMIT BUTTON (Tactile 3D Pixel Game Button) -->
+              <!-- SUBMIT BUTTON (Sunflower Land Game 3D Push Button) -->
               <button 
                 type="button" 
                 id="gate-btn-submit" 
-                class="w-full py-3.5 px-4 rounded-xl font-black text-sm text-white uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 border-2 border-sfl-dirt shadow-md hover:shadow-lg transition mt-2"
+                class="group relative w-full py-3.5 px-5 rounded-2xl font-black text-sm sm:text-base text-white uppercase tracking-wider cursor-pointer flex items-center justify-center gap-3 bg-gradient-to-b from-emerald-500 via-emerald-600 to-green-700 hover:from-emerald-400 hover:via-emerald-500 hover:to-green-600 border-3 border-[#18300d] dark:border-[#0d1c07] shadow-[inset_0_2px_0_rgba(255,255,255,0.4),0_5px_0_#122409,0_8px_16px_rgba(0,0,0,0.25)] active:translate-y-1 active:shadow-[inset_0_2px_0_rgba(255,255,255,0.4),0_1px_0_#122409] transition-all select-none mt-2"
               >
                 <span id="gate-btn-spinner" class="hidden animate-spin text-base">⏳</span>
-                <span id="gate-btn-icon" class="text-base">🌾</span>
-                <span id="gate-btn-text" class="font-pixel text-xl tracking-wider">REGISTER & ENTER FARM</span>
+                <span id="gate-btn-icon" class="w-7 h-7 rounded-lg bg-black/20 border border-white/20 flex items-center justify-center text-sm shadow-inner shrink-0">🌾</span>
+                <span id="gate-btn-text" class="tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] font-game">Register & Enter Farm</span>
+                <span id="gate-btn-arrow" class="text-emerald-200 group-hover:translate-x-1 transition-transform text-sm font-bold shrink-0">➔</span>
               </button>
             </form>
 
@@ -286,7 +287,7 @@ function setGateMode(mode) {
     tabLog?.classList.add('bg-transparent', 'hover:bg-amber-100/60', 'dark:hover:bg-slate-800', 'border-transparent', 'text-sfl-woodLight', 'dark:text-slate-400');
 
     if (farmIdGroup) farmIdGroup.classList.remove('hidden');
-    if (btnText) btnText.textContent = 'REGISTER & ENTER FARM';
+    if (btnText) btnText.textContent = 'Register & Enter Farm';
     if (btnIcon) btnIcon.textContent = '🌾';
   } else {
     tabLog?.classList.remove('bg-transparent', 'hover:bg-amber-100/60', 'dark:hover:bg-slate-800', 'border-transparent', 'text-sfl-woodLight', 'dark:text-slate-400');
@@ -297,7 +298,7 @@ function setGateMode(mode) {
 
     // Hide farm ID group on login since it loads automatically from user's Supabase profile
     if (farmIdGroup) farmIdGroup.classList.add('hidden');
-    if (btnText) btnText.textContent = 'SIGN IN & ENTER FARM';
+    if (btnText) btnText.textContent = 'Sign In & Enter Farm';
     if (btnIcon) btnIcon.textContent = '🚜';
   }
 }
@@ -318,8 +319,16 @@ function setGateLoading(isLoading) {
   const btn = document.getElementById('gate-btn-submit');
   const spinner = document.getElementById('gate-btn-spinner');
   const icon = document.getElementById('gate-btn-icon');
+  const arrow = document.getElementById('gate-btn-arrow');
 
-  if (btn) btn.disabled = isLoading;
+  if (btn) {
+    btn.disabled = isLoading;
+    if (isLoading) {
+      btn.classList.add('opacity-80', 'cursor-not-allowed');
+    } else {
+      btn.classList.remove('opacity-80', 'cursor-not-allowed');
+    }
+  }
   if (spinner) {
     if (isLoading) spinner.classList.remove('hidden');
     else spinner.classList.add('hidden');
@@ -327,6 +336,10 @@ function setGateLoading(isLoading) {
   if (icon) {
     if (isLoading) icon.classList.add('hidden');
     else icon.classList.remove('hidden');
+  }
+  if (arrow) {
+    if (isLoading) arrow.classList.add('hidden');
+    else arrow.classList.remove('hidden');
   }
 }
 
