@@ -248,6 +248,15 @@ export function renderWelcomeGate() {
           </div>
 
         </div>
+
+        <!-- BOTTOM SCHEDULE NOTICE -->
+        <div class="pt-3 border-t-2 border-sfl-cardBorder dark:border-slate-700/80 text-center">
+          <p class="text-xs text-sfl-wood dark:text-slate-300 font-medium inline-flex items-center justify-center gap-1.5 flex-wrap">
+            <span>⏱️</span>
+            <span>If you link your farm today, your first daily harvest report will arrive <strong>tomorrow at 22:00 UTC</strong>.</span>
+          </p>
+        </div>
+
       </div>
 
     </div>
