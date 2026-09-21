@@ -142,12 +142,6 @@ export function renderWelcomeGate() {
 
             </div>
 
-            <!-- Security Note -->
-            <p class="text-[10px] font-medium text-sfl-woodLight dark:text-slate-400 flex items-center gap-1.5 pt-1">
-              <span>🔒</span>
-              <span>Encrypted Supabase auth • No wallet signatures or private keys required</span>
-            </p>
-
           </div>
 
           <!-- RIGHT COLUMN: Form & Mode Tabs -->
