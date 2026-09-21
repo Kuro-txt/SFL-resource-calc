@@ -199,20 +199,28 @@ export function renderWelcomeGate() {
                 </div>
               </div>
 
-              <!-- Email Field -->
+              <!-- Username / Email Field with prewritten @gmail.com -->
               <div class="space-y-1">
                 <label for="gate-email" class="block text-xs font-bold text-sfl-wood dark:text-amber-300 flex items-center justify-between">
-                  <span class="flex items-center gap-1.5"><span>✉️</span> Account Email (Username)</span>
-                  <span class="text-[10px] text-amber-700 dark:text-amber-400 font-bold">* ends with @gmail.com</span>
+                  <span class="flex items-center gap-1.5"><span>✉️</span> Account Username</span>
+                  <span class="text-[10px] text-amber-700 dark:text-amber-400 font-bold">* @gmail.com auto-attached</span>
                 </label>
-                <input 
-                  type="email" 
-                  id="gate-email" 
-                  placeholder="e.g. farmer123@gmail.com" 
-                  autocomplete="username"
-                  class="w-full sfl-input rounded-xl px-3 py-2 text-xs font-bold text-sfl-dirt dark:text-amber-100 shadow-2xs focus:outline-none"
-                  required
-                >
+                <div class="flex items-center sfl-input rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-amber-500 shadow-2xs">
+                  <input 
+                    type="text" 
+                    id="gate-email" 
+                    placeholder="e.g. farmer123" 
+                    autocomplete="username"
+                    class="w-full bg-transparent px-3 py-2 text-xs font-bold text-sfl-dirt dark:text-amber-100 border-none outline-none focus:ring-0 placeholder-stone-400"
+                    required
+                  >
+                  <span class="px-3 py-2 bg-amber-200/70 dark:bg-slate-700/80 text-sfl-wood dark:text-amber-300 text-xs font-bold font-mono border-l-2 border-sfl-cardBorder dark:border-slate-600 select-none whitespace-nowrap">
+                    @gmail.com
+                  </span>
+                </div>
+                <p class="text-[10px] text-sfl-woodLight dark:text-slate-400">
+                  Just enter any handle or username — no real Gmail account is required!
+                </p>
               </div>
 
               <!-- Password Field -->
@@ -349,6 +357,13 @@ function bindWelcomeGateEvents() {
     });
   }
 
+  // Real-time cleanup: if user types or pastes '@gmail.com' or '@...', strip it
+  document.getElementById('gate-email')?.addEventListener('input', (e) => {
+    if (e.target.value.includes('@')) {
+      e.target.value = e.target.value.replace(/@gmail\.com$/i, '').replace(/@.*$/, '').trim();
+    }
+  });
+
   // Mode Selection Tabs
   document.getElementById('gate-tab-register')?.addEventListener('click', () => setGateMode('register'));
   document.getElementById('gate-tab-login')?.addEventListener('click', () => setGateMode('login'));
@@ -363,7 +378,7 @@ function bindWelcomeGateEvents() {
 
   // Submit Handler
   document.getElementById('gate-btn-submit')?.addEventListener('click', async () => {
-    const email = document.getElementById('gate-email')?.value.trim();
+    let username = document.getElementById('gate-email')?.value.trim();
     const password = document.getElementById('gate-password')?.value.trim();
     const farmId = document.getElementById('gate-farm-id')?.value.trim();
     const client = window.supabaseClient;
@@ -372,13 +387,17 @@ function bindWelcomeGateEvents() {
       return showGateAlert("Supabase client is not initialized. Please refresh.", "error");
     }
 
-    if (!email) {
-      return showGateAlert("Please enter your email address (ending with @gmail.com).", "error");
+    if (!username) {
+      return showGateAlert("Please enter an account username.", "error");
     }
 
-    if (!email.toLowerCase().endsWith('@gmail.com')) {
-      return showGateAlert("Please make sure your email address ends with @gmail.com", "error");
+    // Clean up username and auto-append @gmail.com
+    username = username.replace(/@gmail\.com$/i, '').replace(/@.*$/, '').trim().toLowerCase();
+    if (!username) {
+      return showGateAlert("Please enter a valid username.", "error");
     }
+
+    const email = `${username}@gmail.com`;
 
     if (!password || password.length < 6) {
       return showGateAlert("Password must be at least 6 characters long.", "error");
