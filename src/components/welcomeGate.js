@@ -1,135 +1,247 @@
 // ─── Welcome / Entry Gate Component ──────────────────────────────────────────
 // Requires visitors to register with Farm ID or sign in before entering Sun-Flux.
+// Authentically styled to match the Sunflower Land retro pixel game vibes.
 
 export function renderWelcomeGate() {
   const mount = document.getElementById('welcome-gate-mount');
   if (!mount) return;
 
   const savedFarmId = localStorage.getItem('sfl_farm_id') || '';
+  const isDark = document.documentElement.classList.contains('dark');
 
   mount.innerHTML = `
-    <div class="sfl-panel rounded-3xl p-6 sm:p-8 border-4 border-amber-800/80 dark:border-slate-700 shadow-2xl bg-amber-50/95 dark:bg-slate-900/95 text-sfl-dirt dark:text-slate-100 transition-all duration-300 max-w-lg mx-auto">
+    <div class="space-y-4 max-w-xl mx-auto">
       
-      <!-- Brand Header -->
-      <div class="text-center space-y-2 mb-6">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border-2 border-amber-300 dark:border-amber-700/60 shadow-sm mb-1">
-          <img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-10 h-10 sfl-icon animate-bounce" alt="Sun-Flux">
+      <!-- TOP ACTION BAR: Network Status & Theme Toggle -->
+      <div class="flex items-center justify-between px-2 text-xs">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100/90 dark:bg-slate-800/90 border-2 border-amber-300/80 dark:border-slate-700 text-[10px] font-bold text-sfl-dirt dark:text-amber-200 shadow-xs">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>🌻 Sun-Flux Terminal • SFL Live</span>
         </div>
-        <div class="flex items-center justify-center gap-2">
-          <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-sfl-dirt dark:text-amber-200">Sun-Flux</h1>
-          <span class="bg-rose-500 text-white font-black text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider shadow-2xs animate-pulse">WELCOME</span>
-        </div>
-        <p class="text-xs font-semibold text-sfl-woodLight dark:text-slate-400 max-w-sm mx-auto">
-          Automated daily harvest baselines, resource expenses & P2P marketplace analytics for Sunflower Land.
-        </p>
-      </div>
 
-      <!-- Mode Selector Tabs (Register vs Sign In) -->
-      <div class="grid grid-cols-2 gap-1.5 p-1 bg-amber-200/60 dark:bg-slate-800/80 rounded-xl border border-amber-300/80 dark:border-slate-700 mb-5 text-xs font-bold">
-        <button type="button" id="gate-tab-register" class="py-2 rounded-lg transition-all cursor-pointer bg-sfl-green text-white shadow-xs">
-          🌾 New Farmer (Register)
-        </button>
-        <button type="button" id="gate-tab-login" class="py-2 rounded-lg transition-all cursor-pointer text-sfl-wood dark:text-slate-300 hover:bg-amber-100/70 dark:hover:bg-slate-700/50">
-          🚜 Returning Farmer (Sign In)
+        <button type="button" id="gate-theme-toggle-btn" 
+          class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 border-2 border-amber-300 dark:border-slate-600 px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer">
+          <span>${isDark ? '☀️' : '🌙'}</span>
+          <span>${isDark ? 'Light' : 'Dark'}</span>
         </button>
       </div>
 
-      <!-- Inline Status / Error Message Banner -->
-      <div id="gate-alert" class="hidden p-3 rounded-xl text-xs font-bold mb-4 border transition-all"></div>
+      <!-- HERO BANNER WITH PEEKING OBSIDIAN CAT -->
+      <div class="text-center space-y-1">
+        <div class="relative inline-block group cursor-default pt-7">
+          
+          <!-- PEEKING CAT: Behind the banner pill (z-0), bobbing with cat-idle-bob -->
+          <div class="cat-peeker absolute top-0 left-1/2 -translate-x-1/2 z-0 pointer-events-none transition-all duration-300 ease-out group-hover:-translate-y-2">
+            <svg class="w-16 h-14" viewBox="0 0 64 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Left Ear -->
+              <polygon points="14,22 6,4 24,13" fill="#18181b" />
+              <polygon points="14,20 9,7 21,14" fill="#f472b6" />
+              <!-- Right Ear -->
+              <polygon points="50,22 58,4 40,13" fill="#18181b" />
+              <polygon points="50,20 55,7 43,14" fill="#f472b6" />
 
-      <!-- Auth Form -->
-      <form id="gate-form" onsubmit="return false;" class="space-y-4 text-left">
+              <!-- Head Base (Midnight Obsidian Black) -->
+              <path d="M14,22 C14,12 22,10 32,10 C42,10 50,12 50,22 C55,24 59,30 58,36 C57,43 51,48 44,50 C38,52 26,52 20,50 C13,48 7,43 6,36 C5,30 9,24 14,22 Z" fill="#18181b" stroke="#27272a" stroke-width="1.2" />
+
+              <!-- Forehead Brow Tone -->
+              <path d="M26,16 Q32,14 38,16" stroke="#3f3f46" stroke-width="1.5" stroke-linecap="round" fill="none" />
+
+              <!-- Eyes (Radiant Glowing Amber) -->
+              <ellipse cx="22" cy="27" rx="5" ry="5.5" fill="#f59e0b" />
+              <ellipse cx="42" cy="27" rx="5" ry="5.5" fill="#f59e0b" />
+              <!-- Pupils -->
+              <ellipse cx="22" cy="27" rx="2.5" ry="4.5" fill="#09090b" />
+              <ellipse cx="42" cy="27" rx="2.5" ry="4.5" fill="#09090b" />
+              <!-- Sparkles -->
+              <circle cx="20.5" cy="25" r="1.8" fill="#ffffff" />
+              <circle cx="40.5" cy="25" r="1.8" fill="#ffffff" />
+              <circle cx="23.5" cy="28.5" r="1" fill="#fde68a" />
+              <circle cx="43.5" cy="28.5" r="1" fill="#fde68a" />
+
+              <!-- Nose -->
+              <polygon points="32,34 30,32 34,32" fill="#ec4899" />
+              <path d="M29,35 Q32,38 32,36 Q32,38 35,35" stroke="#f472b6" stroke-width="1.4" fill="none" stroke-linecap="round" />
+
+              <!-- Whiskers -->
+              <line x1="10" y1="33" x2="2" y2="31" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+              <line x1="10" y1="36" x2="1" y2="38" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+              <line x1="54" y1="33" x2="62" y2="31" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+              <line x1="54" y1="36" x2="63" y2="38" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+            </svg>
+          </div>
+
+          <!-- MAIN BANNER PILL -->
+          <div class="relative z-10 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 dark:from-slate-900 dark:via-amber-950/70 dark:to-slate-900 border-2 border-amber-600 dark:border-amber-500/50 px-8 py-2 rounded-full shadow-lg shadow-amber-500/25 dark:shadow-amber-500/10 backdrop-blur-sm transition-all duration-200">
+            <h1 class="text-3xl sm:text-5xl font-pixel tracking-wider font-bold text-amber-950 dark:text-amber-300 flex items-center gap-2 justify-center uppercase drop-shadow-xs">
+              <span>🌻</span> Sun-Flux
+            </h1>
+          </div>
+        </div>
+        <p class="text-xs font-semibold text-amber-200/90 dark:text-slate-300">Live SFL market prices, NFT wishlist & automated crop tracker</p>
+      </div>
+
+      <!-- MAIN GATE CARD (True SFL Panel) -->
+      <div class="sfl-panel rounded-2xl p-5 sm:p-7 relative space-y-5">
         
-        <!-- Farm ID Field (Shown on Register, Optional/Hidden on Login if already saved) -->
-        <div id="gate-farm-id-group" class="space-y-1">
-          <label for="gate-farm-id" class="block text-xs font-bold text-sfl-wood dark:text-amber-300 flex items-center justify-between">
-            <span>🚜 Sunflower Land Farm ID</span>
-            <span class="text-[10px] text-rose-500 dark:text-rose-400 font-bold">* REQUIRED</span>
-          </label>
-          <input 
-            type="number" 
-            id="gate-farm-id" 
-            placeholder="e.g. 8472883706403914" 
-            value="${savedFarmId}"
-            autocomplete="off"
-            class="w-full px-3 py-2 text-sm font-mono rounded-xl border-2 border-amber-300/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-sfl-dirt dark:text-amber-100 focus:outline-none focus:ring-2 focus:ring-sfl-green shadow-xs transition"
-            required
-          >
-          <p class="text-[10px] text-sfl-woodLight dark:text-slate-400">
-            Enter your numeric Farm ID to link automated snapshots & harvest tracking.
+        <!-- CARD HEADER: Checkpoint Badge -->
+        <div class="flex items-center justify-between border-b-2 border-sfl-cardBorder dark:border-slate-700/80 pb-3">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-amber-200/80 dark:bg-slate-800 border-2 border-sfl-wood/40 flex items-center justify-center text-base">
+              🚜
+            </div>
+            <div>
+              <h2 class="font-pixel text-xl sm:text-2xl text-sfl-dirt dark:text-amber-200 tracking-wide font-bold uppercase leading-none">
+                Farm Gate Checkpoint
+              </h2>
+              <span class="text-[10px] font-semibold text-sfl-woodLight dark:text-slate-400">
+                Authenticate your bumpkin to load your farm & start tracking
+              </span>
+            </div>
+          </div>
+          <span class="bg-rose-500 text-white font-black text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider shadow-2xs animate-pulse">
+            ENTRY GATE
+          </span>
+        </div>
+
+        <!-- MODE SELECTION TABS (Matching Inside Nav Tabs) -->
+        <div class="flex items-center gap-2 bg-sfl-card/80 dark:bg-slate-900/60 p-1.5 rounded-xl border-2 border-sfl-cardBorder dark:border-slate-700/70">
+          <button type="button" id="gate-tab-register" 
+            class="bg-sfl-wood text-amber-200 px-3 py-2 rounded-xl font-bold text-xs border-2 border-sfl-dirt shadow-md flex items-center justify-center gap-1.5 cursor-pointer flex-1 transition-all">
+            <span>🌾</span>
+            <span>New Farmer (Register)</span>
+          </button>
+          <button type="button" id="gate-tab-login" 
+            class="bg-transparent text-sfl-woodLight dark:text-slate-400 px-3 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-100/60 dark:hover:bg-slate-800 transition flex items-center justify-center gap-1.5 cursor-pointer flex-1">
+            <span>🚜</span>
+            <span>Returning (Sign In)</span>
+          </button>
+        </div>
+
+        <!-- HOW TO ENTER HINT BOX -->
+        <div class="bg-amber-100/70 dark:bg-slate-800/80 p-3 rounded-xl border-2 border-amber-300/80 dark:border-slate-700/80 space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-sfl-dirt dark:text-amber-300 text-xs flex items-center gap-1.5">
+              <span>📜</span> Notice for Farmers
+            </span>
+            <span class="text-[9px] font-bold text-amber-800 dark:text-amber-300 bg-amber-200/80 dark:bg-slate-700 px-2 py-0.5 rounded-md border border-amber-400/50">
+              NO REAL EMAIL NEEDED
+            </span>
+          </div>
+          <p class="text-[11px] text-sfl-woodLight dark:text-slate-300 leading-snug">
+            <strong>Registering an account is a must</strong> so please sign up — you don't need your real Gmail, just make sure it ends with <strong>@gmail.com</strong>. Enter your <strong>Farm ID</strong> to link snapshots!
           </p>
         </div>
 
-        <!-- Email Field -->
-        <div class="space-y-1">
-          <label for="gate-email" class="block text-xs font-bold text-sfl-wood dark:text-amber-300 flex items-center justify-between">
-            <span>✉️ Account Email (Username)</span>
-            <span class="text-[10px] text-amber-600 dark:text-amber-400 font-medium">ends with @gmail.com</span>
-          </label>
-          <input 
-            type="email" 
-            id="gate-email" 
-            placeholder="e.g. yourname@gmail.com" 
-            autocomplete="username"
-            class="w-full px-3 py-2 text-sm rounded-xl border-2 border-amber-300/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-sfl-dirt dark:text-amber-100 focus:outline-none focus:ring-2 focus:ring-sfl-green shadow-xs transition"
-            required
+        <!-- INLINE STATUS / ERROR BANNER -->
+        <div id="gate-alert" class="hidden p-3 rounded-xl text-xs font-bold border-2 transition-all"></div>
+
+        <!-- AUTH FORM -->
+        <form id="gate-form" onsubmit="return false;" class="space-y-4 text-left">
+          
+          <!-- Farm ID Field (Shown on Register, Hidden on Login) -->
+          <div id="gate-farm-id-group" class="space-y-1">
+            <div class="flex items-center justify-between">
+              <label for="gate-farm-id" class="text-xs font-bold text-sfl-wood dark:text-amber-300 flex items-center gap-1.5">
+                <span>🚜</span> Sunflower Land Farm ID
+              </label>
+              <button type="button" id="gate-farm-id-help-btn" class="text-[10px] text-amber-700 dark:text-amber-400 hover:underline font-bold cursor-pointer">
+                Where is my ID? ❓
+              </button>
+            </div>
+
+            <input 
+              type="number" 
+              id="gate-farm-id" 
+              placeholder="e.g. 12345" 
+              value="${savedFarmId}"
+              autocomplete="off"
+              class="w-full sfl-input rounded-xl px-3 py-2 text-xs font-bold text-sfl-dirt dark:text-amber-100 shadow-2xs focus:outline-none"
+              required
+            >
+
+            <div id="gate-farm-id-help" class="hidden p-2 rounded-lg bg-amber-200/70 dark:bg-slate-800 border border-amber-300 text-[10px] text-sfl-dirt dark:text-slate-300">
+              💡 You can find your Farm ID in <em>Sunflower Land &gt; Menu &gt; Settings</em> or in your browser address bar while playing.
+            </div>
+          </div>
+
+          <!-- Email Field -->
+          <div class="space-y-1">
+            <label for="gate-email" class="block text-xs font-bold text-sfl-wood dark:text-amber-300 flex items-center justify-between">
+              <span class="flex items-center gap-1.5"><span>✉️</span> Account Email (Username)</span>
+              <span class="text-[10px] text-amber-700 dark:text-amber-400 font-bold">* ends with @gmail.com</span>
+            </label>
+            <input 
+              type="email" 
+              id="gate-email" 
+              placeholder="e.g. farmer123@gmail.com" 
+              autocomplete="username"
+              class="w-full sfl-input rounded-xl px-3 py-2 text-xs font-bold text-sfl-dirt dark:text-amber-100 shadow-2xs focus:outline-none"
+              required
+            >
+          </div>
+
+          <!-- Password Field -->
+          <div class="space-y-1">
+            <label for="gate-password" class="block text-xs font-bold text-sfl-wood dark:text-amber-300 flex items-center justify-between">
+              <span class="flex items-center gap-1.5"><span>🔑</span> Password</span>
+              <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-normal">min 6 characters</span>
+            </label>
+            <input 
+              type="password" 
+              id="gate-password" 
+              placeholder="••••••••" 
+              autocomplete="current-password"
+              class="w-full sfl-input rounded-xl px-3 py-2 text-xs font-bold text-sfl-dirt dark:text-amber-100 shadow-2xs focus:outline-none"
+              required
+            >
+          </div>
+
+          <!-- SUBMIT BUTTON (Tactile 3D Pixel Game Button) -->
+          <button 
+            type="button" 
+            id="gate-btn-submit" 
+            class="w-full py-3.5 px-4 rounded-xl font-black text-sm text-white uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 border-2 border-sfl-dirt shadow-md hover:shadow-lg transition mt-3"
           >
-          <p id="gate-email-tip" class="text-[10px] text-sfl-woodLight dark:text-slate-400">
-            You don't need your real Gmail — any handle ending with <strong>@gmail.com</strong> works!
+            <span id="gate-btn-spinner" class="hidden animate-spin text-base">⏳</span>
+            <span id="gate-btn-icon" class="text-base">🌾</span>
+            <span id="gate-btn-text" class="font-pixel text-xl tracking-wider">REGISTER & ENTER FARM</span>
+          </button>
+        </form>
+
+        <!-- VALUE-PROP TILES (Styled as SFL Inventory Slots) -->
+        <div class="pt-2 border-t-2 border-sfl-cardBorder dark:border-slate-700/80">
+          <div class="grid grid-cols-3 gap-2 text-center">
+            
+            <div class="bg-sfl-card/90 dark:bg-slate-800/90 border-2 border-sfl-cardBorder dark:border-slate-700 rounded-xl p-2.5 shadow-2xs space-y-1 hover:border-amber-500 transition-colors">
+              <div class="text-xl">⏱️</div>
+              <div class="font-pixel text-sm font-bold text-sfl-dirt dark:text-amber-200">00:00 UTC</div>
+              <div class="text-[9px] font-semibold text-sfl-woodLight dark:text-slate-400 uppercase tracking-tight">Auto Baseline</div>
+            </div>
+
+            <div class="bg-sfl-card/90 dark:bg-slate-800/90 border-2 border-sfl-cardBorder dark:border-slate-700 rounded-xl p-2.5 shadow-2xs space-y-1 hover:border-amber-500 transition-colors">
+              <div class="text-xl">🌸</div>
+              <div class="font-pixel text-sm font-bold text-sfl-dirt dark:text-amber-200">LIVE SFL/USD</div>
+              <div class="text-[9px] font-semibold text-sfl-woodLight dark:text-slate-400 uppercase tracking-tight">Trade History</div>
+            </div>
+
+            <div class="bg-sfl-card/90 dark:bg-slate-800/90 border-2 border-sfl-cardBorder dark:border-slate-700 rounded-xl p-2.5 shadow-2xs space-y-1 hover:border-amber-500 transition-colors">
+              <div class="text-xl">📊</div>
+              <div class="font-pixel text-sm font-bold text-sfl-dirt dark:text-amber-200">22:00 UTC</div>
+              <div class="text-[9px] font-semibold text-sfl-woodLight dark:text-slate-400 uppercase tracking-tight">Harvest Reports</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- PRIVACY FOOTER -->
+        <div class="text-center pt-1">
+          <p class="text-[10px] font-semibold text-sfl-woodLight dark:text-slate-400 flex items-center justify-center gap-1.5">
+            <span>🔒</span>
+            <span>Secure Supabase auth • No wallet signatures or private keys required</span>
           </p>
         </div>
 
-        <!-- Password Field -->
-        <div class="space-y-1">
-          <label for="gate-password" class="block text-xs font-bold text-sfl-wood dark:text-amber-300 flex items-center justify-between">
-            <span>🔑 Password</span>
-            <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-normal">min 6 chars</span>
-          </label>
-          <input 
-            type="password" 
-            id="gate-password" 
-            placeholder="••••••••" 
-            autocomplete="current-password"
-            class="w-full px-3 py-2 text-sm rounded-xl border-2 border-amber-300/80 dark:border-slate-700 bg-white dark:bg-slate-800 text-sfl-dirt dark:text-amber-100 focus:outline-none focus:ring-2 focus:ring-sfl-green shadow-xs transition"
-            required
-          >
-        </div>
-
-        <!-- Submit Button -->
-        <button 
-          type="button" 
-          id="gate-btn-submit" 
-          class="w-full py-3 px-4 rounded-xl font-bold text-sm text-white bg-sfl-green hover:bg-green-700 active:scale-[0.99] transition shadow-md flex items-center justify-center gap-2 cursor-pointer mt-2"
-        >
-          <span id="gate-btn-spinner" class="hidden animate-spin">⏳</span>
-          <span id="gate-btn-text">🌾 Register & Enter Farm</span>
-        </button>
-      </form>
-
-      <!-- Value Proposition Highlights -->
-      <div class="mt-6 pt-5 border-t border-amber-200/80 dark:border-slate-800 grid grid-cols-3 gap-2 text-center text-[10px] font-semibold text-sfl-woodLight dark:text-slate-400">
-        <div class="p-2 rounded-xl bg-white/70 dark:bg-slate-800/60 border border-amber-200/60 dark:border-slate-700/60 space-y-0.5">
-          <span class="text-base block">⏱️</span>
-          <span class="font-bold text-sfl-dirt dark:text-amber-200 block">00:00 UTC</span>
-          <span>Daily Baseline</span>
-        </div>
-        <div class="p-2 rounded-xl bg-white/70 dark:bg-slate-800/60 border border-amber-200/60 dark:border-slate-700/60 space-y-0.5">
-          <span class="text-base block">📊</span>
-          <span class="font-bold text-sfl-dirt dark:text-amber-200 block">22:00 UTC</span>
-          <span>Harvest Report</span>
-        </div>
-        <div class="p-2 rounded-xl bg-white/70 dark:bg-slate-800/60 border border-amber-200/60 dark:border-slate-700/60 space-y-0.5">
-          <span class="text-base block">⚖️</span>
-          <span class="font-bold text-sfl-dirt dark:text-amber-200 block">5x Daily</span>
-          <span>Trade Sync</span>
-        </div>
       </div>
-
-      <!-- Help hint -->
-      <p class="text-[10px] text-center text-sfl-woodLight dark:text-slate-500 mt-4">
-        Where to find your Farm ID? Open <em>Sunflower Land &gt; Menu &gt; Settings</em> or check your farm profile URL.
-      </p>
-
     </div>
   `;
 
@@ -144,27 +256,32 @@ function setGateMode(mode) {
   const tabLog = document.getElementById('gate-tab-login');
   const farmIdGroup = document.getElementById('gate-farm-id-group');
   const btnText = document.getElementById('gate-btn-text');
+  const btnIcon = document.getElementById('gate-btn-icon');
   const alertEl = document.getElementById('gate-alert');
 
   if (alertEl) alertEl.classList.add('hidden');
 
   if (mode === 'register') {
-    tabReg?.classList.add('bg-sfl-green', 'text-white', 'shadow-xs');
-    tabReg?.classList.remove('text-sfl-wood', 'dark:text-slate-300');
-    tabLog?.classList.remove('bg-sfl-green', 'text-white', 'shadow-xs');
-    tabLog?.classList.add('text-sfl-wood', 'dark:text-slate-300');
+    tabReg?.classList.remove('bg-transparent', 'hover:bg-amber-100/60', 'dark:hover:bg-slate-800', 'border-transparent', 'text-sfl-woodLight', 'dark:text-slate-400');
+    tabReg?.classList.add('bg-sfl-wood', 'text-amber-200', 'border-sfl-dirt', 'shadow-md');
+
+    tabLog?.classList.remove('bg-sfl-wood', 'text-amber-200', 'border-sfl-dirt', 'shadow-md');
+    tabLog?.classList.add('bg-transparent', 'hover:bg-amber-100/60', 'dark:hover:bg-slate-800', 'border-transparent', 'text-sfl-woodLight', 'dark:text-slate-400');
 
     if (farmIdGroup) farmIdGroup.classList.remove('hidden');
-    if (btnText) btnText.textContent = '🌾 Register & Enter Farm';
+    if (btnText) btnText.textContent = 'REGISTER & ENTER FARM';
+    if (btnIcon) btnIcon.textContent = '🌾';
   } else {
-    tabLog?.classList.add('bg-sfl-green', 'text-white', 'shadow-xs');
-    tabLog?.classList.remove('text-sfl-wood', 'dark:text-slate-300');
-    tabReg?.classList.remove('bg-sfl-green', 'text-white', 'shadow-xs');
-    tabReg?.classList.add('text-sfl-wood', 'dark:text-slate-300');
+    tabLog?.classList.remove('bg-transparent', 'hover:bg-amber-100/60', 'dark:hover:bg-slate-800', 'border-transparent', 'text-sfl-woodLight', 'dark:text-slate-400');
+    tabLog?.classList.add('bg-sfl-wood', 'text-amber-200', 'border-sfl-dirt', 'shadow-md');
 
-    // Hide farm ID group on login since it loads automatically from the user's profile
+    tabReg?.classList.remove('bg-sfl-wood', 'text-amber-200', 'border-sfl-dirt', 'shadow-md');
+    tabReg?.classList.add('bg-transparent', 'hover:bg-amber-100/60', 'dark:hover:bg-slate-800', 'border-transparent', 'text-sfl-woodLight', 'dark:text-slate-400');
+
+    // Hide farm ID group on login since it loads automatically from user's Supabase profile
     if (farmIdGroup) farmIdGroup.classList.add('hidden');
-    if (btnText) btnText.textContent = '🚜 Sign In & Enter';
+    if (btnText) btnText.textContent = 'SIGN IN & ENTER FARM';
+    if (btnIcon) btnIcon.textContent = '🚜';
   }
 }
 
@@ -173,8 +290,8 @@ function showGateAlert(message, type = 'error') {
   if (!alertEl) return;
 
   alertEl.className = type === 'error'
-    ? 'p-3 rounded-xl text-xs font-bold mb-4 border bg-rose-100 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200'
-    : 'p-3 rounded-xl text-xs font-bold mb-4 border bg-emerald-100 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200';
+    ? 'p-3 rounded-xl text-xs font-bold border-2 bg-rose-100 dark:bg-rose-950/70 border-rose-400 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+    : 'p-3 rounded-xl text-xs font-bold border-2 bg-emerald-100 dark:bg-emerald-950/70 border-emerald-400 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200';
 
   alertEl.textContent = message;
   alertEl.classList.remove('hidden');
@@ -183,17 +300,51 @@ function showGateAlert(message, type = 'error') {
 function setGateLoading(isLoading) {
   const btn = document.getElementById('gate-btn-submit');
   const spinner = document.getElementById('gate-btn-spinner');
+  const icon = document.getElementById('gate-btn-icon');
+
   if (btn) btn.disabled = isLoading;
   if (spinner) {
     if (isLoading) spinner.classList.remove('hidden');
     else spinner.classList.add('hidden');
   }
+  if (icon) {
+    if (isLoading) icon.classList.add('hidden');
+    else icon.classList.remove('hidden');
+  }
 }
 
 function bindWelcomeGateEvents() {
+  // Theme Toggle Button
+  const themeBtn = document.getElementById('gate-theme-toggle-btn');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', () => {
+      const isCurrentlyDark = document.documentElement.classList.contains('dark');
+      if (isCurrentlyDark) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('sfl_theme', 'light');
+        themeBtn.innerHTML = `<span>🌙</span><span>Dark</span>`;
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('sfl_theme', 'dark');
+        themeBtn.innerHTML = `<span>☀️</span><span>Light</span>`;
+      }
+    });
+  }
+
+  // Farm ID Help Hint Toggle
+  const helpBtn = document.getElementById('gate-farm-id-help-btn');
+  const helpBox = document.getElementById('gate-farm-id-help');
+  if (helpBtn && helpBox) {
+    helpBtn.addEventListener('click', () => {
+      helpBox.classList.toggle('hidden');
+    });
+  }
+
+  // Mode Selection Tabs
   document.getElementById('gate-tab-register')?.addEventListener('click', () => setGateMode('register'));
   document.getElementById('gate-tab-login')?.addEventListener('click', () => setGateMode('login'));
 
+  // Enter Key Submit Support
   document.getElementById('gate-form')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -201,6 +352,7 @@ function bindWelcomeGateEvents() {
     }
   });
 
+  // Submit Handler
   document.getElementById('gate-btn-submit')?.addEventListener('click', async () => {
     const email = document.getElementById('gate-email')?.value.trim();
     const password = document.getElementById('gate-password')?.value.trim();
