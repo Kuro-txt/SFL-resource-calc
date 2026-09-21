@@ -23,21 +23,50 @@ export async function initAuth() {
 
   bindAuthEventListeners();
 
-  if (!window.supabaseClient) return;
+  if (!window.supabaseClient) {
+    setLoggedOutUser();
+    return;
+  }
 
   const { data: { session } } = await window.supabaseClient.auth.getSession();
-  if (session) {
+  if (session?.user) {
     await setLoggedInUser(session.user);
+  } else {
+    setLoggedOutUser();
   }
 
   window.supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-    if (session) {
+    if (session?.user) {
       await setLoggedInUser(session.user);
     } else {
       setLoggedOutUser();
     }
   });
 }
+
+export async function unlockAppGate(user, farmId) {
+  document.documentElement.classList.remove('sfl-pre-authed');
+  const gateMount = document.getElementById('welcome-gate-mount');
+  const mainApp = document.getElementById('main-app-container');
+  if (gateMount) gateMount.classList.add('hidden');
+  if (mainApp) mainApp.classList.remove('hidden');
+
+  await setLoggedInUser(user);
+
+  if (farmId) {
+    const farmIdEl = document.getElementById('farm-id');
+    if (farmIdEl) farmIdEl.value = farmId;
+    localStorage.setItem('sfl_farm_id', farmId);
+  }
+
+  // Trigger global data sync so farm data immediately loads
+  if (typeof window.syncGlobalFarmData === 'function') {
+    window.syncGlobalFarmData();
+  } else if (typeof window.loadCloudYieldHistory === 'function') {
+    window.loadCloudYieldHistory(true);
+  }
+}
+window.unlockAppGate = unlockAppGate;
 
 export function updateUsernameDisplay() {
   const emailDisplay = document.getElementById('user-email-display');
@@ -70,6 +99,12 @@ export function updateUsernameDisplay() {
 export async function setLoggedInUser(user) {
   window.currentUser = user;
   
+  // Unlock / Reveal Main App and hide Welcome Gate
+  const gateMount = document.getElementById('welcome-gate-mount');
+  const mainApp = document.getElementById('main-app-container');
+  if (gateMount) gateMount.classList.add('hidden');
+  if (mainApp) mainApp.classList.remove('hidden');
+
   document.getElementById('auth-logged-out')?.classList.add('hidden');
   document.getElementById('auth-logged-in')?.classList.remove('hidden');
   
@@ -93,7 +128,19 @@ export function setLoggedOutUser() {
   window.currentUser = null;
   window.trackedTargets = [];
   localStorage.setItem('sfl_tracked_targets', '[]');
+  document.documentElement.classList.remove('sfl-pre-authed');
   
+  // Gate Lock: Show Welcome Gate and hide Main App
+  const gateMount = document.getElementById('welcome-gate-mount');
+  const mainApp = document.getElementById('main-app-container');
+  if (mainApp) mainApp.classList.add('hidden');
+  if (gateMount) {
+    gateMount.classList.remove('hidden');
+    if (typeof window.renderWelcomeGate === 'function') {
+      window.renderWelcomeGate();
+    }
+  }
+
   document.getElementById('auth-logged-out')?.classList.remove('hidden');
   document.getElementById('auth-logged-in')?.classList.add('hidden');
   

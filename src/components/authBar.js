@@ -608,3 +608,6 @@ export async function handleFarmSync() {
     }
   }
 }
+
+window.syncGlobalFarmData = handleFarmSync;
+

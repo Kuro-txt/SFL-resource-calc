@@ -1,6 +1,9 @@
 import { renderHeader } from './components/header.js';
 import { renderAuthBar } from './components/authBar.js';
 import { renderNavTabs } from './components/navTabs.js';
+import { renderWelcomeGate } from './components/welcomeGate.js';
+
+window.renderWelcomeGate = renderWelcomeGate;
 
 import { initAuth } from './services/auth.js';
 import { PanelManager } from './services/panelManager.js';
@@ -16,6 +19,7 @@ import { initDashboardPanel, mountDashboard } from './panels/dashboard/dashboard
 document.addEventListener('DOMContentLoaded', async () => {
   console.log("🚀 Bootstrapping SFL Resource Calculator...");
 
+  renderWelcomeGate();
   renderHeader();
   renderAuthBar();
   renderNavTabs();
