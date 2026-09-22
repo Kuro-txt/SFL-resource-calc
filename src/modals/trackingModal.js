@@ -1,6 +1,80 @@
-import { SEARCH_EXCLUDED_KEYS } from '../config/constants.js';
+import { 
+  SEARCH_EXCLUDED_KEYS, 
+  ALLOWED_DIFFERENCE_ITEMS, 
+  SFL_PLOT_CROPS, 
+  SFL_GREENHOUSE_CROPS, 
+  SFL_FRUITS, 
+  isExcludedItem 
+} from '../config/constants.js';
 
 window.trackedTargets = window.trackedTargets || [];
+
+function getItemIcon(cleanName) {
+  if (SFL_PLOT_CROPS.has(cleanName) || SFL_GREENHOUSE_CROPS.has(cleanName)) return '🌱';
+  if (SFL_FRUITS.has(cleanName)) return '🍎';
+  if (cleanName === 'wood') return '🌲';
+  if (cleanName === 'stone') return '🪨';
+  if (['iron', 'gold', 'crimstone', 'obsidian'].includes(cleanName)) return '⛏️';
+  if (['egg', 'milk', 'honey', 'wool', 'merino wool', 'feather', 'leather'].includes(cleanName)) return '🥚';
+  if (cleanName.includes('emblem')) return '🏅';
+  if (cleanName.includes('bait') || cleanName.includes('fish')) return '🎣';
+  return '⭐';
+}
+
+function getItemCategory(cleanName) {
+  if (SFL_PLOT_CROPS.has(cleanName) || SFL_GREENHOUSE_CROPS.has(cleanName) || SFL_FRUITS.has(cleanName)) {
+    return 'Crops & Fruits';
+  }
+  if (['wood', 'stone', 'iron', 'gold', 'crimstone', 'obsidian', 'salt'].includes(cleanName)) {
+    return 'Resources & Minerals';
+  }
+  if (['egg', 'milk', 'honey', 'wool', 'merino wool', 'feather', 'leather'].includes(cleanName)) {
+    return 'Livestock & Animals';
+  }
+  return 'Special & Emblems';
+}
+
+export function getItemCatalog() {
+  const itemsMap = new Map();
+
+  // 1. Seed with the 64 official tracked difference items
+  ALLOWED_DIFFERENCE_ITEMS.forEach(name => {
+    const cleanKey = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanName = name.toLowerCase().trim();
+    itemsMap.set(cleanName, {
+      name,
+      key: cleanName,
+      cleanKey,
+      icon: getItemIcon(cleanName),
+      category: getItemCategory(cleanName)
+    });
+  });
+
+  // 2. Overlay any additional valid items found in window.allPrices
+  if (window.allPrices && typeof window.allPrices === 'object') {
+    Object.keys(window.allPrices).forEach(key => {
+      let lowerKey = key.toLowerCase().trim();
+      if (SEARCH_EXCLUDED_KEYS.includes(lowerKey) || lowerKey.includes('updated')) return;
+      if (typeof isExcludedItem === 'function' && isExcludedItem(key)) return;
+      
+      let displayName = key.replace(/^\[.*?\]\s*/, '').trim();
+      let cleanName = displayName.toLowerCase().trim();
+      let cleanKey = cleanName.replace(/[^a-z0-9]/g, '');
+
+      if (!itemsMap.has(cleanName)) {
+        itemsMap.set(cleanName, {
+          name: displayName,
+          key: cleanName,
+          cleanKey,
+          icon: getItemIcon(cleanName),
+          category: getItemCategory(cleanName)
+        });
+      }
+    });
+  }
+
+  return Array.from(itemsMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
 
 export function renderTrackingModalTemplate() {
   const container = document.getElementById('tracking-modal-mount');
@@ -8,7 +82,7 @@ export function renderTrackingModalTemplate() {
 
   container.innerHTML = `
     <div id="tracking-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-sfl-card border-4 border-sfl-wood rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl relative space-y-0">
+      <div class="bg-sfl-card border-4 border-sfl-wood rounded-2xl w-full max-w-lg shadow-2xl relative space-y-0 overflow-hidden">
         <div class="bg-sfl-wood text-amber-200 px-5 py-3 border-b-2 border-sfl-dirt flex justify-between items-center">
           <h3 class="font-pixel text-xl sm:text-2xl font-bold tracking-wider text-amber-300 flex items-center gap-2">
             <span>⚙️</span> Persistent Tracking Targets
@@ -21,17 +95,54 @@ export function renderTrackingModalTemplate() {
             Select items to automatically calculate yields for at 22:00 UTC against your 00:00 UTC baseline.
           </p>
 
-          <div class="relative">
-            <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood mb-1">🔍 Add Item to Track</label>
-            <input type="text" id="target-search-input" placeholder="Type item name (e.g. Sunflower, Iron)..." autocomplete="off" class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
-            <ul id="target-search-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border-2 border-sfl-woodLight rounded-lg shadow-xl z-30 divide-y divide-sfl-cardBorder/30 text-sm">
-              <li class="p-2 text-sfl-woodLight italic">Type to search...</li>
-            </ul>
+          <!-- SEARCH & COMBOBOX DROPDOWN ROW -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label for="target-search-input" class="block text-xs font-bold uppercase tracking-wider text-sfl-wood">
+                🔍 Add Item to Track
+              </label>
+              <span id="target-catalog-count" class="text-[11px] font-bold text-sfl-woodLight"></span>
+            </div>
+            
+            <div class="relative">
+              <input type="text" id="target-search-input" placeholder="Click to choose or type to filter (e.g. Sunflower, Iron)..." autocomplete="off" class="w-full sfl-input rounded-xl pl-3 pr-10 py-2.5 text-xs text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold font-medium">
+              <button type="button" id="target-dropdown-toggle-btn" class="absolute right-1 top-1/2 -translate-y-1/2 p-2 text-sfl-wood hover:text-sfl-dirt transition cursor-pointer" title="Toggle full item list">
+                <svg id="target-dropdown-chevron" class="w-4 h-4 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <ul id="target-search-menu" class="hidden absolute left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto bg-white dark:bg-slate-900 border-2 border-sfl-woodLight dark:border-slate-700 rounded-xl shadow-2xl z-50 divide-y divide-sfl-cardBorder/30 text-xs">
+              </ul>
+            </div>
+
+            <!-- ONE-CLICK PRESET BUTTONS -->
+            <div class="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span class="text-[10px] font-bold text-sfl-woodLight uppercase">Presets:</span>
+              <button type="button" id="preset-crops-btn" class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-slate-600 px-2 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center gap-1 shadow-2xs">
+                <span>🌾</span> All Crops (32)
+              </button>
+              <button type="button" id="preset-resources-btn" class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-slate-600 px-2 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center gap-1 shadow-2xs">
+                <span>⛏️</span> Resources & Animals (14)
+              </button>
+              <button type="button" id="preset-all-btn" class="bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/70 dark:hover:bg-emerald-900 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 px-2 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center gap-1 shadow-2xs">
+                <span>✨</span> Track All (64)
+              </button>
+              <button type="button" id="preset-clear-btn" class="bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/70 dark:hover:bg-rose-900 text-rose-900 dark:text-rose-300 border border-rose-300 dark:border-rose-700 px-2 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer flex items-center gap-1 shadow-2xs">
+                <span>✕</span> Clear
+              </button>
+            </div>
           </div>
 
+          <!-- CURRENTLY TRACKED TARGETS BADGE CONTAINER -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood mb-1.5">Currently Tracked Targets</label>
-            <div id="tracked-targets-container" class="bg-white/80 border-2 border-sfl-cardBorder rounded-xl p-3 min-h-[60px] flex flex-wrap gap-1.5 items-center">
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood">
+                Currently Tracked Targets
+              </label>
+              <span id="tracked-badge-count" class="text-[11px] font-bold text-amber-800"></span>
+            </div>
+            <div id="tracked-targets-container" class="bg-white/80 dark:bg-slate-800/80 border-2 border-sfl-cardBorder dark:border-slate-700 rounded-xl p-3 min-h-[60px] max-h-48 overflow-y-auto flex flex-wrap gap-1.5 items-center">
               <span class="text-xs text-sfl-woodLight italic">No items added to persistent tracking list yet.</span>
             </div>
           </div>
@@ -41,13 +152,49 @@ export function renderTrackingModalTemplate() {
           <button id="cancel-tracking-btn" class="bg-gray-300 text-sfl-dirt font-bold px-4 py-2 rounded-xl text-xs hover:bg-gray-400 transition cursor-pointer">
             Close
           </button>
-          <button id="save-tracking-targets-btn" class="bg-sfl-green text-white font-bold px-5 py-2 rounded-xl text-xs hover:bg-green-700 transition shadow-md cursor-pointer">
-            💾 Save Targets
+          <button id="save-tracking-targets-btn" class="bg-sfl-green text-white font-bold px-5 py-2 rounded-xl text-xs hover:bg-green-700 transition shadow-md cursor-pointer flex items-center gap-1.5">
+            <span>💾</span> Save Targets
           </button>
         </div>
       </div>
     </div>
   `;
+}
+
+function updateChevron(isOpen) {
+  const chevron = document.getElementById('target-dropdown-chevron');
+  if (chevron) {
+    if (isOpen) {
+      chevron.classList.add('rotate-180');
+    } else {
+      chevron.classList.remove('rotate-180');
+    }
+  }
+}
+
+function updateCatalogCount() {
+  const countEl = document.getElementById('target-catalog-count');
+  const badgeCountEl = document.getElementById('tracked-badge-count');
+  const count = window.trackedTargets?.length || 0;
+  if (countEl) countEl.textContent = `${count} selected`;
+  if (badgeCountEl) badgeCountEl.textContent = count > 0 ? `(${count} items)` : '';
+}
+
+function toggleTrackedTarget(key) {
+  let cleanK = key.toLowerCase().trim();
+  let existingIndex = window.trackedTargets.findIndex(t => {
+    let cleanT = String(t).toLowerCase().trim().replace(/^\[.*?\]\s*/, '');
+    return cleanT === cleanK;
+  });
+
+  if (existingIndex >= 0) {
+    window.trackedTargets.splice(existingIndex, 1);
+  } else {
+    window.trackedTargets.push(cleanK);
+  }
+  localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
+  renderTrackedBadges();
+  updateCatalogCount();
 }
 
 export function initTrackingModal() {
@@ -61,17 +208,87 @@ export function initTrackingModal() {
 
   const targetInput = document.getElementById('target-search-input');
   const targetMenu = document.getElementById('target-search-menu');
+  const dropdownBtn = document.getElementById('target-dropdown-toggle-btn');
 
   if (!modal) return;
 
+  function renderMenu(query = '') {
+    if (!targetMenu) return;
+    const catalog = getItemCatalog();
+    const cleanQuery = (query || '').toLowerCase().trim();
+    targetMenu.innerHTML = '';
+
+    const matches = catalog.filter(item => {
+      if (!cleanQuery) return true;
+      return item.name.toLowerCase().includes(cleanQuery) || 
+             item.category.toLowerCase().includes(cleanQuery);
+    });
+
+    if (matches.length === 0) {
+      targetMenu.innerHTML = `<li class="p-3 text-sfl-woodLight italic text-center">No matching items found for "${query}"</li>`;
+      targetMenu.classList.remove('hidden');
+      updateChevron(true);
+      return;
+    }
+
+    // Top status header
+    const countHeader = document.createElement('li');
+    countHeader.className = 'px-3 py-1.5 bg-amber-50 dark:bg-slate-800 text-[10px] font-bold text-sfl-wood sticky top-0 border-b border-sfl-cardBorder/40 flex justify-between items-center z-10';
+    countHeader.innerHTML = `
+      <span>Available items (${matches.length})</span>
+      <span class="text-sfl-woodLight font-normal">Click to toggle tracking</span>
+    `;
+    targetMenu.appendChild(countHeader);
+
+    matches.forEach(item => {
+      const isTracked = window.trackedTargets.some(t => {
+        let cleanT = String(t).toLowerCase().trim().replace(/^\[.*?\]\s*/, '');
+        return cleanT === item.key || cleanT === item.cleanKey;
+      });
+
+      const li = document.createElement('li');
+      li.className = `p-2.5 transition flex justify-between items-center cursor-pointer select-none ${
+        isTracked 
+          ? 'bg-emerald-50/80 dark:bg-emerald-950/30 hover:bg-emerald-100/80 text-emerald-900 dark:text-emerald-300 font-bold' 
+          : 'hover:bg-amber-100 dark:hover:bg-slate-800 text-sfl-dirt dark:text-amber-100 font-medium'
+      }`;
+
+      li.innerHTML = `
+        <div class="flex items-center gap-2 overflow-hidden mr-2">
+          <span>${item.icon}</span>
+          <span class="font-bold truncate">${item.name}</span>
+          <span class="text-[9px] text-sfl-woodLight dark:text-slate-400 font-normal truncate">(${item.category})</span>
+        </div>
+        ${isTracked 
+          ? '<span class="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 shrink-0">✓ Tracked</span>'
+          : '<span class="text-[10px] font-bold text-sfl-wood bg-amber-100/90 dark:bg-slate-700 px-2 py-0.5 rounded border border-amber-300/80 dark:border-slate-600 hover:bg-amber-200 shrink-0">+ Track</span>'
+        }
+      `;
+
+      li.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleTrackedTarget(item.key);
+        renderMenu(targetInput ? targetInput.value : '');
+      });
+
+      targetMenu.appendChild(li);
+    });
+
+    targetMenu.classList.remove('hidden');
+    updateChevron(true);
+  }
+
   const showModal = () => {
     renderTrackedBadges();
+    updateCatalogCount();
     modal.classList.remove('hidden');
+    renderMenu(targetInput ? targetInput.value : '');
   };
 
   const hideModal = () => {
     modal.classList.add('hidden');
     if (targetMenu) targetMenu.classList.add('hidden');
+    updateChevron(false);
     if (targetInput) targetInput.value = '';
   };
 
@@ -79,60 +296,88 @@ export function initTrackingModal() {
   closeBtn?.addEventListener('click', hideModal);
   cancelBtn?.addEventListener('click', hideModal);
 
-  if (targetInput && targetMenu) {
-    targetInput.addEventListener('input', () => {
-      const query = targetInput.value.toLowerCase().trim();
-      targetMenu.innerHTML = '';
+  // Combobox input interaction
+  targetInput?.addEventListener('input', () => {
+    renderMenu(targetInput.value);
+  });
 
-      if (!query) {
+  targetInput?.addEventListener('focus', () => {
+    renderMenu(targetInput.value);
+  });
+
+  targetInput?.addEventListener('click', () => {
+    renderMenu(targetInput.value);
+  });
+
+  dropdownBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!targetMenu) return;
+    const isHidden = targetMenu.classList.contains('hidden');
+    if (isHidden) {
+      renderMenu(targetInput ? targetInput.value : '');
+      targetInput?.focus();
+    } else {
+      targetMenu.classList.add('hidden');
+      updateChevron(false);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (targetInput && targetMenu && dropdownBtn) {
+      if (!targetInput.contains(e.target) && !targetMenu.contains(e.target) && !dropdownBtn.contains(e.target)) {
         targetMenu.classList.add('hidden');
-        return;
+        updateChevron(false);
       }
+    }
+  });
 
-      const matches = Object.keys(window.allPrices || {})
-        .filter(key => {
-          let lowerKey = key.toLowerCase().trim();
-          if (SEARCH_EXCLUDED_KEYS.includes(lowerKey) || lowerKey.includes('updated')) return false;
-          if (typeof window.isExcludedItem === 'function' && window.isExcludedItem(key)) return false;
-          let cleanKey = key.replace(/^\[.*?\]\s*/, '');
-          return cleanKey.toLowerCase().includes(query) || lowerKey.includes(query);
-        })
-        .sort((a, b) => a.replace(/^\[.*?\]\s*/, '').localeCompare(b.replace(/^\[.*?\]\s*/, '')));
-
-      if (matches.length === 0) {
-        targetMenu.innerHTML = '<li class="p-2 text-sfl-woodLight italic">No matching items found</li>';
-      } else {
-        matches.forEach(itemKey => {
-          let displayName = itemKey.replace(/^\[.*?\]\s*/, '');
-          let cleanName = displayName.toLowerCase().trim();
-
-          if (window.trackedTargets.includes(cleanName)) return;
-
-          const li = document.createElement('li');
-          li.className = 'p-2.5 hover:bg-amber-100 cursor-pointer transition flex justify-between items-center';
-          li.innerHTML = `<span class="font-bold text-sfl-dirt">${displayName}</span>`;
-          
-          li.addEventListener('click', () => {
-            if (!window.trackedTargets.includes(cleanName)) {
-              window.trackedTargets.push(cleanName);
-              renderTrackedBadges();
-            }
-            targetInput.value = '';
-            targetMenu.classList.add('hidden');
-          });
-          targetMenu.appendChild(li);
-        });
-      }
-
-      targetMenu.classList.remove('hidden');
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!targetInput.contains(e.target) && !targetMenu.contains(e.target)) {
-        targetMenu.classList.add('hidden');
+  // Preset buttons
+  document.getElementById('preset-crops-btn')?.addEventListener('click', () => {
+    const crops = getItemCatalog().filter(i => i.category === 'Crops & Fruits');
+    crops.forEach(i => {
+      if (!window.trackedTargets.includes(i.key)) {
+        window.trackedTargets.push(i.key);
       }
     });
-  }
+    localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
+    renderTrackedBadges();
+    updateCatalogCount();
+    renderMenu(targetInput ? targetInput.value : '');
+  });
+
+  document.getElementById('preset-resources-btn')?.addEventListener('click', () => {
+    const res = getItemCatalog().filter(i => i.category === 'Resources & Minerals' || i.category === 'Livestock & Animals');
+    res.forEach(i => {
+      if (!window.trackedTargets.includes(i.key)) {
+        window.trackedTargets.push(i.key);
+      }
+    });
+    localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
+    renderTrackedBadges();
+    updateCatalogCount();
+    renderMenu(targetInput ? targetInput.value : '');
+  });
+
+  document.getElementById('preset-all-btn')?.addEventListener('click', () => {
+    const all = getItemCatalog();
+    all.forEach(i => {
+      if (!window.trackedTargets.includes(i.key)) {
+        window.trackedTargets.push(i.key);
+      }
+    });
+    localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
+    renderTrackedBadges();
+    updateCatalogCount();
+    renderMenu(targetInput ? targetInput.value : '');
+  });
+
+  document.getElementById('preset-clear-btn')?.addEventListener('click', () => {
+    window.trackedTargets = [];
+    localStorage.setItem('sfl_tracked_targets', '[]');
+    renderTrackedBadges();
+    updateCatalogCount();
+    renderMenu(targetInput ? targetInput.value : '');
+  });
 
   saveBtn?.addEventListener('click', async () => {
     localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
@@ -153,17 +398,20 @@ export function initTrackingModal() {
             }, { onConflict: 'id' });
 
           if (error) {
-            console.error("Supabase Error saving targets:", error);
-            alert(`⚠️ Saved locally, but Supabase error: ${error.message}`);
-            return;
+            console.warn("Supabase profile save notice:", error.message);
           }
-        } else {
-          console.warn("User session missing. Saved to localStorage only.");
+        }
+
+        const currentFarmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim();
+        if (currentFarmId) {
+          const { error: fErr } = await client
+            .from('profiles')
+            .update({ tracked_items: window.trackedTargets })
+            .eq('farm_id', currentFarmId);
+          if (fErr) console.warn("Supabase farm profile save notice:", fErr.message);
         }
       } catch (err) {
-        console.error("Failed to save tracked targets to Supabase:", err.message);
-        alert(`⚠️ Saved locally, but failed to reach Supabase: ${err.message}`);
-        return;
+        console.warn("Failed to reach Supabase:", err.message);
       }
     }
 
@@ -190,22 +438,26 @@ export function renderTrackedBadges() {
   }
 
   if (!window.trackedTargets || window.trackedTargets.length === 0) {
-    container.innerHTML = '<span class="text-xs text-sfl-woodLight italic">No items added to persistent tracking list yet.</span>';
+    container.innerHTML = '<span class="text-xs text-sfl-woodLight italic">No items added to persistent tracking list yet. Click the dropdown above or choose a preset.</span>';
     return;
   }
 
   window.trackedTargets.forEach((itemName, index) => {
     let cleanStr = String(itemName).replace(/^\[.*?\]\s*/, '').trim();
     let displayName = cleanStr.charAt(0).toUpperCase() + cleanStr.slice(1);
+    let icon = getItemIcon(cleanStr.toLowerCase());
     
     const badge = document.createElement('span');
-    badge.className = 'inline-flex items-center gap-1.5 bg-sfl-gold/20 border border-sfl-gold text-sfl-dirt px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm';
+    badge.className = 'inline-flex items-center gap-1.5 bg-sfl-gold/20 border border-sfl-gold text-sfl-dirt px-2.5 py-1 rounded-lg text-xs font-bold shadow-xs';
     badge.innerHTML = `
+      <span>${icon}</span>
       <span>${displayName}</span>
       <button type="button" class="text-sfl-accent hover:text-red-700 font-extrabold cursor-pointer ml-1" onclick="removeTrackedTarget(${index})">✕</button>
     `;
     container.appendChild(badge);
   });
+
+  updateCatalogCount();
 }
 
 export function removeTrackedTarget(index) {
@@ -213,6 +465,7 @@ export function removeTrackedTarget(index) {
     window.trackedTargets.splice(index, 1);
     localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
     renderTrackedBadges();
+    updateCatalogCount();
     if (typeof window.renderSnapshotHistory === 'function') {
       window.renderSnapshotHistory();
     }
@@ -225,6 +478,12 @@ window.openTrackingModal = function() {
   const modal = document.getElementById('tracking-modal');
   if (modal) {
     renderTrackedBadges();
+    updateCatalogCount();
     modal.classList.remove('hidden');
+    const targetInput = document.getElementById('target-search-input');
+    const targetMenu = document.getElementById('target-search-menu');
+    if (targetMenu && targetInput) {
+      targetInput.focus();
+    }
   }
 };

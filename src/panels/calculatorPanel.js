@@ -1,7 +1,20 @@
-import { BACKEND_URL } from '../config/constants.js';
+import { BACKEND_URL, CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES } from '../config/constants.js';
 import { ApiService } from '../services/api.js';
 
-window.allPrices = window.allPrices || {};
+export function getFallbackPrices() {
+  const map = {};
+  for (const [k, v] of Object.entries(CROP_FLOWER_PRICES || {})) {
+    const formatted = k.charAt(0).toUpperCase() + k.slice(1);
+    map[formatted] = v;
+  }
+  for (const [k, v] of Object.entries(RESOURCE_FLOWER_FALLBACK_PRICES || {})) {
+    const formatted = k.charAt(0).toUpperCase() + k.slice(1);
+    map[formatted] = v;
+  }
+  return map;
+}
+
+window.allPrices = window.allPrices && Object.keys(window.allPrices).length > 0 ? window.allPrices : getFallbackPrices();
 
 export function renderCalculatorTemplate() {
   const container = document.getElementById('calc-section');
@@ -114,10 +127,16 @@ export async function loadPrices(force = false) {
       delete copy.updatedText;
       delete copy.updated_at;
       delete copy.updatedAt;
-      window.allPrices = extractPrices(copy);
+      const extracted = extractPrices(copy);
+      if (Object.keys(extracted).length > 0) {
+        window.allPrices = { ...getFallbackPrices(), ...extracted };
+      }
     }
   } catch {
     console.warn("Using default fallback prices.");
+    if (!window.allPrices || Object.keys(window.allPrices).length === 0) {
+      window.allPrices = getFallbackPrices();
+    }
   }
 }
 
