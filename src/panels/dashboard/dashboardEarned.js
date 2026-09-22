@@ -382,9 +382,12 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
       ${getItemsListHtml()}
     </div>`;
 
-  // Attach Category Filter Listeners
-  mountEl.querySelectorAll('.dash-earned-cat-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  // Delegated listener on stable parent — survives innerHTML re-renders of pill/list children
+  if (!mountEl._earnedCatListenerBound) {
+    mountEl._earnedCatListenerBound = true;
+    mountEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.dash-earned-cat-btn');
+      if (!btn) return;
       const targetCat = btn.getAttribute('data-cat');
       if (!targetCat || targetCat === currentEarnedCategory) return;
       currentEarnedCategory = targetCat;
@@ -393,5 +396,5 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
       if (pillsContainer) pillsContainer.innerHTML = getCategoryPillsHtml();
       if (listContainer) listContainer.innerHTML = getItemsListHtml();
     });
-  });
+  }
 }

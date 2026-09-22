@@ -361,15 +361,11 @@ export async function mountDashboard() {
   isMounting = true;
   try {
     if (!initialized) {
-      initDashboardPanel();
+      initDashboardPanel(); // Binds refresh btn once here
     } else {
       renderTemplate();
       renderTimeRangeControls();
-      // Refresh btn is already bound by initDashboardPanel — do NOT re-bind here
-      document.getElementById('dashboard-refresh-btn')?.addEventListener('click', () => {
-        clearBaselineMemoryCache();
-        populateSections(null, true);
-      });
+      // Refresh btn listener was already bound in initDashboardPanel — do NOT re-bind
     }
     await populateSections();
   } finally {

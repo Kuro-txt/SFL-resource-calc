@@ -728,9 +728,12 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
       * Trade-adjusted consumption. Excludes marketplace sales.
     </p>`;
 
-  // Attach Category Filter Listeners
-  mountEl.querySelectorAll('.dash-spent-cat-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  // Delegated listener on stable parent — survives innerHTML re-renders of pill/list children
+  if (!mountEl._spentCatListenerBound) {
+    mountEl._spentCatListenerBound = true;
+    mountEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.dash-spent-cat-btn');
+      if (!btn) return;
       const targetCat = btn.getAttribute('data-cat');
       if (!targetCat || targetCat === currentSpentCategory) return;
       currentSpentCategory = targetCat;
@@ -739,5 +742,5 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
       if (pillsContainer) pillsContainer.innerHTML = getCategoryPillsHtml();
       if (listContainer) listContainer.innerHTML = getItemsListHtml();
     });
-  });
+  }
 }
