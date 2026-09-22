@@ -2,6 +2,9 @@ import { BACKEND_URL } from '../config/constants.js';
 import { ApiService } from '../services/api.js';
 
 let allNfts = [];
+try {
+  allNfts = JSON.parse(localStorage.getItem('sfl_nft_catalog') || '[]');
+} catch (_) {}
 let wishlistItems = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]');
 
 export function renderWishlistTemplate() {
@@ -23,12 +26,21 @@ export function renderWishlistTemplate() {
       </div>
 
       <div class="bg-sfl-card/80 p-4 rounded-xl border-2 border-sfl-cardBorder space-y-2">
-        <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood">🔍 Search & Add SFL NFTs or Collectibles</label>
-        <div class="relative max-w-lg">
-          <input type="text" id="wishlist-search-input" placeholder="Type or click to search NFT name or boost..." autocomplete="off" class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
-          <ul id="wishlist-search-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto bg-white border-2 border-sfl-woodLight rounded-lg shadow-xl z-30 divide-y divide-sfl-cardBorder/30 text-sm">
-            <li class="p-2 text-sfl-woodLight italic text-xs">Loading NFT catalog...</li>
-          </ul>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood">🔍 Search & Add SFL NFTs or Collectibles</label>
+          <span id="wishlist-catalog-status" class="text-[10px] font-bold text-sfl-woodLight"></span>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <div class="relative flex-1">
+            <input type="text" id="wishlist-search-input" placeholder="Type or click to search NFT name or boost..." autocomplete="off" class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
+            <ul id="wishlist-search-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto bg-white border-2 border-sfl-woodLight rounded-lg shadow-xl z-30 divide-y divide-sfl-cardBorder/30 text-sm">
+              <li class="p-2 text-sfl-woodLight italic text-xs">Click "Load Live NFTs" to search items.</li>
+            </ul>
+          </div>
+          <button type="button" id="load-nfts-btn" class="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-black px-4 py-2 rounded-xl border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-1.5 shrink-0 text-xs uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">
+            <svg id="load-nfts-icon" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <span id="load-nfts-btn-text">Load Live NFTs</span>
+          </button>
         </div>
       </div>
 
@@ -84,8 +96,10 @@ export function renderWishlistTemplate() {
 export function initWishlistPanel() {
   renderWishlistTemplate();
   initNftCombobox();
-  loadNftCatalog();
   renderWishlist();
+  updateCatalogStatus();
+
+  document.getElementById('load-nfts-btn')?.addEventListener('click', () => loadNftCatalog(true));
 
   const clearBtn = document.getElementById('clear-wishlist-btn');
   if (clearBtn) {
@@ -93,15 +107,40 @@ export function initWishlistPanel() {
   }
 }
 
-export async function loadNftCatalog(force = false) {
-  if (!force && allNfts.length > 0) {
-    renderWishlist();
-    return;
+function updateCatalogStatus() {
+  const btnText = document.getElementById('load-nfts-btn-text');
+  const statusEl = document.getElementById('wishlist-catalog-status');
+  if (allNfts.length > 0) {
+    if (btnText) btnText.textContent = 'Refresh Prices';
+    if (statusEl) statusEl.innerHTML = `<span class="text-emerald-700 font-bold">✅ ${allNfts.length} NFTs Ready</span>`;
+  } else {
+    if (btnText) btnText.textContent = 'Load Live NFTs';
+    if (statusEl) statusEl.innerHTML = `<span class="text-sfl-woodLight">Click button to fetch catalog</span>`;
   }
+}
+
+export async function loadNftCatalog(force = false) {
+  const btn = document.getElementById('load-nfts-btn');
+  const btnText = document.getElementById('load-nfts-btn-text');
+  const icon = document.getElementById('load-nfts-icon');
+  const statusEl = document.getElementById('wishlist-catalog-status');
+
+  if (btn) {
+    btn.disabled = true;
+    if (icon) icon.classList.add('animate-spin');
+    if (btnText) btnText.textContent = 'Loading NFTs...';
+  }
+  if (statusEl) {
+    statusEl.innerHTML = `<span class="text-amber-700 animate-pulse font-bold">⏳ Fetching live prices from sfl.world...</span>`;
+  }
+
   try {
     const data = await ApiService.getNfts({ force });
     if (Array.isArray(data) && data.length > 0) {
       allNfts = data;
+      try {
+        localStorage.setItem('sfl_nft_catalog', JSON.stringify(data));
+      } catch (_) {}
     } else {
       throw new Error("Empty dataset");
     }
@@ -119,11 +158,25 @@ export async function loadNftCatalog(force = false) {
 
     saveWishlist();
     renderWishlist();
+
+    if (btnText) btnText.textContent = 'Refresh Prices';
+    if (statusEl) {
+      statusEl.innerHTML = `<span class="text-emerald-700 font-bold">✅ ${allNfts.length} Live NFTs Loaded</span>`;
+    }
   } catch (err) {
     console.warn("⚠️ Failed to load NFT catalog:", err.message);
+    if (btnText) btnText.textContent = 'Retry Loading';
+    if (statusEl) {
+      statusEl.innerHTML = `<span class="text-rose-600 font-bold">⚠️ Failed to load. Click to retry.</span>`;
+    }
     const menu = document.getElementById('wishlist-search-menu');
     if (menu && allNfts.length === 0) {
-      menu.innerHTML = '<li class="p-2 text-sfl-accent italic text-xs">⚠️ Unable to load live NFTs. Please retry later.</li>';
+      menu.innerHTML = '<li class="p-2 text-sfl-accent italic text-xs">⚠️ Unable to load live NFTs. Please retry with the button above.</li>';
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      if (icon) icon.classList.remove('animate-spin');
     }
   }
 }
@@ -139,6 +192,22 @@ function initNftCombobox() {
   function renderMenu() {
     const query = input.value.toLowerCase().trim();
     menu.innerHTML = '';
+
+    if (allNfts.length === 0) {
+      menu.innerHTML = `
+        <li class="p-3 text-center text-xs text-sfl-woodLight space-y-1.5">
+          <p>NFT catalog not loaded yet.</p>
+          <button type="button" id="menu-load-nfts-btn" class="inline-flex items-center gap-1 bg-emerald-600 text-white font-bold px-2.5 py-1 rounded text-[11px] shadow-xs hover:bg-emerald-500 cursor-pointer">
+            <span>✨</span> Load Live NFTs
+          </button>
+        </li>`;
+      document.getElementById('menu-load-nfts-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        loadNftCatalog(true);
+      });
+      menu.classList.remove('hidden');
+      return;
+    }
 
     const matches = allNfts.filter(nft => {
       if (!query) return true;
