@@ -5,7 +5,10 @@ let allNfts = [];
 try {
   allNfts = JSON.parse(localStorage.getItem('sfl_nft_catalog') || '[]');
 } catch (_) {}
-let wishlistItems = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]');
+let wishlistItems = [];
+try {
+  wishlistItems = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]');
+} catch (_) { wishlistItems = []; }
 
 export function renderWishlistTemplate() {
   const container = document.getElementById('wishlist-section');
@@ -248,10 +251,9 @@ function initNftCombobox() {
     menu.classList.remove('hidden');
   }
 
-  input.addEventListener('input', renderMenu);
-  input.addEventListener('focus', renderMenu);
-
   if (!isComboboxBound) {
+    input.addEventListener('input', renderMenu);
+    input.addEventListener('focus', renderMenu);
     document.addEventListener('click', (e) => {
       const activeInput = document.getElementById('wishlist-search-input');
       const activeMenu = document.getElementById('wishlist-search-menu');

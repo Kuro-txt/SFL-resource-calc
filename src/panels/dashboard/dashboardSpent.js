@@ -738,13 +738,6 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
       const listContainer = mountEl.querySelector('#dash-spent-items-list');
       if (pillsContainer) pillsContainer.innerHTML = getCategoryPillsHtml();
       if (listContainer) listContainer.innerHTML = getItemsListHtml();
-      // Re-attach listeners to refreshed pills
-      mountEl.querySelectorAll('.dash-spent-cat-btn').forEach(b => {
-        b.addEventListener('click', () => {
-          currentSpentCategory = b.getAttribute('data-cat');
-          renderSpentSection(mountEl, boundsInput, allSpentItems);
-        });
-      });
     });
   });
 }

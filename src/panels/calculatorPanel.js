@@ -1,15 +1,18 @@
-import { BACKEND_URL, CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES } from '../config/constants.js';
+import { BACKEND_URL, CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES, ALLOWED_ITEM_NAMES } from '../config/constants.js';
 import { ApiService } from '../services/api.js';
 
 export function getFallbackPrices() {
   const map = {};
   for (const [k, v] of Object.entries(CROP_FLOWER_PRICES || {})) {
-    const formatted = k.charAt(0).toUpperCase() + k.slice(1);
-    map[formatted] = v;
+    // Use canonical name from ALLOWED_ITEM_NAMES (e.g. "Merino Wool") to match backend key format
+    const cleanKey = k.replace(/[^a-z0-9]/g, '');
+    const officialName = ALLOWED_ITEM_NAMES[cleanKey] || (k.charAt(0).toUpperCase() + k.slice(1));
+    map[officialName] = v;
   }
   for (const [k, v] of Object.entries(RESOURCE_FLOWER_FALLBACK_PRICES || {})) {
-    const formatted = k.charAt(0).toUpperCase() + k.slice(1);
-    map[formatted] = v;
+    const cleanKey = k.replace(/[^a-z0-9]/g, '');
+    const officialName = ALLOWED_ITEM_NAMES[cleanKey] || (k.charAt(0).toUpperCase() + k.slice(1));
+    map[officialName] = v;
   }
   return map;
 }

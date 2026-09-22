@@ -388,6 +388,10 @@ export async function syncWeeklyYieldForDate(userId, date) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, date })
     });
+    // Bust the weekly modal cache so the next open re-fetches fresh data
+    if (typeof window.invalidateWeeklyArchiveCache === 'function') {
+      window.invalidateWeeklyArchiveCache();
+    }
   } catch(e) {
     console.warn("Weekly sync notice:", e.message);
   }

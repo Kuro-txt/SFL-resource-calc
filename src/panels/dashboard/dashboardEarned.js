@@ -203,7 +203,8 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
   const grandTaxAmount = Object.values(totals).reduce((s, v) => s + (v.taxAmount || 0), 0);
 
   const savedTax = typeof localStorage !== 'undefined' ? localStorage.getItem('sfl_tax_rate') : null;
-  const currentTaxRate = savedTax !== null ? parseFloat(savedTax) : 0.10;
+  const parsedTax = savedTax !== null ? parseFloat(savedTax) : NaN;
+  const currentTaxRate = (!isNaN(parsedTax)) ? parsedTax : 0.10;
   const taxPct = Math.round(currentTaxRate * 100);
 
   // Extract Coins for dedicated prominent card
@@ -391,13 +392,6 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
       const listContainer = mountEl.querySelector('#dash-earned-items-list');
       if (pillsContainer) pillsContainer.innerHTML = getCategoryPillsHtml();
       if (listContainer) listContainer.innerHTML = getItemsListHtml();
-      // Re-attach listeners to refreshed pills
-      mountEl.querySelectorAll('.dash-earned-cat-btn').forEach(b => {
-        b.addEventListener('click', () => {
-          currentEarnedCategory = b.getAttribute('data-cat');
-          renderEarnedSection(mountEl, boundsInput);
-        });
-      });
     });
   });
 }

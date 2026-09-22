@@ -355,22 +355,30 @@ export function initDashboardPanel() {
   });
 }
 
+let isMounting = false;
 export async function mountDashboard() {
-  if (!initialized) {
-    initDashboardPanel();
-  } else {
-    renderTemplate();
-    renderTimeRangeControls();
-    document.getElementById('dashboard-refresh-btn')?.addEventListener('click', () => {
-      clearBaselineMemoryCache();
-      populateSections(null, true);
-    });
+  if (isMounting) return;
+  isMounting = true;
+  try {
+    if (!initialized) {
+      initDashboardPanel();
+    } else {
+      renderTemplate();
+      renderTimeRangeControls();
+      // Refresh btn is already bound by initDashboardPanel — do NOT re-bind here
+      document.getElementById('dashboard-refresh-btn')?.addEventListener('click', () => {
+        clearBaselineMemoryCache();
+        populateSections(null, true);
+      });
+    }
+    await populateSections();
+  } finally {
+    isMounting = false;
   }
-  await populateSections();
 }
 
 if (typeof window !== 'undefined') {
   window.mountDashboard = mountDashboard;
-  window.refreshDashboardView = () => populateSections();
+  window.refreshDashboardView = () => populateSections().catch(err => console.error('Dashboard refresh failed:', err));
   window.populateSections = populateSections;
 }

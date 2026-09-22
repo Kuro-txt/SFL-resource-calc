@@ -400,15 +400,16 @@ export function initTrackingModal() {
           if (error) {
             console.warn("Supabase profile save notice:", error.message);
           }
-        }
-
-        const currentFarmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim();
-        if (currentFarmId) {
-          const { error: fErr } = await client
-            .from('profiles')
-            .update({ tracked_items: window.trackedTargets })
-            .eq('farm_id', currentFarmId);
-          if (fErr) console.warn("Supabase farm profile save notice:", fErr.message);
+        } else {
+          // Farm-ID-only user (not authenticated via Supabase auth) — update by farm_id
+          const currentFarmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim();
+          if (currentFarmId) {
+            const { error: fErr } = await client
+              .from('profiles')
+              .update({ tracked_items: window.trackedTargets })
+              .eq('farm_id', currentFarmId);
+            if (fErr) console.warn("Supabase farm profile save notice:", fErr.message);
+          }
         }
       } catch (err) {
         console.warn("Failed to reach Supabase:", err.message);
@@ -446,13 +447,15 @@ export function renderTrackedBadges() {
     let cleanStr = String(itemName).replace(/^\[.*?\]\s*/, '').trim();
     let displayName = cleanStr.charAt(0).toUpperCase() + cleanStr.slice(1);
     let icon = getItemIcon(cleanStr.toLowerCase());
+    // Escape single quotes in key for safe inline onclick
+    const safeKey = itemName.replace(/'/g, "\\'");
     
     const badge = document.createElement('span');
     badge.className = 'inline-flex items-center gap-1.5 bg-sfl-gold/20 border border-sfl-gold text-sfl-dirt px-2.5 py-1 rounded-lg text-xs font-bold shadow-xs';
     badge.innerHTML = `
       <span>${icon}</span>
       <span>${displayName}</span>
-      <button type="button" class="text-sfl-accent hover:text-red-700 font-extrabold cursor-pointer ml-1" onclick="removeTrackedTarget(${index})">✕</button>
+      <button type="button" class="text-sfl-accent hover:text-red-700 font-extrabold cursor-pointer ml-1" onclick="removeTrackedTargetByKey('${safeKey}')">✕</button>
     `;
     container.appendChild(badge);
   });
@@ -472,8 +475,23 @@ export function removeTrackedTarget(index) {
   }
 }
 
+export function removeTrackedTargetByKey(key) {
+  if (!window.trackedTargets) return;
+  const idx = window.trackedTargets.indexOf(key);
+  if (idx >= 0) {
+    window.trackedTargets.splice(idx, 1);
+    localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
+    renderTrackedBadges();
+    updateCatalogCount();
+    if (typeof window.renderSnapshotHistory === 'function') {
+      window.renderSnapshotHistory();
+    }
+  }
+}
+
 window.renderTrackedBadges = renderTrackedBadges;
 window.removeTrackedTarget = removeTrackedTarget;
+window.removeTrackedTargetByKey = removeTrackedTargetByKey;
 window.openTrackingModal = function() {
   const modal = document.getElementById('tracking-modal');
   if (modal) {

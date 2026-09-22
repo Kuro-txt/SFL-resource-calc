@@ -6,6 +6,13 @@ let currentWeekOffset = 0;
 export let cachedWeeklyArchives = null;
 let isFetchingWeeklyArchives = false;
 
+/** Call this whenever weekly_yields data is written so the modal re-fetches fresh data. */
+export function invalidateWeeklyArchiveCache() {
+  cachedWeeklyArchives = null;
+  isFetchingWeeklyArchives = false;
+}
+window.invalidateWeeklyArchiveCache = invalidateWeeklyArchiveCache;
+
 export async function getWeeklyArchive(mondayStr) {
   if (!cachedWeeklyArchives && !isFetchingWeeklyArchives) {
     isFetchingWeeklyArchives = true;

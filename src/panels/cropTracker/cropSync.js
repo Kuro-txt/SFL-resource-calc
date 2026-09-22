@@ -52,6 +52,7 @@ export async function fetchAndApplyLandYields(showAlert = false) {
 
 export async function fetchLiveCropDiff() {
   const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim();
+  const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
   const statusEl = document.getElementById('crop-tracker-status');
   const client = window.supabaseClient;
   const user = window.currentUser;
@@ -84,7 +85,7 @@ export async function fetchLiveCropDiff() {
 
     if (!baselineActivity) {
       hasBaselineForToday = false;
-      activeHarvestDiffs = [];
+      activeHarvestDiffs.length = 0; // Mutate in-place to keep exported reference valid
       renderCropTrackerRows();
       if (statusEl) statusEl.textContent = "⚠️ Baseline Missing";
       return;
@@ -163,16 +164,23 @@ export async function saveCurrentActivityAsBaseline() {
 
   try {
     const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
-    if (farmObj) {
-      window.farmData = farmObj;
-      const inv = farmObj.inventory || farmObj.farm?.inventory || null;
-      window.farmInventoryData = inv;
-      if (inv && typeof inv === 'object' && Object.keys(inv).length > 0) {
-        try { localStorage.setItem('sfl_farm_inventory', JSON.stringify(inv)); } catch (_) {}
-      }
+    if (!farmObj) {
+      throw new Error('Could not fetch farm data. Check Farm ID / API key.');
     }
+
+    window.farmData = farmObj;
+    const inv = farmObj.inventory || farmObj.farm?.inventory || null;
+    window.farmInventoryData = inv;
+    if (inv && typeof inv === 'object' && Object.keys(inv).length > 0) {
+      try { localStorage.setItem('sfl_farm_inventory', JSON.stringify(inv)); } catch (_) {}
+    }
+
     const inventory = farmObj.inventory || {};
     const farmActivity = farmObj.farmActivity || farmObj.activity || {};
+
+    if (Object.keys(farmActivity).length === 0) {
+      throw new Error('Farm activity data is empty — cannot save a blank baseline. Try again in a moment.');
+    }
 
     const { error: dbError } = await client.from('preharvest_baselines').upsert({
       user_id: user.id,

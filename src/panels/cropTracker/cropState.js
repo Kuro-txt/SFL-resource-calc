@@ -82,9 +82,14 @@ export async function saveBaseYieldSettings(showAlert = false) {
 }
 
 export function updateCropBaseYield(cleanKey, value) {
-  const val = parseFloat(value) || globalAvgYield || 1.0;
+  const parsed = parseFloat(value);
+  const val = (!isNaN(parsed) && parsed > 0) ? parsed : (globalAvgYield || 1.0);
   cropBaseYields[cleanKey] = val;
-  localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
+  try {
+    localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
+  } catch (e) {
+    console.warn('localStorage quota exceeded; crop yield not persisted locally:', e);
+  }
   debouncedCloudSave();
   renderCropTrackerRows();
 }
