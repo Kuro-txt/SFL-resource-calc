@@ -14,6 +14,9 @@ window.farmNpcData = window.farmNpcData || JSON.parse(localStorage.getItem('sfl_
 window.syncCount = window.syncCount || 0;
 window.syncCooldownTimer = window.syncCooldownTimer || null;
 
+export const SYNC_SVG = `<svg class="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>`;
+export const SYNCING_SPIN_SVG = `<svg class="w-4 h-4 shrink-0 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>`;
+
 export function renderAuthBar() {
   const container = document.getElementById('auth-mount');
   if (!container) return;
@@ -90,8 +93,10 @@ export function renderAuthBar() {
                     <button type="button" id="gem-packs-reset-btn" class="text-[10px] font-bold text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200 px-1.5 py-0.5 rounded bg-amber-100/60 dark:bg-slate-800 transition cursor-pointer" title="Reset selection">
                       Reset
                     </button>
-                    <button type="button" id="gem-packs-refresh-btn" class="p-1 rounded-lg hover:bg-amber-100 dark:hover:bg-slate-800 text-sfl-wood dark:text-slate-300 text-xs transition cursor-pointer" title="Refresh live exchange rates">
-                      🔄
+                    <button type="button" id="gem-packs-refresh-btn" class="p-1 rounded-lg hover:bg-amber-100 dark:hover:bg-slate-800 text-sfl-wood dark:text-slate-300 text-xs transition cursor-pointer flex items-center justify-center" title="Refresh live exchange rates">
+                      <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
                     </button>
                   </div>
                 </div>
@@ -138,8 +143,8 @@ export function renderAuthBar() {
           <!-- Right: Sync Button -->
           <div class="shrink-0 flex items-end">
             <button type="button" id="import-farm-btn"
-              class="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-black px-5 py-2.5 rounded-xl border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
-              <span>🔄</span>
+              class="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-black px-5 py-2.5 rounded-xl border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2 text-xs uppercase tracking-wider group">
+              ${SYNC_SVG}
               <span>Sync Data</span>
             </button>
           </div>
@@ -510,7 +515,7 @@ export async function handleFarmSync() {
   // Update button and status to active loading state
   if (syncBtn) {
     syncBtn.disabled = true;
-    syncBtn.innerHTML = `<span class="inline-block animate-spin mr-1.5">🔄</span> <span>Syncing...</span>`;
+    syncBtn.innerHTML = `${SYNCING_SPIN_SVG} <span>Syncing...</span>`;
   }
   if (status) {
     status.innerHTML = `<span class="text-amber-700 dark:text-amber-300 font-bold animate-pulse">⏳ Syncing Farm #${farmId} (Trades, Market Prices & Cloud Yields)...</span>`;
@@ -604,7 +609,7 @@ export async function handleFarmSync() {
   } finally {
     if (syncBtn) {
       syncBtn.disabled = false;
-      syncBtn.innerHTML = `<span>🔄</span> <span>Sync Data</span>`;
+      syncBtn.innerHTML = `${SYNC_SVG} <span>Sync Data</span>`;
     }
   }
 }

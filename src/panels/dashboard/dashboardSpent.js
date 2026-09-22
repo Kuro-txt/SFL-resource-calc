@@ -199,6 +199,9 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
     const d = h.date || h.yield_date || '';
     if (minDateStr && (d < minDateStr || d > maxDateStr)) return;
 
+    let dayCoinsSpent = 0;
+    let dayGemsSpent = 0;
+
     const rawSpent = (Array.isArray(h.spent) && h.spent.length > 0) ? h.spent
       : (Array.isArray(h.cropActivityYields) ? h.cropActivityYields.find(a => a && a.type === 'spent')?.items : null);
 
@@ -209,12 +212,11 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
         if (!name) return;
         const clean = normalizeItemKey(name);
         if (clean === 'coins') {
-          totalCoinsSpent += parseFloat(item.qty || 0);
+          dayCoinsSpent = Math.max(dayCoinsSpent, parseFloat(item.qty || 0));
           return;
         }
         if (clean === 'gem' || clean === 'gems') {
-          const gemQty = parseFloat(item.qty || 0);
-          if (gemQty > 0) totalGemsSpent += gemQty;
+          dayGemsSpent = Math.max(dayGemsSpent, parseFloat(item.qty || 0));
           return;
         }
         if (!isAllowedDifferenceItem(clean)) return;
@@ -235,19 +237,20 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
       });
     }
 
-    // Accumulate coins spent
+    // Accumulate coins spent (deduplicate between coinsObj and rawSpent)
     const rawActs = h.cropActivityYields || h.crop_activity_yields || [];
     const coinsObj = (Array.isArray(rawActs) ? rawActs.find(a => a && (a.type === 'coins' || a.crop === 'Coins')) : null) || h.coins;
     if (coinsObj && coinsObj.coinsSpent) {
-      totalCoinsSpent = Math.max(totalCoinsSpent, parseFloat(coinsObj.coinsSpent || 0));
+      dayCoinsSpent = Math.max(dayCoinsSpent, parseFloat(coinsObj.coinsSpent || 0));
     }
+    totalCoinsSpent += dayCoinsSpent;
 
-    // Check for saved gems in cropActivityYields or snapshot
+    // Accumulate gems spent (deduplicate between gemsObj and rawSpent)
     const gemsObj = (Array.isArray(rawActs) ? rawActs.find(a => a && (a.type === 'gems' || a.crop === 'Gems')) : null) || h.gems;
     if (gemsObj && gemsObj.gemsSpent) {
-      const gSpent = parseFloat(gemsObj.gemsSpent || 0);
-      if (gSpent > 0) totalGemsSpent += gSpent;
+      dayGemsSpent = Math.max(dayGemsSpent, parseFloat(gemsObj.gemsSpent || 0));
     }
+    totalGemsSpent += dayGemsSpent;
   });
 
   // 2. Compute Gems spent (and fallback resources spent) from preharvest_baselines & live inventory
@@ -349,10 +352,13 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
     // 2. Get 22:00 UTC (or Live) Gems
     let endGems = null;
     if (isToday) {
-      if (hasLiveStock) {
-        endGems = getGemCount(liveStock);
+      const liveGemCount = hasLiveStock ? getGemCount(liveStock) : null;
+      if (liveGemCount !== null && startGems !== null && liveGemCount < startGems) {
+        endGems = liveGemCount;
       } else if (snapGems && snapGems.endGems !== undefined) {
         endGems = parseFloat(snapGems.endGems);
+      } else if (liveGemCount !== null) {
+        endGems = liveGemCount;
       }
     } else {
       if (snapGems && snapGems.endGems !== undefined) {
@@ -380,11 +386,21 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
         activeDayMeta = { date: dateStr, startGems, endGems, diff, isToday };
       }
     }
+
+    // Fallback activeDayMeta if snapGems recorded gem spend
+    if (!activeDayMeta && snapGems && parseFloat(snapGems.gemsSpent || 0) > 0) {
+      const sG = snapGems.startGems !== undefined ? parseFloat(snapGems.startGems) : startGems;
+      const eG = snapGems.endGems !== undefined ? parseFloat(snapGems.endGems) : endGems;
+      const dF = snapGems.netGems !== undefined ? parseFloat(snapGems.netGems) : -parseFloat(snapGems.gemsSpent);
+      activeDayMeta = { date: dateStr, startGems: sG, endGems: eG, diff: dF, isToday };
+    }
   }
 
   // Consolidate gems spent
   if (gemsSpentFromDiffs > 0) {
     totalGemsSpent = Math.max(totalGemsSpent, gemsSpentFromDiffs);
+  } else if (activeDayMeta && activeDayMeta.diff < 0 && totalGemsSpent === 0) {
+    totalGemsSpent = Math.abs(activeDayMeta.diff);
   }
 
   // Fallback resources calculation for crops/items if no saved spent
