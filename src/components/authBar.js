@@ -131,13 +131,13 @@ export function renderAuthBar() {
             </div>
 
             <!-- Optional API Key -->
-            <div class="w-32 sm:w-36">
+            <form onsubmit="return false;" class="w-32 sm:w-36 m-0 p-0">
               <label class="block text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 mb-1 flex items-center gap-1">
                 <span>🔑</span> API Key <span class="font-normal opacity-75">(Opt)</span>
               </label>
               <input type="password" id="api-key" placeholder="Custom Token" autocomplete="off"
                 class="w-full sfl-input rounded-xl px-2.5 py-1.5 text-xs text-sfl-dirt dark:text-amber-100 shadow-2xs">
-            </div>
+            </form>
           </div>
 
           <!-- Right: Sync Button -->
