@@ -17,6 +17,37 @@ export const FLOWER_IMG_SMALL_HTML = `<img src="./assets/flower.webp" onerror="t
 export const GLOBAL_EXCLUDES = ['updated_text', 'updatedtext', 'updatedat', 'updated_at', 'created_at', 'id'];
 export const SEARCH_EXCLUDED_KEYS = ['updated_text', 'updatedtext', 'updatedat', 'updated_at', 'created_at', 'id'];
 
+// Strict whitelist of 64 items for daily stock difference calculation
+export const ALLOWED_DIFFERENCE_ITEMS = [
+  "Sunflower", "Potato", "Pumpkin", "Carrot", "Cabbage",
+  "Beetroot", "Cauliflower", "Parsnip", "Radish", "Wheat",
+  "Kale", "Apple", "Blueberry", "Orange", "Eggplant",
+  "Corn", "Banana", "Soybean", "Grape", "Rice",
+  "Olive", "Tomato", "Lemon", "Barley", "Rhubarb",
+  "Zucchini", "Yam", "Broccoli", "Pepper", "Onion",
+  "Turnip", "Artichoke", "Duskberry", "Lunara", "Celestine",
+  "Wood", "Stone", "Iron", "Gold", "Egg",
+  "Honey", "Crimstone", "Leather", "Wool", "Merino Wool",
+  "Feather", "Milk", "Obsidian", "Salt", "Goblin Emblem",
+  "Bumpkin Emblem", "Sunflorian Emblem", "Nightshade Emblem", "Ruffroot", "Chewed Bone",
+  "Heart Leaf", "Moonfur", "Ribbon", "Dewberry", "Wild Grass",
+  "Frost Pebble", "Capsule Bait", "Umbrella Bait", "Crimson Baitfish"
+];
+
+export const ALLOWED_ITEM_NAMES = {};
+export const ALLOWED_ITEM_KEYS = new Set();
+ALLOWED_DIFFERENCE_ITEMS.forEach(name => {
+  const clean = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  ALLOWED_ITEM_KEYS.add(clean);
+  ALLOWED_ITEM_NAMES[clean] = name;
+});
+
+export function isAllowedDifferenceItem(name) {
+  if (!name) return false;
+  const clean = String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return ALLOWED_ITEM_KEYS.has(clean);
+}
+
 export const EXCLUDED_KEYWORDS = [
   'seed', 'axe', 'pickaxe', 'rod', 'shovel', 'drill', 
   'worm', 'wiggler', 'grub', 'fertilizer', 'mix', 
@@ -25,6 +56,9 @@ export const EXCLUDED_KEYWORDS = [
 
 export function isExcludedItem(itemName) {
   if (!itemName) return true;
+  const clean = String(itemName).toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Whitelisted trackable items (e.g. Crimson Baitfish, Capsule Bait) are NEVER excluded
+  if (ALLOWED_ITEM_KEYS.has(clean)) return false;
   const lower = itemName.toLowerCase();
   return EXCLUDED_KEYWORDS.some(kw => lower.includes(kw));
 }
@@ -130,36 +164,6 @@ export const RESOURCE_FLOWER_FALLBACK_PRICES = {
   "crimsonbaitfish": 0.08
 };
 
-// Strict whitelist of 64 items for daily stock difference calculation
-export const ALLOWED_DIFFERENCE_ITEMS = [
-  "Sunflower", "Potato", "Pumpkin", "Carrot", "Cabbage",
-  "Beetroot", "Cauliflower", "Parsnip", "Radish", "Wheat",
-  "Kale", "Apple", "Blueberry", "Orange", "Eggplant",
-  "Corn", "Banana", "Soybean", "Grape", "Rice",
-  "Olive", "Tomato", "Lemon", "Barley", "Rhubarb",
-  "Zucchini", "Yam", "Broccoli", "Pepper", "Onion",
-  "Turnip", "Artichoke", "Duskberry", "Lunara", "Celestine",
-  "Wood", "Stone", "Iron", "Gold", "Egg",
-  "Honey", "Crimstone", "Leather", "Wool", "Merino Wool",
-  "Feather", "Milk", "Obsidian", "Salt", "Goblin Emblem",
-  "Bumpkin Emblem", "Sunflorian Emblem", "Nightshade Emblem", "Ruffroot", "Chewed Bone",
-  "Heart Leaf", "Moonfur", "Ribbon", "Dewberry", "Wild Grass",
-  "Frost Pebble", "Capsule Bait", "Umbrella Bait", "Crimson Baitfish"
-];
-
-export const ALLOWED_ITEM_NAMES = {};
-export const ALLOWED_ITEM_KEYS = new Set();
-ALLOWED_DIFFERENCE_ITEMS.forEach(name => {
-  const clean = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-  ALLOWED_ITEM_KEYS.add(clean);
-  ALLOWED_ITEM_NAMES[clean] = name;
-});
-
-export function isAllowedDifferenceItem(name) {
-  if (!name) return false;
-  const clean = String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
-  return ALLOWED_ITEM_KEYS.has(clean);
-}
 
 // Whitelist of 64 items that use the global tax rate (from tax-select / sfl_tax_rate).
 // Everything else is taxed at a fixed 10% rate.
