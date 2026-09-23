@@ -17,7 +17,20 @@ export function getFallbackPrices() {
   return map;
 }
 
-window.allPrices = window.allPrices && Object.keys(window.allPrices).length > 0 ? window.allPrices : getFallbackPrices();
+export function getInitialPrices() {
+  try {
+    const saved = localStorage.getItem('sfl_live_prices');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        return { ...getFallbackPrices(), ...parsed };
+      }
+    }
+  } catch (_) {}
+  return getFallbackPrices();
+}
+
+window.allPrices = window.allPrices && Object.keys(window.allPrices).length > 0 ? window.allPrices : getInitialPrices();
 
 export function renderCalculatorTemplate() {
   const container = document.getElementById('calc-section');
@@ -132,13 +145,26 @@ export async function loadPrices(force = false) {
       delete copy.updatedAt;
       const extracted = extractPrices(copy);
       if (Object.keys(extracted).length > 0) {
+        // Extracted prices (live P2P) now overwrite fallback prices
         window.allPrices = { ...getFallbackPrices(), ...extracted };
+        try {
+          localStorage.setItem('sfl_live_prices', JSON.stringify(window.allPrices));
+          localStorage.setItem('sfl_prices_updated_at', new Date().toISOString());
+        } catch (_) {}
+
+        // Notify active panels to re-render with fresh real prices
+        if (typeof window.renderSnapshotHistory === 'function') {
+          window.renderSnapshotHistory();
+        }
+        if (typeof window.refreshDashboardView === 'function') {
+          window.refreshDashboardView();
+        }
       }
     }
   } catch {
     console.warn("Using default fallback prices.");
     if (!window.allPrices || Object.keys(window.allPrices).length === 0) {
-      window.allPrices = getFallbackPrices();
+      window.allPrices = getInitialPrices();
     }
   }
 }
@@ -161,13 +187,18 @@ export function extractPrices(data) {
       let val = obj[key];
 
       if (typeof val === 'number') {
-        pricesMap[prefix + key] = val;
+        pricesMap[key] = val; // Direct canonical key (e.g. "Sunflower") overwrites fallback
+        if (prefix) pricesMap[prefix + key] = val; // Also keep prefixed key (e.g. "[P2P] Sunflower")
       } else if (typeof val === 'string' && !isNaN(parseFloat(val))) {
-        pricesMap[prefix + key] = parseFloat(val);
+        const num = parseFloat(val);
+        pricesMap[key] = num;
+        if (prefix) pricesMap[prefix + key] = num;
       } else if (val && typeof val === 'object') {
         let p = val.price ?? val.sfl ?? val.sflPrice ?? val.flowerPrice ?? val.unitPrice;
         if (p !== undefined && p !== null) {
-          pricesMap[prefix + key] = parseFloat(p) || 0;
+          const num = parseFloat(p) || 0;
+          pricesMap[key] = num;
+          if (prefix) pricesMap[prefix + key] = num;
         } else {
           let newPrefix = key.length <= 4 ? `[${key.toUpperCase()}] ` : '';
           searchObj(val, newPrefix);

@@ -55,17 +55,40 @@ export const ApiService = {
       if (cached) return cached;
     }
     return fetchDeduplicated(cacheKey, async () => {
+      let data = null;
+
+      // 1. Try Backend server proxy (Render) with 12s timeout
       try {
         const url = `${BACKEND_URL}/api/get-data${force ? '?force=true' : ''}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-        const data = await response.json();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+          data = await response.json();
+        }
+      } catch (err) {
+        console.warn("Primary price proxy notice:", err.message);
+      }
+
+      // 2. Try secondary serverless proxy (/api/get-data)
+      if (!data) {
+        try {
+          const url = `/api/get-data${force ? '?force=true' : ''}`;
+          const response = await fetch(url);
+          if (response.ok) {
+            data = await response.json();
+          }
+        } catch (e) {}
+      }
+
+      if (data && typeof data === 'object') {
         setCached(cacheKey, data);
         return data;
-      } catch (err) {
-        console.warn("⚠️ Failed to load live prices:", err.message);
-        return clientCache.get(cacheKey)?.data || null;
       }
+
+      console.warn("⚠️ All price proxies unavailable, using cached/fallback prices.");
+      return clientCache.get(cacheKey)?.data || null;
     });
   },
 
