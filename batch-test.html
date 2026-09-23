@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batch Farms API Tester | Sunflower Land</title>
+  <link rel="icon" type="image/x-icon" href="./assets/flower.webp">
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            pixel: ['"VT323"', 'monospace'],
+            game: ['"Fredoka"', 'sans-serif'],
+          },
+          colors: {
+            sfl: {
+              green: '#3e8914',
+              dirt: '#2b1e17',
+              wood: '#633d1f',
+              woodLight: '#8a5832',
+              card: '#fff3db',
+              cardBorder: '#c49a6c',
+              gold: '#f2a900',
+              accent: '#e76f51'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="font-game bg-amber-50 text-sfl-dirt min-h-screen p-4 sm:p-8 flex flex-col items-center">
+
+  <div class="w-full max-w-4xl space-y-6">
+    <!-- Header -->
+    <div class="bg-sfl-card p-5 rounded-2xl border-4 border-sfl-cardBorder shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl">🚜</span>
+        <div>
+          <h1 class="text-xl font-black text-sfl-wood uppercase tracking-wide">Batch Farms API Tester</h1>
+          <p class="text-xs font-semibold text-sfl-woodLight">Testing <code class="font-mono bg-amber-100 px-1 py-0.5 rounded">POST /community/getFarms</code> (Up to 30 farms)</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full">
+          🔒 Pure Read-Only Test
+        </span>
+        <a href="./" class="text-xs font-bold text-amber-900 hover:underline">← Back to App</a>
+      </div>
+    </div>
+
+    <!-- Configuration Card -->
+    <div class="bg-white p-5 rounded-2xl border-2 border-sfl-cardBorder shadow-sm space-y-4">
+      
+      <!-- API Key & Request Mode -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood mb-1">
+            🔑 SFL API Key <span class="text-red-600">*</span>
+          </label>
+          <input type="password" id="input-api-key" placeholder="Paste your SFL x-api-key..."
+            class="w-full border-2 border-sfl-cardBorder rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-sfl-wood bg-amber-50/50">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood mb-1">
+            🌐 Request Route
+          </label>
+          <select id="select-route" class="w-full border-2 border-sfl-cardBorder rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-sfl-wood bg-amber-50/50">
+            <option value="direct">Direct SFL API (https://api.sunflower-land.com/community/getFarms)</option>
+            <option value="vercel">Vercel Serverless Proxy (/api/get-farms-batch)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Farm IDs Textarea & Presets -->
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood">
+            📋 Farm IDs <span class="text-stone-500 font-normal">(Comma, space, or newline-separated)</span>
+          </label>
+          <div class="space-x-1">
+            <button type="button" id="btn-load-30" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 cursor-pointer">
+              + Load 30 Sample IDs
+            </button>
+            <button type="button" id="btn-load-3" class="text-[11px] font-bold text-amber-700 hover:text-amber-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 cursor-pointer">
+              + Load 3 Known IDs
+            </button>
+            <button type="button" id="btn-clear-ids" class="text-[11px] font-bold text-stone-500 hover:text-red-700 bg-stone-100 px-2 py-0.5 rounded border border-stone-200 cursor-pointer">
+              Clear
+            </button>
+          </div>
+        </div>
+        <textarea id="input-farm-ids" rows="3" placeholder="e.g. 206, 876, 5047741665447228"
+          class="w-full border-2 border-sfl-cardBorder rounded-xl p-3 text-xs font-mono focus:outline-none focus:border-sfl-wood bg-amber-50/50"></textarea>
+        <p class="text-[11px] text-stone-500 mt-1 flex justify-between">
+          <span id="ids-count-display">0 Farm IDs parsed</span>
+          <span>Max recommended: ~30 farms per call</span>
+        </p>
+      </div>
+
+      <!-- Submit Action -->
+      <div class="pt-2 flex flex-col sm:flex-row items-center gap-3">
+        <button type="button" id="btn-send-request"
+          class="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-black px-6 py-3 rounded-xl border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+          <span>🚀 Fetch Batch Farms</span>
+        </button>
+        <span id="request-status" class="text-xs font-bold text-stone-600">Ready</span>
+      </div>
+    </div>
+
+    <!-- Live Performance KPIs (Visible after request) -->
+    <div id="kpi-panel" class="hidden grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="bg-white p-3 rounded-xl border-2 border-sfl-cardBorder shadow-xs text-center">
+        <span class="text-[10px] uppercase font-bold text-sfl-woodLight block">HTTP Status</span>
+        <span id="kpi-status" class="text-base font-black font-mono text-emerald-600">-</span>
+      </div>
+      <div class="bg-white p-3 rounded-xl border-2 border-sfl-cardBorder shadow-xs text-center">
+        <span class="text-[10px] uppercase font-bold text-sfl-woodLight block">Latency</span>
+        <span id="kpi-latency" class="text-base font-black font-mono text-amber-700">- ms</span>
+      </div>
+      <div class="bg-white p-3 rounded-xl border-2 border-sfl-cardBorder shadow-xs text-center">
+        <span class="text-[10px] uppercase font-bold text-sfl-woodLight block">Payload Size</span>
+        <span id="kpi-size" class="text-base font-black font-mono text-blue-700">- KB</span>
+      </div>
+      <div class="bg-white p-3 rounded-xl border-2 border-sfl-cardBorder shadow-xs text-center">
+        <span class="text-[10px] uppercase font-bold text-sfl-woodLight block">Farms Returned</span>
+        <span id="kpi-count" class="text-base font-black font-mono text-purple-700">-</span>
+      </div>
+    </div>
+
+    <!-- Results Table Breakdown -->
+    <div id="results-panel" class="hidden bg-white p-5 rounded-2xl border-2 border-sfl-cardBorder shadow-sm space-y-3">
+      <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center justify-between">
+        <span>📊 Parsed Farms Summary</span>
+        <span id="table-count-tag" class="text-[11px] font-mono font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded"></span>
+      </h3>
+      <div class="overflow-x-auto border-2 border-amber-200 rounded-xl">
+        <table class="w-full text-left text-xs text-sfl-dirt">
+          <thead class="bg-sfl-card border-b-2 border-amber-200 uppercase text-[10px] font-bold text-sfl-wood">
+            <tr>
+              <th class="p-2.5">Farm ID</th>
+              <th class="p-2.5">Bumpkin Level</th>
+              <th class="p-2.5">Inventory Items</th>
+              <th class="p-2.5">Activity Count</th>
+              <th class="p-2.5">Coins</th>
+            </tr>
+          </thead>
+          <tbody id="farms-table-body" class="divide-y divide-amber-100 font-medium font-mono text-[11px]">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Raw JSON Inspector -->
+    <div id="json-panel" class="hidden bg-gray-950 p-4 rounded-2xl border-2 border-stone-800 shadow-md space-y-2">
+      <div class="flex items-center justify-between text-xs border-b border-stone-800 pb-2">
+        <span class="font-bold text-amber-300">📄 Raw Response JSON</span>
+        <button type="button" id="btn-copy-json" class="bg-stone-800 hover:bg-stone-700 text-amber-200 px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer">
+          📋 Copy JSON
+        </button>
+      </div>
+      <pre id="json-output" class="text-[11px] font-mono text-emerald-400 max-h-96 overflow-auto scroll-smooth whitespace-pre"></pre>
+    </div>
+  </div>
+
+  <script>
+    // Pre-populate API key from existing app localStorage
+    const savedKey = localStorage.getItem('sfl_api_key');
+    if (savedKey) document.getElementById('input-api-key').value = savedKey;
+
+    const SAMPLE_30_IDS = [
+      206, 876, 5047741665447228, 1, 2, 3, 4, 5,
+      10, 20, 30, 40, 50, 100, 200, 300, 400, 500,
+      1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000
+    ];
+
+    const SAMPLE_3_IDS = [206, 876, 5047741665447228];
+
+    function parseFarmIds(text) {
+      return text
+        .split(/[\s,]+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0 && !isNaN(Number(s)))
+        .map(s => Number(s));
+    }
+
+    function updateCount() {
+      const ids = parseFarmIds(document.getElementById('input-farm-ids').value);
+      document.getElementById('ids-count-display').textContent = `${ids.length} Farm IDs parsed`;
+    }
+
+    document.getElementById('input-farm-ids').addEventListener('input', updateCount);
+
+    document.getElementById('btn-load-30').addEventListener('click', () => {
+      document.getElementById('input-farm-ids').value = SAMPLE_30_IDS.join(', ');
+      updateCount();
+    });
+
+    document.getElementById('btn-load-3').addEventListener('click', () => {
+      document.getElementById('input-farm-ids').value = SAMPLE_3_IDS.join(', ');
+      updateCount();
+    });
+
+    document.getElementById('btn-clear-ids').addEventListener('click', () => {
+      document.getElementById('input-farm-ids').value = '';
+      updateCount();
+    });
+
+    // Default to sample 3 IDs
+    document.getElementById('input-farm-ids').value = SAMPLE_3_IDS.join(', ');
+    updateCount();
+
+    let lastJsonData = null;
+
+    document.getElementById('btn-send-request').addEventListener('click', async () => {
+      const apiKey = document.getElementById('input-api-key').value.trim();
+      const ids = parseFarmIds(document.getElementById('input-farm-ids').value);
+      const route = document.getElementById('select-route').value;
+      const statusEl = document.getElementById('request-status');
+
+      if (!apiKey) {
+        alert('⚠️ Please enter your SFL API Key first.');
+        return;
+      }
+
+      if (ids.length === 0) {
+        alert('⚠️ Please enter at least 1 Farm ID.');
+        return;
+      }
+
+      statusEl.textContent = `⏳ Sending request for ${ids.length} farms...`;
+      statusEl.className = 'text-xs font-bold text-amber-600 animate-pulse';
+
+      const startTime = Date.now();
+
+      try {
+        let response;
+        if (route === 'direct') {
+          response = await fetch('https://api.sunflower-land.com/community/getFarms', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey
+            },
+            body: JSON.stringify({ ids })
+          });
+        } else {
+          response = await fetch('/api/get-farms-batch', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ids, apiKey })
+          });
+        }
+
+        const duration = Date.now() - startTime;
+        const text = await response.text();
+        const byteSize = new Blob([text]).size;
+
+        document.getElementById('kpi-panel').classList.remove('hidden');
+        document.getElementById('kpi-status').textContent = `${response.status} ${response.statusText}`;
+        document.getElementById('kpi-status').className = response.ok 
+          ? 'text-base font-black font-mono text-emerald-600' 
+          : 'text-base font-black font-mono text-red-600';
+        document.getElementById('kpi-latency').textContent = `${duration} ms`;
+        document.getElementById('kpi-size').textContent = `${(byteSize / 1024).toFixed(2)} KB`;
+
+        let json = null;
+        try { json = JSON.parse(text); } catch (_) {}
+
+        lastJsonData = json || text;
+        document.getElementById('json-panel').classList.remove('hidden');
+        document.getElementById('json-output').textContent = json ? JSON.stringify(json, null, 2) : text;
+
+        if (!response.ok) {
+          statusEl.textContent = `❌ Request failed (${response.status})`;
+          statusEl.className = 'text-xs font-bold text-red-600';
+          document.getElementById('results-panel').classList.add('hidden');
+          return;
+        }
+
+        statusEl.textContent = `✅ Success! Received in ${duration}ms`;
+        statusEl.className = 'text-xs font-bold text-emerald-600';
+
+        // Extract farms map / array
+        const rawFarms = (json && (json.farms || json.data || (Array.isArray(json) ? json : json))) || {};
+        const entries = Array.isArray(rawFarms) 
+          ? rawFarms.map((f, i) => [f.id || i, f])
+          : Object.entries(rawFarms);
+
+        document.getElementById('kpi-count').textContent = `${entries.length} / ${ids.length}`;
+        document.getElementById('table-count-tag').textContent = `${entries.length} Farms`;
+
+        const tbody = document.getElementById('farms-table-body');
+        tbody.innerHTML = '';
+
+        if (entries.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-stone-500 italic">No farm entries returned in response.</td></tr>';
+        } else {
+          entries.forEach(([id, farm]) => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-amber-50/60';
+            const bumpkinLvl = farm?.bumpkin?.level || farm?.level || '-';
+            const invCount = farm?.inventory ? Object.keys(farm.inventory).length : 0;
+            const actCount = (farm?.farmActivity || farm?.activity) ? Object.keys(farm.farmActivity || farm.activity).length : 0;
+            const coins = farm?.coins !== undefined ? farm.coins : '-';
+
+            tr.innerHTML = `
+              <td class="p-2.5 font-bold text-sfl-wood">#${id}</td>
+              <td class="p-2.5 font-semibold text-emerald-800">Lvl ${bumpkinLvl}</td>
+              <td class="p-2.5">${invCount} items</td>
+              <td class="p-2.5">${actCount} actions</td>
+              <td class="p-2.5 text-amber-700 font-bold">${coins}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+
+        document.getElementById('results-panel').classList.remove('hidden');
+
+      } catch (err) {
+        statusEl.textContent = `❌ Network Error: ${err.message}`;
+        statusEl.className = 'text-xs font-bold text-red-600';
+      }
+    });
+
+    document.getElementById('btn-copy-json').addEventListener('click', async () => {
+      if (!lastJsonData) return;
+      const str = typeof lastJsonData === 'string' ? lastJsonData : JSON.stringify(lastJsonData, null, 2);
+      await navigator.clipboard.writeText(str);
+      const btn = document.getElementById('btn-copy-json');
+      btn.textContent = 'Copied! ✅';
+      setTimeout(() => btn.textContent = '📋 Copy JSON', 2000);
+    });
+  </script>
+</body>
+</html>

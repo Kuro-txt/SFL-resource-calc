@@ -299,5 +299,60 @@ export const ApiService = {
       }
       return clientCache.get(cacheKey)?.data || null;
     });
+  },
+
+  async getFarmsBatch(farmIds, apiKey = '') {
+    if (!Array.isArray(farmIds) || farmIds.length === 0) {
+      throw new Error('Farm IDs array is required');
+    }
+    const cleanApiKey = apiKey ? String(apiKey).trim() : '';
+
+    // Direct browser fetch to SFL API (CORS enabled)
+    if (cleanApiKey) {
+      try {
+        const directRes = await fetch('https://api.sunflower-land.com/community/getFarms', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': cleanApiKey
+          },
+          body: JSON.stringify({ ids: farmIds })
+        });
+        if (directRes.ok) {
+          const directData = await directRes.json();
+          return { success: true, farms: directData };
+        }
+      } catch (directErr) {
+        console.warn('Direct SFL batch fetch failed, trying proxy...', directErr.message);
+      }
+    }
+
+    // Proxy fallback (/api/get-farms-batch)
+    const endpoints = ['/api/get-farms-batch'];
+    if (typeof BACKEND_URL !== 'undefined' && BACKEND_URL && typeof window !== 'undefined' && BACKEND_URL !== window.location.origin) {
+      endpoints.push(`${BACKEND_URL}/api/get-farms-batch`);
+    }
+
+    for (const url of endpoints) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(cleanApiKey ? { 'x-api-key': cleanApiKey } : {})
+          },
+          body: JSON.stringify({ ids: farmIds, apiKey: cleanApiKey })
+        });
+        const text = await response.text();
+        if (text.trim().startsWith('<')) continue;
+        const data = JSON.parse(text);
+        if (response.ok) return data;
+      } catch (e) {
+        console.warn('Batch proxy request notice:', e.message);
+      }
+    }
+
+    throw new Error('Failed to fetch batch farms from API');
   }
 };
+

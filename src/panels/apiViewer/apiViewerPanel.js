@@ -9,6 +9,16 @@ import { BACKEND_URL } from '../../config/constants.js';
 
 export const API_ENDPOINTS = [
   {
+    id: 'batchFarms',
+    name: '🚜 Batch Farms (POST)',
+    path: '/api/get-farms-batch',
+    badge: 'SFL Community',
+    desc: 'Batch fetch up to 30 farms in 1 call (POST /community/getFarms)',
+    isPost: true,
+    needsFarmId: true,
+    needsApiKey: true
+  },
+  {
     id: 'farm',
     name: '🌾 Farm Data',
     path: '/api/get-farm',
@@ -99,12 +109,15 @@ export function initApiViewerPanel() {
             <span>🌐</span> Raw API Explorer & Payload Inspector
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
-            Inspect, test, and export raw unparsed JSON payloads directly from all 8 Sunflower Land & Backend APIs
+            Inspect, test, and export raw unparsed JSON payloads directly from all 9 Sunflower Land & Backend APIs
           </p>
         </div>
         <div class="flex items-center gap-2">
+          <a href="./batch-test.html" target="_blank" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 hover:bg-emerald-200 transition">
+            🚜 Standalone Batch Tester ↗
+          </a>
           <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-sfl-dirt border border-amber-300">
-            8 Endpoints Ready
+            9 Endpoints Ready
           </span>
         </div>
       </div>
@@ -146,7 +159,7 @@ export function initApiViewerPanel() {
 
         <div class="flex flex-col sm:flex-row gap-3 items-end">
           <div id="api-param-farm-container" class="w-full sm:w-1/3 space-y-1">
-            <label class="text-[11px] font-bold text-sfl-wood block">Farm ID:</label>
+            <label id="api-viewer-farm-label" class="text-[11px] font-bold text-sfl-wood block">Farm ID:</label>
             <input type="text" id="api-viewer-farm-id" placeholder="e.g. 162318" 
               class="w-full sfl-input rounded-lg px-2.5 py-1.5 text-xs font-bold text-sfl-dirt">
           </div>
@@ -168,7 +181,7 @@ export function initApiViewerPanel() {
         <!-- URL PREVIEW BAR -->
         <div class="flex items-center justify-between gap-2 bg-amber-50/70 border border-amber-300/80 px-3 py-1.5 rounded-lg text-xs font-mono text-sfl-wood overflow-x-auto">
           <div class="flex items-center gap-2 min-w-0">
-            <span class="text-[10px] font-bold uppercase bg-amber-200 text-sfl-dirt px-1.5 py-0.5 rounded shrink-0">GET</span>
+            <span id="api-viewer-method-badge" class="text-[10px] font-bold uppercase bg-amber-200 text-sfl-dirt px-1.5 py-0.5 rounded shrink-0">GET</span>
             <span id="api-viewer-url-preview" class="truncate select-all text-[11px] font-semibold text-emerald-800"></span>
           </div>
           <a id="api-viewer-url-open" href="#" target="_blank" rel="noopener noreferrer" 
@@ -250,6 +263,10 @@ export function getActiveUrl() {
   const baseUrlInput = document.getElementById('api-viewer-base-url')?.value.trim();
   const baseUrl = (baseUrlInput !== undefined && baseUrlInput !== '' ? baseUrlInput : BACKEND_URL).replace(/\/+$/, '');
 
+  if (ep.isPost) {
+    return `${baseUrl}${ep.path}`;
+  }
+
   const params = new URLSearchParams();
   if (ep.needsFarmId && farmId) params.append('farmId', farmId);
   if (ep.needsApiKey && apiKey) params.append('apiKey', apiKey);
@@ -269,6 +286,32 @@ function updateUrlPreview() {
   const ep = API_ENDPOINTS.find(e => e.id === selectedEndpointId);
   const farmContainer = document.getElementById('api-param-farm-container');
   const keyContainer = document.getElementById('api-param-key-container');
+  const farmLabel = document.getElementById('api-viewer-farm-label');
+  const farmInput = document.getElementById('api-viewer-farm-id');
+  const methodBadge = document.getElementById('api-viewer-method-badge');
+
+  if (methodBadge) {
+    methodBadge.textContent = ep?.isPost ? 'POST' : 'GET';
+    methodBadge.className = ep?.isPost 
+      ? 'text-[10px] font-bold uppercase bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded shrink-0' 
+      : 'text-[10px] font-bold uppercase bg-amber-200 text-sfl-dirt px-1.5 py-0.5 rounded shrink-0';
+  }
+
+  if (farmLabel && farmInput) {
+    if (ep?.id === 'batchFarms') {
+      farmLabel.textContent = 'Farm IDs (comma-separated, up to 30):';
+      farmInput.placeholder = 'e.g. 206, 876, 5047741665447228';
+      if (!farmInput.value || farmInput.value === '162318') {
+        farmInput.value = '206, 876, 5047741665447228';
+      }
+    } else {
+      farmLabel.textContent = 'Farm ID:';
+      farmInput.placeholder = 'e.g. 162318';
+      if (farmInput.value === '206, 876, 5047741665447228') {
+        farmInput.value = localStorage.getItem('sfl_farm_id') || '162318';
+      }
+    }
+  }
 
   if (farmContainer) {
     if (ep?.needsFarmId) farmContainer.classList.remove('opacity-40');
@@ -528,14 +571,17 @@ export function highlightAndNavigate(query, direction = 0) {
 }
 
 export async function fetchRawApi() {
+  const ep = API_ENDPOINTS.find(e => e.id === selectedEndpointId) || API_ENDPOINTS[0];
   const url = getActiveUrl();
+  const farmInputVal = document.getElementById('api-viewer-farm-id')?.value.trim() || '';
+  const apiKey = document.getElementById('api-viewer-api-key')?.value.trim() || '';
   const outputEl = document.getElementById('api-viewer-output');
   const statusBadge = document.getElementById('api-viewer-status-badge');
   const timingEl = document.getElementById('api-viewer-timing');
   const sizeEl = document.getElementById('api-viewer-size');
   const fetchBtn = document.getElementById('api-viewer-fetch-btn');
 
-  if (outputEl) outputEl.textContent = "⏳ Requesting " + url + " ...";
+  if (outputEl) outputEl.textContent = `⏳ Requesting [${ep.isPost ? 'POST' : 'GET'}] ${url} ...`;
   if (statusBadge) {
     statusBadge.textContent = "Fetching...";
     statusBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-600 text-white font-mono";
@@ -545,7 +591,35 @@ export async function fetchRawApi() {
   const startTime = performance.now();
 
   try {
-    const res = await fetch(url);
+    let fetchOptions = { method: 'GET' };
+    if (ep.isPost) {
+      let farmIds = [];
+      if (farmInputVal) {
+        farmIds = farmInputVal
+          .split(/[\s,]+/)
+          .map(s => s.trim())
+          .filter(Boolean)
+          .map(id => (/^\d+$/.test(id) ? (id.length > 15 ? id : Number(id)) : id));
+      }
+      if (farmIds.length === 0) {
+        farmIds = [206, 876, 5047741665447228];
+      }
+
+      const isDirectSfl = url.includes('api.sunflower-land.com');
+      const bodyPayload = isDirectSfl ? { ids: farmIds } : { ids: farmIds, apiKey };
+
+      fetchOptions = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(apiKey ? { 'x-api-key': apiKey } : {})
+        },
+        body: JSON.stringify(bodyPayload)
+      };
+    }
+
+    const res = await fetch(url, fetchOptions);
     const endTime = performance.now();
     const elapsed = Math.round(endTime - startTime);
 
@@ -578,7 +652,7 @@ export async function fetchRawApi() {
     if (outputEl) {
       if (isHtml) {
         outputEl.className = "text-xs font-mono text-amber-300 leading-relaxed whitespace-pre select-text";
-        outputEl.textContent = `⚠️ WARNING: Received HTML instead of JSON (Status ${res.status}):\nTarget URL: ${url}\n\nReason: This endpoint was served as static HTML (e.g. GitHub Pages 404) rather than the Render backend.\nPlease make sure "Backend Host" is set to "${BACKEND_URL}".\n\n---\nRaw Content:\n` + rawText;
+        outputEl.textContent = `⚠️ WARNING: Received HTML instead of JSON (Status ${res.status}):\nTarget URL: ${url}\n\nReason: This endpoint was served as static HTML (e.g. GitHub Pages 404) rather than the backend API.\n\n---\nRaw Content:\n` + rawText;
         clearSearchHighlight();
       } else {
         outputEl.className = `text-xs font-mono leading-relaxed whitespace-pre select-text ${
@@ -603,7 +677,7 @@ export async function fetchRawApi() {
     }
     if (outputEl) {
       outputEl.className = "text-xs font-mono text-red-400 leading-relaxed whitespace-pre select-text";
-      outputEl.textContent = `❌ Network Error fetching ${url}:\n\n${err.message}\n\nTroubleshooting tips:\n1. Ensure the Render backend is awake: ${BACKEND_URL}/api/health\n2. If Render is on free tier, it may take 30-50 seconds to spin up on cold start.\n3. Check browser console for CORS or network blocking.`;
+      outputEl.textContent = `❌ Network Error fetching ${url}:\n\n${err.message}\n\nTroubleshooting tips:\n1. For batch requests, ensure valid SFL API Key.\n2. Ensure the backend host is reachable.\n3. Check browser console for CORS or network blocking.`;
     }
   } finally {
     if (fetchBtn) fetchBtn.disabled = false;

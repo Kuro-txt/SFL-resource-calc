@@ -240,6 +240,50 @@ app.get('/api/get-marketplace', async (req, res) => {
   }
 });
 
+app.post('/api/get-farms-batch', async (req, res) => {
+  const { ids, apiKey } = req.body || {};
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Array of farm IDs is required in body: { ids: [...] }' });
+  }
+
+  const cleanApiKey = apiKey ? String(apiKey).trim() : (process.env.SFL_API_KEY || '');
+  if (!cleanApiKey) {
+    return res.status(400).json({ error: 'apiKey in body or environment is required' });
+  }
+
+  const startTime = Date.now();
+  try {
+    const response = await axios.post(
+      'https://api.sunflower-land.com/community/getFarms',
+      { ids },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'x-api-key': cleanApiKey,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        },
+        timeout: 20000
+      }
+    );
+    const durationMs = Date.now() - startTime;
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({
+      success: true,
+      requestedCount: ids.length,
+      durationMs,
+      farms: response.data
+    });
+  } catch (err) {
+    const durationMs = Date.now() - startTime;
+    return res.status(err.response?.status || 500).json({
+      error: 'Failed to fetch batch farms',
+      durationMs,
+      details: err.response?.data || err.message
+    });
+  }
+});
+
 app.all('/api/trades', async (req, res) => {
   try {
     const { default: tradesHandler } = await import('./api/trades.js');
