@@ -37,6 +37,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || 'anubhav@877';
 
+const SFL_API_KEY = process.env.SFL_API_KEY || process.env.COMMUNITY_API_KEY || process.env.API_KEY || process.env.SUNFLOWER_API_KEY || process.env.VITE_SFL_API_KEY || "";
+if (!SFL_API_KEY) {
+  console.warn("⚠️ [Server Startup Warning] SFL_API_KEY is not set. Batch cron farm sync will fail with 401 until set in Render environment variables.");
+} else {
+  console.log("🔑 SFL_API_KEY detected for batch farm cron sync.");
+}
+
 const SFL_WORLD_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'application/json, text/plain, */*',

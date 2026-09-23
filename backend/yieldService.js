@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES, getFlowerUnitPrice, ALLOWED_DIFFERENCE_ITEMS, ALLOWED_ITEM_KEYS, ALLOWED_ITEM_NAMES, isAllowedDifferenceItem } = require('./prices');
-const { fetchFarmFullDataWithRetry, getStockAmount } = require('./farmApi');
+const { getStockAmount } = require('./farmApi');
+const { fetchAllFarmsBatched, normalizeFarmId } = require('./farmBatchSync');
 const { getTodayTradesForFarm } = require('./tradeSync');
 const { KNOWN_IDS, getItemNameById } = require('./knownIds');
 
@@ -201,11 +202,31 @@ async function processYieldCalculation(supabase) {
     return 0.01;
   }
 
-  let savedYieldsCount = 0;
+  const validUsers = [];
+  const farmIdsToFetch = new Set();
 
   for (const user of users) {
-    if (!user.farm_id) continue;
-    const cleanFarmId = String(user.farm_id).trim();
+    const cleanId = normalizeFarmId(user.farm_id);
+    if (cleanId) {
+      validUsers.push({ ...user, cleanFarmId: cleanId });
+      farmIdsToFetch.add(cleanId);
+    }
+  }
+
+  if (farmIdsToFetch.size === 0) {
+    console.warn("⚠️ No valid farm IDs found in profiles.");
+    return { success: true, processed: 0, saved: 0 };
+  }
+
+  console.log(`📊 [Yield Cron] Found ${validUsers.length} profiles across ${farmIdsToFetch.size} unique farms.`);
+
+  // Batch fetch all unique farms (20 per batch, 11s spacing, binary-split retry)
+  const allFarms = await fetchAllFarmsBatched(Array.from(farmIdsToFetch));
+
+  let savedYieldsCount = 0;
+
+  for (const user of validUsers) {
+    const cleanFarmId = user.cleanFarmId;
 
     let targets = user.tracked_items;
     if (typeof targets === 'string') {
@@ -282,13 +303,12 @@ async function processYieldCalculation(supabase) {
     const baselineStock = baselineRecord.stock || {};
     const baseActivity = baselineRecord.farm_activity || {};
 
-    let currentData = { inventory: {}, farmActivity: {}, npcs: {} };
-    try {
-      currentData = await fetchFarmFullDataWithRetry(cleanFarmId, 3);
-    } catch (err) {
-      console.error(`❌ Farm #${cleanFarmId} fetch failed at 22:00 UTC: ${err.message}`);
+    if (!Object.prototype.hasOwnProperty.call(allFarms, cleanFarmId)) {
+      console.warn(`⚠️ Farm #${cleanFarmId} not returned by SFL batch API. Skipping User ${user.id} at 22:00 UTC.`);
       continue;
     }
+
+    const currentData = allFarms[cleanFarmId];
 
     const currActivity = currentData.farmActivity || currentData.bumpkin?.activity || (currentData.farm && (currentData.farm.farmActivity || currentData.farm.bumpkin?.activity)) || {};
 
@@ -506,7 +526,7 @@ async function processYieldCalculation(supabase) {
 
     if (totalHarvestCount <= 0 && yieldsList.length === 0 && spentList.length === 0 && cropActivityYields.length === 0 && Math.abs(netCoinsDiff) <= 0 && dailyCoinsEarned <= 0 && dailyCoinsSpent <= 0 && Math.abs(netGemsDiff) <= 0 && dailyGemsSpent <= 0) {
       console.log(`ℹ️ [Yield Calculation] No harvest/trade/spent/coin/gem activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
-      await delay(10000);
+      await delay(20);
       continue;
     }
 
