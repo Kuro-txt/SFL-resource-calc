@@ -654,7 +654,10 @@ export async function fetchRawApi() {
     const elapsed = Math.round(endTime - startTime);
 
     const rawText = await res.text();
-    const sizeKb = (rawText.length / 1024).toFixed(1);
+    const byteSize = new Blob([rawText]).size;
+    const sizeDisplay = byteSize > 1024 * 1024 
+      ? `${(byteSize / (1024 * 1024)).toFixed(2)} MB` 
+      : `${(byteSize / 1024).toFixed(1)} KB`;
 
     let parsed = null;
     let isHtml = false;
@@ -670,7 +673,7 @@ export async function fetchRawApi() {
     lastResponseData = parsed || rawText;
 
     if (timingEl) timingEl.textContent = `${elapsed} ms`;
-    if (sizeEl) sizeEl.textContent = `${sizeKb} KB`;
+    if (sizeEl) sizeEl.textContent = sizeDisplay;
 
     if (statusBadge) {
       let badgeText = `${res.status} ${res.statusText || (res.ok ? 'OK' : 'ERROR')}`;
@@ -699,9 +702,13 @@ export async function fetchRawApi() {
         outputEl.className = `text-xs font-mono leading-relaxed whitespace-pre select-text ${
           res.ok ? 'text-emerald-400' : 'text-red-400'
         }`;
-        outputEl.textContent = lastRawJsonText;
+        if (lastRawJsonText.length > 350000) {
+          outputEl.textContent = lastRawJsonText.slice(0, 35000) + `\n\n... [Truncated for UI performance: ${sizeDisplay} total]. Use "📋 Copy" or "💾 Download" for the complete payload.`;
+        } else {
+          outputEl.textContent = lastRawJsonText;
+        }
         const currentQuery = document.getElementById('api-viewer-search')?.value.trim();
-        if (currentQuery) {
+        if (currentQuery && lastRawJsonText.length <= 350000) {
           highlightAndNavigate(currentQuery, 0);
         } else {
           clearSearchHighlight();

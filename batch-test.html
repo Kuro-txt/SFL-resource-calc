@@ -35,7 +35,7 @@
 </head>
 <body class="font-game bg-amber-50 text-sfl-dirt min-h-screen p-4 sm:p-8 flex flex-col items-center">
 
-  <div class="w-full max-w-4xl space-y-6">
+  <div class="w-full max-w-5xl space-y-6">
     <!-- Header -->
     <div class="bg-sfl-card p-5 rounded-2xl border-4 border-sfl-cardBorder shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="flex items-center gap-3">
@@ -101,7 +101,7 @@
             </button>
           </div>
         </div>
-        <textarea id="input-farm-ids" rows="3" placeholder="e.g. 3, 4, 5, 6, 206, 876"
+        <textarea id="input-farm-ids" rows="3" placeholder="e.g. 3, 4, 5, 6, 206, 876, 121500"
           class="w-full border-2 border-sfl-cardBorder rounded-xl p-3 text-xs font-mono focus:outline-none focus:border-sfl-wood bg-amber-50/50"></textarea>
         <p class="text-[11px] text-stone-500 mt-1 flex justify-between">
           <span id="ids-count-display">0 / 100 Farm IDs parsed</span>
@@ -144,13 +144,16 @@
 
     <!-- Results Table Breakdown -->
     <div id="results-panel" class="hidden bg-white p-5 rounded-2xl border-2 border-sfl-cardBorder shadow-sm space-y-3">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
           <span>📊</span> Parsed Farms Summary
         </h3>
         <div class="flex items-center gap-2">
           <span id="skipped-tag" class="hidden text-[10px] font-mono font-bold bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.5 rounded"></span>
           <span id="table-count-tag" class="text-[11px] font-mono font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded"></span>
+          <button type="button" id="btn-export-csv" class="bg-amber-100 hover:bg-amber-200 text-sfl-dirt px-2.5 py-1 rounded text-[11px] font-bold border border-amber-300 transition cursor-pointer">
+            📊 Export CSV
+          </button>
         </div>
       </div>
       <div class="overflow-x-auto border-2 border-amber-200 rounded-xl">
@@ -158,10 +161,13 @@
           <thead class="bg-sfl-card border-b-2 border-amber-200 uppercase text-[10px] font-bold text-sfl-wood">
             <tr>
               <th class="p-2.5">Farm ID</th>
-              <th class="p-2.5">Bumpkin Level</th>
-              <th class="p-2.5">Inventory Items</th>
-              <th class="p-2.5">Activity Count</th>
-              <th class="p-2.5">Coins</th>
+              <th class="p-2.5">SFL (🌸)</th>
+              <th class="p-2.5">Coins (🪙)</th>
+              <th class="p-2.5">Bumpkin Exp</th>
+              <th class="p-2.5">Inventory</th>
+              <th class="p-2.5">Crops / Trees</th>
+              <th class="p-2.5">Status</th>
+              <th class="p-2.5 text-center">Inspect</th>
             </tr>
           </thead>
           <tbody id="farms-table-body" class="divide-y divide-amber-100 font-medium font-mono text-[11px]">
@@ -173,12 +179,43 @@
     <!-- Raw JSON Inspector -->
     <div id="json-panel" class="hidden bg-gray-950 p-4 rounded-2xl border-2 border-stone-800 shadow-md space-y-2">
       <div class="flex items-center justify-between text-xs border-b border-stone-800 pb-2">
-        <span class="font-bold text-amber-300">📄 Raw Response JSON</span>
-        <button type="button" id="btn-copy-json" class="bg-stone-800 hover:bg-stone-700 text-amber-200 px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer">
-          📋 Copy JSON
-        </button>
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-amber-300">📄 Raw Response JSON</span>
+          <span id="json-preview-badge" class="hidden text-[10px] font-bold bg-amber-900/60 text-amber-300 border border-amber-700/60 px-2 py-0.5 rounded">
+            Large payload preview
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="btn-download-json" class="bg-stone-800 hover:bg-stone-700 text-amber-200 px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer border border-stone-700">
+            💾 Download JSON
+          </button>
+          <button type="button" id="btn-copy-json" class="bg-stone-800 hover:bg-stone-700 text-amber-200 px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer border border-stone-700">
+            📋 Copy JSON
+          </button>
+        </div>
       </div>
-      <pre id="json-output" class="text-[11px] font-mono text-emerald-400 max-h-96 overflow-auto scroll-smooth whitespace-pre"></pre>
+      <pre id="json-output" class="text-[11px] font-mono text-emerald-400 max-h-96 overflow-auto scroll-smooth whitespace-pre leading-relaxed select-text"></pre>
+    </div>
+  </div>
+
+  <!-- Individual Farm JSON Inspection Modal -->
+  <div id="farm-modal" class="fixed inset-0 bg-black/75 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-gray-950 border-2 border-amber-400 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="bg-stone-900 border-b border-stone-800 p-3 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-base">🚜</span>
+          <span id="modal-farm-title" class="font-bold text-amber-300 text-xs font-mono">Farm Inspector</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="modal-copy-btn" class="bg-stone-800 hover:bg-stone-700 text-amber-200 px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer">
+            📋 Copy
+          </button>
+          <button id="modal-close-btn" class="text-stone-400 hover:text-white font-black text-sm px-2 cursor-pointer">
+            ✕
+          </button>
+        </div>
+      </div>
+      <pre id="modal-farm-json" class="p-4 text-[11px] font-mono text-emerald-400 overflow-auto whitespace-pre leading-relaxed select-text flex-1"></pre>
     </div>
   </div>
 
@@ -260,6 +297,8 @@
     }
 
     let lastJsonData = null;
+    let lastRawFarms = {};
+    let activeModalFarm = null;
 
     document.getElementById('btn-send-request').addEventListener('click', async () => {
       const apiKey = document.getElementById('input-api-key').value.trim();
@@ -324,14 +363,27 @@
           ? 'text-base font-black font-mono text-emerald-600' 
           : 'text-base font-black font-mono text-red-600';
         document.getElementById('kpi-latency').textContent = `${duration} ms`;
-        document.getElementById('kpi-size').textContent = `${(byteSize / 1024).toFixed(2)} KB`;
+        document.getElementById('kpi-size').textContent = byteSize > 1024 * 1024 
+          ? `${(byteSize / (1024 * 1024)).toFixed(2)} MB` 
+          : `${(byteSize / 1024).toFixed(1)} KB`;
 
         let json = null;
         try { json = JSON.parse(text); } catch (_) {}
 
         lastJsonData = json || text;
         document.getElementById('json-panel').classList.remove('hidden');
-        document.getElementById('json-output').textContent = json ? JSON.stringify(json, null, 2) : text;
+
+        // Handle large payload safely so browser doesn't freeze
+        const jsonOutput = document.getElementById('json-output');
+        const previewBadge = document.getElementById('json-preview-badge');
+        if (text.length > 250000) {
+          const previewText = json ? JSON.stringify(json, null, 2).slice(0, 30000) : text.slice(0, 30000);
+          jsonOutput.textContent = previewText + `\n\n... [Truncated for performance: ${(byteSize / (1024 * 1024)).toFixed(2)} MB total]. Use "Download JSON" or "Copy JSON" for full payload.`;
+          previewBadge.classList.remove('hidden');
+        } else {
+          jsonOutput.textContent = json ? JSON.stringify(json, null, 2) : text;
+          previewBadge.classList.add('hidden');
+        }
 
         if (!response.ok) {
           if (response.status === 401) {
@@ -378,36 +430,69 @@
         }
 
         // Extract farms map
-        const rawFarms = (json && (json.farms || json.data || (Array.isArray(json) ? json : json))) || {};
-        const entries = Array.isArray(rawFarms) 
-          ? rawFarms.map((f, i) => [f.id || i, f])
-          : Object.entries(rawFarms);
+        lastRawFarms = (json && (json.farms || json.data || (Array.isArray(json) ? json : json))) || {};
+        const entries = Array.isArray(lastRawFarms) 
+          ? lastRawFarms.map((f, i) => [f.id || i, f])
+          : Object.entries(lastRawFarms);
 
         document.getElementById('kpi-count').textContent = `${entries.length} / ${ids.length}`;
-        document.getElementById('table-count-tag').textContent = `${entries.length} Farms Returned`;
+        document.getElementById('table-count-tag').textContent = `${entries.length} Farms`;
 
         const tbody = document.getElementById('farms-table-body');
         tbody.innerHTML = '';
 
         if (entries.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-stone-500 italic">No farm entries returned in response.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-stone-500 italic">No farm entries returned in response.</td></tr>';
         } else {
           entries.forEach(([id, farm]) => {
             const tr = document.createElement('tr');
-            tr.className = 'hover:bg-amber-50/60';
-            const bumpkinLvl = farm?.bumpkin?.level || farm?.level || '-';
+            tr.className = 'hover:bg-amber-50/70 transition';
+
+            const sflBalance = farm?.balance ? Number(farm.balance).toLocaleString(undefined, { maximumFractionDigits: 3 }) : '0.00';
+            const coins = farm?.coins !== undefined ? Number(farm.coins).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '-';
+            const bumpkinXp = farm?.bumpkin?.experience !== undefined ? Number(farm.bumpkin.experience).toLocaleString() : '-';
             const invCount = farm?.inventory ? Object.keys(farm.inventory).length : 0;
-            const actCount = (farm?.farmActivity || farm?.activity) ? Object.keys(farm.farmActivity || farm.activity).length : 0;
-            const coins = farm?.coins !== undefined ? Number(farm.coins).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-';
+            const cropsCount = farm?.crops ? Object.keys(farm.crops).length : 0;
+            const treesCount = farm?.trees ? Object.keys(farm.trees).length : 0;
+            const isBlacklisted = !!farm?.isBlacklisted;
 
             tr.innerHTML = `
-              <td class="p-2.5 font-bold text-sfl-wood">#${id}</td>
-              <td class="p-2.5 font-semibold text-emerald-800">Lvl ${bumpkinLvl}</td>
+              <td class="p-2.5 font-bold text-sfl-wood">
+                <a href="https://sunflower-land.com/play/?farmId=${id}" target="_blank" rel="noopener noreferrer" class="hover:underline flex items-center gap-1" title="View Farm in Sunflower Land">
+                  <span>#${id}</span>
+                  <span class="text-[9px] opacity-70">↗</span>
+                </a>
+              </td>
+              <td class="p-2.5 font-bold text-amber-800">${sflBalance} 🌸</td>
+              <td class="p-2.5 font-bold text-amber-700">${coins} 🪙</td>
+              <td class="p-2.5 font-semibold text-emerald-800">${bumpkinXp} XP</td>
               <td class="p-2.5">${invCount} items</td>
-              <td class="p-2.5">${actCount} actions</td>
-              <td class="p-2.5 text-amber-700 font-bold">${coins}</td>
+              <td class="p-2.5">${cropsCount} crops / ${treesCount} trees</td>
+              <td class="p-2.5">
+                ${isBlacklisted 
+                  ? '<span class="text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded">Blacklisted</span>' 
+                  : '<span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">Active</span>'}
+              </td>
+              <td class="p-2.5 text-center">
+                <button type="button" data-farm-id="${id}" class="btn-inspect-farm bg-amber-100 hover:bg-amber-200 text-sfl-wood px-2 py-0.5 rounded text-[10px] font-bold border border-amber-300 transition cursor-pointer">
+                  🔍 JSON
+                </button>
+              </td>
             `;
             tbody.appendChild(tr);
+          });
+
+          // Bind individual farm inspector buttons
+          tbody.querySelectorAll('.btn-inspect-farm').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const farmId = btn.getAttribute('data-farm-id');
+              const farmData = lastRawFarms[farmId];
+              if (!farmData) return;
+              activeModalFarm = farmData;
+              document.getElementById('modal-farm-title').textContent = `Farm #${farmId} Full JSON`;
+              document.getElementById('modal-farm-json').textContent = JSON.stringify(farmData, null, 2);
+              document.getElementById('farm-modal').classList.remove('hidden');
+            });
           });
         }
 
@@ -420,6 +505,26 @@
       }
     });
 
+    // Modal controls
+    document.getElementById('modal-close-btn').addEventListener('click', () => {
+      document.getElementById('farm-modal').classList.add('hidden');
+    });
+
+    document.getElementById('farm-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'farm-modal') {
+        document.getElementById('farm-modal').classList.add('hidden');
+      }
+    });
+
+    document.getElementById('modal-copy-btn').addEventListener('click', async () => {
+      if (!activeModalFarm) return;
+      await navigator.clipboard.writeText(JSON.stringify(activeModalFarm, null, 2));
+      const btn = document.getElementById('modal-copy-btn');
+      btn.textContent = 'Copied! ✅';
+      setTimeout(() => btn.textContent = '📋 Copy', 2000);
+    });
+
+    // Copy Full JSON
     document.getElementById('btn-copy-json').addEventListener('click', async () => {
       if (!lastJsonData) return;
       const str = typeof lastJsonData === 'string' ? lastJsonData : JSON.stringify(lastJsonData, null, 2);
@@ -427,6 +532,51 @@
       const btn = document.getElementById('btn-copy-json');
       btn.textContent = 'Copied! ✅';
       setTimeout(() => btn.textContent = '📋 Copy JSON', 2000);
+    });
+
+    // Download Full JSON File
+    document.getElementById('btn-download-json').addEventListener('click', () => {
+      if (!lastJsonData) return;
+      const str = typeof lastJsonData === 'string' ? lastJsonData : JSON.stringify(lastJsonData, null, 2);
+      const blob = new Blob([str], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sfl-batch-farms-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Export Summary CSV
+    document.getElementById('btn-export-csv').addEventListener('click', () => {
+      const entries = Object.entries(lastRawFarms || {});
+      if (entries.length === 0) return;
+
+      const headers = ['Farm ID', 'SFL Balance', 'Coins', 'Bumpkin Exp', 'Inventory Items Count', 'Crops Count', 'Trees Count', 'Is Blacklisted', 'Last Updated'];
+      const rows = [headers.join(',')];
+
+      entries.forEach(([id, f]) => {
+        const row = [
+          id,
+          f.balance || 0,
+          f.coins || 0,
+          f.bumpkin?.experience || 0,
+          Object.keys(f.inventory || {}).length,
+          Object.keys(f.crops || {}).length,
+          Object.keys(f.trees || {}).length,
+          f.isBlacklisted ? 'Yes' : 'No',
+          `"${f.updatedAt || ''}"`
+        ];
+        rows.push(row.join(','));
+      });
+
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sfl-batch-summary-${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
     });
   </script>
 </body>
