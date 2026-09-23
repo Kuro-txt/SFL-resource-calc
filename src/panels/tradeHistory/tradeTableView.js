@@ -9,7 +9,7 @@ export function getTradeItemName(t) {
   if (isEconomy) return `#${t.itemId || '?'}`;
   const raw = t.itemName;
   if (raw && !raw.startsWith('Item #')) return raw;
-  return getItemNameById(t.itemId || raw);
+  return getItemNameById(t.itemId || raw, t.collection);
 }
 
 export function renderTradesTableView(mountEl, farmId) {

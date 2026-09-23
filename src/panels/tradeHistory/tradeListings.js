@@ -25,7 +25,7 @@ export function renderListingsView(mountEl) {
     const itemNames = isEconomy 
       ? Object.entries(itemsMap).map(([rawId, q]) => `${q}x #${rawId}`).join(', ') || 'Economy Item'
       : Object.entries(itemsMap).map(([rawId, q]) => {
-          const name = getItemNameById(rawId);
+          const name = getItemNameById(rawId, listData.collection);
           return `${q}x ${name}`;
         }).join(', ') || 'Listing Item';
 
@@ -84,7 +84,7 @@ export function renderOffersView(mountEl) {
     const itemNames = isEconomy 
       ? Object.entries(itemsMap).map(([rawId, q]) => `${q}x #${rawId}`).join(', ') || 'Economy Item'
       : Object.entries(itemsMap).map(([rawId, q]) => {
-          const name = getItemNameById(rawId);
+          const name = getItemNameById(rawId, offData.collection);
           return `${q}x ${name}`;
         }).join(', ') || 'Offer Item';
 

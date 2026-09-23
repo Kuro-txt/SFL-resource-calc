@@ -49,8 +49,9 @@ export async function fetchMarketplaceTrades(force = false) {
     const myFarmIdStr = String(farmId).trim();
     const formattedForCloud = rawTrades.map(t => {
       const isSeller = isUserSeller(t, myFarmIdStr);
+      const collection = String(t.collection || 'collectibles').toLowerCase().includes('wearable') ? 'wearables' : (String(t.collection || '').toLowerCase().includes('bud') ? 'buds' : 'collectibles');
       const rawName = t.itemName;
-      const itemName = (rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName);
+      const itemName = (rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName, collection);
       
       const initId = String(t.initiatedBy?.id || '').trim();
       const otherParty = (initId === myFarmIdStr) ? t.fulfilledBy : t.initiatedBy;
@@ -66,6 +67,7 @@ export async function fetchMarketplaceTrades(force = false) {
         farmId: myFarmIdStr,
         itemId: t.itemId,
         itemName: itemName,
+        collection: collection,
         quantity: parseFloat(t.quantity || 1),
         sfl: parseFloat(t.sfl || 0),
         tax: amounts.tax,
@@ -98,7 +100,7 @@ export async function fetchMarketplaceTrades(force = false) {
         const tradesMap = new Map();
         cloudRes.trades.forEach(t => {
           if (!t.itemName || t.itemName.startsWith('Item #')) {
-            t.itemName = getItemNameById(t.itemId || t.itemName);
+            t.itemName = getItemNameById(t.itemId || t.itemName, t.collection);
           }
           if (t.sfl_usd && !t.sflUsd) t.sflUsd = parseFloat(t.sfl_usd);
           if (t.usd_value && !t.usdValue) t.usdValue = parseFloat(t.usd_value);
@@ -106,7 +108,7 @@ export async function fetchMarketplaceTrades(force = false) {
         });
         formattedForCloud.forEach(t => {
           if (!t.itemName || t.itemName.startsWith('Item #')) {
-            t.itemName = getItemNameById(t.itemId || t.itemName);
+            t.itemName = getItemNameById(t.itemId || t.itemName, t.collection);
           }
           // If live trade didn't have historical sflUsd but cloud trade does, preserve cloud's historical rate
           const existing = tradesMap.get(t.id);
@@ -169,7 +171,7 @@ export function getTradeAmounts(trade, farmId) {
   if (isSeller) {
     let rawName = trade.itemName || trade.name || trade.item || '';
     if (!rawName || rawName.startsWith('Item #')) {
-      rawName = getItemNameById(trade.itemId || trade.item_id || '') || rawName;
+      rawName = getItemNameById(trade.itemId || trade.item_id || '', trade.collection) || rawName;
     }
     const savedTax = typeof localStorage !== 'undefined' ? localStorage.getItem('sfl_tax_rate') : null;
     const taxSelectEl = typeof document !== 'undefined' ? document.getElementById('tax-select') : null;

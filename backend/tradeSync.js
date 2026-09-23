@@ -132,10 +132,11 @@ async function processAutoSyncTrades(supabase) {
             const otherId = otherParty?.id || (isSeller ? buyerId : sellerId) || null;
 
             const itemId = parseInt(t.itemId || 0, 10);
+            const collection = String(t.collection || 'collectibles').toLowerCase().includes('wearable') ? 'wearables' : (String(t.collection || '').toLowerCase().includes('bud') ? 'buds' : 'collectibles');
             const isEconomy = t.collection === 'economies' || Boolean(t.economy);
             const resolvedName = (t.itemName && !t.itemName.startsWith('Item #'))
               ? t.itemName
-              : (t.name && !t.name.startsWith('Item #') ? t.name : getItemNameById(itemId || t.itemId));
+              : (t.name && !t.name.startsWith('Item #') ? t.name : getItemNameById(itemId || t.itemId, collection));
             const itemName = isEconomy ? `#${itemId}` : String(resolvedName || `Item #${itemId}`).substring(0, 128);
             const quantity = parseFloat(t.quantity || 1);
             const sfl = parseFloat(t.sfl || 0);
@@ -153,10 +154,11 @@ async function processAutoSyncTrades(supabase) {
 
             const insertSql = `
               INSERT INTO user_trades 
-              (id, farm_id, item_id, item_name, quantity, sfl, tax, net_sfl, sfl_usd, usd_value, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (id, farm_id, item_id, item_name, collection, quantity, sfl, tax, net_sfl, sfl_usd, usd_value, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON DUPLICATE KEY UPDATE 
                 item_name = VALUES(item_name),
+                collection = VALUES(collection),
                 quantity = VALUES(quantity),
                 sfl = VALUES(sfl),
                 tax = VALUES(tax),
@@ -171,7 +173,7 @@ async function processAutoSyncTrades(supabase) {
             `;
 
             await pool.query(insertSql, [
-              id, farmId, itemId, itemName, quantity, sfl, tax, netSfl, sflUsd, usdValue, unitPrice, tradeType, source, otherId, otherName, fulfilledAt, fulfilledDate
+              id, farmId, itemId, itemName, collection, quantity, sfl, tax, netSfl, sflUsd, usdValue, unitPrice, tradeType, source, otherId, otherName, fulfilledAt, fulfilledDate
             ]);
           }
         }

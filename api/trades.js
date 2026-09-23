@@ -140,6 +140,7 @@ async function ensureTableCreated(pool, dbName = 'test') {
       sfl_usd DECIMAL(12, 6) DEFAULT NULL,
       usd_value DECIMAL(20, 6) DEFAULT NULL,
       unit_price DECIMAL(20, 6) NOT NULL,
+      collection VARCHAR(32) DEFAULT 'collectibles',
       trade_type VARCHAR(16) NOT NULL,
       source VARCHAR(16) NOT NULL,
       counterparty_id BIGINT,
@@ -172,6 +173,7 @@ async function ensureTableCreated(pool, dbName = 'test') {
       await pool.query(`ALTER TABLE user_trades ADD COLUMN IF NOT EXISTS net_sfl DECIMAL(20, 6) DEFAULT 0;`).catch(() => {});
       await pool.query(`ALTER TABLE user_trades ADD COLUMN IF NOT EXISTS sfl_usd DECIMAL(12, 6) DEFAULT NULL;`).catch(() => {});
       await pool.query(`ALTER TABLE user_trades ADD COLUMN IF NOT EXISTS usd_value DECIMAL(20, 6) DEFAULT NULL;`).catch(() => {});
+      await pool.query(`ALTER TABLE user_trades ADD COLUMN IF NOT EXISTS collection VARCHAR(32) DEFAULT 'collectibles';`).catch(() => {});
 
       // Auto-backfill missing tax and net_sfl for historical trades
       await pool.query(`UPDATE user_trades SET tax = ROUND(sfl * 0.10, 4), net_sfl = ROUND(sfl * 0.90, 4) WHERE trade_type = 'sold' AND (tax = 0 OR tax IS NULL);`).catch(() => {});
@@ -276,9 +278,10 @@ export default async function handler(req, res) {
         if (!id) continue;
 
         const itemId = parseInt(t.itemId || 0, 10);
+        const collection = String(t.collection || 'collectibles').toLowerCase().includes('wearable') ? 'wearables' : (String(t.collection || '').toLowerCase().includes('bud') ? 'buds' : 'collectibles');
         const resolvedName = (t.itemName && !t.itemName.startsWith('Item #'))
           ? t.itemName
-          : (t.name && !t.name.startsWith('Item #') ? t.name : getItemNameById(itemId || t.itemId));
+          : (t.name && !t.name.startsWith('Item #') ? t.name : getItemNameById(itemId || t.itemId, collection));
         const itemName = String(resolvedName || `Item #${itemId}`).substring(0, 128);
         const quantity = parseFloat(t.quantity || 1);
         const sfl = parseFloat(t.sfl || 0);
@@ -314,10 +317,11 @@ export default async function handler(req, res) {
 
         const insertSql = `
           INSERT INTO user_trades 
-          (id, farm_id, item_id, item_name, quantity, sfl, tax, net_sfl, sfl_usd, usd_value, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, farm_id, item_id, item_name, collection, quantity, sfl, tax, net_sfl, sfl_usd, usd_value, unit_price, trade_type, source, counterparty_id, counterparty_name, fulfilled_at, fulfilled_date)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE 
             item_name = VALUES(item_name),
+            collection = VALUES(collection),
             quantity = VALUES(quantity),
             sfl = VALUES(sfl),
             tax = VALUES(tax),
@@ -333,7 +337,7 @@ export default async function handler(req, res) {
 
         try {
           const [result] = await pool.query(insertSql, [
-            id, farmId, itemId, itemName, quantity, sfl, tax, netSfl, sflUsd, usdValue, unitPrice, tradeType, source, counterpartyId, counterpartyName, fulfilledAt, fulfilledDate
+            id, farmId, itemId, itemName, collection, quantity, sfl, tax, netSfl, sflUsd, usdValue, unitPrice, tradeType, source, counterpartyId, counterpartyName, fulfilledAt, fulfilledDate
           ]);
           if (result && (result.affectedRows > 0 || result.insertId !== undefined)) {
             insertedCount++;
@@ -414,9 +418,10 @@ export default async function handler(req, res) {
           if (tradeUsdValue) totalBoughtUsd += tradeUsdValue;
         }
 
+        const collection = r.collection || 'collectibles';
         const rawDbName = r.item_name;
         const resolvedName = (!rawDbName || rawDbName.startsWith('Item #'))
-          ? (getItemNameById(r.item_id || rawDbName) || rawDbName)
+          ? (getItemNameById(r.item_id || rawDbName, collection) || rawDbName)
           : rawDbName;
 
         return {
@@ -424,6 +429,7 @@ export default async function handler(req, res) {
           farmId: r.farm_id,
           itemId: r.item_id,
           itemName: resolvedName,
+          collection: collection,
           quantity: qty,
           sfl: sfl,
           tax: tax,

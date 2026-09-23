@@ -97,7 +97,7 @@ export function getAllTradedItems(trades, farmId, filterType = 'all') {
 
     let name = t.itemName;
     if (!name || name.startsWith('Item #')) {
-      name = getItemNameById(t.itemId || name);
+      name = getItemNameById(t.itemId || name, t.collection);
     }
     const cleanName = String(name || 'Unknown Item').trim();
     const qty = parseFloat(t.quantity || 1);
@@ -379,7 +379,7 @@ export function aggregateItemSeries(trades, farmId, selectedList, buckets, trade
 
     let name = t.itemName;
     if (!name || name.startsWith('Item #')) {
-      name = getItemNameById(t.itemId || name);
+      name = getItemNameById(t.itemId || name, t.collection);
     }
     const cleanName = String(name || '').trim();
     if (!selectedList.includes(cleanName)) return;

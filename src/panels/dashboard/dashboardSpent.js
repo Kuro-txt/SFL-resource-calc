@@ -168,7 +168,7 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
     if (fulfilledAt > 0 && (fulfilledAt < minTimestamp || fulfilledAt > maxTimestamp)) return;
 
     const rawName = t.itemName || t.name || t.item || '';
-    const clean = normalizeItemKey((rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName));
+    const clean = normalizeItemKey((rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName, t.collection));
     if (!clean) return;
 
     const qty = parseFloat(t.quantity || 1);

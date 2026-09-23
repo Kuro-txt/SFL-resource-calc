@@ -9,7 +9,7 @@ export function exportTradesToCsv() {
   }
 
   const farmId = String(tradeHistoryData.id || localStorage.getItem('sfl_farm_id') || '').trim();
-  const headers = ["Date", "Type", "Item Name", "Item ID", "Quantity", "Gross SFL", "Tax", "Net SFL", "SFL Rate (USD)", "Net Value (USD)", "Unit Price (SFL)", "Unit Price (USD)", "Counterparty", "Source", "Trade ID"];
+  const headers = ["Date", "Type", "Collection", "Item Name", "Item ID", "Quantity", "Gross SFL", "Tax", "Net SFL", "SFL Rate (USD)", "Net Value (USD)", "Unit Price (SFL)", "Unit Price (USD)", "Counterparty", "Source", "Trade ID"];
   
   const rows = trades.map(t => {
     const amounts = getTradeAmounts(t, farmId);
@@ -17,7 +17,7 @@ export function exportTradesToCsv() {
     const rawDate = t.fulfilledAt ? new Date(t.fulfilledAt).toISOString() : '';
     const isEconomy = t.collection === 'economies' || Boolean(t.economy);
     const rawName = t.itemName;
-    const resolvedName = (rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName);
+    const resolvedName = (rawName && !rawName.startsWith('Item #')) ? rawName : getItemNameById(t.itemId || rawName, t.collection);
     const itemName = isEconomy ? `#${t.itemId || '?'}` : resolvedName;
     const qty = t.quantity || 1;
     const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
@@ -33,6 +33,7 @@ export function exportTradesToCsv() {
     return [
       `"${rawDate}"`,
       `"${isSeller ? 'SOLD' : 'BOUGHT'}"`,
+      `"${t.collection || 'collectibles'}"`,
       `"${itemName}"`,
       `"${t.itemId || ''}"`,
       qty,

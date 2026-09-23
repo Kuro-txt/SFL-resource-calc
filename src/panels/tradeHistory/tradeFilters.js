@@ -68,7 +68,7 @@ export function getUniqueTradedItems(trades) {
   trades.forEach(t => {
     let name = t.itemName;
     if (!name || name.startsWith('Item #')) {
-      name = getItemNameById(t.itemId || name);
+      name = getItemNameById(t.itemId || name, t.collection);
     }
     const cleanName = String(name || 'Unknown Item').trim();
     map.set(cleanName, (map.get(cleanName) || 0) + 1);
@@ -95,7 +95,7 @@ export function calculateItemTradeMetrics(trades, itemName, farmId) {
   trades.forEach(t => {
     let name = t.itemName;
     if (!name || name.startsWith('Item #')) {
-      name = getItemNameById(t.itemId || name);
+      name = getItemNameById(t.itemId || name, t.collection);
     }
     const cleanName = String(name || '').trim().toLowerCase();
     if (cleanTarget !== 'all' && cleanName !== cleanTarget) return;
