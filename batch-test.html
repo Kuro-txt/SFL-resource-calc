@@ -279,7 +279,11 @@
         document.getElementById('json-output').textContent = json ? JSON.stringify(json, null, 2) : text;
 
         if (!response.ok) {
-          statusEl.textContent = `❌ Request failed (${response.status})`;
+          if (text.includes('Cannot POST')) {
+            statusEl.textContent = `❌ Cannot POST: Proxy endpoint unavailable. Please switch Request Route to "Direct SFL API" (Recommended).`;
+          } else {
+            statusEl.textContent = `❌ Request failed (${response.status})`;
+          }
           statusEl.className = 'text-xs font-bold text-red-600';
           document.getElementById('results-panel').classList.add('hidden');
           return;

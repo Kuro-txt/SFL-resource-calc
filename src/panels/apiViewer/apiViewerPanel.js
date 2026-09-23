@@ -10,10 +10,21 @@ import { BACKEND_URL } from '../../config/constants.js';
 export const API_ENDPOINTS = [
   {
     id: 'batchFarms',
-    name: '🚜 Batch Farms (POST)',
+    name: '🚜 Batch Farms (Direct)',
+    path: 'https://api.sunflower-land.com/community/getFarms',
+    badge: 'SFL Official',
+    desc: 'Direct browser call to SFL API (POST https://api.sunflower-land.com/community/getFarms)',
+    isPost: true,
+    isDirect: true,
+    needsFarmId: true,
+    needsApiKey: true
+  },
+  {
+    id: 'batchFarmsProxy',
+    name: '⚡ Batch Farms (Proxy)',
     path: '/api/get-farms-batch',
-    badge: 'SFL Community',
-    desc: 'Batch fetch up to 30 farms in 1 call (POST /community/getFarms)',
+    badge: 'Serverless',
+    desc: 'Proxied through Vercel serverless / Express (POST /api/get-farms-batch)',
     isPost: true,
     needsFarmId: true,
     needsApiKey: true
@@ -109,7 +120,7 @@ export function initApiViewerPanel() {
             <span>🌐</span> Raw API Explorer & Payload Inspector
           </h3>
           <p class="text-[11px] text-sfl-woodLight font-semibold">
-            Inspect, test, and export raw unparsed JSON payloads directly from all 9 Sunflower Land & Backend APIs
+            Inspect, test, and export raw unparsed JSON payloads directly from all 10 Sunflower Land & Backend APIs
           </p>
         </div>
         <div class="flex items-center gap-2">
@@ -117,7 +128,7 @@ export function initApiViewerPanel() {
             🚜 Standalone Batch Tester ↗
           </a>
           <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-sfl-dirt border border-amber-300">
-            9 Endpoints Ready
+            10 Endpoints Ready
           </span>
         </div>
       </div>
@@ -152,6 +163,7 @@ export function initApiViewerPanel() {
               class="sfl-input rounded px-2.5 py-1 text-xs font-mono text-sfl-dirt w-full sm:w-80 bg-white">
           </div>
           <div class="flex items-center gap-1.5 text-[11px] self-end sm:self-auto shrink-0">
+            <button type="button" id="api-viewer-preset-current" class="px-2 py-0.5 rounded bg-emerald-200 hover:bg-emerald-300 font-bold text-emerald-900 cursor-pointer transition text-[10px]">Current (Vercel)</button>
             <button type="button" id="api-viewer-preset-render" class="px-2 py-0.5 rounded bg-amber-200 hover:bg-amber-300 font-bold text-sfl-dirt cursor-pointer transition text-[10px]">Render (Live)</button>
             <button type="button" id="api-viewer-preset-local" class="px-2 py-0.5 rounded bg-gray-200 hover:bg-gray-300 font-bold text-gray-700 cursor-pointer transition text-[10px]">Localhost:3000</button>
           </div>
@@ -247,13 +259,17 @@ function syncInputsWithStorage() {
   const keyInput = document.getElementById('api-viewer-api-key');
   const baseInput = document.getElementById('api-viewer-base-url');
 
+  const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+  const defaultBackend = isVercel ? window.location.origin : BACKEND_URL;
+
   const storedFarm = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value || '';
   const storedKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value || '';
-  const storedBase = localStorage.getItem('sfl_api_viewer_backend') || BACKEND_URL;
+  const storedBase = localStorage.getItem('sfl_api_viewer_backend');
+  const baseToUse = storedBase || defaultBackend;
 
   if (farmInput && storedFarm) farmInput.value = storedFarm.trim();
   if (keyInput && storedKey) keyInput.value = storedKey.trim();
-  if (baseInput && storedBase) baseInput.value = storedBase.trim();
+  if (baseInput) baseInput.value = baseToUse.trim();
 }
 
 export function getActiveUrl() {
@@ -262,6 +278,10 @@ export function getActiveUrl() {
   const apiKey = document.getElementById('api-viewer-api-key')?.value.trim() || '';
   const baseUrlInput = document.getElementById('api-viewer-base-url')?.value.trim();
   const baseUrl = (baseUrlInput !== undefined && baseUrlInput !== '' ? baseUrlInput : BACKEND_URL).replace(/\/+$/, '');
+
+  if (ep.path.startsWith('http://') || ep.path.startsWith('https://')) {
+    return ep.path;
+  }
 
   if (ep.isPost) {
     return `${baseUrl}${ep.path}`;
@@ -298,7 +318,7 @@ function updateUrlPreview() {
   }
 
   if (farmLabel && farmInput) {
-    if (ep?.id === 'batchFarms') {
+    if (ep?.id === 'batchFarms' || ep?.id === 'batchFarmsProxy') {
       farmLabel.textContent = 'Farm IDs (comma-separated, up to 30):';
       farmInput.placeholder = 'e.g. 206, 876, 5047741665447228';
       if (!farmInput.value || farmInput.value === '162318') {
@@ -349,6 +369,14 @@ function setupApiViewerListeners() {
       updateUrlPreview();
     });
   }
+
+  document.getElementById('api-viewer-preset-current')?.addEventListener('click', () => {
+    if (baseInput) {
+      baseInput.value = window.location.origin;
+      localStorage.setItem('sfl_api_viewer_backend', window.location.origin);
+      updateUrlPreview();
+    }
+  });
 
   document.getElementById('api-viewer-preset-render')?.addEventListener('click', () => {
     if (baseInput) {
@@ -652,7 +680,13 @@ export async function fetchRawApi() {
     if (outputEl) {
       if (isHtml) {
         outputEl.className = "text-xs font-mono text-amber-300 leading-relaxed whitespace-pre select-text";
-        outputEl.textContent = `⚠️ WARNING: Received HTML instead of JSON (Status ${res.status}):\nTarget URL: ${url}\n\nReason: This endpoint was served as static HTML (e.g. GitHub Pages 404) rather than the backend API.\n\n---\nRaw Content:\n` + rawText;
+        let reason = 'This endpoint was served as static HTML (e.g. GitHub Pages 404) rather than the backend API.';
+        if (rawText.includes('Cannot POST') && url.includes('onrender.com')) {
+          reason = 'The request was sent to Render, which runs the main branch and does not have this new POST route deployed.\n👉 Solution: Select "🚜 Batch Farms (Direct)" chip to query Sunflower Land directly, or click "Current (Vercel)" preset to test the Vercel preview.';
+        } else if (rawText.includes('Cannot POST')) {
+          reason = 'The target server does not have this POST route handler registered.\n👉 Solution: Select "🚜 Batch Farms (Direct)" chip to test Sunflower Land\'s official API directly.';
+        }
+        outputEl.textContent = `⚠️ WARNING: Received HTML instead of JSON (Status ${res.status}):\nTarget URL: ${url}\n\nReason:\n${reason}\n\n---\nRaw Content:\n` + rawText;
         clearSearchHighlight();
       } else {
         outputEl.className = `text-xs font-mono leading-relaxed whitespace-pre select-text ${
