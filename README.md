@@ -19,7 +19,7 @@ A high-performance calculator, daily yield tracker, and trade ledger for **Sunfl
 
 3. **🌾 Daily Crop Tracker & Multipliers**
    - Live average land yield multipliers from `sfl.world`.
-   - Automated 21:50 UTC snapshots & 22:00 UTC daily yield calculations.
+   - Automated 00:01 UTC baselines & 22:30 UTC daily yield calculations.
 
 4. **🎁 NPC Gifts & Deliveries**
    - Friendship points milestone tracker & recurring reward loops.

@@ -124,7 +124,7 @@ export function renderWelcomeGate() {
               <span class="font-bold text-sfl-dirt dark:text-amber-200 block text-xs">✨ Automated Tracking Superpowers:</span>
               <ul class="space-y-1 list-disc list-inside">
                 <li>Automated 00:00 UTC inventory baselines</li>
-                <li>Net harvest yield & expense breakdown at 22:00 UTC</li>
+                <li>Net harvest yield & expense breakdown at 22:30 UTC</li>
                 <li>5x daily trade auto-sync with locked USD rates</li>
               </ul>
             </div>
@@ -255,7 +255,7 @@ export function renderWelcomeGate() {
 
             <div class="bg-sfl-card/90 dark:bg-slate-800/90 border-2 border-sfl-cardBorder dark:border-slate-700 rounded-xl p-2 sm:p-3 shadow-2xs space-y-1 hover:border-amber-500 transition-colors">
               <div class="text-xl sm:text-2xl">📊</div>
-              <div class="font-pixel text-xs sm:text-base font-bold text-sfl-dirt dark:text-amber-200">22:00 UTC</div>
+              <div class="font-pixel text-xs sm:text-base font-bold text-sfl-dirt dark:text-amber-200">22:30 UTC</div>
               <div class="text-[8px] sm:text-[10px] font-semibold text-sfl-woodLight dark:text-slate-400 uppercase tracking-tight">Harvest Reports</div>
             </div>
 
@@ -266,7 +266,7 @@ export function renderWelcomeGate() {
         <div class="pt-2 border-t border-amber-200/70 dark:border-slate-800 text-center">
           <p class="text-[11px] sm:text-xs text-sfl-wood dark:text-slate-300 font-medium inline-flex items-center justify-center gap-1.5 flex-wrap">
             <span>⏱️</span>
-            <span>If you link your farm today, your first daily harvest report will arrive <strong>tomorrow at 22:00 UTC</strong>.</span>
+            <span>If you link your farm today, your first daily harvest report will arrive <strong>tomorrow at 22:30 UTC</strong>.</span>
           </p>
         </div>
 

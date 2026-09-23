@@ -459,7 +459,7 @@ app.get('/api/cron/snapshot', async (req, res) => {
     .finally(() => { isSnapshotRunning = false; });
 });
 
-app.get('/api/cron/22utc-yield', async (req, res) => {
+app.get(['/api/cron/2230utc-yield', '/api/cron/22utc-yield', '/api/cron/yield'], async (req, res) => {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   if (isAnySyncRunning()) {
@@ -702,14 +702,14 @@ cron.schedule('1 0 * * *', () => {
     .finally(() => { isSnapshotRunning = false; });
 }, { scheduled: true, timezone: "UTC" });
 
-// 2. Daily yield calculation at 22:00 UTC (tallies day harvests against 00:01 baseline)
-cron.schedule('0 22 * * *', () => {
+// 2. Daily yield calculation at 22:30 UTC (tallies day harvests against 00:01 baseline)
+cron.schedule('30 22 * * *', () => {
   if (isAnySyncRunning()) {
-    console.warn('⚠️ [Cron] 22:00 UTC Daily yield calculation skipped: another sync is already running.');
+    console.warn('⚠️ [Cron] 22:30 UTC Daily yield calculation skipped: another sync is already running.');
     return;
   }
   isYieldRunning = true;
-  console.log('⏰ [Cron] 22:00 UTC — Daily yield calculation...');
+  console.log('⏰ [Cron] 22:30 UTC — Daily yield calculation...');
   processYieldCalculation(supabase)
     .catch(err => console.error('Yield error:', err.message))
     .finally(() => { isYieldRunning = false; });

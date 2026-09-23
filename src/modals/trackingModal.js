@@ -92,7 +92,7 @@ export function renderTrackingModalTemplate() {
 
         <div class="p-5 space-y-4">
           <p class="text-xs text-sfl-woodLight font-medium">
-            Select items to automatically calculate yields for at 22:00 UTC against your 00:00 UTC baseline.
+            Select items to automatically calculate yields for at 22:30 UTC against your 00:00 UTC baseline.
           </p>
 
           <!-- SEARCH & COMBOBOX DROPDOWN ROW -->

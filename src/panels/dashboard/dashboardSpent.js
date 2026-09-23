@@ -312,8 +312,8 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
     });
   }
 
-  // ── 2. Day-by-day 22:00 UTC vs 00:00 UTC Gems Difference Calculation ──
-  // Per user rule: Compare 22:00 UTC gems with 00:00 UTC baseline gems; if difference is negative, show in spend for gems.
+  // ── 2. Day-by-day 22:30 UTC vs 00:00 UTC Gems Difference Calculation ──
+  // Per user rule: Compare 22:30 UTC gems with 00:00 UTC baseline gems; if difference is negative, show in spend for gems.
   const targetDates = getDateRangeList(minDateStr, maxDateStr);
   const baselineMap = new Map();
   chronological.forEach(b => {
@@ -349,7 +349,7 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
       }
     }
 
-    // 2. Get 22:00 UTC (or Live) Gems
+    // 2. Get 22:30 UTC (or Live) Gems
     let endGems = null;
     if (isToday) {
       const liveGemCount = hasLiveStock ? getGemCount(liveStock) : null;

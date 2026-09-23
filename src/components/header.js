@@ -107,7 +107,7 @@ export function renderHeader() {
             <span class="font-bold text-sfl-dirt dark:text-amber-300 block text-xs flex items-center gap-1.5">
               <span>⏱️</span> 2. When Do Reports Appear?
             </span>
-            <p>Sun-Flux calculates daily net harvest & expenses against automated <strong>00:00 UTC baselines</strong>. If you link your farm today, your first daily harvest report will arrive <strong>tomorrow at 22:00 UTC</strong>.</p>
+            <p>Sun-Flux calculates daily net harvest & expenses against automated <strong>00:00 UTC baselines</strong>. If you link your farm today, your first daily harvest report will arrive <strong>tomorrow at 22:30 UTC</strong>.</p>
           </div>
         </div>
       </details>

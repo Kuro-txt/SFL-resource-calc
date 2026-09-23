@@ -173,7 +173,7 @@ function extractPrices(data) {
 }
 
 async function processYieldCalculation(supabase) {
-  console.log("🔍 [CRON 22:00 UTC] Starting yield calculation process...");
+  console.log("🔍 [CRON 22:30 UTC] Starting yield calculation process...");
   const todayDate = new Date().toISOString().split('T')[0];
   const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items, crop_base_yields');
 
@@ -261,7 +261,7 @@ async function processYieldCalculation(supabase) {
     }
 
     if (!baselineRecord || !baselineRecord.farm_activity || Object.keys(baselineRecord.farm_activity).length === 0) {
-      console.warn(`⚠️ Skipped 22:00 UTC calculation for Farm #${cleanFarmId}: No baseline found for ${todayDate} or earlier.`);
+      console.warn(`⚠️ Skipped 22:30 UTC calculation for Farm #${cleanFarmId}: No baseline found for ${todayDate} or earlier.`);
       continue;
     }
 
@@ -304,7 +304,7 @@ async function processYieldCalculation(supabase) {
     const baseActivity = baselineRecord.farm_activity || {};
 
     if (!Object.prototype.hasOwnProperty.call(allFarms, cleanFarmId)) {
-      console.warn(`⚠️ Farm #${cleanFarmId} not returned by SFL batch API. Skipping User ${user.id} at 22:00 UTC.`);
+      console.warn(`⚠️ Farm #${cleanFarmId} not returned by SFL batch API. Skipping User ${user.id} at 22:30 UTC.`);
       continue;
     }
 
@@ -312,7 +312,7 @@ async function processYieldCalculation(supabase) {
 
     const currActivity = currentData.farmActivity || currentData.bumpkin?.activity || (currentData.farm && (currentData.farm.farmActivity || currentData.farm.bumpkin?.activity)) || {};
 
-    // ── Fetch Today's P2P Trades (00:00 to 22:00 UTC) ──
+    // ── Fetch Today's P2P Trades (00:00 to 22:30 UTC) ──
     let todayTrades = { tradesBought: {}, tradesSold: {}, rawTradesCount: 0 };
     try {
       todayTrades = await getTodayTradesForFarm(cleanFarmId, todayDate);
@@ -322,7 +322,7 @@ async function processYieldCalculation(supabase) {
     const tradesBought = todayTrades.tradesBought || {};
     const tradesSold = todayTrades.tradesSold || {};
 
-    // ── Coins tracking at 22:00 UTC ──
+    // ── Coins tracking at 22:30 UTC ──
     const baselineCoins = parseFloat(baselineStock['Coins'] || baselineStock['__coins__'] || baseActivity['Current Coins'] || 0);
     const currentCoins = parseFloat(currentData.coins || currentData.balance || (currentData.inventory && currentData.inventory['Coins']) || 0);
     const netCoinsDiff = Math.round((currentCoins - baselineCoins) * 100) / 100;
@@ -333,7 +333,7 @@ async function processYieldCalculation(supabase) {
     const endCoinsSpent = parseFloat(currActivity['Coins Spent'] || 0);
     const dailyCoinsSpent = Math.max(0, Math.round((endCoinsSpent - startCoinsSpent) * 100) / 100);
 
-    // ── Gems tracking at 22:00 UTC (comparing 22:00 UTC with 00:00 UTC baseline) ──
+    // ── Gems tracking at 22:30 UTC (comparing 22:30 UTC with 00:00 UTC baseline) ──
     const baselineGems = parseFloat(baselineStock['Gem'] || baselineStock['gem'] || baselineStock['Gems'] || baselineStock['gems'] || 0);
     const currentGems = parseFloat(currentData.inventory?.Gem || currentData.inventory?.gem || currentData.inventory?.Gems || currentData.inventory?.gems || 0);
     const netGemsDiff = Math.round((currentGems - baselineGems) * 10) / 10;
@@ -543,7 +543,7 @@ async function processYieldCalculation(supabase) {
       console.error(`❌ [Supabase DB Error] Yield save failed for Farm #${cleanFarmId}: ${dbError.message}`);
     } else {
       savedYieldsCount++;
-      console.log(`✅ 22:00 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
+      console.log(`✅ 22:30 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
     }
   }
 

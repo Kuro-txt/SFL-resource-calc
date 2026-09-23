@@ -193,7 +193,7 @@ async function processAutoSyncTrades(supabase) {
 async function getTodayTradesForFarm(farmId, todayDate) {
   const cleanFarmId = String(farmId).trim();
   const dayStartMs = new Date(todayDate + 'T00:00:00Z').getTime();
-  const dayEndMs = new Date(todayDate + 'T22:00:00Z').getTime();
+  const dayEndMs = new Date(todayDate + 'T22:30:00Z').getTime();
 
   let trades = [];
 
