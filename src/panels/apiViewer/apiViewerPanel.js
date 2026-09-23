@@ -13,7 +13,7 @@ export const API_ENDPOINTS = [
     name: '🚜 Batch Farms (Direct)',
     path: 'https://api.sunflower-land.com/community/getFarms',
     badge: 'SFL Official',
-    desc: 'Direct browser call to SFL API (POST https://api.sunflower-land.com/community/getFarms)',
+    desc: 'Batch fetch 1–100 farms in 1 call (POST https://api.sunflower-land.com/community/getFarms)',
     isPost: true,
     isDirect: true,
     needsFarmId: true,
@@ -319,15 +319,15 @@ function updateUrlPreview() {
 
   if (farmLabel && farmInput) {
     if (ep?.id === 'batchFarms' || ep?.id === 'batchFarmsProxy') {
-      farmLabel.textContent = 'Farm IDs (comma-separated, up to 30):';
-      farmInput.placeholder = 'e.g. 206, 876, 5047741665447228';
-      if (!farmInput.value || farmInput.value === '162318') {
-        farmInput.value = '206, 876, 5047741665447228';
+      farmLabel.textContent = 'Farm IDs (comma-separated, 1–100 numbers):';
+      farmInput.placeholder = 'e.g. 3, 4, 5, 6, 206';
+      if (!farmInput.value || farmInput.value === '162318' || farmInput.value === '206, 876, 5047741665447228') {
+        farmInput.value = '3, 4, 5, 6';
       }
     } else {
       farmLabel.textContent = 'Farm ID:';
       farmInput.placeholder = 'e.g. 162318';
-      if (farmInput.value === '206, 876, 5047741665447228') {
+      if (farmInput.value === '3, 4, 5, 6' || farmInput.value === '206, 876, 5047741665447228') {
         farmInput.value = localStorage.getItem('sfl_farm_id') || '162318';
       }
     }
@@ -626,11 +626,13 @@ export async function fetchRawApi() {
         farmIds = farmInputVal
           .split(/[\s,]+/)
           .map(s => s.trim())
-          .filter(Boolean)
-          .map(id => (/^\d+$/.test(id) ? (id.length > 15 ? id : Number(id)) : id));
+          .filter(s => s.length > 0 && !isNaN(Number(s)))
+          .map(s => Math.floor(Number(s)))
+          .filter(n => Number.isFinite(n) && n > 0)
+          .slice(0, 100);
       }
       if (farmIds.length === 0) {
-        farmIds = [206, 876, 5047741665447228];
+        farmIds = [3, 4, 5, 6];
       }
 
       const isDirectSfl = url.includes('api.sunflower-land.com');
@@ -671,7 +673,12 @@ export async function fetchRawApi() {
     if (sizeEl) sizeEl.textContent = `${sizeKb} KB`;
 
     if (statusBadge) {
-      statusBadge.textContent = `${res.status} ${res.statusText || (res.ok ? 'OK' : 'ERROR')}`;
+      let badgeText = `${res.status} ${res.statusText || (res.ok ? 'OK' : 'ERROR')}`;
+      if (res.status === 401) badgeText = '401 Unauthorized (VIP + Lvl 50+ Required)';
+      else if (res.status === 429) badgeText = '429 Rate Limited (~1 req / 5s)';
+      else if (res.status === 500) badgeText = '500 Malformed Body (1–100 numbers)';
+
+      statusBadge.textContent = badgeText;
       statusBadge.className = `px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
         res.ok ? 'bg-green-700 text-white' : 'bg-red-700 text-white'
       }`;
@@ -714,7 +721,21 @@ export async function fetchRawApi() {
       outputEl.textContent = `❌ Network Error fetching ${url}:\n\n${err.message}\n\nTroubleshooting tips:\n1. For batch requests, ensure valid SFL API Key.\n2. Ensure the backend host is reachable.\n3. Check browser console for CORS or network blocking.`;
     }
   } finally {
-    if (fetchBtn) fetchBtn.disabled = false;
+    if (fetchBtn) {
+      let remaining = 5;
+      fetchBtn.disabled = true;
+      fetchBtn.textContent = `⏳ Cooldown (${remaining}s)`;
+      const cooldownInterval = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearInterval(cooldownInterval);
+          fetchBtn.disabled = false;
+          fetchBtn.textContent = '🚀 Fetch Raw JSON';
+        } else {
+          fetchBtn.textContent = `⏳ Cooldown (${remaining}s)`;
+        }
+      }, 1000);
+    }
   }
 }
 

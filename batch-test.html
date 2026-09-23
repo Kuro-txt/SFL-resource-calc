@@ -42,7 +42,9 @@
         <span class="text-3xl">🚜</span>
         <div>
           <h1 class="text-xl font-black text-sfl-wood uppercase tracking-wide">Batch Farms API Tester</h1>
-          <p class="text-xs font-semibold text-sfl-woodLight">Testing <code class="font-mono bg-amber-100 px-1 py-0.5 rounded">POST /community/getFarms</code> (Up to 30 farms)</p>
+          <p class="text-xs font-semibold text-sfl-woodLight">
+            Official <code class="font-mono bg-amber-100 px-1 py-0.5 rounded font-bold">POST /community/getFarms</code> (1–100 Numeric IDs | ~1 req / 5s)
+          </p>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -61,8 +63,9 @@
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood mb-1">
             🔑 SFL API Key <span class="text-red-600">*</span>
+            <span class="text-[10px] text-stone-500 font-normal">(VIP + Bumpkin Level 50+)</span>
           </label>
-          <input type="password" id="input-api-key" placeholder="Paste your SFL x-api-key..."
+          <input type="password" id="input-api-key" placeholder="sfl.ODQ... or paste your SFL x-api-key"
             class="w-full border-2 border-sfl-cardBorder rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-sfl-wood bg-amber-50/50">
         </div>
 
@@ -71,7 +74,7 @@
             🌐 Request Route
           </label>
           <select id="select-route" class="w-full border-2 border-sfl-cardBorder rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-sfl-wood bg-amber-50/50">
-            <option value="direct">Direct SFL API (https://api.sunflower-land.com/community/getFarms)</option>
+            <option value="direct">Direct SFL API (https://api.sunflower-land.com/community/getFarms) [Recommended]</option>
             <option value="vercel">Vercel Serverless Proxy (/api/get-farms-batch)</option>
           </select>
         </div>
@@ -81,25 +84,28 @@
       <div>
         <div class="flex items-center justify-between mb-1">
           <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood">
-            📋 Farm IDs <span class="text-stone-500 font-normal">(Comma, space, or newline-separated)</span>
+            📋 Farm IDs <span class="text-stone-500 font-normal">(1–100 numbers, comma/space-separated)</span>
           </label>
           <div class="space-x-1">
-            <button type="button" id="btn-load-30" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 cursor-pointer">
-              + Load 30 Sample IDs
-            </button>
             <button type="button" id="btn-load-3" class="text-[11px] font-bold text-amber-700 hover:text-amber-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 cursor-pointer">
-              + Load 3 Known IDs
+              + 3 Known IDs
+            </button>
+            <button type="button" id="btn-load-30" class="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 cursor-pointer">
+              + 30 Sample IDs
+            </button>
+            <button type="button" id="btn-load-100" class="text-[11px] font-bold text-purple-700 hover:text-purple-900 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 cursor-pointer">
+              + Max 100 IDs
             </button>
             <button type="button" id="btn-clear-ids" class="text-[11px] font-bold text-stone-500 hover:text-red-700 bg-stone-100 px-2 py-0.5 rounded border border-stone-200 cursor-pointer">
               Clear
             </button>
           </div>
         </div>
-        <textarea id="input-farm-ids" rows="3" placeholder="e.g. 206, 876, 5047741665447228"
+        <textarea id="input-farm-ids" rows="3" placeholder="e.g. 3, 4, 5, 6, 206, 876"
           class="w-full border-2 border-sfl-cardBorder rounded-xl p-3 text-xs font-mono focus:outline-none focus:border-sfl-wood bg-amber-50/50"></textarea>
         <p class="text-[11px] text-stone-500 mt-1 flex justify-between">
-          <span id="ids-count-display">0 Farm IDs parsed</span>
-          <span>Max recommended: ~30 farms per call</span>
+          <span id="ids-count-display">0 / 100 Farm IDs parsed</span>
+          <span>⏱️ Throttle: 1 request / 5s per IP</span>
         </p>
       </div>
 
@@ -133,12 +139,20 @@
       </div>
     </div>
 
+    <!-- Deprecation Warning / Skipped Notice Banner -->
+    <div id="notice-panel" class="hidden space-y-2"></div>
+
     <!-- Results Table Breakdown -->
     <div id="results-panel" class="hidden bg-white p-5 rounded-2xl border-2 border-sfl-cardBorder shadow-sm space-y-3">
-      <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center justify-between">
-        <span>📊 Parsed Farms Summary</span>
-        <span id="table-count-tag" class="text-[11px] font-mono font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded"></span>
-      </h3>
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
+          <span>📊</span> Parsed Farms Summary
+        </h3>
+        <div class="flex items-center gap-2">
+          <span id="skipped-tag" class="hidden text-[10px] font-mono font-bold bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.5 rounded"></span>
+          <span id="table-count-tag" class="text-[11px] font-mono font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded"></span>
+        </div>
+      </div>
       <div class="overflow-x-auto border-2 border-amber-200 rounded-xl">
         <table class="w-full text-left text-xs text-sfl-dirt">
           <thead class="bg-sfl-card border-b-2 border-amber-200 uppercase text-[10px] font-bold text-sfl-wood">
@@ -173,36 +187,47 @@
     const savedKey = localStorage.getItem('sfl_api_key');
     if (savedKey) document.getElementById('input-api-key').value = savedKey;
 
+    const SAMPLE_3_IDS = [3, 4, 5];
     const SAMPLE_30_IDS = [
-      206, 876, 5047741665447228, 1, 2, 3, 4, 5,
-      10, 20, 30, 40, 50, 100, 200, 300, 400, 500,
-      1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000
+      3, 4, 5, 6, 10, 20, 30, 40, 50, 100,
+      150, 200, 250, 300, 350, 400, 450, 500, 550, 600,
+      700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600
     ];
-
-    const SAMPLE_3_IDS = [206, 876, 5047741665447228];
+    const SAMPLE_100_IDS = Array.from({ length: 100 }, (_, i) => i + 1);
 
     function parseFarmIds(text) {
       return text
         .split(/[\s,]+/)
         .map(s => s.trim())
         .filter(s => s.length > 0 && !isNaN(Number(s)))
-        .map(s => Number(s));
+        .map(s => Math.floor(Number(s)))
+        .filter(n => Number.isFinite(n) && n > 0);
     }
 
     function updateCount() {
       const ids = parseFarmIds(document.getElementById('input-farm-ids').value);
-      document.getElementById('ids-count-display').textContent = `${ids.length} Farm IDs parsed`;
+      const display = document.getElementById('ids-count-display');
+      if (ids.length > 100) {
+        display.innerHTML = `<span class="text-red-600 font-bold">${ids.length} Farm IDs parsed (⚠️ Max 100 allowed — SFL rejects &gt; 100)</span>`;
+      } else {
+        display.textContent = `${ids.length} / 100 Farm IDs parsed`;
+      }
     }
 
     document.getElementById('input-farm-ids').addEventListener('input', updateCount);
+
+    document.getElementById('btn-load-3').addEventListener('click', () => {
+      document.getElementById('input-farm-ids').value = SAMPLE_3_IDS.join(', ');
+      updateCount();
+    });
 
     document.getElementById('btn-load-30').addEventListener('click', () => {
       document.getElementById('input-farm-ids').value = SAMPLE_30_IDS.join(', ');
       updateCount();
     });
 
-    document.getElementById('btn-load-3').addEventListener('click', () => {
-      document.getElementById('input-farm-ids').value = SAMPLE_3_IDS.join(', ');
+    document.getElementById('btn-load-100').addEventListener('click', () => {
+      document.getElementById('input-farm-ids').value = SAMPLE_100_IDS.join(', ');
       updateCount();
     });
 
@@ -215,22 +240,51 @@
     document.getElementById('input-farm-ids').value = SAMPLE_3_IDS.join(', ');
     updateCount();
 
+    function startCooldown(seconds = 5) {
+      const btn = document.getElementById('btn-send-request');
+      btn.disabled = true;
+      let remaining = seconds;
+      btn.className = 'w-full sm:w-auto bg-stone-400 text-stone-700 font-black px-6 py-3 rounded-xl border-2 border-stone-500 shadow-xs cursor-not-allowed text-xs uppercase tracking-wider';
+      btn.textContent = `⏳ Rate Limit Cooldown (${remaining}s)...`;
+      const interval = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearInterval(interval);
+          btn.disabled = false;
+          btn.className = 'w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-black px-6 py-3 rounded-xl border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2 text-xs uppercase tracking-wider';
+          btn.innerHTML = `<span>🚀 Fetch Batch Farms</span>`;
+        } else {
+          btn.textContent = `⏳ Rate Limit Cooldown (${remaining}s)...`;
+        }
+      }, 1000);
+    }
+
     let lastJsonData = null;
 
     document.getElementById('btn-send-request').addEventListener('click', async () => {
       const apiKey = document.getElementById('input-api-key').value.trim();
-      const ids = parseFarmIds(document.getElementById('input-farm-ids').value);
+      let ids = parseFarmIds(document.getElementById('input-farm-ids').value);
       const route = document.getElementById('select-route').value;
       const statusEl = document.getElementById('request-status');
+      const noticePanel = document.getElementById('notice-panel');
+      noticePanel.innerHTML = '';
+      noticePanel.classList.add('hidden');
 
       if (!apiKey) {
-        alert('⚠️ Please enter your SFL API Key first.');
+        alert('⚠️ Please enter your SFL API Key first.\n(Requires VIP access and Bumpkin Level 50+)');
         return;
       }
 
       if (ids.length === 0) {
-        alert('⚠️ Please enter at least 1 Farm ID.');
+        alert('⚠️ Please enter at least 1 numeric Farm ID.');
         return;
+      }
+
+      if (ids.length > 100) {
+        alert('⚠️ SFL API rejects payloads with more than 100 IDs (HTTP 500).\nAutomatically truncating to the first 100 IDs.');
+        ids = ids.slice(0, 100);
+        document.getElementById('input-farm-ids').value = ids.join(', ');
+        updateCount();
       }
 
       statusEl.textContent = `⏳ Sending request for ${ids.length} farms...`;
@@ -245,6 +299,7 @@
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Accept': 'application/json',
               'x-api-key': apiKey
             },
             body: JSON.stringify({ ids })
@@ -264,7 +319,7 @@
         const byteSize = new Blob([text]).size;
 
         document.getElementById('kpi-panel').classList.remove('hidden');
-        document.getElementById('kpi-status').textContent = `${response.status} ${response.statusText}`;
+        document.getElementById('kpi-status').textContent = `${response.status} ${response.statusText || ''}`;
         document.getElementById('kpi-status').className = response.ok 
           ? 'text-base font-black font-mono text-emerald-600' 
           : 'text-base font-black font-mono text-red-600';
@@ -279,27 +334,57 @@
         document.getElementById('json-output').textContent = json ? JSON.stringify(json, null, 2) : text;
 
         if (!response.ok) {
-          if (text.includes('Cannot POST')) {
-            statusEl.textContent = `❌ Cannot POST: Proxy endpoint unavailable. Please switch Request Route to "Direct SFL API" (Recommended).`;
+          if (response.status === 401) {
+            statusEl.textContent = `❌ 401 Unauthorized: Invalid API key (requires VIP and Bumpkin Level 50+)`;
+          } else if (response.status === 429) {
+            statusEl.textContent = `⚠️ 429 Rate Limited: ~1 req / 5s limit reached. Backing off for 10s...`;
+            startCooldown(10);
+            return;
+          } else if (response.status === 500) {
+            statusEl.textContent = `❌ 500 Malformed Body: Must be a JSON object with 'ids' array of 1–100 numbers.`;
+          } else if (text.includes('Cannot POST')) {
+            statusEl.textContent = `❌ Cannot POST: Proxy route unavailable. Use "Direct SFL API" route.`;
           } else {
             statusEl.textContent = `❌ Request failed (${response.status})`;
           }
           statusEl.className = 'text-xs font-bold text-red-600';
           document.getElementById('results-panel').classList.add('hidden');
+          startCooldown(5);
           return;
         }
 
         statusEl.textContent = `✅ Success! Received in ${duration}ms`;
         statusEl.className = 'text-xs font-bold text-emerald-600';
+        startCooldown(5); // Guard 5s rate limit
 
-        // Extract farms map / array
+        // Deprecation warning or notices
+        if (json?.warning) {
+          noticePanel.innerHTML = `
+            <div class="bg-amber-100 border border-amber-300 text-amber-900 p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between">
+              <span>ℹ️ <strong>SFL Notice:</strong> ${json.warning}</span>
+              <span class="text-[10px] font-bold bg-amber-200 px-2 py-0.5 rounded">Payload Complete</span>
+            </div>
+          `;
+          noticePanel.classList.remove('hidden');
+        }
+
+        // Skipped IDs tag
+        const skippedTag = document.getElementById('skipped-tag');
+        if (Array.isArray(json?.skipped) && json.skipped.length > 0) {
+          skippedTag.textContent = `⚠️ ${json.skipped.length} Skipped: #${json.skipped.join(', #')}`;
+          skippedTag.classList.remove('hidden');
+        } else {
+          skippedTag.classList.add('hidden');
+        }
+
+        // Extract farms map
         const rawFarms = (json && (json.farms || json.data || (Array.isArray(json) ? json : json))) || {};
         const entries = Array.isArray(rawFarms) 
           ? rawFarms.map((f, i) => [f.id || i, f])
           : Object.entries(rawFarms);
 
         document.getElementById('kpi-count').textContent = `${entries.length} / ${ids.length}`;
-        document.getElementById('table-count-tag').textContent = `${entries.length} Farms`;
+        document.getElementById('table-count-tag').textContent = `${entries.length} Farms Returned`;
 
         const tbody = document.getElementById('farms-table-body');
         tbody.innerHTML = '';
@@ -313,7 +398,7 @@
             const bumpkinLvl = farm?.bumpkin?.level || farm?.level || '-';
             const invCount = farm?.inventory ? Object.keys(farm.inventory).length : 0;
             const actCount = (farm?.farmActivity || farm?.activity) ? Object.keys(farm.farmActivity || farm.activity).length : 0;
-            const coins = farm?.coins !== undefined ? farm.coins : '-';
+            const coins = farm?.coins !== undefined ? Number(farm.coins).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '-';
 
             tr.innerHTML = `
               <td class="p-2.5 font-bold text-sfl-wood">#${id}</td>
@@ -331,6 +416,7 @@
       } catch (err) {
         statusEl.textContent = `❌ Network Error: ${err.message}`;
         statusEl.className = 'text-xs font-bold text-red-600';
+        startCooldown(5);
       }
     });
 

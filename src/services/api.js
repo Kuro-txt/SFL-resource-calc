@@ -302,25 +302,48 @@ export const ApiService = {
   },
 
   async getFarmsBatch(farmIds, apiKey = '') {
-    if (!Array.isArray(farmIds) || farmIds.length === 0) {
-      throw new Error('Farm IDs array is required');
+    const numericIds = (Array.isArray(farmIds) ? farmIds : [])
+      .map(Number)
+      .filter(n => Number.isFinite(n) && n > 0)
+      .map(Math.floor)
+      .slice(0, 100);
+
+    if (numericIds.length === 0) {
+      throw new Error('Array of 1–100 numeric farm IDs is required.');
     }
     const cleanApiKey = apiKey ? String(apiKey).trim() : '';
 
     // Direct browser fetch to SFL API (CORS enabled)
     if (cleanApiKey) {
       try {
-        const directRes = await fetch('https://api.sunflower-land.com/community/getFarms', {
+        let directRes = await fetch('https://api.sunflower-land.com/community/getFarms', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
             'x-api-key': cleanApiKey
           },
-          body: JSON.stringify({ ids: farmIds })
+          body: JSON.stringify({ ids: numericIds })
         });
+
+        // 429 rate limit backoff: SFL limits ~1 req / 5s
+        if (directRes.status === 429) {
+          console.warn('SFL 429 Rate Limit encountered. Waiting 5s before retrying once...');
+          await new Promise(r => setTimeout(r, 5200));
+          directRes = await fetch('https://api.sunflower-land.com/community/getFarms', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'x-api-key': cleanApiKey
+            },
+            body: JSON.stringify({ ids: numericIds })
+          });
+        }
+
         if (directRes.ok) {
           const directData = await directRes.json();
-          return { success: true, farms: directData };
+          return { success: true, ...directData };
         }
       } catch (directErr) {
         console.warn('Direct SFL batch fetch failed, trying proxy...', directErr.message);
@@ -341,7 +364,7 @@ export const ApiService = {
             'Content-Type': 'application/json',
             ...(cleanApiKey ? { 'x-api-key': cleanApiKey } : {})
           },
-          body: JSON.stringify({ ids: farmIds, apiKey: cleanApiKey })
+          body: JSON.stringify({ ids: numericIds, apiKey: cleanApiKey })
         });
         const text = await response.text();
         if (text.trim().startsWith('<')) continue;

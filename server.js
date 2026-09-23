@@ -242,20 +242,26 @@ app.get('/api/get-marketplace', async (req, res) => {
 
 app.post('/api/get-farms-batch', async (req, res) => {
   const { ids, apiKey } = req.body || {};
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: 'Array of farm IDs is required in body: { ids: [...] }' });
+  const numericIds = (Array.isArray(ids) ? ids : [])
+    .map(Number)
+    .filter(n => Number.isFinite(n) && n > 0)
+    .map(Math.floor)
+    .slice(0, 100);
+
+  if (numericIds.length === 0) {
+    return res.status(400).json({ error: 'Malformed body: An array of 1–100 numeric farm IDs is required: { ids: [1, 2, 3] }' });
   }
 
   const cleanApiKey = apiKey ? String(apiKey).trim() : (process.env.SFL_API_KEY || '');
   if (!cleanApiKey) {
-    return res.status(400).json({ error: 'apiKey in body or environment is required' });
+    return res.status(401).json({ error: 'Missing API key. Requires VIP and Level 50+ Bumpkin.' });
   }
 
   const startTime = Date.now();
   try {
     const response = await axios.post(
       'https://api.sunflower-land.com/community/getFarms',
-      { ids },
+      { ids: numericIds },
       {
         headers: {
           'Content-Type': 'application/json',
@@ -270,14 +276,24 @@ app.post('/api/get-farms-batch', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({
       success: true,
-      requestedCount: ids.length,
+      requestedCount: numericIds.length,
+      returnedCount: Object.keys(response.data?.farms || {}).length,
+      warning: response.data?.warning || null,
+      skipped: response.data?.skipped || [],
       durationMs,
-      farms: response.data
+      ...response.data
     });
   } catch (err) {
     const durationMs = Date.now() - startTime;
-    return res.status(err.response?.status || 500).json({
-      error: 'Failed to fetch batch farms',
+    const status = err.response?.status || 500;
+    let userMsg = 'Failed to fetch batch farms';
+    if (status === 401) userMsg = 'Missing or invalid API key. Key is only valid while farm has VIP access and is level 50+.';
+    else if (status === 429) userMsg = 'Too many requests. SFL limits requests to roughly 1 per 5 seconds per IP. Please back off and retry.';
+    else if (status === 500) userMsg = 'Malformed body. Body must be a JSON object whose ids field is an array of 1–100 numbers.';
+
+    return res.status(status).json({
+      error: userMsg,
+      status,
       durationMs,
       details: err.response?.data || err.message
     });
