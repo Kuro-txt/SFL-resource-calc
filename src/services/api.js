@@ -56,13 +56,16 @@ export const ApiService = {
     }
     return fetchDeduplicated(cacheKey, async () => {
       let data = null;
+      const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
+      const headers = apiKey ? { 'x-api-key': apiKey } : {};
+      const keyQuery = apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : '';
 
       // 1. Try Backend server proxy (Render) with 12s timeout
       try {
-        const url = `${BACKEND_URL}/api/get-data${force ? '?force=true' : ''}`;
+        const url = `${BACKEND_URL}/api/get-data?${force ? 'force=true' : ''}${keyQuery}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000);
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await fetch(url, { headers, signal: controller.signal });
         clearTimeout(timeoutId);
         if (response.ok) {
           data = await response.json();
@@ -74,8 +77,8 @@ export const ApiService = {
       // 2. Try secondary serverless proxy (/api/get-data)
       if (!data) {
         try {
-          const url = `/api/get-data${force ? '?force=true' : ''}`;
-          const response = await fetch(url);
+          const url = `/api/get-data?${force ? 'force=true' : ''}${keyQuery}`;
+          const response = await fetch(url, { headers });
           if (response.ok) {
             data = await response.json();
           }
@@ -101,18 +104,22 @@ export const ApiService = {
     return fetchDeduplicated(cacheKey, async () => {
       try {
         let data = null;
+        const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
+        const headers = apiKey ? { 'x-api-key': apiKey } : {};
+        const keyQuery = apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : '';
+
         // 1. Try Backend server proxy
         try {
-          const url = `${BACKEND_URL}/api/get-exchange${force ? '?force=true' : ''}`;
-          const response = await fetch(url);
+          const url = `${BACKEND_URL}/api/get-exchange?${force ? 'force=true' : ''}${keyQuery}`;
+          const response = await fetch(url, { headers });
           if (response.ok) data = await response.json();
         } catch (e) {}
 
         // 2. Try Vercel serverless proxy if backend proxy didn't succeed
         if (!data) {
           try {
-            const url = `/api/get-exchange${force ? '?force=true' : ''}`;
-            const response = await fetch(url);
+            const url = `/api/get-exchange?${force ? 'force=true' : ''}${keyQuery}`;
+            const response = await fetch(url, { headers });
             if (response.ok) data = await response.json();
           } catch (e) {}
         }
@@ -177,8 +184,11 @@ export const ApiService = {
     }
     return fetchDeduplicated(cacheKey, async () => {
       try {
-        const url = `${BACKEND_URL}/api/nfts${force ? '?force=true' : ''}`;
-        const response = await fetch(url);
+        const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
+        const headers = apiKey ? { 'x-api-key': apiKey } : {};
+        const keyQuery = apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : '';
+        const url = `${BACKEND_URL}/api/nfts?${force ? 'force=true' : ''}${keyQuery}`;
+        const response = await fetch(url, { headers });
         if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
         const data = await response.json();
         if (Array.isArray(data) && data.length > 0) {

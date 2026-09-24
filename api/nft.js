@@ -1,53 +1,83 @@
+import { getItemNameById } from '../src/data/knownIds.js';
+
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const customKey = (req.query.apiKey || req.headers['x-api-key'] || process.env.SFL_API_KEY || process.env.COMMUNITY_API_KEY || '').trim();
+
+  const headers = {
+    'Accept': 'application/json, text/plain, */*',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Referer': 'https://sunflower-land.com/',
+    'Origin': 'https://sunflower-land.com'
+  };
+
+  if (customKey) {
+    headers['x-api-key'] = customKey;
+    headers['Authorization'] = `Bearer ${customKey}`;
+  }
+
   try {
-    const response = await fetch('https://sfl.world/api/v1/nfts', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Referer': 'https://sfl.world/',
-        'Origin': 'https://sfl.world'
-      }
+    const response = await fetch('https://api.sunflower-land.com/community/data?type=marketplaceActivity', {
+      headers,
+      signal: AbortSignal.timeout(25000)
     });
 
     if (!response.ok) {
-      return res.status(response.status).json({ error: `API responded with status ${response.status}` });
+      return res.status(200).json([]);
     }
 
-    let rawData = await response.json();
+    const json = await response.json();
+    const rootData = json?.data || json || {};
+    const reports = rootData.reports || {};
+    const dateKeys = Object.keys(reports).sort();
+    const latestDateKey = dateKeys[dateKeys.length - 1];
+    const latestReport = (latestDateKey && reports[latestDateKey]) || Object.values(reports)[0] || {};
+    const rawItems = latestReport.items || {};
 
-    let rawItems = [];
-    if (Array.isArray(rawData)) {
-      rawItems = rawData;
-    } else if (rawData && typeof rawData === 'object') {
-      rawItems = rawData.data || rawData.nfts || rawData.items || Object.values(rawData);
-    }
+    const nftsList = [];
+    const seenNames = new Set();
 
-    const cleanedList = rawItems.map(item => {
-      if (!item || typeof item !== 'object') return null;
-      const name = String(item.name || item.title || item.itemName || '').trim();
-      if (!name || name === 'Unknown NFT') return null;
+    for (const [key, itemData] of Object.entries(rawItems)) {
+      if (!itemData || typeof itemData !== 'object') continue;
 
-      const rawPrice = item.floor ?? item.price ?? item.lastSalePrice ?? 0;
-      const price = typeof rawPrice === 'number' ? rawPrice : parseFloat(rawPrice) || 0;
+      const parts = key.split('-');
+      const collection = parts[0] || 'collectibles';
+      const itemId = parts.slice(1).join('-');
 
-      const boostText = String(item.boost_text || item.boost || '').trim();
-      let boost = "No Boost";
-      if (boostText) {
-        boost = boostText;
-      } else if (item.have_boost) {
-        boost = "Boost Active";
+      const itemName = getItemNameById(itemId, collection);
+      if (!itemName || itemName.startsWith('Item #')) continue;
+
+      const floorPrice = parseFloat(itemData.floor);
+      const latestSalePrice = parseFloat(itemData.latestSale);
+      const lowPrice = parseFloat(itemData.low);
+
+      let unitPrice = 0;
+      if (!isNaN(floorPrice) && floorPrice > 0) unitPrice = floorPrice;
+      else if (!isNaN(latestSalePrice) && latestSalePrice > 0) unitPrice = latestSalePrice;
+      else if (!isNaN(lowPrice) && lowPrice > 0) unitPrice = lowPrice;
+
+      if (unitPrice > 0 && !seenNames.has(itemName)) {
+        seenNames.add(itemName);
+        nftsList.push({
+          name: itemName,
+          price: unitPrice,
+          floor: unitPrice,
+          boost: 'No Boost',
+          collection,
+          itemId
+        });
       }
-
-      return { name, price, boost };
-    }).filter(Boolean);
-
-    if (cleanedList.length > 0) {
-      res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=1800');
-      return res.status(200).json(cleanedList);
     }
 
-    return res.status(500).json({ error: "Parsed items array is empty" });
+    nftsList.sort((a, b) => a.name.localeCompare(b.name));
+    res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=1200');
+    return res.status(200).json(nftsList);
   } catch (err) {
-    return res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });
+    return res.status(200).json([]);
   }
 }

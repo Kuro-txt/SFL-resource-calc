@@ -4,6 +4,7 @@ const { getStockAmount } = require('./farmApi');
 const { fetchAllFarmsBatched, normalizeFarmId } = require('./farmBatchSync');
 const { getTodayTradesForFarm } = require('./tradeSync');
 const { KNOWN_IDS, getItemNameById } = require('./knownIds');
+const { fetchMarketplaceActivity } = require('./marketplaceService');
 
 const CLEAN_TO_OFFICIAL_NAME = {};
 if (typeof KNOWN_IDS === 'object' && KNOWN_IDS !== null) {
@@ -88,37 +89,23 @@ function saveLocalPriceCache(data) {
 
 cachedMarketPrices = loadLocalPriceCache();
 
-async function fetchMarketPricesWithRetry(maxRetries = 3, timeoutMs = 20000) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const priceRes = await axios.get('https://sfl.world/api/v1/prices', {
-        headers: SFL_WORLD_HEADERS,
-        timeout: timeoutMs
-      });
-      let rawData = priceRes.data;
-      if (typeof rawData === 'string') {
-        if (rawData.includes('<!DOCTYPE html>') || rawData.includes('Cloudflare')) {
-          throw new Error('Cloudflare challenge page returned');
-        }
-        rawData = JSON.parse(rawData);
-      }
-      const extracted = extractPrices(rawData || {});
+async function fetchMarketPricesWithRetry(maxRetries = 2, timeoutMs = 25000) {
+  try {
+    const data = await fetchMarketplaceActivity();
+    if (data?.pricesPayload) {
+      const extracted = extractPrices(data.pricesPayload);
       if (extracted && Object.keys(extracted).length > 0) {
         cachedMarketPrices = extracted;
         saveLocalPriceCache(extracted);
         return extracted;
       }
-      console.warn(`⚠️ [Market Prices] Empty price payload received on attempt ${attempt}/${maxRetries}`);
-    } catch (err) {
-      console.warn(`⚠️ [Market Prices] Attempt ${attempt}/${maxRetries} failed: ${err.message}${err.response ? ` (status ${err.response.status})` : ''}`);
-      if (attempt < maxRetries) {
-        await delay(2000 * attempt);
-      }
     }
+  } catch (err) {
+    console.warn("⚠️ [Market Prices] Marketplace activity fetch notice:", err.message);
   }
 
   if (cachedMarketPrices && Object.keys(cachedMarketPrices).length > 0) {
-    console.warn("⚠️ [Market Prices] All fetch attempts failed. Using cached market prices as fallback.");
+    console.warn("⚠️ [Market Prices] Using cached market prices as fallback.");
     return cachedMarketPrices;
   }
 

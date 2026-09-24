@@ -25,6 +25,7 @@ const { fetchFarmFullDataWithRetry, getSflHeaders, formatNftItem } = require('./
 const { processBaselineSnapshot }                = require('./backend/baselineService');
 const { processYieldCalculation, backfillDailyYields, repairMissingBaselines, aggregateCompletedWeeks, aggregateCompletedMonths, pruneOldLogs, recalculateWeekForUser, getWeekRangeUTC } = require('./backend/yieldService');
 const { processAutoSyncTrades }                  = require('./backend/tradeSync');
+const { fetchMarketplaceActivity }               = require('./backend/marketplaceService');
 
 // ── App & Supabase setup ───────────────────────────────────────────────────
 const app  = express();
@@ -111,68 +112,33 @@ app.get('/api/health', (_req, res) => res.status(200).send('OK'));
 
 app.get('/api/get-data', async (req, res) => {
   const force = req.query.force === 'true';
-  const cacheKey = 'sfl_prices';
-  if (!force) {
-    const cached = getServerCache(cacheKey, 60 * 1000); // 60s
-    if (cached) {
-      res.setHeader('Cache-Control', 'public, max-age=60');
-      res.setHeader('X-Cache', 'HIT');
-      return res.json(cached);
-    }
-  }
+  const customApiKey = (req.query.apiKey || req.headers['x-api-key'] || '').trim();
   try {
-    const response = await axios.get('https://sfl.world/api/v1/prices', {
-      headers: SFL_WORLD_HEADERS, timeout: 20000
-    });
-    setServerCache(cacheKey, response.data);
+    const data = await fetchMarketplaceActivity(customApiKey, force);
     res.setHeader('Cache-Control', 'public, max-age=60');
-    res.setHeader('X-Cache', 'MISS');
-    res.json(response.data);
+    return res.json(data.pricesPayload);
   } catch (err) {
-    const stale = serverCache.get(cacheKey)?.data;
-    if (stale) {
-      res.setHeader('X-Cache', 'STALE');
-      return res.json(stale);
-    }
     res.status(500).json({ error: 'Failed to fetch price data', details: err.message });
   }
 });
 
 app.get('/api/get-exchange', async (req, res) => {
   const force = req.query.force === 'true';
-  const cacheKey = 'sfl_exchange';
-  if (!force) {
-    const cached = getServerCache(cacheKey, 60 * 1000); // 60s
-    if (cached) {
-      res.setHeader('Cache-Control', 'public, max-age=60');
-      res.setHeader('X-Cache', 'HIT');
-      return res.json(cached);
-    }
-  }
+  const customApiKey = (req.query.apiKey || req.headers['x-api-key'] || '').trim();
   try {
-    const response = await axios.get('https://sfl.world/api/v1.1/exchange', {
-      headers: SFL_WORLD_HEADERS, timeout: 20000
-    });
-    setServerCache(cacheKey, response.data);
+    const data = await fetchMarketplaceActivity(customApiKey, force);
 
     // Save exchange rate snapshot to cloud asynchronously (throttled to 15m)
     try {
       const pool = getTiDBPool();
-      if (pool && response.data) {
-        recordExchangeRateInCloud(pool, response.data).catch(() => {});
+      if (pool && data.exchangePayload) {
+        recordExchangeRateInCloud(pool, data.exchangePayload).catch(() => {});
       }
-    } catch (e) {}
+    } catch (_) {}
 
     res.setHeader('Cache-Control', 'public, max-age=60');
-    res.setHeader('X-Cache', 'MISS');
-    res.json(response.data);
-
+    return res.json(data.exchangePayload);
   } catch (err) {
-    const stale = serverCache.get(cacheKey)?.data;
-    if (stale) {
-      res.setHeader('X-Cache', 'STALE');
-      return res.json(stale);
-    }
     res.status(500).json({ error: 'Failed to fetch exchange data', details: err.message });
   }
 });
@@ -294,59 +260,12 @@ app.all('/api/trades', async (req, res) => {
 
 app.get('/api/nfts', async (req, res) => {
   const force = req.query.force === 'true';
-  const cacheKey = 'sfl_nfts';
-
-  if (!force) {
-    const cached = getServerCache(cacheKey, 15 * 60 * 1000); // 15 min
-    if (cached) {
-      res.setHeader('Cache-Control', 'public, max-age=600');
-      res.setHeader('X-Cache', 'HIT');
-      return res.json(cached);
-    }
-  }
-
+  const customApiKey = (req.query.apiKey || req.headers['x-api-key'] || '').trim();
   try {
-    const response = await axios.get('https://sfl.world/api/v1/nfts', {
-      headers: SFL_WORLD_HEADERS, timeout: 20000
-    });
-    let rawData = response.data;
-    if (typeof rawData === 'string') {
-      if (rawData.includes('<!DOCTYPE html>') || rawData.includes('Cloudflare')) {
-        throw new Error('Cloudflare challenge page returned');
-      }
-      rawData = JSON.parse(rawData);
-    }
-    const itemsList = [];
-    function parseNode(node, key = '') {
-      if (!node || typeof node !== 'object') return;
-      if (Array.isArray(node)) { node.forEach(c => parseNode(c, key)); return; }
-      const formatted = formatNftItem(node, key);
-      if (formatted) itemsList.push(formatted);
-      for (const [k, v] of Object.entries(node)) {
-        if (typeof v === 'object' && v !== null) parseNode(v, k);
-      }
-    }
-    parseNode(rawData);
-    const uniqueMap = new Map();
-    itemsList.forEach(item => {
-      if (item.name && !uniqueMap.has(item.name.toLowerCase())) {
-        uniqueMap.set(item.name.toLowerCase(), item);
-      }
-    });
-    const finalNFTs = Array.from(uniqueMap.values());
-    if (finalNFTs.length > 0) {
-      setServerCache(cacheKey, finalNFTs);
-      res.setHeader('Cache-Control', 'public, max-age=600');
-      res.setHeader('X-Cache', 'MISS');
-      return res.json(finalNFTs);
-    }
-    throw new Error('Parsed items array is empty');
+    const data = await fetchMarketplaceActivity(customApiKey, force);
+    res.setHeader('Cache-Control', 'public, max-age=600');
+    return res.json(data.nftsPayload);
   } catch (err) {
-    const stale = serverCache.get(cacheKey)?.data;
-    if (stale) {
-      res.setHeader('X-Cache', 'STALE');
-      return res.json(stale);
-    }
     res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });
   }
 });

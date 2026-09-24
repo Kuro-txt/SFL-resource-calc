@@ -87,15 +87,25 @@ function getTiDBPool() {
 
 async function getLiveExchangeRate() {
   try {
-    const res = await fetch('https://sfl.world/api/v1.1/exchange', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
-      },
-      signal: AbortSignal.timeout(8000)
+    const key = process.env.SFL_API_KEY || process.env.COMMUNITY_API_KEY || "";
+    const headers = {
+      'Accept': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    };
+    if (key) {
+      headers['x-api-key'] = key;
+      headers['Authorization'] = `Bearer ${key}`;
+    }
+    const res = await fetch('https://api.sunflower-land.com/community/data?type=marketplaceActivity', {
+      headers,
+      signal: AbortSignal.timeout(10000)
     });
     if (res.ok) {
-      return await res.json();
+      const json = await res.json();
+      const flowerPrice = parseFloat(json?.data?.flowerPrice) || null;
+      if (flowerPrice) {
+        return { sfl: { usd: flowerPrice }, flowerPrice };
+      }
     }
   } catch (e) {}
   return null;

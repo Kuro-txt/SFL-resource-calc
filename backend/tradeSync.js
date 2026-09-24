@@ -2,6 +2,7 @@ const axios = require('axios');
 const { getSflHeaders, queueFarmSync, delay } = require('./farmApi');
 const { getTiDBPool, recordExchangeRateInCloud } = require('./db');
 const { getItemNameById } = require('./knownIds');
+const { fetchMarketplaceActivity } = require('./marketplaceService');
 
 async function fetchMarketplaceTradesRaw(farmId, apiKey = '', maxRetries = 1) {
   const totalAttempts = 1 + maxRetries; // 1 initial attempt + 1 retry = 2 attempts total
@@ -74,18 +75,12 @@ async function processAutoSyncTrades(supabase) {
   // Fetch live exchange rate to lock in current USD price for newly synced trades
   let currentSflUsd = null;
   try {
-    const exRes = await axios.get('https://sfl.world/api/v1.1/exchange', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
-      },
-      timeout: 10000
-    });
-    if (exRes.data?.sfl?.usd) {
-      currentSflUsd = parseFloat(exRes.data.sfl.usd);
+    const act = await fetchMarketplaceActivity();
+    if (act?.flowerPrice) {
+      currentSflUsd = act.flowerPrice;
       const pool = getTiDBPool();
-      if (pool) {
-        await recordExchangeRateInCloud(pool, exRes.data);
+      if (pool && act.exchangePayload) {
+        await recordExchangeRateInCloud(pool, act.exchangePayload);
       }
     }
   } catch (exErr) {
