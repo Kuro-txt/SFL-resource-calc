@@ -3,8 +3,8 @@ const { getSflHeaders, queueFarmSync, delay } = require('./farmApi');
 const { getTiDBPool, recordExchangeRateInCloud } = require('./db');
 const { getItemNameById } = require('./knownIds');
 
-async function fetchMarketplaceTradesRaw(farmId, apiKey = '', maxRetries = 3) {
-  const totalAttempts = 1 + maxRetries; // 1 initial attempt + 3 retries = 4 attempts total
+async function fetchMarketplaceTradesRaw(farmId, apiKey = '', maxRetries = 1) {
+  const totalAttempts = 1 + maxRetries; // 1 initial attempt + 1 retry = 2 attempts total
   for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     try {
       const response = await axios.get(`https://api.sunflower-land.com/community/data?type=marketplaceProfile&farmId=${encodeURIComponent(farmId)}`, {
@@ -24,6 +24,10 @@ async function fetchMarketplaceTradesRaw(farmId, apiKey = '', maxRetries = 3) {
         console.warn(`⚠️ [Farm #${farmId}] 401 Unauthorized (Check SFL API key). Skipping retries.`);
         throw err;
       }
+      if (status === 404 || status === 400) {
+        console.warn(`⚠️ [Farm #${farmId}] HTTP ${status} (Farm does not exist or invalid). Skipping retries.`);
+        return [];
+      }
       if (attempt <= maxRetries) {
         const timeStr = new Date().toISOString().substring(11, 19);
         console.warn(`[${timeStr} UTC] ⚠️ [Farm #${farmId}] Trade fetch failed (${err.message}). Sleeping 11s before retry ${attempt}/${maxRetries}...`);
@@ -31,7 +35,7 @@ async function fetchMarketplaceTradesRaw(farmId, apiKey = '', maxRetries = 3) {
         console.log(`[${new Date().toISOString().substring(11, 19)} UTC] 🔄 [Farm #${farmId}] Finished waiting 11s. Retrying attempt ${attempt + 1}/${totalAttempts} now...`);
       } else {
         const timeStr = new Date().toISOString().substring(11, 19);
-        console.error(`[${timeStr} UTC] ❌ [Farm #${farmId}] Trade fetch failed after ${maxRetries} retries: ${err.message}`);
+        console.error(`[${timeStr} UTC] ❌ [Farm #${farmId}] Trade fetch failed after ${maxRetries} retry (${totalAttempts} attempts): ${err.message}`);
         throw err;
       }
     }
@@ -39,12 +43,12 @@ async function fetchMarketplaceTradesRaw(farmId, apiKey = '', maxRetries = 3) {
   return [];
 }
 
-async function fetchMarketplaceTradesWithRetry(farmId, apiKey = '', maxRetries = 3) {
+async function fetchMarketplaceTradesWithRetry(farmId, apiKey = '', maxRetries = 1) {
   return queueFarmSync(() => fetchMarketplaceTradesRaw(farmId, apiKey, maxRetries));
 }
 
 async function processAutoSyncTrades(supabase) {
-  console.log("🚀 [Auto-Sync Trades] Starting 5x daily marketplace trades auto-sync (11s gap, 3 retries)...");
+  console.log("🚀 [Auto-Sync Trades] Starting 5x daily marketplace trades auto-sync (11s gap, 2 attempts)...");
   
   const farmMap = new Map();
 
@@ -92,10 +96,10 @@ async function processAutoSyncTrades(supabase) {
 
   for (let i = 0; i < farmEntries.length; i++) {
     const [farmId, apiKey] = farmEntries[i];
-    console.log(`[${i + 1}/${farmEntries.length}] ⏳ Fetching trades for Farm #${farmId} (3 retries, 10s gap)...`);
+    console.log(`[${i + 1}/${farmEntries.length}] ⏳ Fetching trades for Farm #${farmId} (2 attempts, 10s gap)...`);
 
     try {
-      const rawTrades = await fetchMarketplaceTradesWithRetry(farmId, apiKey, 3);
+      const rawTrades = await fetchMarketplaceTradesWithRetry(farmId, apiKey, 1);
       if (rawTrades.length > 0) {
         const pool = getTiDBPool();
         if (pool) {
@@ -222,7 +226,7 @@ async function getTodayTradesForFarm(farmId, todayDate) {
   // 2. Fallback to direct API if TiDB had no trades or is not connected
   if (trades.length === 0) {
     try {
-      const rawTrades = await fetchMarketplaceTradesWithRetry(cleanFarmId, '', 3);
+      const rawTrades = await fetchMarketplaceTradesWithRetry(cleanFarmId, '', 1);
       if (Array.isArray(rawTrades)) {
         for (const t of rawTrades) {
           const fulfilledAt = parseInt(t.fulfilledAt || 0, 10);
