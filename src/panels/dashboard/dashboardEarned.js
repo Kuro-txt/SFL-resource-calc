@@ -1,6 +1,7 @@
 import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES, getCoinFlowerRatio, getItemTaxRate } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice, roundUpToThreeDecimals } from '../../utils/formatters.js';
 import { getDateRangeBounds } from './dashboardPanel.js';
+import { fetchRollupArchive, convertArchiveToEarnedTotals } from './dashboardArchiveLoader.js';
 
 // ─── Categories & Icons ───────────────────────────────────────────────────────
 
@@ -195,14 +196,32 @@ try {
   if (saved !== null) isEarnedOpen = (saved === 'true');
 } catch (_) {}
 
-export function renderEarnedSection(mountEl, boundsInput = 'day') {
+export async function loadEarnedTotals(boundsInput = 'day', preloadedArchive = null) {
+  const bounds = (typeof boundsInput === 'object' && boundsInput?.minDateStr)
+    ? boundsInput
+    : getDateRangeBounds(boundsInput || 'day');
+
+  let totals = aggregateLocalEarned(bounds);
+
+  // If local daily snapshots have no rows for this range, check preloaded archive or fetch from cloud
+  if (Object.keys(totals).length === 0 && (bounds.timeRange === 'month' || bounds.timeRange === 'week' || bounds.timeRange === '7d')) {
+    const archive = preloadedArchive || (await fetchRollupArchive(bounds));
+    if (archive) {
+      totals = convertArchiveToEarnedTotals(archive);
+    }
+  }
+
+  return totals;
+}
+
+export async function renderEarnedSection(mountEl, boundsInput = 'day', preloadedTotals = null) {
   if (!mountEl) return;
 
   const bounds = (typeof boundsInput === 'object' && boundsInput?.label)
     ? boundsInput
     : getDateRangeBounds(boundsInput || 'day');
 
-  const totals = aggregateLocalEarned(bounds);
+  const totals = preloadedTotals || (await loadEarnedTotals(bounds));
   const grandFlowers = Object.values(totals).reduce((s, v) => s + v.flowers, 0);
   const totalItemsCount = Object.values(totals).reduce((s, v) => s + v.qty, 0);
   const grandTaxAmount = Object.values(totals).reduce((s, v) => s + (v.taxAmount || 0), 0);

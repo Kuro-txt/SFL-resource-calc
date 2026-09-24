@@ -195,7 +195,7 @@ export async function loadCloudUserData() {
   const cutoffBaselinesStr = cutoffBaselines.toISOString().split('T')[0];
 
   const cutoffYields = new Date();
-  cutoffYields.setDate(cutoffYields.getDate() - 90);
+  cutoffYields.setDate(cutoffYields.getDate() - 60);
   const cutoffYieldsStr = cutoffYields.toISOString().split('T')[0];
 
   await window.supabaseClient.from('preharvest_baselines').delete().eq('user_id', window.currentUser.id).lt('snapshot_date', cutoffBaselinesStr);

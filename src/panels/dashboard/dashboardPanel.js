@@ -3,7 +3,7 @@
 // Supports dynamic time ranges: Day (Daily), Week (7 Days), and Month (30 Days),
 // with historical date range navigation (previous/next arrows and touch swipe).
 
-import { renderEarnedSection, aggregateLocalEarned } from './dashboardEarned.js';
+import { renderEarnedSection, aggregateLocalEarned, loadEarnedTotals } from './dashboardEarned.js';
 import { renderSpentSection, loadSpentData, clearBaselineMemoryCache } from './dashboardSpent.js';
 
 let initialized = false;
@@ -36,19 +36,22 @@ export function getDateRangeBounds(timeRange = activeTimeRange, offset = activeT
   }
 
   if (timeRange === 'week' || timeRange === '7d') {
-    const endDaysAgo = offset * 7;
-    const startDaysAgo = endDaysAgo + 6;
-    const endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - endDaysAgo));
-    const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - startDaysAgo));
+    // Calendar Week: Monday 00:00:00 UTC to Sunday 23:59:59 UTC
+    const dayOfWeek = (now.getUTCDay() + 6) % 7; // 0 = Monday, ..., 6 = Sunday
+    const daysBackToMonday = dayOfWeek + (offset * 7);
+    const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysBackToMonday));
+    const sunday = new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + 6));
 
-    const minDateStr = startDate.toISOString().split('T')[0];
-    const maxDateStr = endDate.toISOString().split('T')[0];
+    const minDateStr = monday.toISOString().split('T')[0];
+    const maxDateStr = sunday.toISOString().split('T')[0];
     const minTimestamp = new Date(minDateStr + 'T00:00:00Z').getTime();
     const maxTimestamp = new Date(maxDateStr + 'T23:59:59.999Z').getTime();
 
-    const startFmt = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-    const endFmt = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-    const label = offset === 0 ? `Last 7 Days (${startFmt} – ${endFmt})` : `${startFmt} – ${endFmt}`;
+    const startFmt = monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    const endFmt = sunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    let label = `${startFmt} – ${endFmt}`;
+    if (offset === 0) label = `This Week (${startFmt} – ${endFmt})`;
+    else if (offset === 1) label = `Last Week (${startFmt} – ${endFmt})`;
 
     return {
       timeRange: 'week',
@@ -62,24 +65,30 @@ export function getDateRangeBounds(timeRange = activeTimeRange, offset = activeT
     };
   }
 
-  // Month (30 days)
-  const endDaysAgo = offset * 30;
-  const startDaysAgo = endDaysAgo + 29;
-  const endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - endDaysAgo));
-  const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - startDaysAgo));
+  // Calendar Month: 1st day to last day of month (e.g. Jun 1-30, Aug 1-31)
+  const targetYear = now.getUTCFullYear();
+  const targetMonth = now.getUTCMonth() - offset;
+  const startDate = new Date(Date.UTC(targetYear, targetMonth, 1));
+  const endDate = new Date(Date.UTC(targetYear, targetMonth + 1, 0)); // Day 0 of next month is last day of target month
 
   const minDateStr = startDate.toISOString().split('T')[0];
   const maxDateStr = endDate.toISOString().split('T')[0];
   const minTimestamp = new Date(minDateStr + 'T00:00:00Z').getTime();
   const maxTimestamp = new Date(maxDateStr + 'T23:59:59.999Z').getTime();
 
+  const monthName = startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
   const startFmt = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   const endFmt = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-  const label = offset === 0 ? `Last 30 Days (${startFmt} – ${endFmt})` : `${startFmt} – ${endFmt}`;
+  const monthKey = minDateStr.slice(0, 7); // 'YYYY-MM'
+
+  let label = `${monthName} (${startFmt} – ${endFmt})`;
+  if (offset === 0) label = `${monthName} (This Month)`;
+  else if (offset === 1) label = `${monthName} (Last Month)`;
 
   return {
     timeRange: 'month',
     offset,
+    monthKey,
     minDateStr,
     maxDateStr,
     minTimestamp,
@@ -89,12 +98,12 @@ export function getDateRangeBounds(timeRange = activeTimeRange, offset = activeT
   };
 }
 
-async function renderKpiBanner(bounds = getDateRangeBounds(), preloadedSpentItems = null) {
+async function renderKpiBanner(bounds = getDateRangeBounds(), preloadedSpentItems = null, preloadedTotals = null) {
   const mount = document.getElementById('dash-kpi-banner');
   if (!mount) return;
 
   // 1. Earned Output (including Coins converted via user ratio)
-  const totals = aggregateLocalEarned(bounds);
+  const totals = preloadedTotals || (await loadEarnedTotals(bounds));
   const grandFlowers = Object.values(totals).reduce((s, v) => s + (v.flowers || 0), 0);
   const totalItems = Object.values(totals).reduce((s, v) => s + (v.qty || 0), 0);
   const grandTax = Object.values(totals).reduce((s, v) => s + (v.taxAmount || 0), 0);
@@ -291,15 +300,18 @@ export async function populateSections(boundsInput = null, force = false) {
   }
 
   try {
-    // 1. Single spent data fetch (hits in-memory RAM cache in 0ms if already cached)
-    const spentItems = await loadSpentData(bounds, force);
+    // 1. Fetch spent items and earned totals in parallel (hits in-memory RAM cache in 0ms if already cached)
+    const [spentItems, earnedTotals] = await Promise.all([
+      loadSpentData(bounds, force),
+      loadEarnedTotals(bounds)
+    ]);
 
     // If another date navigation occurred while waiting, drop this stale render
     if (renderId !== activeRenderId) return;
 
     // 2. Coordinated single-pass render across all sections in one frame
-    renderKpiBanner(bounds, spentItems);
-    renderEarnedSection(document.getElementById('dash-earned-mount'), bounds);
+    renderKpiBanner(bounds, spentItems, earnedTotals);
+    renderEarnedSection(document.getElementById('dash-earned-mount'), bounds, earnedTotals);
     renderSpentSection(document.getElementById('dash-spent-mount'), bounds, spentItems);
   } finally {
     if (renderId === activeRenderId && container) {

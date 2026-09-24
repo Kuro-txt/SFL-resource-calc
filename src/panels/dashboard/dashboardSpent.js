@@ -18,6 +18,7 @@ import { ApiService } from '../../services/api.js';
 import { getItemNameById } from '../../data/knownIds.js';
 import { getDateRangeBounds } from './dashboardPanel.js';
 import { ITEM_CATEGORIES, CATEGORY_META, getItemCategory } from './dashboardEarned.js';
+import { fetchRollupArchive, convertArchiveToSpentItems } from './dashboardArchiveLoader.js';
 
 export function getGemFlowerPrice() {
   const selectedRate = typeof getSelectedGemRate === 'function' ? getSelectedGemRate() : null;
@@ -475,7 +476,7 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
     };
   }
 
-  const finalItems = Object.entries(result)
+  let finalItems = Object.entries(result)
     .map(([name, item]) => ({
       ...item,
       name,
@@ -483,6 +484,17 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
       flowers: parseFloat(item.flowers.toFixed(3))
     }))
     .sort((a, b) => b.flowers - a.flowers);
+
+  // If no spent items found locally, and viewing month/week, check cloud rollup archive
+  if (finalItems.length === 0 && (bounds.timeRange === 'month' || bounds.timeRange === 'week' || bounds.timeRange === '7d')) {
+    const archive = await fetchRollupArchive(bounds);
+    if (archive) {
+      const archiveSpent = convertArchiveToSpentItems(archive);
+      if (archiveSpent.length > 0) {
+        finalItems = archiveSpent;
+      }
+    }
+  }
 
   spentDataMemoryCache.set(spentCacheKey, { data: finalItems, timestamp: Date.now() });
   return finalItems;

@@ -23,7 +23,7 @@ const { getTiDBPool, recordExchangeRateInCloud } = require('./backend/db');
 const { CROP_FLOWER_PRICES }                     = require('./backend/prices');
 const { fetchFarmFullDataWithRetry, getSflHeaders, formatNftItem } = require('./backend/farmApi');
 const { processBaselineSnapshot }                = require('./backend/baselineService');
-const { processYieldCalculation, backfillDailyYields, repairMissingBaselines, aggregateCompletedWeeks, pruneOldLogs, recalculateWeekForUser, getWeekRangeUTC } = require('./backend/yieldService');
+const { processYieldCalculation, backfillDailyYields, repairMissingBaselines, aggregateCompletedWeeks, aggregateCompletedMonths, pruneOldLogs, recalculateWeekForUser, getWeekRangeUTC } = require('./backend/yieldService');
 const { processAutoSyncTrades }                  = require('./backend/tradeSync');
 
 // ── App & Supabase setup ───────────────────────────────────────────────────
@@ -387,11 +387,14 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
       } else if (type === 'weekly') {
         const result = await aggregateCompletedWeeks(supabase, req.query.force === 'true');
         return res.status(200).json({ success: true, message: 'Weekly aggregation completed.', result });
+      } else if (type === 'monthly') {
+        const result = await aggregateCompletedMonths(supabase, req.query.force === 'true');
+        return res.status(200).json({ success: true, message: 'Monthly aggregation completed.', result });
       } else if (type === 'prune') {
         const result = await pruneOldLogs(supabase);
         return res.status(200).json({ success: true, message: 'Pruning completed.', result });
       } else {
-        return res.status(400).json({ error: "Invalid type. Use 'type=baseline', 'type=yield', 'type=trades', 'type=weekly', 'type=prune', or 'type=repair'." });
+        return res.status(400).json({ error: "Invalid type. Use 'type=baseline', 'type=yield', 'type=trades', 'type=weekly', 'type=monthly', 'type=prune', or 'type=repair'." });
       }
     } catch (err) {
       console.error(`Manual trigger error (${type}):`, err.message);
@@ -419,6 +422,9 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
   } else if (type === 'weekly') {
     res.status(200).json({ success: true, status: 'started', message: 'Weekly aggregation triggered in background.' });
     aggregateCompletedWeeks(supabase, req.query.force === 'true').catch(err => console.error('Weekly Error:', err.message));
+  } else if (type === 'monthly') {
+    res.status(200).json({ success: true, status: 'started', message: 'Monthly aggregation triggered in background.' });
+    aggregateCompletedMonths(supabase, req.query.force === 'true').catch(err => console.error('Monthly Error:', err.message));
   } else if (type === 'prune') {
     res.status(200).json({ success: true, status: 'started', message: 'Log pruning triggered in background.' });
     pruneOldLogs(supabase).catch(err => console.error('Prune Error:', err.message));
@@ -428,7 +434,7 @@ app.get('/api/trigger-daily-baseline', async (req, res) => {
       .catch(err => console.error('Baseline Repair Error:', err.message));
     return res.status(200).json({ success: true, message: 'Baseline repair started in background.' });
   } else {
-    return res.status(400).json({ error: "Invalid type. Use 'type=baseline', 'type=yield', 'type=trades', 'type=weekly', 'type=prune', or 'type=repair'." });
+    return res.status(400).json({ error: "Invalid type. Use 'type=baseline', 'type=yield', 'type=trades', 'type=weekly', 'type=monthly', 'type=prune', or 'type=repair'." });
   }
 });
 
@@ -666,6 +672,47 @@ app.get('/api/weekly-yields', async (req, res) => {
     return res.status(200).json({ success: true, source: 'supabase_weekly', data: [] });
   } catch (err) {
     console.warn("Supabase /api/weekly-yields notice:", err.message);
+    return res.status(500).json({ success: false, error: err.message, data: [] });
+  }
+});
+
+// ── /api/monthly-yields — Serve monthly summary archive from Supabase ────────
+app.get('/api/monthly-yields', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const { farmId, userId, monthKey } = req.query;
+
+  try {
+    let targetUserId = userId ? String(userId).trim() : '';
+    if (!targetUserId && farmId) {
+      const cleanFarmId = String(farmId).trim();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('farm_id', cleanFarmId)
+        .maybeSingle();
+      if (profile?.id) targetUserId = profile.id;
+    }
+
+    if (targetUserId) {
+      let query = supabase
+        .from('monthly_yields')
+        .select('*')
+        .eq('user_id', targetUserId);
+
+      if (monthKey) {
+        query = query.eq('month_key', String(monthKey).trim());
+      }
+
+      const { data: monthlyRows, error: mErr } = await query.order('month_start', { ascending: false });
+
+      if (!mErr && Array.isArray(monthlyRows) && monthlyRows.length > 0) {
+        return res.status(200).json({ success: true, source: 'supabase_monthly', data: monthlyRows });
+      }
+    }
+
+    return res.status(200).json({ success: true, source: 'supabase_monthly', data: [] });
+  } catch (err) {
+    console.warn("Supabase /api/monthly-yields notice:", err.message);
     return res.status(500).json({ success: false, error: err.message, data: [] });
   }
 });
