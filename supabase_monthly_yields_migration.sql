@@ -27,18 +27,23 @@ CREATE TABLE IF NOT EXISTS public.monthly_yields (
 CREATE INDEX IF NOT EXISTS idx_monthly_yields_user_month 
   ON public.monthly_yields (user_id, month_key);
 
+-- Grant table permissions to anon, authenticated, and service_role
+GRANT ALL ON TABLE public.monthly_yields TO anon, authenticated, service_role;
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE public.monthly_yields ENABLE ROW LEVEL SECURITY;
 
--- Allow users to view their own monthly yields
+-- Allow all users/client to view monthly yields
 DROP POLICY IF EXISTS "Users can view own monthly yields" ON public.monthly_yields;
-CREATE POLICY "Users can view own monthly yields"
+DROP POLICY IF EXISTS "Allow all to view monthly yields" ON public.monthly_yields;
+CREATE POLICY "Allow all to view monthly yields"
   ON public.monthly_yields FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (true);
 
--- Allow service role full access
+-- Allow backend cron / service role to upsert monthly yields
 DROP POLICY IF EXISTS "Service role can manage monthly yields" ON public.monthly_yields;
-CREATE POLICY "Service role can manage monthly yields"
+DROP POLICY IF EXISTS "Allow all to upsert monthly yields" ON public.monthly_yields;
+CREATE POLICY "Allow all to upsert monthly yields"
   ON public.monthly_yields FOR ALL
   USING (true)
   WITH CHECK (true);
