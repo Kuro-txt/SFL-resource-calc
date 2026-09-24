@@ -10,6 +10,53 @@ try {
   wishlistItems = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]');
 } catch (_) { wishlistItems = []; }
 
+export function getFlowerUsdRate() {
+  // 1. If user selected a specific gem pack at top, calculate USD per flower from that pack:
+  try {
+    const gemData = localStorage.getItem('sfl_selected_gem_data');
+    if (gemData) {
+      const parsed = JSON.parse(gemData);
+      const totalSfl = parseFloat(parsed.effectiveTotalSfl || parsed.sfl);
+      const totalUsd = parseFloat(parsed.effectiveUsd || parsed.usd);
+      if (totalSfl > 0 && totalUsd > 0) {
+        return {
+          rate: totalUsd / totalSfl,
+          source: `💎 ${Number(parsed.gem).toLocaleString()} Gem Pack${parsed.discountActive ? ' (-20%)' : ''}`
+        };
+      }
+    }
+  } catch (_) {}
+
+  // 2. Otherwise use live Flower USD rate from API
+  let flowerRate = 0;
+  if (typeof window !== 'undefined' && window.flowerUsdRate && window.flowerUsdRate > 0) {
+    flowerRate = window.flowerUsdRate;
+  }
+  if (!flowerRate) {
+    try {
+      const saved = localStorage.getItem('sfl_flower_usd_rate');
+      if (saved) {
+        const val = parseFloat(saved);
+        if (!isNaN(val) && val > 0) flowerRate = val;
+      }
+    } catch (_) {}
+  }
+  if (!flowerRate) {
+    flowerRate = 0.13458; // SFL default
+  }
+
+  return {
+    rate: flowerRate,
+    source: 'Live SFL/USD Rate'
+  };
+}
+
+export function formatUsdAmount(amount) {
+  if (isNaN(amount) || amount <= 0) return '$0.00';
+  if (amount < 0.01) return `$${amount.toFixed(4)}`;
+  return `$${amount.toFixed(2)}`;
+}
+
 export function renderWishlistTemplate() {
   const container = document.getElementById('wishlist-section');
   if (!container) return;
@@ -21,7 +68,7 @@ export function renderWishlistTemplate() {
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
             <span>⭐</span> NFT & Collectibles Wishlist
           </h3>
-          <p class="text-[11px] text-sfl-woodLight font-semibold">Track live floor prices, custom offers, boosts, and total cost of target items from sfl.world.</p>
+          <p class="text-[11px] text-sfl-woodLight font-semibold">Track live floor prices, custom offers, boosts, and total cost of target items in Flowers & Dollars ($ USD).</p>
         </div>
         <button id="clear-wishlist-btn" class="bg-sfl-accent text-white px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-sfl-dirt hover:bg-red-700 transition cursor-pointer">
           🗑️ Clear Wishlist
@@ -53,8 +100,8 @@ export function renderWishlistTemplate() {
             <tr>
               <th class="px-3 py-2.5">NFT / Item Name</th>
               <th class="px-3 py-2.5">Boost / Description</th>
-              <th class="px-3 py-2.5">Floor Price</th>
-              <th class="px-3 py-2.5">Offer Price</th>
+              <th class="px-3 py-2.5">Floor Price (🌸 / $)</th>
+              <th class="px-3 py-2.5">Offer Price (🌸 / $)</th>
               <th class="px-2 py-2.5 text-center">Action</th>
             </tr>
           </thead>
@@ -68,29 +115,36 @@ export function renderWishlistTemplate() {
         </table>
       </div>
 
-      <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 text-center shadow-inner space-y-2">
+      <div class="bg-sfl-gold/20 dark:bg-slate-800/80 border-2 border-sfl-gold dark:border-amber-700/60 rounded-xl p-4 text-center shadow-inner space-y-2.5">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center items-center">
           <div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Saved Items</span>
-            <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-wood mt-0.5">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 block">Saved Items</span>
+            <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-wood dark:text-amber-100 mt-0.5">
               <span id="wishlist-item-count">0 Items</span>
             </h2>
           </div>
-          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-1">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Total Floor Price</span>
-            <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green mt-0.5 flex items-center justify-center gap-1">
+          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 dark:border-slate-700/60 pt-2 sm:pt-0 px-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 block">Total Floor Price</span>
+            <h2 class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green dark:text-emerald-400 mt-0.5 flex items-center justify-center gap-1">
               <span id="wishlist-total-flowers">0.00</span>
               <img src="./assets/flower.webp" class="w-5 h-5 sfl-icon" alt="Flower">
             </h2>
+            <div class="text-xs font-bold text-emerald-700 dark:text-emerald-300 font-mono mt-0.5" id="wishlist-total-floor-usd">
+              $0.00 USD
+            </div>
           </div>
-          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-1">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood block">Total Offer Price</span>
-            <h2 class="text-xl sm:text-2xl font-pixel font-bold text-amber-700 mt-0.5 flex items-center justify-center gap-1">
+          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 dark:border-slate-700/60 pt-2 sm:pt-0 px-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 block">Total Offer Price</span>
+            <h2 class="text-xl sm:text-2xl font-pixel font-bold text-amber-700 dark:text-amber-300 mt-0.5 flex items-center justify-center gap-1">
               <span id="wishlist-total-offer">0.00</span>
               <img src="./assets/flower.webp" class="w-5 h-5 sfl-icon" alt="Flower">
             </h2>
+            <div class="text-xs font-bold text-amber-800 dark:text-amber-300 font-mono mt-0.5" id="wishlist-total-offer-usd">
+              $0.00 USD
+            </div>
           </div>
         </div>
+        <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 pt-2 border-t border-sfl-cardBorder/30 dark:border-slate-700/60 flex items-center justify-center gap-2" id="wishlist-rate-note"></div>
       </div>
     </div>
   `;
@@ -112,6 +166,15 @@ export function initWishlistPanel() {
   // Pre-load NFT catalog in background if not already cached
   if (allNfts.length === 0) {
     loadNftCatalog(false).catch(() => {});
+  }
+
+  // Listen for gem pack selection changes or live rate refreshes from authBar
+  if (typeof window !== 'undefined' && !window._wishlistGemListenerBound) {
+    window.addEventListener('gemPackChanged', () => {
+      updateWishlistTotals();
+      renderWishlist();
+    });
+    window._wishlistGemListenerBound = true;
   }
 }
 
@@ -231,18 +294,25 @@ function initNftCombobox() {
         li.className = 'p-2.5 hover:bg-amber-100 cursor-pointer transition flex justify-between items-center text-xs border-b border-sfl-cardBorder/30 last:border-b-0';
 
         const priceNum = typeof nft.price === 'number' ? nft.price : parseFloat(nft.price) || 0;
+        const { rate: usdRate } = getFlowerUsdRate();
 
         li.innerHTML = `
           <div class="flex items-center gap-2 overflow-hidden mr-2">
             <span>⭐</span>
             <div class="truncate">
-              <div class="font-bold text-sfl-dirt truncate">${nft.name}</div>
-              <div class="text-[10px] text-sfl-woodLight truncate">${nft.boost || 'No Boost'}</div>
+              <div class="font-bold text-sfl-dirt dark:text-amber-100 truncate">${nft.name}</div>
+              <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate">${nft.boost || 'No Boost'}</div>
             </div>
           </div>
-          <span class="text-sfl-green font-mono font-bold whitespace-nowrap flex items-center gap-1">
-            ${priceNum.toFixed(2)} Flowers
-          </span>
+          <div class="text-right whitespace-nowrap font-mono shrink-0">
+            <div class="text-sfl-green dark:text-emerald-400 font-bold flex items-center justify-end gap-1">
+              <span>${priceNum.toFixed(2)}</span>
+              <img src="./assets/flower.webp" class="w-3.5 h-3.5 sfl-icon" alt="Flower">
+            </div>
+            <div class="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">
+              ≈ ${formatUsdAmount(priceNum * usdRate)}
+            </div>
+          </div>
         `;
         li.addEventListener('click', () => {
           addToWishlist(nft);
@@ -321,6 +391,11 @@ export function updateWishlistTotals() {
   const countEl = document.getElementById('wishlist-item-count');
   const floorFlowersEl = document.getElementById('wishlist-total-flowers');
   const offerFlowersEl = document.getElementById('wishlist-total-offer');
+  const floorUsdEl = document.getElementById('wishlist-total-floor-usd');
+  const offerUsdEl = document.getElementById('wishlist-total-offer-usd');
+  const rateNoteEl = document.getElementById('wishlist-rate-note');
+
+  const { rate: usdRate, source: rateSource } = getFlowerUsdRate();
 
   let grandTotalFloor = 0;
   let grandTotalOffer = 0;
@@ -335,6 +410,16 @@ export function updateWishlistTotals() {
   if (countEl) countEl.textContent = `${wishlistItems.length} Item${wishlistItems.length === 1 ? '' : 's'}`;
   if (floorFlowersEl) floorFlowersEl.textContent = grandTotalFloor.toFixed(2);
   if (offerFlowersEl) offerFlowersEl.textContent = grandTotalOffer.toFixed(2);
+
+  if (floorUsdEl) {
+    floorUsdEl.textContent = `≈ ${formatUsdAmount(grandTotalFloor * usdRate)} USD`;
+  }
+  if (offerUsdEl) {
+    offerUsdEl.textContent = `≈ ${formatUsdAmount(grandTotalOffer * usdRate)} USD`;
+  }
+  if (rateNoteEl) {
+    rateNoteEl.innerHTML = `<span>💵 Rate: <strong>1 🌸 ≈ $${usdRate.toFixed(4)} USD</strong></span> <span class="opacity-75">(${rateSource})</span>`;
+  }
 }
 
 export function renderWishlist() {
@@ -348,38 +433,75 @@ export function renderWishlist() {
   }
 
   tbody.innerHTML = '';
+  const { rate: usdRate } = getFlowerUsdRate();
 
   wishlistItems.forEach((nft, index) => {
     const priceNum = typeof nft.price === 'number' ? nft.price : parseFloat(nft.price) || 0;
     if (nft.offerPrice === undefined) {
       nft.offerPrice = priceNum;
     }
+    const offerNum = typeof nft.offerPrice === 'number' ? nft.offerPrice : parseFloat(nft.offerPrice) || 0;
+
+    const floorUsd = priceNum * usdRate;
+    const offerUsd = offerNum * usdRate;
 
     const tr = document.createElement('tr');
-    tr.className = "hover:bg-amber-50/50 transition align-middle";
+    tr.className = "hover:bg-amber-50/50 dark:hover:bg-amber-950/30 transition align-middle";
 
     const tdName = document.createElement('td');
-    tdName.className = "px-3 py-2.5 font-bold flex items-center gap-2";
+    tdName.className = "px-3 py-2.5 font-bold flex items-center gap-2 text-sfl-dirt dark:text-amber-100";
     tdName.innerHTML = `<span>⭐</span><span>${nft.name}</span>`;
 
     const tdBoost = document.createElement('td');
-    tdBoost.className = "px-3 py-2.5 text-xs text-sfl-woodLight";
+    tdBoost.className = "px-3 py-2.5 text-xs text-sfl-woodLight dark:text-slate-400";
     tdBoost.textContent = nft.boost || 'No Boost';
 
     const tdFloor = document.createElement('td');
-    tdFloor.className = "px-3 py-2.5 font-bold text-sfl-green font-mono";
-    tdFloor.textContent = `${priceNum.toFixed(2)} Flowers`;
+    tdFloor.className = "px-3 py-2.5 font-mono whitespace-nowrap";
+    tdFloor.innerHTML = `
+      <div class="font-bold text-sfl-green dark:text-emerald-400 flex items-center gap-1">
+        <span>${priceNum.toFixed(2)}</span>
+        <img src="./assets/flower.webp" class="w-3.5 h-3.5 sfl-icon inline-block" alt="Flower">
+      </div>
+      <div class="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+        ≈ ${formatUsdAmount(floorUsd)}
+      </div>
+    `;
 
     const tdOffer = document.createElement('td');
-    tdOffer.className = "px-3 py-2.5";
+    tdOffer.className = "px-3 py-2.5 font-mono whitespace-nowrap";
+
+    const offerInputWrapper = document.createElement('div');
+    offerInputWrapper.className = "flex items-center gap-1.5";
+
     const offerInput = document.createElement('input');
     offerInput.type = 'number';
     offerInput.min = '0';
     offerInput.step = '0.01';
     offerInput.value = nft.offerPrice;
-    offerInput.className = "w-24 sfl-input px-2 py-1 text-xs font-mono font-bold text-amber-900 rounded border-2 border-sfl-cardBorder focus:outline-none focus:border-amber-600 bg-amber-50";
-    offerInput.addEventListener('input', (e) => updateOfferPrice(index, e.target.value));
-    tdOffer.appendChild(offerInput);
+    offerInput.className = "w-24 sfl-input px-2 py-1 text-xs font-mono font-bold text-amber-900 dark:text-amber-100 rounded border-2 border-sfl-cardBorder focus:outline-none focus:border-amber-600 bg-amber-50 dark:bg-slate-800";
+
+    const flowerIcon = document.createElement('img');
+    flowerIcon.src = "./assets/flower.webp";
+    flowerIcon.className = "w-3.5 h-3.5 sfl-icon inline-block";
+    flowerIcon.alt = "Flower";
+
+    offerInputWrapper.appendChild(offerInput);
+    offerInputWrapper.appendChild(flowerIcon);
+
+    const offerUsdDiv = document.createElement('div');
+    offerUsdDiv.className = "text-[10px] font-semibold text-amber-800 dark:text-amber-300 mt-0.5";
+    offerUsdDiv.id = `wishlist-offer-usd-${index}`;
+    offerUsdDiv.textContent = `≈ ${formatUsdAmount(offerUsd)}`;
+
+    offerInput.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value) || 0;
+      updateOfferPrice(index, e.target.value);
+      offerUsdDiv.textContent = `≈ ${formatUsdAmount(val * usdRate)}`;
+    });
+
+    tdOffer.appendChild(offerInputWrapper);
+    tdOffer.appendChild(offerUsdDiv);
 
     const tdAction = document.createElement('td');
     tdAction.className = "px-2 py-2.5 text-center";
@@ -405,4 +527,5 @@ if (typeof window !== 'undefined') {
   window.updateOfferPrice = updateOfferPrice;
   window.removeFromWishlist = removeFromWishlist;
   window.renderWishlist = renderWishlist;
+  window.getFlowerUsdRate = getFlowerUsdRate;
 }

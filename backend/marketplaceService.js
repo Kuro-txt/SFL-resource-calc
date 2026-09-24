@@ -177,9 +177,37 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
         updated_at: new Date().toISOString()
       };
 
+      function generateGemPacks(flPrice) {
+        const gemPackUsd = {
+          "100": 1.29,
+          "650": 6.49,
+          "1350": 12.99,
+          "2800": 25.99,
+          "7400": 64.99,
+          "15500": 129.99,
+          "200000": 1299.99
+        };
+        const dynamicGems = {};
+        const fl = flPrice > 0 ? flPrice : 0.13458;
+        for (const [gemCountStr, usdVal] of Object.entries(gemPackUsd)) {
+          const gemCount = parseInt(gemCountStr, 10);
+          const totalSfl = Math.round((usdVal / fl) * 10000) / 10000;
+          const sfl1 = Math.round((totalSfl / gemCount) * 10000) / 10000;
+          dynamicGems[gemCountStr] = {
+            gem: gemCount,
+            usd: usdVal,
+            sfl: totalSfl,
+            sfl1,
+            pol: Math.round((usdVal * 1.5) * 10000) / 10000
+          };
+        }
+        return dynamicGems;
+      }
+
       const exchangePayload = {
         sfl: { usd: flowerPrice },
         flowerPrice,
+        gems: generateGemPacks(flowerPrice),
         updated_at: new Date().toISOString()
       };
 

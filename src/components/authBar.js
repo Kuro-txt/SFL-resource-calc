@@ -467,13 +467,24 @@ export function setupGemPacksDropdown() {
     if (refreshBtn) refreshBtn.classList.add('animate-spin');
     try {
       const data = await ApiService.getExchangeRates({ force });
-      if (data && data.gems) {
-        // Cache in localStorage for immediate load next time
-        try {
-          localStorage.setItem('sfl_exchange_gems_cache', JSON.stringify(data.gems));
-        } catch (e) {}
-        renderList(data.gems);
+      if (data) {
+        const flowerUsd = parseFloat(data.flowerPrice || data.sfl?.usd) || 0;
+        if (flowerUsd > 0) {
+          window.flowerUsdRate = flowerUsd;
+          try {
+            localStorage.setItem('sfl_flower_usd_rate', String(flowerUsd));
+          } catch (_) {}
+        }
+        if (data.gems) {
+          try {
+            localStorage.setItem('sfl_exchange_gems_cache', JSON.stringify(data.gems));
+          } catch (e) {}
+          renderList(data.gems);
+        }
         if (statusTag) statusTag.textContent = "Live " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (typeof window.renderWishlist === 'function') {
+          window.renderWishlist();
+        }
       }
     } catch (err) {
       console.warn("Could not refresh exchange rates:", err.message);

@@ -31,10 +31,38 @@ export default async function handler(req, res) {
       flowerPrice = parseFloat(json?.data?.flowerPrice) || flowerPrice;
     }
 
+    function generateGemPacks(flPrice) {
+      const gemPackUsd = {
+        "100": 1.29,
+        "650": 6.49,
+        "1350": 12.99,
+        "2800": 25.99,
+        "7400": 64.99,
+        "15500": 129.99,
+        "200000": 1299.99
+      };
+      const dynamicGems = {};
+      const fl = flPrice > 0 ? flPrice : 0.13458;
+      for (const [gemCountStr, usdVal] of Object.entries(gemPackUsd)) {
+        const gemCount = parseInt(gemCountStr, 10);
+        const totalSfl = Math.round((usdVal / fl) * 10000) / 10000;
+        const sfl1 = Math.round((totalSfl / gemCount) * 10000) / 10000;
+        dynamicGems[gemCountStr] = {
+          gem: gemCount,
+          usd: usdVal,
+          sfl: totalSfl,
+          sfl1,
+          pol: Math.round((usdVal * 1.5) * 10000) / 10000
+        };
+      }
+      return dynamicGems;
+    }
+
     res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
     return res.status(200).json({
       sfl: { usd: flowerPrice },
-      flowerPrice
+      flowerPrice,
+      gems: generateGemPacks(flowerPrice)
     });
   } catch (error) {
     return res.status(200).json({

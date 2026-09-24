@@ -132,7 +132,14 @@ export const ApiService = {
           } catch (e) {}
         }
 
-        if (data && data.gems) {
+        if (data && (data.gems || data.sfl || data.flowerPrice)) {
+          const flowerUsd = parseFloat(data.flowerPrice || data.sfl?.usd) || 0;
+          if (flowerUsd > 0) {
+            window.flowerUsdRate = flowerUsd;
+            try {
+              localStorage.setItem('sfl_flower_usd_rate', String(flowerUsd));
+            } catch (_) {}
+          }
           setCached(cacheKey, data);
           return data;
         }
