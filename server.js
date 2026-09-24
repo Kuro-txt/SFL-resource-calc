@@ -144,11 +144,12 @@ app.get('/api/health', async (req, res) => {
 
       const checkFarmId = (req.query.farmId || '').trim();
       if (checkFarmId) {
-        const { data: prof, error: pErr } = await supabase
+        const { data: profs, error: pErr } = await supabase
           .from('profiles')
           .select('id, farm_id, created_at')
-          .eq('farm_id', checkFarmId)
-          .maybeSingle();
+          .eq('farm_id', checkFarmId);
+
+        const targetUserIds = (profs || []).map(p => p.id);
 
         const { count: baselineCount } = await supabase
           .from('preharvest_baselines')
@@ -156,18 +157,19 @@ app.get('/api/health', async (req, res) => {
           .eq('farm_id', checkFarmId);
 
         let yieldCount = 0;
-        if (prof?.id) {
+        if (targetUserIds.length > 0) {
           const { count } = await supabase
             .from('daily_yields')
             .select('id', { count: 'exact', head: true })
-            .eq('user_id', prof.id);
+            .in('user_id', targetUserIds);
           yieldCount = count || 0;
         }
 
         farmDiagnostics = {
           farmId: checkFarmId,
-          profileFound: Boolean(prof),
-          profile: prof || null,
+          profileFound: targetUserIds.length > 0,
+          profileCount: targetUserIds.length,
+          profiles: profs || [],
           profileError: pErr ? pErr.message : null,
           baselineCount: baselineCount || 0,
           yieldCount
@@ -656,28 +658,35 @@ app.get('/api/baselines', async (req, res) => {
   const { farmId, userId, limit = 35 } = req.query;
 
   try {
-    let targetUserId = userId ? String(userId).trim() : '';
+    const requestedUserId = userId ? String(userId).trim() : '';
     const cleanFarmId = farmId ? String(farmId).trim() : '';
+    const targetUserIds = [];
+    if (requestedUserId) targetUserIds.push(requestedUserId);
 
-    if (!targetUserId && cleanFarmId) {
-      const { data: profile } = await supabase
+    if (cleanFarmId) {
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('id')
-        .eq('farm_id', cleanFarmId)
-        .maybeSingle();
-      if (profile?.id) targetUserId = profile.id;
+        .eq('farm_id', cleanFarmId);
+      if (Array.isArray(profiles)) {
+        profiles.forEach(p => {
+          if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+        });
+      }
     }
 
     let query = supabase
       .from('preharvest_baselines')
-      .select('snapshot_date, stock, farm_activity')
+      .select('snapshot_date, stock, farm_activity, user_id, farm_id')
       .order('snapshot_date', { ascending: false })
       .limit(parseInt(limit, 10) || 35);
 
-    if (targetUserId) {
-      query = query.eq('user_id', targetUserId);
+    if (cleanFarmId && targetUserIds.length > 0) {
+      query = query.or(`farm_id.eq.${cleanFarmId},user_id.in.(${targetUserIds.join(',')})`);
     } else if (cleanFarmId) {
       query = query.eq('farm_id', cleanFarmId);
+    } else if (targetUserIds.length > 0) {
+      query = query.in('user_id', targetUserIds);
     } else {
       return res.status(200).json({ success: true, data: [] });
     }
@@ -685,7 +694,16 @@ app.get('/api/baselines', async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    return res.status(200).json({ success: true, data: data || [] });
+    const seenDates = new Set();
+    const uniqueBaselines = [];
+    for (const b of (data || [])) {
+      if (!seenDates.has(b.snapshot_date)) {
+        seenDates.add(b.snapshot_date);
+        uniqueBaselines.push(b);
+      }
+    }
+
+    return res.status(200).json({ success: true, data: uniqueBaselines });
   } catch (err) {
     console.warn("Supabase /api/baselines notice:", err.message);
     return res.status(200).json({ success: true, data: [] });
@@ -698,27 +716,41 @@ app.get('/api/yields', async (req, res) => {
   const { farmId, userId } = req.query;
 
   try {
-    let targetUserId = userId ? String(userId).trim() : '';
-    if (!targetUserId && farmId) {
-      const cleanFarmId = String(farmId).trim();
-      const { data: profile } = await supabase
+    const requestedUserId = userId ? String(userId).trim() : '';
+    const cleanFarmId = farmId ? String(farmId).trim() : '';
+    const targetUserIds = [];
+    if (requestedUserId) targetUserIds.push(requestedUserId);
+
+    if (cleanFarmId) {
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('id')
-        .eq('farm_id', cleanFarmId)
-        .maybeSingle();
-      if (profile?.id) targetUserId = profile.id;
+        .eq('farm_id', cleanFarmId);
+      if (Array.isArray(profiles)) {
+        profiles.forEach(p => {
+          if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+        });
+      }
     }
 
-    if (targetUserId) {
+    if (targetUserIds.length > 0) {
       const { data: supaRows, error: sErr } = await supabase
         .from('daily_yields')
         .select('*')
-        .eq('user_id', targetUserId)
+        .in('user_id', targetUserIds)
         .gt('total_count', 0)
         .order('yield_date', { ascending: false })
         .limit(100);
 
       if (!sErr && Array.isArray(supaRows) && supaRows.length > 0) {
+        supaRows.sort((a, b) => {
+          if (requestedUserId) {
+            if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
+            if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
+          }
+          return (b.total_count || 0) - (a.total_count || 0);
+        });
+
         const formatted = supaRows.map(r => {
           let crops = Array.isArray(r.crops) ? r.crops : (typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : []);
           const acts = Array.isArray(r.crop_activity_yields) ? r.crop_activity_yields : (typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : []);
@@ -756,7 +788,16 @@ app.get('/api/yields', async (req, res) => {
         });
 
         const valid = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
-        return res.status(200).json({ success: true, source: 'supabase', data: valid });
+        const seenDates = new Set();
+        const uniqueYields = [];
+        for (const y of valid) {
+          if (y.date && !seenDates.has(y.date)) {
+            seenDates.add(y.date);
+            uniqueYields.push(y);
+          }
+        }
+        uniqueYields.sort((a, b) => b.date.localeCompare(a.date));
+        return res.status(200).json({ success: true, source: 'supabase', data: uniqueYields });
       }
     }
 
@@ -773,26 +814,49 @@ app.get('/api/weekly-yields', async (req, res) => {
   const { farmId, userId } = req.query;
 
   try {
-    let targetUserId = userId ? String(userId).trim() : '';
-    if (!targetUserId && farmId) {
-      const cleanFarmId = String(farmId).trim();
-      const { data: profile } = await supabase
+    const requestedUserId = userId ? String(userId).trim() : '';
+    const cleanFarmId = farmId ? String(farmId).trim() : '';
+    const targetUserIds = [];
+    if (requestedUserId) targetUserIds.push(requestedUserId);
+
+    if (cleanFarmId) {
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('id')
-        .eq('farm_id', cleanFarmId)
-        .maybeSingle();
-      if (profile?.id) targetUserId = profile.id;
+        .eq('farm_id', cleanFarmId);
+      if (Array.isArray(profiles)) {
+        profiles.forEach(p => {
+          if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+        });
+      }
     }
 
-    if (targetUserId) {
+    if (targetUserIds.length > 0) {
       const { data: weeklyRows, error: wErr } = await supabase
         .from('weekly_yields')
         .select('*')
-        .eq('user_id', targetUserId)
+        .in('user_id', targetUserIds)
         .order('week_start', { ascending: false });
 
       if (!wErr && Array.isArray(weeklyRows) && weeklyRows.length > 0) {
-        return res.status(200).json({ success: true, source: 'supabase_weekly', data: weeklyRows });
+        weeklyRows.sort((a, b) => {
+          if (requestedUserId) {
+            if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
+            if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
+          }
+          return (b.total_items || 0) - (a.total_items || 0);
+        });
+        const seenWeeks = new Set();
+        const uniqueWeekly = [];
+        for (const w of weeklyRows) {
+          const key = w.week_start || w.week_key;
+          if (key && !seenWeeks.has(key)) {
+            seenWeeks.add(key);
+            uniqueWeekly.push(w);
+          }
+        }
+        uniqueWeekly.sort((a, b) => (b.week_start || '').localeCompare(a.week_start || ''));
+        return res.status(200).json({ success: true, source: 'supabase_weekly', data: uniqueWeekly });
       }
     }
 
@@ -809,22 +873,28 @@ app.get('/api/monthly-yields', async (req, res) => {
   const { farmId, userId, monthKey } = req.query;
 
   try {
-    let targetUserId = userId ? String(userId).trim() : '';
-    if (!targetUserId && farmId) {
-      const cleanFarmId = String(farmId).trim();
-      const { data: profile } = await supabase
+    const requestedUserId = userId ? String(userId).trim() : '';
+    const cleanFarmId = farmId ? String(farmId).trim() : '';
+    const targetUserIds = [];
+    if (requestedUserId) targetUserIds.push(requestedUserId);
+
+    if (cleanFarmId) {
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('id')
-        .eq('farm_id', cleanFarmId)
-        .maybeSingle();
-      if (profile?.id) targetUserId = profile.id;
+        .eq('farm_id', cleanFarmId);
+      if (Array.isArray(profiles)) {
+        profiles.forEach(p => {
+          if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+        });
+      }
     }
 
-    if (targetUserId) {
+    if (targetUserIds.length > 0) {
       let query = supabase
         .from('monthly_yields')
         .select('*')
-        .eq('user_id', targetUserId);
+        .in('user_id', targetUserIds);
 
       if (monthKey) {
         query = query.eq('month_key', String(monthKey).trim());
@@ -833,7 +903,24 @@ app.get('/api/monthly-yields', async (req, res) => {
       const { data: monthlyRows, error: mErr } = await query.order('month_start', { ascending: false });
 
       if (!mErr && Array.isArray(monthlyRows) && monthlyRows.length > 0) {
-        return res.status(200).json({ success: true, source: 'supabase_monthly', data: monthlyRows });
+        monthlyRows.sort((a, b) => {
+          if (requestedUserId) {
+            if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
+            if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
+          }
+          return (b.total_items || 0) - (a.total_items || 0);
+        });
+        const seenMonths = new Set();
+        const uniqueMonthly = [];
+        for (const m of monthlyRows) {
+          const key = m.month_key || m.month_start;
+          if (key && !seenMonths.has(key)) {
+            seenMonths.add(key);
+            uniqueMonthly.push(m);
+          }
+        }
+        uniqueMonthly.sort((a, b) => (b.month_start || '').localeCompare(a.month_start || ''));
+        return res.status(200).json({ success: true, source: 'supabase_monthly', data: uniqueMonthly });
       }
     }
 

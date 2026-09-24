@@ -15,22 +15,28 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const { farmId, userId, monthKey } = req.query;
-      let targetUserId = userId ? String(userId).trim() : '';
-      if (!targetUserId && farmId) {
-        const cleanFarmId = String(farmId).trim();
-        const { data: profile } = await supabase
+      const requestedUserId = userId ? String(userId).trim() : '';
+      const cleanFarmId = farmId ? String(farmId).trim() : '';
+      const targetUserIds = [];
+      if (requestedUserId) targetUserIds.push(requestedUserId);
+
+      if (cleanFarmId) {
+        const { data: profiles } = await supabase
           .from('profiles')
           .select('id')
-          .eq('farm_id', cleanFarmId)
-          .maybeSingle();
-        if (profile?.id) targetUserId = profile.id;
+          .eq('farm_id', cleanFarmId);
+        if (Array.isArray(profiles)) {
+          profiles.forEach(p => {
+            if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+          });
+        }
       }
 
-      if (targetUserId) {
+      if (targetUserIds.length > 0) {
         let query = supabase
           .from('monthly_yields')
           .select('*')
-          .eq('user_id', targetUserId);
+          .in('user_id', targetUserIds);
 
         if (monthKey) {
           query = query.eq('month_key', String(monthKey).trim());
@@ -39,7 +45,24 @@ export default async function handler(req, res) {
         const { data: rows, error } = await query.order('month_start', { ascending: false });
 
         if (!error && Array.isArray(rows) && rows.length > 0) {
-          return res.status(200).json({ success: true, source: 'supabase_monthly', data: rows });
+          rows.sort((a, b) => {
+            if (requestedUserId) {
+              if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
+              if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
+            }
+            return (b.total_items || 0) - (a.total_items || 0);
+          });
+          const seenMonths = new Set();
+          const uniqueMonthly = [];
+          for (const m of rows) {
+            const key = m.month_key || m.month_start;
+            if (key && !seenMonths.has(key)) {
+              seenMonths.add(key);
+              uniqueMonthly.push(m);
+            }
+          }
+          uniqueMonthly.sort((a, b) => (b.month_start || '').localeCompare(a.month_start || ''));
+          return res.status(200).json({ success: true, source: 'supabase_monthly', data: uniqueMonthly });
         }
       }
 

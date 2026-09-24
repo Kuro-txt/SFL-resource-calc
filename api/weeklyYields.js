@@ -15,26 +15,49 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const { farmId, userId } = req.query;
-      let targetUserId = userId ? String(userId).trim() : '';
-      if (!targetUserId && farmId) {
-        const cleanFarmId = String(farmId).trim();
-        const { data: profile } = await supabase
+      const requestedUserId = userId ? String(userId).trim() : '';
+      const cleanFarmId = farmId ? String(farmId).trim() : '';
+      const targetUserIds = [];
+      if (requestedUserId) targetUserIds.push(requestedUserId);
+
+      if (cleanFarmId) {
+        const { data: profiles } = await supabase
           .from('profiles')
           .select('id')
-          .eq('farm_id', cleanFarmId)
-          .maybeSingle();
-        if (profile?.id) targetUserId = profile.id;
+          .eq('farm_id', cleanFarmId);
+        if (Array.isArray(profiles)) {
+          profiles.forEach(p => {
+            if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+          });
+        }
       }
 
-      if (targetUserId) {
+      if (targetUserIds.length > 0) {
         const { data: rows, error } = await supabase
           .from('weekly_yields')
           .select('*')
-          .eq('user_id', targetUserId)
+          .in('user_id', targetUserIds)
           .order('week_start', { ascending: false });
 
         if (!error && Array.isArray(rows) && rows.length > 0) {
-          return res.status(200).json({ success: true, source: 'supabase_weekly', data: rows });
+          rows.sort((a, b) => {
+            if (requestedUserId) {
+              if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
+              if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
+            }
+            return (b.total_items || 0) - (a.total_items || 0);
+          });
+          const seenWeeks = new Set();
+          const uniqueWeekly = [];
+          for (const w of rows) {
+            const key = w.week_start || w.week_key;
+            if (key && !seenWeeks.has(key)) {
+              seenWeeks.add(key);
+              uniqueWeekly.push(w);
+            }
+          }
+          uniqueWeekly.sort((a, b) => (b.week_start || '').localeCompare(a.week_start || ''));
+          return res.status(200).json({ success: true, source: 'supabase_weekly', data: uniqueWeekly });
         }
       }
 

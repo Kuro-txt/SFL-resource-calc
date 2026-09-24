@@ -51,27 +51,41 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { farmId, userId } = req.query;
 
-      let targetUserId = userId ? String(userId).trim() : '';
-      if (!targetUserId && farmId) {
-        const cleanFarmId = String(farmId).trim();
-        const { data: profile } = await supabase
+      const requestedUserId = userId ? String(userId).trim() : '';
+      const cleanFarmId = farmId ? String(farmId).trim() : '';
+      const targetUserIds = [];
+      if (requestedUserId) targetUserIds.push(requestedUserId);
+
+      if (cleanFarmId) {
+        const { data: profiles } = await supabase
           .from('profiles')
           .select('id')
-          .eq('farm_id', cleanFarmId)
-          .maybeSingle();
-        if (profile?.id) targetUserId = profile.id;
+          .eq('farm_id', cleanFarmId);
+        if (Array.isArray(profiles)) {
+          profiles.forEach(p => {
+            if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+          });
+        }
       }
 
-      if (targetUserId) {
+      if (targetUserIds.length > 0) {
         const { data: supaRows, error: sErr } = await supabase
           .from('daily_yields')
           .select('*')
-          .eq('user_id', targetUserId)
+          .in('user_id', targetUserIds)
           .gt('total_count', 0)
           .order('yield_date', { ascending: false })
           .limit(100);
 
         if (!sErr && Array.isArray(supaRows) && supaRows.length > 0) {
+          supaRows.sort((a, b) => {
+            if (requestedUserId) {
+              if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
+              if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
+            }
+            return (b.total_count || 0) - (a.total_count || 0);
+          });
+
           const formatted = supaRows.map(r => {
             let crops = Array.isArray(r.crops) ? r.crops : (typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : []);
             const acts = Array.isArray(r.crop_activity_yields) ? r.crop_activity_yields : (typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : []);
@@ -109,8 +123,17 @@ export default async function handler(req, res) {
           });
 
           const validRows = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
+          const seenDates = new Set();
+          const uniqueYields = [];
+          for (const y of validRows) {
+            if (y.date && !seenDates.has(y.date)) {
+              seenDates.add(y.date);
+              uniqueYields.push(y);
+            }
+          }
+          uniqueYields.sort((a, b) => b.date.localeCompare(a.date));
           res.setHeader('Cache-Control', 'private, s-maxage=60, stale-while-revalidate=120');
-          return res.status(200).json({ success: true, source: 'supabase', data: validRows });
+          return res.status(200).json({ success: true, source: 'supabase', data: uniqueYields });
         }
       }
 

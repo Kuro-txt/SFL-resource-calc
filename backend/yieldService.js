@@ -260,6 +260,21 @@ async function processYieldCalculation(supabase) {
       }
     }
 
+    if (!baselineRecord) {
+      const { data: farmBaselines } = await supabase
+        .from('preharvest_baselines')
+        .select('stock, farm_activity, snapshot_date')
+        .eq('farm_id', cleanFarmId)
+        .lte('snapshot_date', todayDate)
+        .order('snapshot_date', { ascending: false })
+        .limit(1);
+
+      if (farmBaselines?.[0]?.farm_activity && Object.keys(farmBaselines[0].farm_activity).length > 0) {
+        baselineRecord = farmBaselines[0];
+        console.log(`ℹ️ [Yield Calculation] Farm #${cleanFarmId}: Using farm_id fallback baseline from ${farmBaselines[0].snapshot_date}`);
+      }
+    }
+
     if (!baselineRecord || !baselineRecord.farm_activity || Object.keys(baselineRecord.farm_activity).length === 0) {
       console.warn(`⚠️ Skipped 22:30 UTC calculation for Farm #${cleanFarmId}: No baseline found for ${todayDate} or earlier.`);
       continue;

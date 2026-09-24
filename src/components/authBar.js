@@ -553,23 +553,34 @@ export async function handleFarmSync() {
     const activeUser = window.currentUser;
     if (client && (activeUser?.id || farmId)) {
       try {
-        let targetUserId = activeUser?.id;
-        if (!targetUserId && farmId) {
-          const { data: profile } = await client
+        let targetUserIds = [];
+        if (activeUser?.id) targetUserIds.push(activeUser.id);
+        if (farmId) {
+          const { data: profs } = await client
             .from('profiles')
             .select('id')
-            .eq('farm_id', farmId)
-            .maybeSingle();
-          if (profile?.id) targetUserId = profile.id;
+            .eq('farm_id', farmId);
+          if (Array.isArray(profs)) {
+            profs.forEach(p => {
+              if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+            });
+          }
         }
-        if (targetUserId) {
-          const { data: base } = await client
+        if (targetUserIds.length > 0 || farmId) {
+          let baseQuery = client
             .from('preharvest_baselines')
             .select('stock, farm_activity')
-            .eq('user_id', targetUserId)
             .order('snapshot_date', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+            .limit(1);
+
+          if (targetUserIds.length > 0) {
+            baseQuery = baseQuery.in('user_id', targetUserIds);
+          } else {
+            baseQuery = baseQuery.eq('farm_id', farmId);
+          }
+
+          const { data: baseList } = await baseQuery;
+          const base = baseList?.[0];
           if (base?.stock) {
             window.farmInventoryData = base.stock;
             try { localStorage.setItem('sfl_farm_inventory', JSON.stringify(base.stock)); } catch (_) {}

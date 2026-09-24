@@ -15,28 +15,35 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const { farmId, userId, limit = 35 } = req.query;
-      let targetUserId = userId ? String(userId).trim() : '';
+      const requestedUserId = userId ? String(userId).trim() : '';
       const cleanFarmId = farmId ? String(farmId).trim() : '';
+      const targetUserIds = [];
+      if (requestedUserId) targetUserIds.push(requestedUserId);
 
-      if (!targetUserId && cleanFarmId) {
-        const { data: profile } = await supabase
+      if (cleanFarmId) {
+        const { data: profiles } = await supabase
           .from('profiles')
           .select('id')
-          .eq('farm_id', cleanFarmId)
-          .maybeSingle();
-        if (profile?.id) targetUserId = profile.id;
+          .eq('farm_id', cleanFarmId);
+        if (Array.isArray(profiles)) {
+          profiles.forEach(p => {
+            if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+          });
+        }
       }
 
       let query = supabase
         .from('preharvest_baselines')
-        .select('snapshot_date, stock, farm_activity')
+        .select('snapshot_date, stock, farm_activity, user_id, farm_id')
         .order('snapshot_date', { ascending: false })
         .limit(parseInt(limit, 10) || 35);
 
-      if (targetUserId) {
-        query = query.eq('user_id', targetUserId);
+      if (cleanFarmId && targetUserIds.length > 0) {
+        query = query.or(`farm_id.eq.${cleanFarmId},user_id.in.(${targetUserIds.join(',')})`);
       } else if (cleanFarmId) {
         query = query.eq('farm_id', cleanFarmId);
+      } else if (targetUserIds.length > 0) {
+        query = query.in('user_id', targetUserIds);
       } else {
         return res.status(200).json({ success: true, data: [] });
       }
@@ -44,7 +51,16 @@ export default async function handler(req, res) {
       const { data, error } = await query;
       if (error) throw error;
 
-      return res.status(200).json({ success: true, data: data || [] });
+      const seenDates = new Set();
+      const uniqueBaselines = [];
+      for (const b of (data || [])) {
+        if (!seenDates.has(b.snapshot_date)) {
+          seenDates.add(b.snapshot_date);
+          uniqueBaselines.push(b);
+        }
+      }
+
+      return res.status(200).json({ success: true, data: uniqueBaselines });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
