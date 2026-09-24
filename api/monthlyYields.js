@@ -1,37 +1,42 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || "https://gtvglgeoznnrsdcfazpc.supabase.co";
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo";
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || '';
+const supabase = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (!supabase) return res.status(503).json({ error: 'Supabase credentials not configured in environment variables' });
 
   try {
     if (req.method === 'GET') {
       const { farmId, userId, monthKey } = req.query;
-      let targetUserId = userId ? String(userId).trim() : '';
-      if (!targetUserId && farmId) {
-        const cleanFarmId = String(farmId).trim();
-        const { data: profile } = await supabase
+      const requestedUserId = userId ? String(userId).trim() : '';
+      const cleanFarmId = farmId ? String(farmId).trim() : '';
+      const targetUserIds = [];
+      if (requestedUserId) targetUserIds.push(requestedUserId);
+
+      if (cleanFarmId) {
+        const { data: profiles } = await supabase
           .from('profiles')
           .select('id')
-          .eq('farm_id', cleanFarmId)
-          .maybeSingle();
-        if (profile?.id) targetUserId = profile.id;
+          .eq('farm_id', cleanFarmId);
+        if (Array.isArray(profiles)) {
+          profiles.forEach(p => {
+            if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+          });
+        }
       }
 
-      if (targetUserId) {
+      if (targetUserIds.length > 0) {
         let query = supabase
           .from('monthly_yields')
           .select('*')
-          .eq('user_id', targetUserId);
+          .in('user_id', targetUserIds);
 
         if (monthKey) {
           query = query.eq('month_key', String(monthKey).trim());
@@ -40,7 +45,24 @@ export default async function handler(req, res) {
         const { data: rows, error } = await query.order('month_start', { ascending: false });
 
         if (!error && Array.isArray(rows) && rows.length > 0) {
-          return res.status(200).json({ success: true, source: 'supabase_monthly', data: rows });
+          rows.sort((a, b) => {
+            if (requestedUserId) {
+              if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
+              if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
+            }
+            return (b.total_items || 0) - (a.total_items || 0);
+          });
+          const seenMonths = new Set();
+          const uniqueMonthly = [];
+          for (const m of rows) {
+            const key = m.month_key || m.month_start;
+            if (key && !seenMonths.has(key)) {
+              seenMonths.add(key);
+              uniqueMonthly.push(m);
+            }
+          }
+          uniqueMonthly.sort((a, b) => (b.month_start || '').localeCompare(a.month_start || ''));
+          return res.status(200).json({ success: true, source: 'supabase_monthly', data: uniqueMonthly });
         }
       }
 

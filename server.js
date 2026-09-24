@@ -14,8 +14,26 @@ const express = require('express');
 const cors    = require('cors');
 const axios   = require('axios');
 const path    = require('path');
+const fs      = require('fs');
 const cron    = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
+
+// ── Auto-load local .env in development if present (.env* is gitignored) ─────
+try {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+        const idx = trimmed.indexOf('=');
+        const k = trimmed.substring(0, idx).trim();
+        const v = trimmed.substring(idx + 1).trim().replace(/^["']|["']$/g, '');
+        if (!process.env[k]) process.env[k] = v;
+      }
+    });
+  }
+} catch (_) {}
 
 // ── Backend service modules ────────────────────────────────────────────────
 // Note: TiDB is used exclusively for marketplace trades in backend/tradeSync.js & api/trades.js
@@ -31,12 +49,17 @@ const { fetchMarketplaceActivity }               = require('./backend/marketplac
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://gtvglgeoznnrsdcfazpc.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || '';
+const supabase = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+if (!supabase) {
+  console.warn("⚠️ [Server Startup Notice] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured in environment variables.");
+}
 
-const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || 'anubhav@877';
+const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || '';
+if (!CRON_SECRET_KEY) {
+  console.warn("⚠️ [Security Warning] CRON_SECRET_KEY is not set in environment variables. Trigger endpoints requiring authorization will reject calls.");
+}
 
 const SFL_API_KEY = process.env.SFL_API_KEY || process.env.COMMUNITY_API_KEY || process.env.API_KEY || process.env.SUNFLOWER_API_KEY || process.env.VITE_SFL_API_KEY || "";
 if (!SFL_API_KEY) {
@@ -70,10 +93,11 @@ app.use(express.static(path.join(__dirname)));
 
 // ── Auth helper ────────────────────────────────────────────────────────────
 function verifyCronAuth(req) {
+  if (!CRON_SECRET_KEY) return false;
   const key = req.query.key || (req.headers.authorization
     ? req.headers.authorization.replace(/^Bearer\s+/i, '')
     : '');
-  return key === CRON_SECRET_KEY;
+  return Boolean(key) && key === CRON_SECRET_KEY;
 }
 
 // ── Server In-Memory Cache with TTL & Deduplication ────────────────────────
@@ -108,7 +132,70 @@ function clearServerCache(prefix) {
 }
 
 // ── Simple API proxy routes ────────────────────────────────────────────────
-app.get('/api/health', (_req, res) => res.status(200).send('OK'));
+app.get('/api/health', async (req, res) => {
+  const hasServiceKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  let dbStatus = 'unconfigured';
+  let farmDiagnostics = null;
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('profiles').select('id').limit(1);
+      if (error) dbStatus = 'error: ' + error.message;
+      else dbStatus = 'connected (' + (data?.length || 0) + ')';
+
+      const checkFarmId = (req.query.farmId || '').trim();
+      if (checkFarmId) {
+        const { data: profs, error: pErr } = await supabase
+          .from('profiles')
+          .select('id, farm_id, created_at')
+          .eq('farm_id', checkFarmId);
+
+        const targetUserIds = (profs || []).map(p => p.id);
+
+        const { count: baselineCount } = await supabase
+          .from('preharvest_baselines')
+          .select('id', { count: 'exact', head: true })
+          .eq('farm_id', checkFarmId);
+
+        let yieldCount = 0;
+        if (targetUserIds.length > 0) {
+          const { count } = await supabase
+            .from('daily_yields')
+            .select('id', { count: 'exact', head: true })
+            .in('user_id', targetUserIds);
+          yieldCount = count || 0;
+        }
+
+        farmDiagnostics = {
+          farmId: checkFarmId,
+          profileFound: targetUserIds.length > 0,
+          profileCount: targetUserIds.length,
+          profiles: profs || [],
+          profileError: pErr ? pErr.message : null,
+          baselineCount: baselineCount || 0,
+          yieldCount
+        };
+      }
+    } catch (e) {
+      dbStatus = 'exception: ' + e.message;
+    }
+  }
+
+  res.status(200).json({
+    status: 'OK',
+    hasServiceKey,
+    db: dbStatus,
+    farm: farmDiagnostics
+  });
+});
+
+app.get('/api/config', (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
+  });
+});
 
 app.get('/api/get-data', async (req, res) => {
   const force = req.query.force === 'true';
@@ -484,33 +571,105 @@ app.get('/api/cron/repair-baselines', async (req, res) => {
     .catch(err => console.error('Repair Error:', err.message));
 });
 
+// ── /api/baselines — Serve preharvest baselines history from Supabase ────────
+app.get('/api/baselines', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const { farmId, userId, limit = 35 } = req.query;
+
+  try {
+    const requestedUserId = userId ? String(userId).trim() : '';
+    const cleanFarmId = farmId ? String(farmId).trim() : '';
+    const targetUserIds = [];
+    if (requestedUserId) targetUserIds.push(requestedUserId);
+
+    if (cleanFarmId) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('farm_id', cleanFarmId);
+      if (Array.isArray(profiles)) {
+        profiles.forEach(p => {
+          if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+        });
+      }
+    }
+
+    let query = supabase
+      .from('preharvest_baselines')
+      .select('snapshot_date, stock, farm_activity, user_id, farm_id')
+      .order('snapshot_date', { ascending: false })
+      .limit(parseInt(limit, 10) || 35);
+
+    if (cleanFarmId && targetUserIds.length > 0) {
+      query = query.or(`farm_id.eq.${cleanFarmId},user_id.in.(${targetUserIds.join(',')})`);
+    } else if (cleanFarmId) {
+      query = query.eq('farm_id', cleanFarmId);
+    } else if (targetUserIds.length > 0) {
+      query = query.in('user_id', targetUserIds);
+    } else {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const seenDates = new Set();
+    const uniqueBaselines = [];
+    for (const b of (data || [])) {
+      if (!seenDates.has(b.snapshot_date)) {
+        seenDates.add(b.snapshot_date);
+        uniqueBaselines.push(b);
+      }
+    }
+
+    return res.status(200).json({ success: true, data: uniqueBaselines });
+  } catch (err) {
+    console.warn("Supabase /api/baselines notice:", err.message);
+    return res.status(200).json({ success: true, data: [] });
+  }
+});
+
 // ── /api/yields — Serve daily yield history exclusively from Supabase ─────────
 app.get('/api/yields', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const { farmId, userId } = req.query;
 
   try {
-    let targetUserId = userId ? String(userId).trim() : '';
-    if (!targetUserId && farmId) {
-      const cleanFarmId = String(farmId).trim();
-      const { data: profile } = await supabase
+    const requestedUserId = userId ? String(userId).trim() : '';
+    const cleanFarmId = farmId ? String(farmId).trim() : '';
+    const targetUserIds = [];
+    if (requestedUserId) targetUserIds.push(requestedUserId);
+
+    if (cleanFarmId) {
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('id')
-        .eq('farm_id', cleanFarmId)
-        .maybeSingle();
-      if (profile?.id) targetUserId = profile.id;
+        .eq('farm_id', cleanFarmId);
+      if (Array.isArray(profiles)) {
+        profiles.forEach(p => {
+          if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+        });
+      }
     }
 
-    if (targetUserId) {
+    if (targetUserIds.length > 0) {
       const { data: supaRows, error: sErr } = await supabase
         .from('daily_yields')
         .select('*')
-        .eq('user_id', targetUserId)
+        .in('user_id', targetUserIds)
         .gt('total_count', 0)
         .order('yield_date', { ascending: false })
         .limit(100);
 
       if (!sErr && Array.isArray(supaRows) && supaRows.length > 0) {
+        supaRows.sort((a, b) => {
+          if (requestedUserId) {
+            if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
+            if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
+          }
+          return (b.total_count || 0) - (a.total_count || 0);
+        });
+
         const formatted = supaRows.map(r => {
           let crops = Array.isArray(r.crops) ? r.crops : (typeof r.crops === 'string' ? JSON.parse(r.crops || '[]') : []);
           const acts = Array.isArray(r.crop_activity_yields) ? r.crop_activity_yields : (typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : []);
@@ -548,7 +707,16 @@ app.get('/api/yields', async (req, res) => {
         });
 
         const valid = formatted.filter(r => r.totalCount > 0 || r.crops.length > 0);
-        return res.status(200).json({ success: true, source: 'supabase', data: valid });
+        const seenDates = new Set();
+        const uniqueYields = [];
+        for (const y of valid) {
+          if (y.date && !seenDates.has(y.date)) {
+            seenDates.add(y.date);
+            uniqueYields.push(y);
+          }
+        }
+        uniqueYields.sort((a, b) => b.date.localeCompare(a.date));
+        return res.status(200).json({ success: true, source: 'supabase', data: uniqueYields });
       }
     }
 
@@ -565,26 +733,49 @@ app.get('/api/weekly-yields', async (req, res) => {
   const { farmId, userId } = req.query;
 
   try {
-    let targetUserId = userId ? String(userId).trim() : '';
-    if (!targetUserId && farmId) {
-      const cleanFarmId = String(farmId).trim();
-      const { data: profile } = await supabase
+    const requestedUserId = userId ? String(userId).trim() : '';
+    const cleanFarmId = farmId ? String(farmId).trim() : '';
+    const targetUserIds = [];
+    if (requestedUserId) targetUserIds.push(requestedUserId);
+
+    if (cleanFarmId) {
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('id')
-        .eq('farm_id', cleanFarmId)
-        .maybeSingle();
-      if (profile?.id) targetUserId = profile.id;
+        .eq('farm_id', cleanFarmId);
+      if (Array.isArray(profiles)) {
+        profiles.forEach(p => {
+          if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+        });
+      }
     }
 
-    if (targetUserId) {
+    if (targetUserIds.length > 0) {
       const { data: weeklyRows, error: wErr } = await supabase
         .from('weekly_yields')
         .select('*')
-        .eq('user_id', targetUserId)
+        .in('user_id', targetUserIds)
         .order('week_start', { ascending: false });
 
       if (!wErr && Array.isArray(weeklyRows) && weeklyRows.length > 0) {
-        return res.status(200).json({ success: true, source: 'supabase_weekly', data: weeklyRows });
+        weeklyRows.sort((a, b) => {
+          if (requestedUserId) {
+            if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
+            if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
+          }
+          return (b.total_items || 0) - (a.total_items || 0);
+        });
+        const seenWeeks = new Set();
+        const uniqueWeekly = [];
+        for (const w of weeklyRows) {
+          const key = w.week_start || w.week_key;
+          if (key && !seenWeeks.has(key)) {
+            seenWeeks.add(key);
+            uniqueWeekly.push(w);
+          }
+        }
+        uniqueWeekly.sort((a, b) => (b.week_start || '').localeCompare(a.week_start || ''));
+        return res.status(200).json({ success: true, source: 'supabase_weekly', data: uniqueWeekly });
       }
     }
 
@@ -601,22 +792,28 @@ app.get('/api/monthly-yields', async (req, res) => {
   const { farmId, userId, monthKey } = req.query;
 
   try {
-    let targetUserId = userId ? String(userId).trim() : '';
-    if (!targetUserId && farmId) {
-      const cleanFarmId = String(farmId).trim();
-      const { data: profile } = await supabase
+    const requestedUserId = userId ? String(userId).trim() : '';
+    const cleanFarmId = farmId ? String(farmId).trim() : '';
+    const targetUserIds = [];
+    if (requestedUserId) targetUserIds.push(requestedUserId);
+
+    if (cleanFarmId) {
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('id')
-        .eq('farm_id', cleanFarmId)
-        .maybeSingle();
-      if (profile?.id) targetUserId = profile.id;
+        .eq('farm_id', cleanFarmId);
+      if (Array.isArray(profiles)) {
+        profiles.forEach(p => {
+          if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+        });
+      }
     }
 
-    if (targetUserId) {
+    if (targetUserIds.length > 0) {
       let query = supabase
         .from('monthly_yields')
         .select('*')
-        .eq('user_id', targetUserId);
+        .in('user_id', targetUserIds);
 
       if (monthKey) {
         query = query.eq('month_key', String(monthKey).trim());
@@ -625,7 +822,24 @@ app.get('/api/monthly-yields', async (req, res) => {
       const { data: monthlyRows, error: mErr } = await query.order('month_start', { ascending: false });
 
       if (!mErr && Array.isArray(monthlyRows) && monthlyRows.length > 0) {
-        return res.status(200).json({ success: true, source: 'supabase_monthly', data: monthlyRows });
+        monthlyRows.sort((a, b) => {
+          if (requestedUserId) {
+            if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
+            if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
+          }
+          return (b.total_items || 0) - (a.total_items || 0);
+        });
+        const seenMonths = new Set();
+        const uniqueMonthly = [];
+        for (const m of monthlyRows) {
+          const key = m.month_key || m.month_start;
+          if (key && !seenMonths.has(key)) {
+            seenMonths.add(key);
+            uniqueMonthly.push(m);
+          }
+        }
+        uniqueMonthly.sort((a, b) => (b.month_start || '').localeCompare(a.month_start || ''));
+        return res.status(200).json({ success: true, source: 'supabase_monthly', data: uniqueMonthly });
       }
     }
 

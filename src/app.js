@@ -1,3 +1,4 @@
+import { initSupabaseClient } from './config/constants.js';
 import { renderHeader } from './components/header.js';
 import { renderAuthBar } from './components/authBar.js';
 import { renderNavTabs } from './components/navTabs.js';
@@ -19,6 +20,9 @@ import { initDashboardPanel, mountDashboard } from './panels/dashboard/dashboard
 document.addEventListener('DOMContentLoaded', async () => {
   console.log("🚀 Bootstrapping SFL Resource Calculator...");
 
+  // Dynamically load Supabase client configuration from environment variables
+  await initSupabaseClient();
+
   renderWelcomeGate();
   renderHeader();
   renderAuthBar();
@@ -36,7 +40,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   let lastYieldFetch = 0;
 
   PanelManager.register('dashboard', {
-    onMount: () => mountDashboard()
+    onMount: async () => {
+      const localSnapshots = localStorage.getItem('sfl_daily_snapshots');
+      if (!localSnapshots || localSnapshots === '[]') {
+        if (typeof window.loadCloudYieldHistory === 'function') {
+          try { await window.loadCloudYieldHistory(); } catch (_) {}
+        }
+      }
+      mountDashboard();
+    }
   });
 
   PanelManager.register('calc', {

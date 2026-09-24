@@ -300,6 +300,12 @@ export async function populateSections(boundsInput = null, force = false) {
   }
 
   try {
+    // 0. Ensure daily snapshots exist in localStorage if this is first load
+    const localSnapshots = localStorage.getItem('sfl_daily_snapshots');
+    if ((!localSnapshots || localSnapshots === '[]') && typeof window.loadCloudYieldHistory === 'function') {
+      try { await window.loadCloudYieldHistory(force); } catch (_) {}
+    }
+
     // 1. Fetch spent items and earned totals in parallel (hits in-memory RAM cache in 0ms if already cached)
     const [spentItems, earnedTotals] = await Promise.all([
       loadSpentData(bounds, force),

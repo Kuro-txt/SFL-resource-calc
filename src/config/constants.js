@@ -1,12 +1,90 @@
-export const SUPABASE_URL = "https://gtvglgeoznnrsdcfazpc.supabase.co"; 
-export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo";
 export const BACKEND_URL = "https://sfl-calculator-backend.onrender.com";
 
-let client = null;
-if (typeof window !== 'undefined' && window.supabase) {
-  client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Public Supabase configuration is loaded dynamically from /api/config at runtime.
+// No credentials or project URLs are stored in public source code.
+export let SUPABASE_URL = "";
+export let SUPABASE_ANON_KEY = "";
+export let supabaseClient = null;
+
+let initPromise = null;
+export async function initSupabaseClient() {
+  if (window.supabaseClient) {
+    supabaseClient = window.supabaseClient;
+    return window.supabaseClient;
+  }
+  if (initPromise) return initPromise;
+
+  initPromise = (async () => {
+    let url = window.SUPABASE_URL || '';
+    let key = window.SUPABASE_ANON_KEY || '';
+
+    // 1. Check sessionStorage cache for zero-latency page loads
+    if (!url || !key) {
+      try {
+        const cached = sessionStorage.getItem('sfl_client_cfg');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.supabaseUrl && parsed.supabaseAnonKey) {
+            url = parsed.supabaseUrl;
+            key = parsed.supabaseAnonKey;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Fetch from backend /api/config (try local Vercel first, fallback to Render backend)
+    if (!url || !key) {
+      try {
+        try {
+          const localRes = await fetch('/api/config');
+          if (localRes.ok) {
+            const cfg = await localRes.json();
+            if (cfg?.supabaseUrl && cfg?.supabaseAnonKey) {
+              url = cfg.supabaseUrl;
+              key = cfg.supabaseAnonKey;
+            }
+          }
+        } catch (_) {}
+
+        // Fallback to Render backend if local was empty or unconfigured
+        if (!url || !key) {
+          const renderRes = await fetch(`${BACKEND_URL}/api/config`);
+          if (renderRes.ok) {
+            const cfg = await renderRes.json();
+            if (cfg?.supabaseUrl && cfg?.supabaseAnonKey) {
+              url = cfg.supabaseUrl;
+              key = cfg.supabaseAnonKey;
+            }
+          }
+        }
+
+        if (url && key) {
+          try {
+            sessionStorage.setItem('sfl_client_cfg', JSON.stringify({ supabaseUrl: url, supabaseAnonKey: key }));
+          } catch (_) {}
+        }
+      } catch (err) {
+        console.warn("⚠️ [Config Notice] Could not load client configuration:", err.message);
+      }
+    }
+
+    if (url && key && typeof window !== 'undefined' && window.supabase) {
+      SUPABASE_URL = url;
+      SUPABASE_ANON_KEY = key;
+      window.SUPABASE_URL = url;
+      window.SUPABASE_ANON_KEY = key;
+      window.supabaseClient = window.supabase.createClient(url, key);
+      supabaseClient = window.supabaseClient;
+      return window.supabaseClient;
+    }
+
+    return null;
+  })().finally(() => {
+    initPromise = null;
+  });
+
+  return initPromise;
 }
-export const supabaseClient = client;
 
 export const FLOWER_ICON = `<img src="./assets/flower.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/sfl.png';" class="w-4 h-4 sfl-icon" alt="Flower Token">`;
 export const COIN_ICON = `<img src="./assets/coins.webp" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/icons/coins.webp';" class="w-4 h-4 sfl-icon" alt="Coins">`;

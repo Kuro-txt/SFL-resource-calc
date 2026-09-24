@@ -3,6 +3,8 @@
 // Authentically styled to match the Sunflower Land retro pixel game vibes.
 // Optimized for both Desktop (wide 2-column) and Mobile screens.
 
+import { initSupabaseClient } from '../config/constants.js';
+
 export function renderWelcomeGate() {
   const mount = document.getElementById('welcome-gate-mount');
   if (!mount) return;
@@ -409,10 +411,15 @@ function bindWelcomeGateEvents() {
     let username = document.getElementById('gate-email')?.value.trim();
     const password = document.getElementById('gate-password')?.value.trim();
     const farmId = document.getElementById('gate-farm-id')?.value.trim();
-    const client = window.supabaseClient;
+    let client = window.supabaseClient;
 
     if (!client) {
-      return showGateAlert("Supabase client is not initialized. Please refresh.", "error");
+      await initSupabaseClient();
+      client = window.supabaseClient;
+    }
+
+    if (!client) {
+      return showGateAlert("Connecting to Supabase... Please try again in a moment.", "error");
     }
 
     if (!username) {

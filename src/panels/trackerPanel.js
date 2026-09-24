@@ -414,26 +414,38 @@ export async function loadCloudYieldHistory(force = false) {
 
   if (client && (activeUser?.id || farmId)) {
     try {
-      let targetUserId = activeUser?.id;
-      if (!targetUserId && farmId) {
-        const { data: profile } = await client
+      let targetUserIds = [];
+      if (activeUser?.id) targetUserIds.push(activeUser.id);
+      if (farmId) {
+        const { data: profs } = await client
           .from('profiles')
           .select('id')
-          .eq('farm_id', farmId)
-          .maybeSingle();
-        if (profile?.id) targetUserId = profile.id;
+          .eq('farm_id', farmId);
+        if (Array.isArray(profs)) {
+          profs.forEach(p => {
+            if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+          });
+        }
       }
 
-      if (targetUserId) {
+      if (targetUserIds.length > 0) {
         const { data, error } = await client
           .from('daily_yields')
           .select('*')
-          .eq('user_id', targetUserId)
+          .in('user_id', targetUserIds)
           .gt('total_count', 0)
           .order('yield_date', { ascending: false });
 
         if (!error && Array.isArray(data) && data.length > 0) {
-          cloudYields = data;
+          // Deduplicate by yield_date
+          const seen = new Set();
+          cloudYields = [];
+          for (const row of data) {
+            if (row.yield_date && !seen.has(row.yield_date)) {
+              seen.add(row.yield_date);
+              cloudYields.push(row);
+            }
+          }
         }
       }
     } catch (err) {

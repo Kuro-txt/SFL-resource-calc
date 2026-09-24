@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const { farmId, userId } = req.query;
+      const { farmId, userId, limit = 35 } = req.query;
       const requestedUserId = userId ? String(userId).trim() : '';
       const cleanFarmId = farmId ? String(farmId).trim() : '';
       const targetUserIds = [];
@@ -32,41 +32,40 @@ export default async function handler(req, res) {
         }
       }
 
-      if (targetUserIds.length > 0) {
-        const { data: rows, error } = await supabase
-          .from('weekly_yields')
-          .select('*')
-          .in('user_id', targetUserIds)
-          .order('week_start', { ascending: false });
+      let query = supabase
+        .from('preharvest_baselines')
+        .select('snapshot_date, stock, farm_activity, user_id, farm_id')
+        .order('snapshot_date', { ascending: false })
+        .limit(parseInt(limit, 10) || 35);
 
-        if (!error && Array.isArray(rows) && rows.length > 0) {
-          rows.sort((a, b) => {
-            if (requestedUserId) {
-              if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
-              if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
-            }
-            return (b.total_items || 0) - (a.total_items || 0);
-          });
-          const seenWeeks = new Set();
-          const uniqueWeekly = [];
-          for (const w of rows) {
-            const key = w.week_start || w.week_key;
-            if (key && !seenWeeks.has(key)) {
-              seenWeeks.add(key);
-              uniqueWeekly.push(w);
-            }
-          }
-          uniqueWeekly.sort((a, b) => (b.week_start || '').localeCompare(a.week_start || ''));
-          return res.status(200).json({ success: true, source: 'supabase_weekly', data: uniqueWeekly });
+      if (cleanFarmId && targetUserIds.length > 0) {
+        query = query.or(`farm_id.eq.${cleanFarmId},user_id.in.(${targetUserIds.join(',')})`);
+      } else if (cleanFarmId) {
+        query = query.eq('farm_id', cleanFarmId);
+      } else if (targetUserIds.length > 0) {
+        query = query.in('user_id', targetUserIds);
+      } else {
+        return res.status(200).json({ success: true, data: [] });
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const seenDates = new Set();
+      const uniqueBaselines = [];
+      for (const b of (data || [])) {
+        if (!seenDates.has(b.snapshot_date)) {
+          seenDates.add(b.snapshot_date);
+          uniqueBaselines.push(b);
         }
       }
 
-      return res.status(200).json({ success: true, source: 'supabase_weekly', data: [] });
+      return res.status(200).json({ success: true, data: uniqueBaselines });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('API /api/weeklyYields error:', err.message);
-    return res.status(500).json({ success: false, error: err.message, data: [] });
+    console.warn("Supabase /api/baselines notice:", err.message);
+    return res.status(200).json({ success: true, data: [] });
   }
 }
