@@ -112,7 +112,21 @@ async function renderKpiBanner(bounds = getDateRangeBounds(), preloadedSpentItem
   const netFlowers = grandFlowers - grandSpentFlowers;
 
   mount.innerHTML = `
-    <!-- Box 1: Harvest & Resources Earned -->
+    <!-- Box 1: Net Output (Hero Summary) -->
+    <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 rounded-2xl border-2 ${netFlowers >= 0 ? 'border-emerald-600/50 dark:border-emerald-600/60 bg-gradient-to-br from-emerald-500/10 to-transparent' : 'border-red-600/50 dark:border-red-600/60 bg-gradient-to-br from-red-500/10 to-transparent'} shadow-sm flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-xl ${netFlowers >= 0 ? 'bg-emerald-100 dark:bg-emerald-950/70 border-emerald-300 dark:border-emerald-800' : 'bg-red-100 dark:bg-red-950/70 border-red-300 dark:border-red-800'} border flex items-center justify-center text-2xl shrink-0 shadow-2xs">
+        ⚖️
+      </div>
+      <div class="truncate flex-1">
+        <p class="text-[10px] font-bold uppercase text-sfl-woodLight dark:text-slate-400 tracking-wider">Net Output</p>
+        <p class="font-mono text-lg sm:text-2xl font-bold ${netFlowers >= 0 ? 'text-sfl-green dark:text-emerald-400' : 'text-red-600 dark:text-red-400'} truncate">
+          ${netFlowers >= 0 ? '+' : ''}${netFlowers.toFixed(3)} 🌸
+        </p>
+        <p class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono mt-0.5">${netFlowers >= 0 ? 'Net Surplus' : 'Net Deficit'}</p>
+      </div>
+    </div>
+
+    <!-- Box 2: Harvest & Resources Earned -->
     <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 rounded-2xl border-2 border-emerald-600/30 dark:border-emerald-700/40 shadow-sm flex items-center gap-3.5">
       <div class="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-2xl shrink-0 shadow-2xs">
         🌾
@@ -124,7 +138,7 @@ async function renderKpiBanner(bounds = getDateRangeBounds(), preloadedSpentItem
       </div>
     </div>
 
-    <!-- Box 2: Resources, Coins & Gems Spent -->
+    <!-- Box 3: Resources, Coins & Gems Spent -->
     <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 rounded-2xl border-2 border-orange-600/30 dark:border-orange-700/40 shadow-sm flex items-center gap-3.5">
       <div class="w-12 h-12 rounded-xl bg-orange-100 dark:bg-orange-950/70 border border-orange-300 dark:border-orange-800 flex items-center justify-center text-2xl shrink-0 shadow-2xs">
         💸
@@ -133,20 +147,6 @@ async function renderKpiBanner(bounds = getDateRangeBounds(), preloadedSpentItem
         <p class="text-[10px] font-bold uppercase text-sfl-woodLight dark:text-slate-400 tracking-wider">Spent</p>
         <p class="font-mono text-lg sm:text-2xl font-bold text-orange-700 dark:text-orange-400 truncate">-${grandSpentFlowers.toFixed(3)} 🌸</p>
         <p class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono mt-0.5 truncate">${Math.round(totalSpentItems).toLocaleString()} items & currency</p>
-      </div>
-    </div>
-
-    <!-- Box 3: Net Output -->
-    <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 rounded-2xl border-2 ${netFlowers >= 0 ? 'border-emerald-600/40 dark:border-emerald-700/50' : 'border-red-600/40 dark:border-red-700/50'} shadow-sm flex items-center gap-3.5">
-      <div class="w-12 h-12 rounded-xl ${netFlowers >= 0 ? 'bg-emerald-100 dark:bg-emerald-950/70 border-emerald-300 dark:border-emerald-800' : 'bg-red-100 dark:bg-red-950/70 border-red-300 dark:border-red-800'} border flex items-center justify-center text-2xl shrink-0 shadow-2xs">
-        ⚖️
-      </div>
-      <div class="truncate flex-1">
-        <p class="text-[10px] font-bold uppercase text-sfl-woodLight dark:text-slate-400 tracking-wider">Net Output</p>
-        <p class="font-mono text-lg sm:text-2xl font-bold ${netFlowers >= 0 ? 'text-sfl-green dark:text-emerald-400' : 'text-red-600 dark:text-red-400'} truncate">
-          ${netFlowers >= 0 ? '+' : ''}${netFlowers.toFixed(3)} 🌸
-        </p>
-        <p class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono mt-0.5">${netFlowers >= 0 ? 'Net Surplus' : 'Net Deficit'}</p>
       </div>
     </div>`;
 }
@@ -176,20 +176,22 @@ function renderTimeRangeControls() {
     </div>
 
     <!-- Date Range Navigator Pager (Previous / Next Arrows & Date Label) -->
-    <div class="inline-flex items-center gap-1.5 bg-amber-100/90 dark:bg-slate-800/90 px-2 py-1 rounded-xl border border-amber-300/80 dark:border-slate-700 shadow-2xs">
+    <div class="inline-flex items-center gap-1 sm:gap-1.5 bg-amber-100/90 dark:bg-slate-800/90 p-1 rounded-xl border border-amber-300/80 dark:border-slate-700 shadow-2xs">
       <button id="dash-page-prev"
-        class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-200/80 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 transition font-bold text-xs cursor-pointer"
+        class="h-8 px-2.5 sm:px-3 flex items-center justify-center gap-1 rounded-lg bg-amber-200/80 hover:bg-amber-300/90 dark:bg-slate-700 dark:hover:bg-slate-600 text-amber-950 dark:text-amber-200 border border-amber-300/90 dark:border-slate-600 transition font-bold text-xs cursor-pointer shadow-2xs active:scale-95"
         title="Previous ${activeTimeRange}">
-        ◀
+        <span class="text-sm">◀</span>
+        <span class="hidden sm:inline font-semibold">Prev</span>
       </button>
-      <span id="dash-date-label" class="text-xs font-bold text-sfl-dirt dark:text-amber-100 px-2 min-w-[135px] sm:min-w-[165px] text-center truncate">
+      <span id="dash-date-label" class="text-xs sm:text-sm font-bold text-sfl-dirt dark:text-amber-100 px-2 sm:px-3 min-w-[130px] sm:min-w-[170px] text-center truncate select-none">
         ${bounds.label}
       </span>
       <button id="dash-page-next"
-        class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-200/80 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 transition font-bold text-xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+        class="h-8 px-2.5 sm:px-3 flex items-center justify-center gap-1 rounded-lg bg-amber-200/80 hover:bg-amber-300/90 dark:bg-slate-700 dark:hover:bg-slate-600 text-amber-950 dark:text-amber-200 border border-amber-300/90 dark:border-slate-600 transition font-bold text-xs cursor-pointer shadow-2xs active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-amber-200/80 disabled:active:scale-100"
         ${activeTimeOffset === 0 ? 'disabled' : ''}
         title="Next ${activeTimeRange}">
-        ▶
+        <span class="hidden sm:inline font-semibold">Next</span>
+        <span class="text-sm">▶</span>
       </button>
     </div>`;
 
@@ -228,41 +230,6 @@ function navigatePeriod(delta) {
   populateSections();
 }
 
-// ── Touch Swipe Gesture Handler ────────────────────────────────────────────────
-let touchStartX = 0;
-let touchStartY = 0;
-
-function setupSwipeGestures() {
-  const target = document.getElementById('dashboard-section');
-  if (!target || target.dataset.swipeBound) return;
-  target.dataset.swipeBound = 'true';
-
-  target.addEventListener('touchstart', (e) => {
-    if (e.touches && e.touches[0]) {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    }
-  }, { passive: true });
-
-  target.addEventListener('touchend', (e) => {
-    if (e.changedTouches && e.changedTouches[0]) {
-      const deltaX = e.changedTouches[0].clientX - touchStartX;
-      const deltaY = e.changedTouches[0].clientY - touchStartY;
-
-      // Horizontal swipe threshold: >= 60px horizontal and dx > 1.4 * dy
-      if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4) {
-        if (deltaX > 0) {
-          // Swiped right -> go to previous (older) period
-          navigatePeriod(1);
-        } else {
-          // Swiped left -> go to next (newer) period
-          navigatePeriod(-1);
-        }
-      }
-    }
-  }, { passive: true });
-}
-
 function renderTemplate() {
   const container = document.getElementById('dashboard-section');
   if (!container) return;
@@ -276,7 +243,7 @@ function renderTemplate() {
             <span>📊</span> Dashboard
           </h3>
           <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-semibold">
-            Track harvests, consumption, and net organic yields. Swipe left/right or use arrows to navigate history.
+            Track harvests, consumption, and net organic yields. Use ◀ / ▶ arrows to navigate history.
           </p>
         </div>
 
@@ -293,24 +260,22 @@ function renderTemplate() {
         </div>
       </div>
 
-      <!-- Top High-Level 3-Box KPI Ribbon -->
+      <!-- Top High-Level 3-Box KPI Ribbon (Net Output Above, then Earned, then Spent) -->
       <div id="dash-kpi-banner" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
 
-      <!-- Main Dashboard Grid: Two Columns (Earned & Spent) -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-        <!-- Column 1: Items & Coins Earned (Emerald Accent) -->
-        <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 sm:p-5 rounded-2xl border-2 border-emerald-600/30 dark:border-emerald-700/40 shadow-sm flex flex-col justify-between">
+      <!-- Main Dashboard Sections: Stacked (Earned, then Spent) -->
+      <div class="space-y-4">
+        <!-- Section 1: Items & Coins Earned (Emerald Accent) -->
+        <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 sm:p-5 rounded-2xl border-2 border-emerald-600/30 dark:border-emerald-700/40 shadow-sm transition-all">
           <div id="dash-earned-mount"></div>
         </div>
 
-        <!-- Column 2: Items & Coins Spent (Orange Accent) -->
-        <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 sm:p-5 rounded-2xl border-2 border-orange-600/30 dark:border-orange-700/40 shadow-sm flex flex-col justify-between">
+        <!-- Section 2: Items & Coins Spent (Orange Accent) -->
+        <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 sm:p-5 rounded-2xl border-2 border-orange-600/30 dark:border-orange-700/40 shadow-sm transition-all">
           <div id="dash-spent-mount"></div>
         </div>
       </div>
     </div>`;
-
-  setupSwipeGestures();
 }
 
 let activeRenderId = 0;

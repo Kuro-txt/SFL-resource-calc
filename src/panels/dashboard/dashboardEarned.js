@@ -189,6 +189,11 @@ export function aggregateLocalEarned(boundsInput = 'week') {
 // ─── Render ───────────────────────────────────────────────────────────────────
 
 let currentEarnedCategory = 'all';
+let isEarnedOpen = true;
+try {
+  const saved = localStorage.getItem('sfl_dash_earned_open');
+  if (saved !== null) isEarnedOpen = (saved === 'true');
+} catch (_) {}
 
 export function renderEarnedSection(mountEl, boundsInput = 'day') {
   if (!mountEl) return;
@@ -359,49 +364,85 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
   }
 
   mountEl.innerHTML = `
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2.5">
-      <div class="min-w-0 pr-2">
-        <h4 class="text-xs sm:text-sm font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-          <span>🌾</span> Resources & Coins Earned
-        </h4>
-        <p class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate mt-0.5">${rangeLabel} • ${totalItemsCount.toFixed(0)} items produced • Net after ${taxPct}% tax ${grandTaxAmount > 0 ? `(-${grandTaxAmount.toFixed(3)} 🌸)` : ''}</p>
+    <!-- Header (Click to Expand / Collapse) -->
+    <div id="dash-earned-toggle-header" class="flex items-center justify-between cursor-pointer select-none group py-0.5"
+      title="${isEarnedOpen ? 'Click to collapse breakdown' : 'Click to expand breakdown'}">
+      <div class="min-w-0 pr-2 flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-xl shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+          🌾
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h4 class="text-xs sm:text-sm font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">
+              Resources & Coins Earned
+            </h4>
+            <span class="text-[10px] font-bold text-sfl-woodLight dark:text-slate-400 bg-amber-200/50 dark:bg-slate-800 px-2 py-0.2 rounded-full border border-amber-300/50 dark:border-slate-700">
+              ${nonCoinItems.length + (coinsData ? 1 : 0)} items & coins
+            </span>
+          </div>
+          <p class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate mt-0.5">${rangeLabel} • Net after ${taxPct}% tax ${grandTaxAmount > 0 ? `(-${grandTaxAmount.toFixed(3)} 🌸)` : ''}</p>
+        </div>
       </div>
-      <div class="text-right shrink-0">
-        <span class="font-mono text-sm font-bold text-sfl-green dark:text-emerald-400 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-2.5 py-1 rounded-xl shadow-2xs"
+      <div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        <span class="font-mono text-xs sm:text-sm font-bold text-sfl-green dark:text-emerald-400 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-2.5 py-1 rounded-xl shadow-2xs"
           title="Gross: ${(grandFlowers + grandTaxAmount).toFixed(3)} 🌸 | Total Tax: -${grandTaxAmount.toFixed(3)} 🌸">
           +${grandFlowers.toFixed(3)} 🌸
         </span>
+        <button id="dash-earned-arrow-btn" class="w-8 h-8 rounded-lg bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-amber-300 dark:border-slate-600 flex items-center justify-center text-xs font-bold text-sfl-wood dark:text-amber-200 transition shadow-2xs cursor-pointer"
+          title="${isEarnedOpen ? 'Collapse items' : 'Expand items'}">
+          ${isEarnedOpen ? '▲' : '▼'}
+        </button>
       </div>
     </div>
 
-    <!-- Featured Coins Earned Card -->
-    ${getCoinsBannerHtml()}
+    <!-- Collapsible Body (Currency Banners + Filter Pills + Ledger Table) -->
+    <div id="dash-earned-body" class="${isEarnedOpen ? '' : 'hidden'} mt-3 pt-3 border-t border-amber-200/60 dark:border-amber-800/40 space-y-3">
+      <!-- Featured Coins Earned Card -->
+      ${getCoinsBannerHtml()}
 
-    <!-- Section Title & Category Filter Pills -->
-    <div class="mb-1">
-      <div class="flex items-center justify-between mb-2">
-        <h5 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-          <span>📊</span> Item Breakdown
-        </h5>
-        <span class="text-[10px] font-bold text-sfl-woodLight dark:text-slate-400 bg-amber-200/50 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-amber-300/50 dark:border-slate-700">
-          ${nonCoinItems.length + (coinsData ? 1 : 0)} items & coins
-        </span>
+      <!-- Section Title & Category Filter Pills -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <h5 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+            <span>📊</span> Item Breakdown
+          </h5>
+        </div>
+        <div id="dash-earned-cat-pills">${getCategoryPillsHtml()}</div>
       </div>
-      <div id="dash-earned-cat-pills">${getCategoryPillsHtml()}</div>
-    </div>
 
-    <!-- Item Breakdown Content Table -->
-    <div class="rounded-xl border border-amber-200/60 dark:border-slate-800 bg-amber-50/20 dark:bg-slate-900/40 overflow-hidden shadow-2xs">
-      <div class="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-amber-100/90 dark:bg-slate-900/95 backdrop-blur-xs text-[10px] font-bold uppercase tracking-wider text-sfl-woodLight dark:text-slate-400 border-b border-amber-200/60 dark:border-slate-800">
-        <span class="flex-1">Item</span>
-        <span class="w-20 sm:w-24 text-right">Produced</span>
-        <span class="w-24 sm:w-28 text-right">Value (Net)</span>
-      </div>
-      <div id="dash-earned-items-list" class="max-h-[380px] overflow-y-auto divide-y divide-amber-200/30 dark:divide-slate-800/40">
-        ${getItemsListHtml()}
+      <!-- Item Breakdown Content Table -->
+      <div class="rounded-xl border border-amber-200/60 dark:border-slate-800 bg-amber-50/20 dark:bg-slate-900/40 overflow-hidden shadow-2xs">
+        <div class="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-amber-100/90 dark:bg-slate-900/95 backdrop-blur-xs text-[10px] font-bold uppercase tracking-wider text-sfl-woodLight dark:text-slate-400 border-b border-amber-200/60 dark:border-slate-800">
+          <span class="flex-1">Item</span>
+          <span class="w-20 sm:w-24 text-right">Produced</span>
+          <span class="w-24 sm:w-28 text-right">Value (Net)</span>
+        </div>
+        <div id="dash-earned-items-list" class="max-h-[380px] overflow-y-auto divide-y divide-amber-200/30 dark:divide-slate-800/40">
+          ${getItemsListHtml()}
+        </div>
       </div>
     </div>`;
+
+  // Bind collapse / expand toggle
+  const toggleHeader = mountEl.querySelector('#dash-earned-toggle-header');
+  if (toggleHeader && !toggleHeader._bound) {
+    toggleHeader._bound = true;
+    toggleHeader.addEventListener('click', (e) => {
+      // Don't toggle if clicking a link or interactive element inside header other than arrow/header
+      isEarnedOpen = !isEarnedOpen;
+      try { localStorage.setItem('sfl_dash_earned_open', String(isEarnedOpen)); } catch (_) {}
+      const body = mountEl.querySelector('#dash-earned-body');
+      const arrow = mountEl.querySelector('#dash-earned-arrow-btn');
+      if (body) {
+        if (isEarnedOpen) body.classList.remove('hidden');
+        else body.classList.add('hidden');
+      }
+      if (arrow) {
+        arrow.textContent = isEarnedOpen ? '▲' : '▼';
+        arrow.title = isEarnedOpen ? 'Collapse items' : 'Expand items';
+      }
+    });
+  }
 
   // Delegated listener on stable parent — survives innerHTML re-renders of pill/list children
   if (!mountEl._earnedCatListenerBound) {
