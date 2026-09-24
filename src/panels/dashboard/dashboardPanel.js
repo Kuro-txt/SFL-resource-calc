@@ -113,40 +113,40 @@ async function renderKpiBanner(bounds = getDateRangeBounds(), preloadedSpentItem
 
   mount.innerHTML = `
     <!-- Box 1: Harvest & Resources Earned -->
-    <div class="bg-sfl-card/90 dark:bg-amber-950/40 p-3.5 rounded-xl border-2 border-emerald-600/30 shadow-sm flex items-center gap-3">
-      <div class="w-11 h-11 rounded-xl bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-2xl shrink-0">
+    <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 rounded-2xl border-2 border-emerald-600/30 dark:border-emerald-700/40 shadow-sm flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-xl bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-2xl shrink-0 shadow-2xs">
         🌾
       </div>
-      <div class="truncate">
-        <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Earned (After Tax)</p>
-        <p class="font-mono text-base sm:text-xl font-bold text-sfl-green truncate">+${grandFlowers.toFixed(3)} 🌸</p>
-        <p class="text-[10px] text-sfl-woodLight font-mono">${Math.round(totalItems).toLocaleString()} items & coins${grandTax > 0 ? ` • -${grandTax.toFixed(3)} 🌸 tax` : ''}</p>
+      <div class="truncate flex-1">
+        <p class="text-[10px] font-bold uppercase text-sfl-woodLight dark:text-slate-400 tracking-wider">Earned (After Tax)</p>
+        <p class="font-mono text-lg sm:text-2xl font-bold text-sfl-green dark:text-emerald-400 truncate">+${grandFlowers.toFixed(3)} 🌸</p>
+        <p class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono mt-0.5 truncate">${Math.round(totalItems).toLocaleString()} items & coins${grandTax > 0 ? ` • -${grandTax.toFixed(3)} 🌸 tax` : ''}</p>
       </div>
     </div>
 
     <!-- Box 2: Resources, Coins & Gems Spent -->
-    <div class="bg-sfl-card/90 dark:bg-amber-950/40 p-3.5 rounded-xl border-2 border-orange-600/30 shadow-sm flex items-center gap-3">
-      <div class="w-11 h-11 rounded-xl bg-orange-100 dark:bg-orange-950/70 border border-orange-300 dark:border-orange-800 flex items-center justify-center text-2xl shrink-0">
+    <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 rounded-2xl border-2 border-orange-600/30 dark:border-orange-700/40 shadow-sm flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-xl bg-orange-100 dark:bg-orange-950/70 border border-orange-300 dark:border-orange-800 flex items-center justify-center text-2xl shrink-0 shadow-2xs">
         💸
       </div>
-      <div class="truncate">
-        <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Spent</p>
-        <p class="font-mono text-base sm:text-xl font-bold text-orange-700 dark:text-orange-400 truncate">-${grandSpentFlowers.toFixed(3)} 🌸</p>
-        <p class="text-[10px] text-sfl-woodLight font-mono">${Math.round(totalSpentItems).toLocaleString()} items & currency</p>
+      <div class="truncate flex-1">
+        <p class="text-[10px] font-bold uppercase text-sfl-woodLight dark:text-slate-400 tracking-wider">Spent</p>
+        <p class="font-mono text-lg sm:text-2xl font-bold text-orange-700 dark:text-orange-400 truncate">-${grandSpentFlowers.toFixed(3)} 🌸</p>
+        <p class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono mt-0.5 truncate">${Math.round(totalSpentItems).toLocaleString()} items & currency</p>
       </div>
     </div>
 
     <!-- Box 3: Net Output -->
-    <div class="bg-sfl-card/90 dark:bg-amber-950/40 p-3.5 rounded-xl border-2 ${netFlowers >= 0 ? 'border-emerald-600/40' : 'border-red-600/40'} shadow-sm flex items-center gap-3">
-      <div class="w-11 h-11 rounded-xl ${netFlowers >= 0 ? 'bg-emerald-100 dark:bg-emerald-950/70 border-emerald-300 dark:border-emerald-800' : 'bg-red-100 dark:bg-red-950/70 border-red-300 dark:border-red-800'} border flex items-center justify-center text-2xl shrink-0">
+    <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 rounded-2xl border-2 ${netFlowers >= 0 ? 'border-emerald-600/40 dark:border-emerald-700/50' : 'border-red-600/40 dark:border-red-700/50'} shadow-sm flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-xl ${netFlowers >= 0 ? 'bg-emerald-100 dark:bg-emerald-950/70 border-emerald-300 dark:border-emerald-800' : 'bg-red-100 dark:bg-red-950/70 border-red-300 dark:border-red-800'} border flex items-center justify-center text-2xl shrink-0 shadow-2xs">
         ⚖️
       </div>
-      <div class="truncate">
-        <p class="text-[10px] font-bold uppercase text-sfl-woodLight tracking-wider">Net Output</p>
-        <p class="font-mono text-base sm:text-xl font-bold ${netFlowers >= 0 ? 'text-sfl-green dark:text-emerald-400' : 'text-red-600 dark:text-red-400'} truncate">
+      <div class="truncate flex-1">
+        <p class="text-[10px] font-bold uppercase text-sfl-woodLight dark:text-slate-400 tracking-wider">Net Output</p>
+        <p class="font-mono text-lg sm:text-2xl font-bold ${netFlowers >= 0 ? 'text-sfl-green dark:text-emerald-400' : 'text-red-600 dark:text-red-400'} truncate">
           ${netFlowers >= 0 ? '+' : ''}${netFlowers.toFixed(3)} 🌸
         </p>
-        <p class="text-[10px] text-sfl-woodLight font-mono">${netFlowers >= 0 ? 'Net Surplus' : 'Net Deficit'}</p>
+        <p class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono mt-0.5">${netFlowers >= 0 ? 'Net Surplus' : 'Net Deficit'}</p>
       </div>
     </div>`;
 }
@@ -297,14 +297,14 @@ function renderTemplate() {
       <div id="dash-kpi-banner" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
 
       <!-- Main Dashboard Grid: Two Columns (Earned & Spent) -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
         <!-- Column 1: Items & Coins Earned (Emerald Accent) -->
-        <div class="bg-sfl-card/95 dark:bg-amber-950/30 p-4 rounded-2xl border-2 border-emerald-600/30 shadow-sm">
+        <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 sm:p-5 rounded-2xl border-2 border-emerald-600/30 dark:border-emerald-700/40 shadow-sm flex flex-col justify-between">
           <div id="dash-earned-mount"></div>
         </div>
 
         <!-- Column 2: Items & Coins Spent (Orange Accent) -->
-        <div class="bg-sfl-card/95 dark:bg-amber-950/30 p-4 rounded-2xl border-2 border-orange-600/30 shadow-sm">
+        <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 sm:p-5 rounded-2xl border-2 border-orange-600/30 dark:border-orange-700/40 shadow-sm flex flex-col justify-between">
           <div id="dash-spent-mount"></div>
         </div>
       </div>

@@ -525,23 +525,23 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
 
   if (nonCurrencyItems.length === 0 && !coinsData && !gemsData) {
     mountEl.innerHTML = `
-      <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
+      <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2.5">
         <div>
-          <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+          <h4 class="text-xs sm:text-sm font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
             <span>💸</span> Resources, Coins & Gems Spent
           </h4>
-          <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • Crafting, chores, coins & gems spent</p>
+          <p class="text-[10px] text-sfl-woodLight dark:text-slate-400">${rangeLabel} • Crafting, chores, coins & gems spent</p>
         </div>
         <div class="text-right">
-          <span class="font-mono text-sm font-bold text-orange-700 dark:text-orange-400 bg-orange-100/80 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">
-            0.000 🌸 Used
+          <span class="font-mono text-sm font-bold text-orange-700 dark:text-orange-400 bg-orange-100/90 dark:bg-orange-950/80 border border-orange-300 dark:border-orange-800 px-2.5 py-1 rounded-xl shadow-2xs">
+            -0.000 🌸
           </span>
         </div>
       </div>
-      <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
-        <span class="text-2xl mb-1 block">📉</span>
-        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Consumption in ${rangeLabel}</p>
-        <p class="text-[11px] text-sfl-woodLight mt-1">Navigate days with ◀ / ▶ or click 🔄 Sync Data.</p>
+      <div class="text-center py-12 px-4 bg-amber-50/40 dark:bg-slate-900/40 rounded-xl border border-amber-200/60 dark:border-slate-800">
+        <span class="text-3xl mb-2 block">📉</span>
+        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Consumption Recorded in ${rangeLabel}</p>
+        <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 mt-1">Navigate days with ◀ / ▶ or click 🔄 Refresh.</p>
       </div>`;
     return;
   }
@@ -553,8 +553,9 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
 
     if (visibleItems.length === 0) {
       return `
-        <div class="text-center py-6 px-3 bg-amber-50/40 dark:bg-amber-950/10 rounded-xl border border-amber-200/40 dark:border-amber-800/30">
-          <p class="text-xs font-semibold text-sfl-woodLight">No ${CATEGORY_META[currentSpentCategory]?.label || 'items'} spent in this timeframe.</p>
+        <div class="text-center py-10 px-4 text-sfl-woodLight dark:text-slate-400">
+          <span class="text-2xl mb-1.5 block opacity-60">💸</span>
+          <p class="text-xs font-semibold">No ${CATEGORY_META[currentSpentCategory]?.label || 'items'} spent in this timeframe.</p>
         </div>`;
     }
 
@@ -567,18 +568,29 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
       const formattedQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
 
       return `
-        <div class="group flex items-center gap-2.5 text-xs py-1.5 hover:bg-orange-100/40 dark:hover:bg-orange-950/30 px-2 rounded-lg transition border border-transparent hover:border-orange-200/50 dark:hover:border-orange-800/40">
-          <span class="text-base shrink-0">${icon}</span>
-          <div class="w-24 sm:w-28 truncate shrink-0">
-            <span class="font-bold text-sfl-dirt dark:text-amber-100" title="${name}">${name}</span>
-            <span class="block text-[9px] text-sfl-woodLight font-medium">${catMeta.label}</span>
+        <div class="group flex items-center justify-between gap-2 px-3 py-2 text-xs hover:bg-orange-500/10 dark:hover:bg-orange-500/15 transition-colors">
+          <!-- Column 1: Item (Icon + Name + Category + Micro Share Bar) -->
+          <div class="flex items-center gap-2.5 min-w-0 flex-1">
+            <span class="text-base sm:text-lg shrink-0 select-none">${icon}</span>
+            <div class="min-w-0 truncate flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-bold text-sfl-dirt dark:text-amber-100 truncate">${name}</span>
+                <span class="text-[9px] font-semibold uppercase tracking-wider text-orange-800/80 dark:text-orange-300/80 bg-orange-100/70 dark:bg-orange-950/60 px-1.5 py-0.2 rounded">${catMeta.label}</span>
+              </div>
+              <div class="w-20 sm:w-28 bg-amber-200/40 dark:bg-slate-800 rounded-full h-1 mt-1 overflow-hidden">
+                <div class="bg-gradient-to-r from-orange-400 to-amber-500 h-full rounded-full transition-all duration-300" style="width:${pct}%"></div>
+              </div>
+            </div>
           </div>
-          <div class="flex-1 bg-amber-200/60 dark:bg-amber-900/40 rounded-full h-2 overflow-hidden">
-            <div class="bg-gradient-to-r from-orange-400 to-amber-500 h-2 rounded-full transition-all duration-500" style="width:${pct}%"></div>
-          </div>
-          <div class="text-right shrink-0 font-mono">
+
+          <!-- Column 2: Quantity Consumed (Aligned) -->
+          <div class="w-20 sm:w-24 text-right shrink-0 font-mono">
             <span class="font-bold text-orange-700 dark:text-orange-400">-${formattedQty}</span>
-            <span class="text-sfl-woodLight text-[11px] ml-1">(${flowers.toFixed(3)} 🌸)</span>
+          </div>
+
+          <!-- Column 3: Flower Cost (Aligned) -->
+          <div class="w-24 sm:w-28 text-right shrink-0 font-mono">
+            <span class="font-bold text-orange-700 dark:text-orange-400 text-xs sm:text-[13px]">-${flowers.toFixed(3)} 🌸</span>
           </div>
         </div>`;
     }).join('');
@@ -587,21 +599,23 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
   function getCoinsBannerHtml(inGrid = false) {
     if (!coinsData || coinsData.qty <= 0) return '';
     const ratio = getCoinFlowerRatio();
-    const marginClass = inGrid ? '' : 'mb-2.5';
+    const marginClass = inGrid ? '' : 'mb-3';
     return `
-      <div class="bg-gradient-to-r from-orange-500/15 via-amber-500/20 to-orange-500/15 dark:from-orange-950/50 dark:to-amber-950/40 border border-orange-500/40 dark:border-orange-600/50 p-2.5 rounded-xl flex items-center justify-between shadow-2xs ${marginClass}">
-        <div class="flex items-center gap-2">
-          <span class="text-2xl">🪙</span>
+      <div class="bg-gradient-to-r from-orange-500/10 via-amber-500/15 to-orange-500/10 dark:from-orange-950/40 dark:to-amber-950/30 border border-orange-500/30 dark:border-orange-600/40 p-2.5 rounded-xl flex items-center justify-between shadow-2xs ${marginClass} min-h-[58px]">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg bg-orange-100 dark:bg-orange-950/60 border border-orange-300 dark:border-orange-700 flex items-center justify-center text-xl shrink-0 shadow-2xs">
+            🪙
+          </div>
           <div>
             <p class="text-[10px] font-bold uppercase text-orange-800 dark:text-orange-300 tracking-wider">Coins Spent</p>
             <p class="font-mono text-sm font-bold text-orange-900 dark:text-orange-100">-${Math.round(coinsData.qty).toLocaleString()} Coins</p>
           </div>
         </div>
-        <div class="text-right">
-          <span class="font-mono text-xs font-bold text-orange-700 dark:text-orange-400 bg-orange-100/90 dark:bg-orange-950/80 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">
+        <div class="text-right font-mono">
+          <span class="text-xs font-bold text-orange-700 dark:text-orange-400 bg-orange-100/90 dark:bg-orange-950/80 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">
             -${coinsData.flowers.toFixed(3)} 🌸
           </span>
-          <p class="text-[9px] text-sfl-woodLight font-mono mt-0.5">1🌸 = ${ratio.toLocaleString()}🪙</p>
+          <p class="text-[9px] text-sfl-woodLight dark:text-slate-400 mt-1">1🌸 = ${ratio.toLocaleString()}🪙</p>
         </div>
       </div>`;
   }
@@ -612,20 +626,25 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
     const isDiscount = isGemDiscountActive();
     const selectedPack = getSelectedGemPack();
     const packLabel = selectedPack ? `${selectedPack} Pack` : '100 Pack';
-    const discountBadge = isDiscount ? '<span class="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold ml-1 bg-emerald-100/80 dark:bg-emerald-950/50 px-1 py-0.5 rounded border border-emerald-300/60 dark:border-emerald-700/60">-20%</span>' : '';
-    const marginClass = inGrid ? '' : 'mb-2.5';
+    const discountBadge = isDiscount ? '<span class="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-100/80 dark:bg-emerald-950/50 px-1 py-0.2 rounded border border-emerald-300/60 dark:border-emerald-700/60">-20%</span>' : '';
+    const marginClass = inGrid ? '' : 'mb-3';
 
-    let diffSubtitle = `1💎 = ${gemPrice.toFixed(4)}🌸 • ${packLabel}`;
+    let diffTooltip = `1💎 = ${gemPrice.toFixed(4)}🌸 • ${packLabel}`;
+    let diffSubtitle = `${packLabel}`;
     if (gemsData.dayMeta && gemsData.dayMeta.startGems !== null && gemsData.dayMeta.endGems !== null) {
       const { startGems, endGems, diff, isToday } = gemsData.dayMeta;
-      const endLabel = isToday ? 'Live' : '22 UTC';
-      diffSubtitle = `0 UTC: ${Math.round(startGems).toLocaleString()} ➔ ${endLabel}: ${Math.round(endGems).toLocaleString()} (${diff} 💎) • ${packLabel}`;
+      const endLabel = isToday ? 'Live' : '22:30 UTC';
+      diffTooltip = `00:00 UTC: ${Math.round(startGems).toLocaleString()} ➔ ${endLabel}: ${Math.round(endGems).toLocaleString()} (${diff} 💎) • ${packLabel}`;
+      diffSubtitle = `0 ➔ ${endLabel}: ${diff}💎`;
     }
 
     return `
-      <div class="bg-gradient-to-r from-sky-500/15 via-blue-500/20 to-cyan-500/15 dark:from-sky-950/50 dark:to-cyan-950/40 border border-sky-500/40 dark:border-sky-600/50 p-2.5 rounded-xl flex items-center justify-between shadow-2xs ${marginClass}">
-        <div class="flex items-center gap-2">
-          <span class="text-2xl">💎</span>
+      <div class="bg-gradient-to-r from-sky-500/10 via-blue-500/15 to-cyan-500/10 dark:from-sky-950/40 dark:to-cyan-950/30 border border-sky-500/30 dark:border-sky-600/40 p-2.5 rounded-xl flex items-center justify-between shadow-2xs ${marginClass} min-h-[58px]"
+        title="${diffTooltip}">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-950/60 border border-sky-300 dark:border-sky-700 flex items-center justify-center text-xl shrink-0 shadow-2xs">
+            💎
+          </div>
           <div>
             <div class="flex items-center gap-1">
               <p class="text-[10px] font-bold uppercase text-sky-800 dark:text-sky-300 tracking-wider">Gems Spent</p>
@@ -634,11 +653,11 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
             <p class="font-mono text-sm font-bold text-sky-900 dark:text-sky-100">-${(gemsData.qty % 1 === 0 ? gemsData.qty.toLocaleString() : gemsData.qty.toFixed(1))} Gems</p>
           </div>
         </div>
-        <div class="text-right">
-          <span class="font-mono text-xs font-bold text-sky-700 dark:text-sky-300 bg-sky-100/90 dark:bg-sky-950/80 border border-sky-300 dark:border-sky-800 px-2 py-0.5 rounded-lg shadow-2xs">
+        <div class="text-right font-mono">
+          <span class="text-xs font-bold text-sky-700 dark:text-sky-300 bg-sky-100/90 dark:bg-sky-950/80 border border-sky-300 dark:border-sky-800 px-2 py-0.5 rounded-lg shadow-2xs">
             -${gemsData.flowers.toFixed(3)} 🌸
           </span>
-          <p class="text-[9px] text-sfl-woodLight font-mono mt-0.5">${diffSubtitle}</p>
+          <p class="text-[9px] text-sfl-woodLight dark:text-slate-400 mt-1 truncate max-w-[130px]" title="${diffTooltip}">${diffSubtitle}</p>
         </div>
       </div>`;
   }
@@ -651,7 +670,7 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
 
     if (hasCoins && hasGems) {
       return `
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-2.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
           ${getCoinsBannerHtml(true)}
           ${getGemsBannerHtml(true)}
         </div>`;
@@ -665,18 +684,18 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
     const pill = (cat, label, icon, count) => {
       const isActive = currentSpentCategory === cat;
       const activeClass = isActive
-        ? 'bg-orange-600 text-white shadow-xs'
-        : 'bg-amber-100/90 dark:bg-amber-900/40 text-sfl-wood dark:text-amber-200 hover:bg-amber-200/80 dark:hover:bg-amber-800/60';
+        ? 'bg-orange-600 text-white font-bold shadow-xs'
+        : 'text-sfl-wood hover:text-sfl-dirt dark:text-slate-400 dark:hover:text-amber-200 font-medium hover:bg-amber-200/50 dark:hover:bg-slate-800';
       return `
-        <button data-cat="${cat}" class="dash-spent-cat-btn px-2.5 py-1 rounded-lg transition cursor-pointer shrink-0 flex items-center gap-1 ${activeClass}">
+        <button data-cat="${cat}" class="dash-spent-cat-btn px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 text-xs ${activeClass}">
           <span>${icon}</span>
           <span>${label}</span>
-          <span class="opacity-75 text-[10px]">(${count})</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-amber-200/60 dark:bg-slate-800 text-sfl-woodLight dark:text-slate-400'}">${count}</span>
         </button>`;
     };
 
     return `
-      <div class="flex items-center gap-1.5 overflow-x-auto pb-1.5 mb-2.5 text-xs font-bold scrollbar-none">
+      <div class="flex items-center gap-1 overflow-x-auto p-1 bg-amber-100/70 dark:bg-slate-900/60 rounded-xl border border-amber-300/60 dark:border-slate-800 mb-3 scrollbar-none">
         ${pill('all', 'All', '🌟', counts.all)}
         ${pill('crops', 'Crops', '🌾', counts.crops)}
         ${pill('resources', 'Resources', '🪵', counts.resources)}
@@ -690,16 +709,16 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
 
   mountEl.innerHTML = `
     <!-- Header -->
-    <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
-      <div>
-        <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+    <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2.5">
+      <div class="min-w-0 pr-2">
+        <h4 class="text-xs sm:text-sm font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
           <span>💸</span> Resources, Coins & Gems Spent
         </h4>
-        <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • Crafting, chores, coins & gems spent</p>
+        <p class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate mt-0.5">${rangeLabel} • Crafting, chores, coins & gems spent</p>
       </div>
-      <div class="text-right">
-        <span class="font-mono text-sm font-bold text-orange-700 dark:text-orange-400 bg-orange-100/80 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">
-          ${grandFlowers.toFixed(3)} 🌸 Used
+      <div class="text-right shrink-0">
+        <span class="font-mono text-sm font-bold text-orange-700 dark:text-orange-400 bg-orange-100/90 dark:bg-orange-950/80 border border-orange-300 dark:border-orange-800 px-2.5 py-1 rounded-xl shadow-2xs">
+          -${grandFlowers.toFixed(3)} 🌸
         </span>
       </div>
     </div>
@@ -709,22 +728,29 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
 
     <!-- Section Title & Category Filter Pills -->
     <div class="mb-1">
-      <div class="flex items-center justify-between mb-1.5">
+      <div class="flex items-center justify-between mb-2">
         <h5 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
           <span>📊</span> Item Breakdown
         </h5>
-        <span class="text-[10px] font-bold text-sfl-woodLight bg-amber-200/50 dark:bg-amber-900/40 px-2 py-0.5 rounded-full">
+        <span class="text-[10px] font-bold text-sfl-woodLight dark:text-slate-400 bg-amber-200/50 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-amber-300/50 dark:border-slate-700">
           ${totalDisplayCount} ${totalDisplayCount === 1 ? 'item' : 'items'} & currency
         </span>
       </div>
       <div id="dash-spent-cat-pills">${getCategoryPillsHtml()}</div>
     </div>
 
-    <!-- Item Breakdown Content List -->
-    <div id="dash-spent-items-list" class="max-h-80 overflow-y-auto pr-1 space-y-1">
-      ${getItemsListHtml()}
+    <!-- Item Breakdown Content Table -->
+    <div class="rounded-xl border border-amber-200/60 dark:border-slate-800 bg-amber-50/20 dark:bg-slate-900/40 overflow-hidden shadow-2xs">
+      <div class="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-amber-100/90 dark:bg-slate-900/95 backdrop-blur-xs text-[10px] font-bold uppercase tracking-wider text-sfl-woodLight dark:text-slate-400 border-b border-amber-200/60 dark:border-slate-800">
+        <span class="flex-1">Item</span>
+        <span class="w-20 sm:w-24 text-right">Consumed</span>
+        <span class="w-24 sm:w-28 text-right">Flower Cost</span>
+      </div>
+      <div id="dash-spent-items-list" class="max-h-[380px] overflow-y-auto divide-y divide-amber-200/30 dark:divide-slate-800/40">
+        ${getItemsListHtml()}
+      </div>
     </div>
-    <p class="text-[10px] text-sfl-woodLight italic mt-3 pt-2 border-t border-amber-100 dark:border-amber-900/40">
+    <p class="text-[10px] text-sfl-woodLight dark:text-slate-500 italic mt-2.5 text-center">
       * Trade-adjusted consumption. Excludes marketplace sales.
     </p>`;
 

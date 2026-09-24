@@ -236,23 +236,23 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
 
   if (nonCoinItems.length === 0 && !coinsData) {
     mountEl.innerHTML = `
-      <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
+      <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2.5">
         <div>
-          <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+          <h4 class="text-xs sm:text-sm font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
             <span>🌾</span> Resources & Coins Earned
           </h4>
-          <p class="text-[10px] text-sfl-woodLight">${rangeLabel}</p>
+          <p class="text-[10px] text-sfl-woodLight dark:text-slate-400">${rangeLabel}</p>
         </div>
         <div class="text-right">
-          <span class="font-mono text-sm font-bold text-sfl-green bg-green-100/80 dark:bg-green-950/40 border border-green-300 dark:border-green-800 px-2 py-0.5 rounded-lg shadow-2xs">
-            0.000 🌸
+          <span class="font-mono text-sm font-bold text-sfl-green dark:text-emerald-400 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-2.5 py-1 rounded-xl shadow-2xs">
+            +0.000 🌸
           </span>
         </div>
       </div>
-      <div class="text-center py-8 px-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
-        <span class="text-2xl mb-1 block">🚜</span>
-        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Harvests in ${rangeLabel}</p>
-        <p class="text-[11px] text-sfl-woodLight mt-1">Navigate days with ◀ / ▶ or click 🔄 Sync Data.</p>
+      <div class="text-center py-12 px-4 bg-amber-50/40 dark:bg-slate-900/40 rounded-xl border border-amber-200/60 dark:border-slate-800">
+        <span class="text-3xl mb-2 block">🚜</span>
+        <p class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Harvests Recorded in ${rangeLabel}</p>
+        <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 mt-1">Navigate days with ◀ / ▶ or click 🔄 Refresh.</p>
       </div>`;
     return;
   }
@@ -264,8 +264,9 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
 
     if (visibleItems.length === 0) {
       return `
-        <div class="text-center py-6 px-3 bg-amber-50/40 dark:bg-amber-950/10 rounded-xl border border-amber-200/40 dark:border-amber-800/30">
-          <p class="text-xs font-semibold text-sfl-woodLight">No ${CATEGORY_META[currentEarnedCategory]?.label || 'items'} recorded in this timeframe.</p>
+        <div class="text-center py-10 px-4 text-sfl-woodLight dark:text-slate-400">
+          <span class="text-2xl mb-1.5 block opacity-60">🌾</span>
+          <p class="text-xs font-semibold">No ${CATEGORY_META[currentEarnedCategory]?.label || 'items'} recorded in this timeframe.</p>
         </div>`;
     }
 
@@ -281,19 +282,30 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
         : `Value: ${flowers.toFixed(3)} 🌸`;
 
       return `
-        <div class="group flex items-center gap-2.5 text-xs py-1.5 hover:bg-emerald-100/40 dark:hover:bg-emerald-950/30 px-2 rounded-lg transition border border-transparent hover:border-emerald-200/50 dark:hover:border-emerald-800/40"
+        <div class="group flex items-center justify-between gap-2 px-3 py-2 text-xs hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 transition-colors"
           title="${taxTooltip}">
-          <span class="text-base shrink-0">${icon}</span>
-          <div class="w-24 sm:w-28 truncate shrink-0">
-            <span class="font-bold text-sfl-dirt dark:text-amber-100" title="${name}">${name}</span>
-            <span class="block text-[9px] text-sfl-woodLight font-medium">${catMeta.label}</span>
+          <!-- Column 1: Item (Icon + Name + Category + Micro Share Bar) -->
+          <div class="flex items-center gap-2.5 min-w-0 flex-1">
+            <span class="text-base sm:text-lg shrink-0 select-none">${icon}</span>
+            <div class="min-w-0 truncate flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-bold text-sfl-dirt dark:text-amber-100 truncate">${name}</span>
+                <span class="text-[9px] font-semibold uppercase tracking-wider text-emerald-800/80 dark:text-emerald-300/80 bg-emerald-100/70 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded">${catMeta.label}</span>
+              </div>
+              <div class="w-20 sm:w-28 bg-amber-200/40 dark:bg-slate-800 rounded-full h-1 mt-1 overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-500 to-green-600 h-full rounded-full transition-all duration-300" style="width:${pct}%"></div>
+              </div>
+            </div>
           </div>
-          <div class="flex-1 bg-amber-200/60 dark:bg-amber-900/40 rounded-full h-2 overflow-hidden">
-            <div class="bg-gradient-to-r from-emerald-500 to-green-600 h-2 rounded-full transition-all duration-500" style="width:${pct}%"></div>
-          </div>
-          <div class="text-right shrink-0 font-mono">
+
+          <!-- Column 2: Quantity Produced (Aligned) -->
+          <div class="w-20 sm:w-24 text-right shrink-0 font-mono">
             <span class="font-bold text-sfl-dirt dark:text-amber-100">+${formattedQty}</span>
-            <span class="text-sfl-green text-[11px] ml-1 font-semibold">(${flowers.toFixed(3)} 🌸)</span>
+          </div>
+
+          <!-- Column 3: Flower Value (Aligned) -->
+          <div class="w-24 sm:w-28 text-right shrink-0 font-mono">
+            <span class="font-bold text-sfl-green dark:text-emerald-400 text-xs sm:text-[13px]">+${flowers.toFixed(3)} 🌸</span>
           </div>
         </div>`;
     }).join('');
@@ -303,19 +315,21 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
     if (!coinsData || coinsData.qty <= 0) return '';
     const ratio = getCoinFlowerRatio();
     return `
-      <div class="bg-gradient-to-r from-amber-500/15 via-yellow-500/20 to-amber-500/15 dark:from-yellow-950/50 dark:to-amber-950/40 border border-yellow-500/40 dark:border-yellow-600/50 p-2.5 rounded-xl flex items-center justify-between shadow-2xs mb-2.5">
-        <div class="flex items-center gap-2">
-          <span class="text-2xl">🪙</span>
+      <div class="bg-gradient-to-r from-amber-500/10 via-yellow-500/15 to-amber-500/10 dark:from-yellow-950/40 dark:to-amber-950/30 border border-yellow-500/30 dark:border-yellow-600/40 p-2.5 rounded-xl flex items-center justify-between shadow-2xs mb-3 min-h-[58px]">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg bg-yellow-100 dark:bg-yellow-950/60 border border-yellow-300 dark:border-yellow-700 flex items-center justify-center text-xl shrink-0 shadow-2xs">
+            🪙
+          </div>
           <div>
             <p class="text-[10px] font-bold uppercase text-yellow-800 dark:text-yellow-300 tracking-wider">Coins Earned</p>
             <p class="font-mono text-sm font-bold text-yellow-900 dark:text-yellow-100">+${Math.round(coinsData.qty).toLocaleString()} Coins</p>
           </div>
         </div>
-        <div class="text-right">
-          <span class="font-mono text-xs font-bold text-sfl-green dark:text-emerald-400 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded-lg shadow-2xs">
+        <div class="text-right font-mono">
+          <span class="text-xs font-bold text-sfl-green dark:text-emerald-400 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded-lg shadow-2xs">
             +${coinsData.flowers.toFixed(3)} 🌸
           </span>
-          <p class="text-[9px] text-sfl-woodLight font-mono mt-0.5">1🌸 = ${ratio.toLocaleString()}🪙</p>
+          <p class="text-[9px] text-sfl-woodLight dark:text-slate-400 mt-1">1🌸 = ${ratio.toLocaleString()}🪙</p>
         </div>
       </div>`;
   }
@@ -324,18 +338,18 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
     const pill = (cat, label, icon, count) => {
       const isActive = currentEarnedCategory === cat;
       const activeClass = isActive
-        ? 'bg-emerald-600 text-white shadow-xs'
-        : 'bg-amber-100/90 dark:bg-amber-900/40 text-sfl-wood dark:text-amber-200 hover:bg-amber-200/80 dark:hover:bg-amber-800/60';
+        ? 'bg-emerald-600 text-white font-bold shadow-xs'
+        : 'text-sfl-wood hover:text-sfl-dirt dark:text-slate-400 dark:hover:text-amber-200 font-medium hover:bg-amber-200/50 dark:hover:bg-slate-800';
       return `
-        <button data-cat="${cat}" class="dash-earned-cat-btn px-2.5 py-1 rounded-lg transition cursor-pointer shrink-0 flex items-center gap-1 ${activeClass}">
+        <button data-cat="${cat}" class="dash-earned-cat-btn px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 text-xs ${activeClass}">
           <span>${icon}</span>
           <span>${label}</span>
-          <span class="opacity-75 text-[10px]">(${count})</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-amber-200/60 dark:bg-slate-800 text-sfl-woodLight dark:text-slate-400'}">${count}</span>
         </button>`;
     };
 
     return `
-      <div class="flex items-center gap-1.5 overflow-x-auto pb-1.5 mb-2.5 text-xs font-bold scrollbar-none">
+      <div class="flex items-center gap-1 overflow-x-auto p-1 bg-amber-100/70 dark:bg-slate-900/60 rounded-xl border border-amber-300/60 dark:border-slate-800 mb-3 scrollbar-none">
         ${pill('all', 'All', '🌟', counts.all)}
         ${pill('crops', 'Crops', '🌾', counts.crops)}
         ${pill('resources', 'Resources', '🪵', counts.resources)}
@@ -346,17 +360,17 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
 
   mountEl.innerHTML = `
     <!-- Header -->
-    <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2">
-      <div>
-        <h4 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
+    <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2.5">
+      <div class="min-w-0 pr-2">
+        <h4 class="text-xs sm:text-sm font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
           <span>🌾</span> Resources & Coins Earned
         </h4>
-        <p class="text-[10px] text-sfl-woodLight">${rangeLabel} • ${totalItemsCount.toFixed(0)} items produced • Net after ${taxPct}% tax ${grandTaxAmount > 0 ? `(-${grandTaxAmount.toFixed(3)} 🌸)` : ''}</p>
+        <p class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate mt-0.5">${rangeLabel} • ${totalItemsCount.toFixed(0)} items produced • Net after ${taxPct}% tax ${grandTaxAmount > 0 ? `(-${grandTaxAmount.toFixed(3)} 🌸)` : ''}</p>
       </div>
-      <div class="text-right">
-        <span class="font-mono text-sm font-bold text-sfl-green bg-green-100/80 dark:bg-green-950/40 border border-green-300 dark:border-green-800 px-2 py-0.5 rounded-lg shadow-2xs"
+      <div class="text-right shrink-0">
+        <span class="font-mono text-sm font-bold text-sfl-green dark:text-emerald-400 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-2.5 py-1 rounded-xl shadow-2xs"
           title="Gross: ${(grandFlowers + grandTaxAmount).toFixed(3)} 🌸 | Total Tax: -${grandTaxAmount.toFixed(3)} 🌸">
-          ${grandFlowers.toFixed(3)} 🌸
+          +${grandFlowers.toFixed(3)} 🌸
         </span>
       </div>
     </div>
@@ -366,20 +380,27 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
 
     <!-- Section Title & Category Filter Pills -->
     <div class="mb-1">
-      <div class="flex items-center justify-between mb-1.5">
+      <div class="flex items-center justify-between mb-2">
         <h5 class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
           <span>📊</span> Item Breakdown
         </h5>
-        <span class="text-[10px] font-bold text-sfl-woodLight bg-amber-200/50 dark:bg-amber-900/40 px-2 py-0.5 rounded-full">
+        <span class="text-[10px] font-bold text-sfl-woodLight dark:text-slate-400 bg-amber-200/50 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-amber-300/50 dark:border-slate-700">
           ${nonCoinItems.length + (coinsData ? 1 : 0)} items & coins
         </span>
       </div>
       <div id="dash-earned-cat-pills">${getCategoryPillsHtml()}</div>
     </div>
 
-    <!-- Item Breakdown Content List -->
-    <div id="dash-earned-items-list" class="max-h-80 overflow-y-auto pr-1 space-y-1">
-      ${getItemsListHtml()}
+    <!-- Item Breakdown Content Table -->
+    <div class="rounded-xl border border-amber-200/60 dark:border-slate-800 bg-amber-50/20 dark:bg-slate-900/40 overflow-hidden shadow-2xs">
+      <div class="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-amber-100/90 dark:bg-slate-900/95 backdrop-blur-xs text-[10px] font-bold uppercase tracking-wider text-sfl-woodLight dark:text-slate-400 border-b border-amber-200/60 dark:border-slate-800">
+        <span class="flex-1">Item</span>
+        <span class="w-20 sm:w-24 text-right">Produced</span>
+        <span class="w-24 sm:w-28 text-right">Value (Net)</span>
+      </div>
+      <div id="dash-earned-items-list" class="max-h-[380px] overflow-y-auto divide-y divide-amber-200/30 dark:divide-slate-800/40">
+        ${getItemsListHtml()}
+      </div>
     </div>`;
 
   // Delegated listener on stable parent — survives innerHTML re-renders of pill/list children
