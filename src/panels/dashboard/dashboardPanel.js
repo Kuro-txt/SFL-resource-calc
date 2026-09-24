@@ -266,12 +266,12 @@ function renderTemplate() {
       <!-- Main Dashboard Sections: Stacked (Earned, then Spent) -->
       <div class="space-y-4">
         <!-- Section 1: Items & Coins Earned (Emerald Accent) -->
-        <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 sm:p-5 rounded-2xl border-2 border-emerald-600/30 dark:border-emerald-700/40 shadow-sm transition-all">
+        <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-3.5 sm:p-5 rounded-2xl border-2 border-emerald-600/30 dark:border-emerald-700/40 shadow-sm transition-all">
           <div id="dash-earned-mount"></div>
         </div>
 
         <!-- Section 2: Items & Coins Spent (Orange Accent) -->
-        <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-4 sm:p-5 rounded-2xl border-2 border-orange-600/30 dark:border-orange-700/40 shadow-sm transition-all">
+        <div class="bg-sfl-card/95 dark:bg-slate-900/90 p-3.5 sm:p-5 rounded-2xl border-2 border-orange-600/30 dark:border-orange-700/40 shadow-sm transition-all">
           <div id="dash-spent-mount"></div>
         </div>
       </div>

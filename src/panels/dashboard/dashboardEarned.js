@@ -287,30 +287,33 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
         : `Value: ${flowers.toFixed(3)} 🌸`;
 
       return `
-        <div class="group flex items-center justify-between gap-2 px-3 py-2 text-xs hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 transition-colors"
+        <div class="group flex items-center justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 text-xs hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 transition-colors"
           title="${taxTooltip}">
           <!-- Column 1: Item (Icon + Name + Category + Micro Share Bar) -->
-          <div class="flex items-center gap-2.5 min-w-0 flex-1">
+          <div class="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
             <span class="text-base sm:text-lg shrink-0 select-none">${icon}</span>
-            <div class="min-w-0 truncate flex-1">
+            <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="font-bold text-sfl-dirt dark:text-amber-100 truncate">${name}</span>
-                <span class="text-[9px] font-semibold uppercase tracking-wider text-emerald-800/80 dark:text-emerald-300/80 bg-emerald-100/70 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded">${catMeta.label}</span>
+                <span class="font-bold text-sfl-dirt dark:text-amber-100 text-[11px] sm:text-xs leading-snug break-words">${name}</span>
+                <span class="hidden sm:inline-block text-[9px] font-semibold uppercase tracking-wider text-emerald-800/80 dark:text-emerald-300/80 bg-emerald-100/70 dark:bg-emerald-950/60 px-1.5 py-0.2 rounded">${catMeta.label}</span>
               </div>
-              <div class="w-20 sm:w-28 bg-amber-200/40 dark:bg-slate-800 rounded-full h-1 mt-1 overflow-hidden">
-                <div class="bg-gradient-to-r from-emerald-500 to-green-600 h-full rounded-full transition-all duration-300" style="width:${pct}%"></div>
+              <div class="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+                <div class="w-12 sm:w-28 bg-amber-200/40 dark:bg-slate-800 rounded-full h-1 overflow-hidden shrink-0">
+                  <div class="bg-gradient-to-r from-emerald-500 to-green-600 h-full rounded-full transition-all duration-300" style="width:${pct}%"></div>
+                </div>
+                <span class="sm:hidden text-[8px] font-medium uppercase tracking-wider text-sfl-woodLight dark:text-slate-400 opacity-75">${catMeta.label}</span>
               </div>
             </div>
           </div>
 
           <!-- Column 2: Quantity Produced (Aligned) -->
-          <div class="w-20 sm:w-24 text-right shrink-0 font-mono">
+          <div class="w-14 sm:w-24 text-right shrink-0 font-mono text-[11px] sm:text-xs">
             <span class="font-bold text-sfl-dirt dark:text-amber-100">+${formattedQty}</span>
           </div>
 
           <!-- Column 3: Flower Value (Aligned) -->
-          <div class="w-24 sm:w-28 text-right shrink-0 font-mono">
-            <span class="font-bold text-sfl-green dark:text-emerald-400 text-xs sm:text-[13px]">+${flowers.toFixed(3)} 🌸</span>
+          <div class="w-20 sm:w-28 text-right shrink-0 font-mono text-[11px] sm:text-xs">
+            <span class="font-bold text-sfl-green dark:text-emerald-400 sm:text-[13px]">+${flowers.toFixed(3)} 🌸</span>
           </div>
         </div>`;
     }).join('');
@@ -412,10 +415,16 @@ export function renderEarnedSection(mountEl, boundsInput = 'day') {
 
       <!-- Item Breakdown Content Table -->
       <div class="rounded-xl border border-amber-200/60 dark:border-slate-800 bg-amber-50/20 dark:bg-slate-900/40 overflow-hidden shadow-2xs">
-        <div class="sticky top-0 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-amber-100/90 dark:bg-slate-900/95 backdrop-blur-xs text-[10px] font-bold uppercase tracking-wider text-sfl-woodLight dark:text-slate-400 border-b border-amber-200/60 dark:border-slate-800">
-          <span class="flex-1">Item</span>
-          <span class="w-20 sm:w-24 text-right">Produced</span>
-          <span class="w-24 sm:w-28 text-right">Value (Net)</span>
+        <div class="sticky top-0 z-10 flex items-center justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 bg-amber-100/90 dark:bg-slate-900/95 backdrop-blur-xs text-[10px] font-bold uppercase tracking-wider text-sfl-woodLight dark:text-slate-400 border-b border-amber-200/60 dark:border-slate-800">
+          <span class="flex-1 min-w-0">Item</span>
+          <span class="w-14 sm:w-24 text-right">
+            <span class="sm:hidden">Qty</span>
+            <span class="hidden sm:inline">Produced</span>
+          </span>
+          <span class="w-20 sm:w-28 text-right">
+            <span class="sm:hidden">Value</span>
+            <span class="hidden sm:inline">Value (Net)</span>
+          </span>
         </div>
         <div id="dash-earned-items-list" class="max-h-[380px] overflow-y-auto divide-y divide-amber-200/30 dark:divide-slate-800/40">
           ${getItemsListHtml()}
