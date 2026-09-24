@@ -1,4 +1,5 @@
 import { debounce } from '../utils/helpers.js';
+import { initSupabaseClient } from '../config/constants.js';
 
 export async function initAuth() {
   if (!window.supabaseClient && typeof supabaseClient !== 'undefined') {
@@ -22,6 +23,10 @@ export async function initAuth() {
   if (savedApiKey && apiKeyEl) apiKeyEl.value = savedApiKey;
 
   bindAuthEventListeners();
+
+  if (!window.supabaseClient) {
+    await initSupabaseClient();
+  }
 
   if (!window.supabaseClient) {
     setLoggedOutUser();
@@ -289,6 +294,7 @@ function bindAuthEventListeners() {
     const email = document.getElementById('auth-email')?.value.trim();
     const password = document.getElementById('auth-password')?.value.trim();
 
+    if (!window.supabaseClient) await initSupabaseClient();
     if (!window.supabaseClient) return alert("❌ Supabase client is not initialized.");
     if (!email || !password) return alert("⚠️ Please enter email and password.");
 
@@ -306,6 +312,7 @@ function bindAuthEventListeners() {
     const password = document.getElementById('auth-password')?.value.trim();
     const farmId = document.getElementById('farm-id')?.value.trim();
 
+    if (!window.supabaseClient) await initSupabaseClient();
     if (!window.supabaseClient) return alert("❌ Supabase client is not initialized.");
     if (!email || !password) return alert("⚠️ Please enter email and password.");
     if (password.length < 6) return alert("⚠️ Password must be at least 6 characters.");
