@@ -285,6 +285,25 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
     }
   }
 
+  // Fallback to Backend /api/baselines if direct Supabase query returned 0 rows (e.g. unauthenticated or RLS protected)
+  if (baselineRows.length === 0 && (farmId || user?.id)) {
+    try {
+      const backend = window.BACKEND_URL || '';
+      let res = await fetch(`/api/baselines?farmId=${encodeURIComponent(farmId)}&userId=${encodeURIComponent(user?.id || '')}`);
+      if (!res.ok && backend) {
+        res = await fetch(`${backend}/api/baselines?farmId=${encodeURIComponent(farmId)}&userId=${encodeURIComponent(user?.id || '')}`);
+      }
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          baselineRows = json.data;
+          const baselineCacheKey = `baselines_${user?.id || farmId}`;
+          baselineMemoryCache.set(baselineCacheKey, { data: baselineRows, timestamp: Date.now() });
+        }
+      }
+    } catch (_) {}
+  }
+
   // Combine chronological baselines + live inventory
   const chronological = [...baselineRows].sort((a, b) => (a.snapshot_date || '').localeCompare(b.snapshot_date || ''));
   const rawLiveStock = window.farmInventoryData || window.farmData?.inventory || window.farmData?.farm?.inventory || null;

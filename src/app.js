@@ -40,7 +40,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   let lastYieldFetch = 0;
 
   PanelManager.register('dashboard', {
-    onMount: () => mountDashboard()
+    onMount: async () => {
+      const localSnapshots = localStorage.getItem('sfl_daily_snapshots');
+      if (!localSnapshots || localSnapshots === '[]') {
+        if (typeof window.loadCloudYieldHistory === 'function') {
+          try { await window.loadCloudYieldHistory(); } catch (_) {}
+        }
+      }
+      mountDashboard();
+    }
   });
 
   PanelManager.register('calc', {

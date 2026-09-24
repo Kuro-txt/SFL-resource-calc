@@ -131,7 +131,60 @@ function clearServerCache(prefix) {
 }
 
 // ── Simple API proxy routes ────────────────────────────────────────────────
-app.get('/api/health', (_req, res) => res.status(200).send('OK'));
+app.get('/api/health', async (req, res) => {
+  const hasServiceKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  let dbStatus = 'unconfigured';
+  let farmDiagnostics = null;
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('profiles').select('id').limit(1);
+      if (error) dbStatus = 'error: ' + error.message;
+      else dbStatus = 'connected (' + (data?.length || 0) + ')';
+
+      const checkFarmId = (req.query.farmId || '').trim();
+      if (checkFarmId) {
+        const { data: prof, error: pErr } = await supabase
+          .from('profiles')
+          .select('id, farm_id, created_at')
+          .eq('farm_id', checkFarmId)
+          .maybeSingle();
+
+        const { count: baselineCount } = await supabase
+          .from('preharvest_baselines')
+          .select('id', { count: 'exact', head: true })
+          .eq('farm_id', checkFarmId);
+
+        let yieldCount = 0;
+        if (prof?.id) {
+          const { count } = await supabase
+            .from('daily_yields')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', prof.id);
+          yieldCount = count || 0;
+        }
+
+        farmDiagnostics = {
+          farmId: checkFarmId,
+          profileFound: Boolean(prof),
+          profile: prof || null,
+          profileError: pErr ? pErr.message : null,
+          baselineCount: baselineCount || 0,
+          yieldCount
+        };
+      }
+    } catch (e) {
+      dbStatus = 'exception: ' + e.message;
+    }
+  }
+
+  res.status(200).json({
+    status: 'OK',
+    hasServiceKey,
+    db: dbStatus,
+    farm: farmDiagnostics
+  });
+});
 
 app.get('/api/config', (_req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=300');
@@ -595,6 +648,48 @@ app.get('/api/cron/repair-baselines', async (req, res) => {
   repairMissingBaselines(supabase)
     .then(r => console.log('Baseline repair result:', r))
     .catch(err => console.error('Repair Error:', err.message));
+});
+
+// ── /api/baselines — Serve preharvest baselines history from Supabase ────────
+app.get('/api/baselines', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const { farmId, userId, limit = 35 } = req.query;
+
+  try {
+    let targetUserId = userId ? String(userId).trim() : '';
+    const cleanFarmId = farmId ? String(farmId).trim() : '';
+
+    if (!targetUserId && cleanFarmId) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('farm_id', cleanFarmId)
+        .maybeSingle();
+      if (profile?.id) targetUserId = profile.id;
+    }
+
+    let query = supabase
+      .from('preharvest_baselines')
+      .select('snapshot_date, stock, farm_activity')
+      .order('snapshot_date', { ascending: false })
+      .limit(parseInt(limit, 10) || 35);
+
+    if (targetUserId) {
+      query = query.eq('user_id', targetUserId);
+    } else if (cleanFarmId) {
+      query = query.eq('farm_id', cleanFarmId);
+    } else {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return res.status(200).json({ success: true, data: data || [] });
+  } catch (err) {
+    console.warn("Supabase /api/baselines notice:", err.message);
+    return res.status(200).json({ success: true, data: [] });
+  }
 });
 
 // ── /api/yields — Serve daily yield history exclusively from Supabase ─────────
