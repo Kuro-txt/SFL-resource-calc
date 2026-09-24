@@ -108,6 +108,11 @@ export function initWishlistPanel() {
   if (clearBtn) {
     clearBtn.addEventListener('click', clearWishlist);
   }
+
+  // Pre-load NFT catalog in background if not already cached
+  if (allNfts.length === 0) {
+    loadNftCatalog(false).catch(() => {});
+  }
 }
 
 function updateCatalogStatus() {
@@ -134,7 +139,7 @@ export async function loadNftCatalog(force = false) {
     if (btnText) btnText.textContent = 'Loading NFTs...';
   }
   if (statusEl) {
-    statusEl.innerHTML = `<span class="text-amber-700 animate-pulse font-bold">⏳ Fetching live prices from sfl.world...</span>`;
+    statusEl.innerHTML = `<span class="text-amber-700 animate-pulse font-bold">⏳ Fetching live prices & NFT floors...</span>`;
   }
 
   try {

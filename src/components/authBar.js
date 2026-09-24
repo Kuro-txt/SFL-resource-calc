@@ -2,7 +2,7 @@ import { BACKEND_URL, getCoinFlowerRatio, DEFAULT_GEM_PACKS } from '../config/co
 import { ApiService } from '../services/api.js';
 import { fetchMarketplaceTrades } from '../panels/tradeHistory/index.js';
 import { renderNpcCards } from '../panels/npc/npcGiftsPanel.js';
-import { renderWishlist } from '../panels/wishlistPanel.js';
+import { renderWishlist, loadNftCatalog } from '../panels/wishlistPanel.js';
 import { loadPrices } from '../panels/calculatorPanel.js';
 import { loadCloudYieldHistory, updatePreHarvestUI } from '../panels/trackerPanel.js';
 import { mountDashboard } from '../panels/dashboard/dashboardPanel.js';
@@ -526,11 +526,7 @@ export async function handleFarmSync() {
     await Promise.allSettled([
       loadPrices(true),
       ApiService.getExchangeRates({ force: true }),
-      ApiService.getNfts({ force: true }).then(nfts => {
-        if (Array.isArray(nfts) && nfts.length > 0) {
-          try { localStorage.setItem('sfl_nft_catalog', JSON.stringify(nfts)); } catch (_) {}
-        }
-      })
+      loadNftCatalog(true)
     ]).catch(e => console.warn("Market sync note:", e.message));
 
     // 2. Fetch Marketplace Trades & save to TiDB Cloud (does not hit farm inventory)

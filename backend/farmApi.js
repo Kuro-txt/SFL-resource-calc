@@ -12,7 +12,13 @@ function getSflHeaders(customApiKey = '') {
     'Origin': 'https://sunflower-land.com'
   };
 
-  const keyToUse = (customApiKey && customApiKey.trim()) || (SFL_API_KEY && SFL_API_KEY.trim());
+  const keyToUse = (customApiKey && customApiKey.trim())
+    || (process.env.SFL_API_KEY && process.env.SFL_API_KEY.trim())
+    || (process.env.COMMUNITY_API_KEY && process.env.COMMUNITY_API_KEY.trim())
+    || (process.env.API_KEY && process.env.API_KEY.trim())
+    || (process.env.SUNFLOWER_API_KEY && process.env.SUNFLOWER_API_KEY.trim())
+    || (process.env.VITE_SFL_API_KEY && process.env.VITE_SFL_API_KEY.trim())
+    || '';
   if (keyToUse) {
     headers['x-api-key'] = keyToUse;
     headers['Authorization'] = `Bearer ${keyToUse}`;

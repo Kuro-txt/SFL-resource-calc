@@ -7,20 +7,53 @@ const fs = require('fs');
 const path = require('path');
 const MARKETPLACE_CACHE_FILE = path.join(__dirname, 'lastMarketplaceData.json');
 const PRICES_CACHE_FILE = path.join(__dirname, 'lastMarketPrices.json');
+const NFTS_CACHE_FILE = path.join(__dirname, 'lastNfts.json');
 
-const SFL_API_KEY = process.env.SFL_API_KEY || process.env.COMMUNITY_API_KEY || process.env.API_KEY || process.env.SUNFLOWER_API_KEY || process.env.VITE_SFL_API_KEY || "";
 const SFL_MARKETPLACE_URL = 'https://api.sunflower-land.com/community/data?type=marketplaceActivity';
+
+function getEffectiveApiKey(customApiKey = '') {
+  return (customApiKey && typeof customApiKey === 'string' && customApiKey.trim())
+    || (process.env.SFL_API_KEY && process.env.SFL_API_KEY.trim())
+    || (process.env.COMMUNITY_API_KEY && process.env.COMMUNITY_API_KEY.trim())
+    || (process.env.API_KEY && process.env.API_KEY.trim())
+    || (process.env.SUNFLOWER_API_KEY && process.env.SUNFLOWER_API_KEY.trim())
+    || (process.env.VITE_SFL_API_KEY && process.env.VITE_SFL_API_KEY.trim())
+    || '';
+}
 
 function loadSavedMarketplaceData() {
   try {
     if (fs.existsSync(MARKETPLACE_CACHE_FILE)) {
       const raw = fs.readFileSync(MARKETPLACE_CACHE_FILE, 'utf8');
       const parsed = JSON.parse(raw);
-      if (parsed && parsed.pricesPayload) {
+      if (parsed && parsed.pricesPayload && Object.keys(parsed.pricesPayload.p2p || {}).length > 0) {
         return parsed;
       }
     }
   } catch (_) {}
+
+  try {
+    if (fs.existsSync(PRICES_CACHE_FILE)) {
+      const raw = fs.readFileSync(PRICES_CACHE_FILE, 'utf8');
+      const p2p = JSON.parse(raw);
+      if (p2p && typeof p2p === 'object' && Object.keys(p2p).length > 0) {
+        let nftsList = [];
+        try {
+          if (fs.existsSync(NFTS_CACHE_FILE)) {
+            nftsList = JSON.parse(fs.readFileSync(NFTS_CACHE_FILE, 'utf8')) || [];
+          }
+        } catch (_) {}
+        return {
+          flowerPrice: 0.13458,
+          pricesPayload: { flowerPrice: 0.13458, p2p, crops: p2p, items: {} },
+          nftsPayload: nftsList,
+          exchangePayload: { sfl: { usd: 0.13458 }, flowerPrice: 0.13458 },
+          timestamp: Date.now()
+        };
+      }
+    }
+  } catch (_) {}
+
   return null;
 }
 
@@ -47,7 +80,7 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
 
   inFlightPromise = (async () => {
     try {
-      const apiKeyToUse = customApiKey || SFL_API_KEY;
+      const apiKeyToUse = getEffectiveApiKey(customApiKey);
       const response = await axios.get(SFL_MARKETPLACE_URL, {
         headers: getSflHeaders(apiKeyToUse),
         timeout: 25000
@@ -95,6 +128,7 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
 
         if (unitPrice > 0) {
           p2pPrices[itemName] = unitPrice;
+          p2pPrices[`[P2P] ${itemName}`] = unitPrice;
           itemBreakdowns[itemName] = {
             ...itemData,
             price: unitPrice,
@@ -124,12 +158,14 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
         const canonical = crop.charAt(0).toUpperCase() + crop.slice(1);
         if (p2pPrices[canonical] === undefined) {
           p2pPrices[canonical] = p;
+          p2pPrices[`[P2P] ${canonical}`] = p;
         }
       }
       for (const [res, p] of Object.entries(RESOURCE_FLOWER_FALLBACK_PRICES)) {
         const canonical = res.charAt(0).toUpperCase() + res.slice(1);
         if (p2pPrices[canonical] === undefined) {
           p2pPrices[canonical] = p;
+          p2pPrices[`[P2P] ${canonical}`] = p;
         }
       }
 
@@ -163,9 +199,10 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
       try {
         fs.writeFileSync(MARKETPLACE_CACHE_FILE, JSON.stringify(cachedData, null, 2), 'utf8');
         fs.writeFileSync(PRICES_CACHE_FILE, JSON.stringify(p2pPrices, null, 2), 'utf8');
-        console.log(`💾 [Marketplace Activity] Saved fresh marketplace JSON to ${MARKETPLACE_CACHE_FILE}`);
+        fs.writeFileSync(NFTS_CACHE_FILE, JSON.stringify(nftsList, null, 2), 'utf8');
+        console.log(`💾 [Marketplace Activity] Updated JSON files in code repository (lastMarketplaceData.json, lastMarketPrices.json, lastNfts.json)`);
       } catch (fileErr) {
-        console.warn("⚠️ Failed to write marketplace cache file:", fileErr.message);
+        console.warn("⚠️ Failed to write marketplace cache files:", fileErr.message);
       }
 
       return cachedData;

@@ -1,0 +1,1332 @@
+{
+  "flowerPrice": 0.13458,
+  "pricesPayload": {
+    "flowerPrice": 0.13458,
+    "p2p": {
+      "Sunflower": 0.0001845,
+      "[P2P] Sunflower": 0.0001845,
+      "Potato": 0.0001995,
+      "[P2P] Potato": 0.0001995,
+      "Pumpkin": 0.0004992,
+      "[P2P] Pumpkin": 0.0004992,
+      "Carrot": 0.00172212,
+      "[P2P] Carrot": 0.00172212,
+      "Cabbage": 0.001514,
+      "[P2P] Cabbage": 0.001514,
+      "Beetroot": 0.003998,
+      "[P2P] Beetroot": 0.003998,
+      "Cauliflower": 0.0054995,
+      "[P2P] Cauliflower": 0.0054995,
+      "Parsnip": 0.00913958,
+      "[P2P] Parsnip": 0.00913958,
+      "Radish": 0.0082,
+      "[P2P] Radish": 0.0082,
+      "Wheat": 0.0141,
+      "[P2P] Wheat": 0.0141,
+      "Kale": 0.0169875,
+      "[P2P] Kale": 0.0169875,
+      "Apple": 0.01675667,
+      "[P2P] Apple": 0.01675667,
+      "Blueberry": 0.0209038,
+      "[P2P] Blueberry": 0.0209038,
+      "Orange": 0.014798,
+      "[P2P] Orange": 0.014798,
+      "Eggplant": 0.006994,
+      "[P2P] Eggplant": 0.006994,
+      "Corn": 0.01794941,
+      "[P2P] Corn": 0.01794941,
+      "Banana": 0.01694,
+      "[P2P] Banana": 0.01694,
+      "Soybean": 0.001718,
+      "[P2P] Soybean": 0.001718,
+      "Grape": 0.20304,
+      "[P2P] Grape": 0.20304,
+      "Rice": 0.20977333,
+      "[P2P] Rice": 0.20977333,
+      "Olive": 0.325,
+      "[P2P] Olive": 0.325,
+      "Tomato": 0.00699333,
+      "[P2P] Tomato": 0.00699333,
+      "Lemon": 0.00742,
+      "[P2P] Lemon": 0.00742,
+      "Barley": 0.0189998,
+      "[P2P] Barley": 0.0189998,
+      "Rhubarb": 0.000468,
+      "[P2P] Rhubarb": 0.000468,
+      "Zucchini": 0.000414,
+      "[P2P] Zucchini": 0.000414,
+      "Yam": 0.001894,
+      "[P2P] Yam": 0.001894,
+      "Broccoli": 0.0022,
+      "[P2P] Broccoli": 0.0022,
+      "Pepper": 0.004436,
+      "[P2P] Pepper": 0.004436,
+      "Onion": 0.01279933,
+      "[P2P] Onion": 0.01279933,
+      "Turnip": 0.01508,
+      "[P2P] Turnip": 0.01508,
+      "Artichoke": 0.009048,
+      "[P2P] Artichoke": 0.009048,
+      "Duskberry": 0.71394,
+      "[P2P] Duskberry": 0.71394,
+      "Lunara": 0.36993636,
+      "[P2P] Lunara": 0.36993636,
+      "Celestine": 0.13899167,
+      "[P2P] Celestine": 0.13899167,
+      "Wood": 0.0112,
+      "[P2P] Wood": 0.0112,
+      "Stone": 0.02098,
+      "[P2P] Stone": 0.02098,
+      "Iron": 0.06839,
+      "[P2P] Iron": 0.06839,
+      "Gold": 0.30412,
+      "[P2P] Gold": 0.30412,
+      "Egg": 0.020775,
+      "[P2P] Egg": 0.020775,
+      "Honey": 0.0889,
+      "[P2P] Honey": 0.0889,
+      "Crimstone": 0.7284,
+      "[P2P] Crimstone": 0.7284,
+      "Leather": 0.07839474,
+      "[P2P] Leather": 0.07839474,
+      "Wool": 0.02,
+      "[P2P] Wool": 0.02,
+      "Merino Wool": 0.00532251,
+      "[P2P] Merino Wool": 0.00532251,
+      "Feather": 0.0037,
+      "[P2P] Feather": 0.0037,
+      "Milk": 0.13205,
+      "[P2P] Milk": 0.13205,
+      "Obsidian": 14.4999,
+      "[P2P] Obsidian": 14.4999,
+      "Salt": 0.004116,
+      "[P2P] Salt": 0.004116,
+      "Goblin Emblem": 0.05896,
+      "[P2P] Goblin Emblem": 0.05896,
+      "Bumpkin Emblem": 0.0552,
+      "[P2P] Bumpkin Emblem": 0.0552,
+      "Sunflorian Emblem": 0.04199,
+      "[P2P] Sunflorian Emblem": 0.04199,
+      "Nightshade Emblem": 0.0287,
+      "[P2P] Nightshade Emblem": 0.0287,
+      "Ruffroot": 0.27968,
+      "[P2P] Ruffroot": 0.27968,
+      "Chewed Bone": 0.2672,
+      "[P2P] Chewed Bone": 0.2672,
+      "Heart Leaf": 0.28494,
+      "[P2P] Heart Leaf": 0.28494,
+      "Moonfur": 1.821,
+      "[P2P] Moonfur": 1.821,
+      "Ribbon": 0.2844,
+      "[P2P] Ribbon": 0.2844,
+      "Dewberry": 0.28,
+      "[P2P] Dewberry": 0.28,
+      "Wild Grass": 0.26666667,
+      "[P2P] Wild Grass": 0.26666667,
+      "Frost Pebble": 0.27758,
+      "[P2P] Frost Pebble": 0.27758,
+      "Capsule Bait": 0.0161,
+      "[P2P] Capsule Bait": 0.0161,
+      "Umbrella Bait": 0.0219,
+      "[P2P] Umbrella Bait": 0.0219,
+      "Crimson Baitfish": 0.02456,
+      "[P2P] Crimson Baitfish": 0.02456,
+      "Saltwort": 0.049996,
+      "[P2P] Saltwort": 0.049996,
+      "Merinowool": 0.0039,
+      "[P2P] Merinowool": 0.0039,
+      "Goblinemblem": 0.05,
+      "[P2P] Goblinemblem": 0.05,
+      "Bumpkinemblem": 0.05,
+      "[P2P] Bumpkinemblem": 0.05,
+      "Sunflorianemblem": 0.05,
+      "[P2P] Sunflorianemblem": 0.05,
+      "Nightshadeemblem": 0.05,
+      "[P2P] Nightshadeemblem": 0.05,
+      "Chewedbone": 0.05,
+      "[P2P] Chewedbone": 0.05,
+      "Heartleaf": 0.05,
+      "[P2P] Heartleaf": 0.05,
+      "Wildgrass": 0.02,
+      "[P2P] Wildgrass": 0.02,
+      "Frostpebble": 0.05,
+      "[P2P] Frostpebble": 0.05,
+      "Capsulebait": 0.06,
+      "[P2P] Capsulebait": 0.06,
+      "Umbrellabait": 0.06,
+      "[P2P] Umbrellabait": 0.06,
+      "Crimsonbaitfish": 0.08,
+      "[P2P] Crimsonbaitfish": 0.08
+    },
+    "crops": {
+      "Sunflower": 0.0001845,
+      "[P2P] Sunflower": 0.0001845,
+      "Potato": 0.0001995,
+      "[P2P] Potato": 0.0001995,
+      "Pumpkin": 0.0004992,
+      "[P2P] Pumpkin": 0.0004992,
+      "Carrot": 0.00172212,
+      "[P2P] Carrot": 0.00172212,
+      "Cabbage": 0.001514,
+      "[P2P] Cabbage": 0.001514,
+      "Beetroot": 0.003998,
+      "[P2P] Beetroot": 0.003998,
+      "Cauliflower": 0.0054995,
+      "[P2P] Cauliflower": 0.0054995,
+      "Parsnip": 0.00913958,
+      "[P2P] Parsnip": 0.00913958,
+      "Radish": 0.0082,
+      "[P2P] Radish": 0.0082,
+      "Wheat": 0.0141,
+      "[P2P] Wheat": 0.0141,
+      "Kale": 0.0169875,
+      "[P2P] Kale": 0.0169875,
+      "Apple": 0.01675667,
+      "[P2P] Apple": 0.01675667,
+      "Blueberry": 0.0209038,
+      "[P2P] Blueberry": 0.0209038,
+      "Orange": 0.014798,
+      "[P2P] Orange": 0.014798,
+      "Eggplant": 0.006994,
+      "[P2P] Eggplant": 0.006994,
+      "Corn": 0.01794941,
+      "[P2P] Corn": 0.01794941,
+      "Banana": 0.01694,
+      "[P2P] Banana": 0.01694,
+      "Soybean": 0.001718,
+      "[P2P] Soybean": 0.001718,
+      "Grape": 0.20304,
+      "[P2P] Grape": 0.20304,
+      "Rice": 0.20977333,
+      "[P2P] Rice": 0.20977333,
+      "Olive": 0.325,
+      "[P2P] Olive": 0.325,
+      "Tomato": 0.00699333,
+      "[P2P] Tomato": 0.00699333,
+      "Lemon": 0.00742,
+      "[P2P] Lemon": 0.00742,
+      "Barley": 0.0189998,
+      "[P2P] Barley": 0.0189998,
+      "Rhubarb": 0.000468,
+      "[P2P] Rhubarb": 0.000468,
+      "Zucchini": 0.000414,
+      "[P2P] Zucchini": 0.000414,
+      "Yam": 0.001894,
+      "[P2P] Yam": 0.001894,
+      "Broccoli": 0.0022,
+      "[P2P] Broccoli": 0.0022,
+      "Pepper": 0.004436,
+      "[P2P] Pepper": 0.004436,
+      "Onion": 0.01279933,
+      "[P2P] Onion": 0.01279933,
+      "Turnip": 0.01508,
+      "[P2P] Turnip": 0.01508,
+      "Artichoke": 0.009048,
+      "[P2P] Artichoke": 0.009048,
+      "Duskberry": 0.71394,
+      "[P2P] Duskberry": 0.71394,
+      "Lunara": 0.36993636,
+      "[P2P] Lunara": 0.36993636,
+      "Celestine": 0.13899167,
+      "[P2P] Celestine": 0.13899167,
+      "Wood": 0.0112,
+      "[P2P] Wood": 0.0112,
+      "Stone": 0.02098,
+      "[P2P] Stone": 0.02098,
+      "Iron": 0.06839,
+      "[P2P] Iron": 0.06839,
+      "Gold": 0.30412,
+      "[P2P] Gold": 0.30412,
+      "Egg": 0.020775,
+      "[P2P] Egg": 0.020775,
+      "Honey": 0.0889,
+      "[P2P] Honey": 0.0889,
+      "Crimstone": 0.7284,
+      "[P2P] Crimstone": 0.7284,
+      "Leather": 0.07839474,
+      "[P2P] Leather": 0.07839474,
+      "Wool": 0.02,
+      "[P2P] Wool": 0.02,
+      "Merino Wool": 0.00532251,
+      "[P2P] Merino Wool": 0.00532251,
+      "Feather": 0.0037,
+      "[P2P] Feather": 0.0037,
+      "Milk": 0.13205,
+      "[P2P] Milk": 0.13205,
+      "Obsidian": 14.4999,
+      "[P2P] Obsidian": 14.4999,
+      "Salt": 0.004116,
+      "[P2P] Salt": 0.004116,
+      "Goblin Emblem": 0.05896,
+      "[P2P] Goblin Emblem": 0.05896,
+      "Bumpkin Emblem": 0.0552,
+      "[P2P] Bumpkin Emblem": 0.0552,
+      "Sunflorian Emblem": 0.04199,
+      "[P2P] Sunflorian Emblem": 0.04199,
+      "Nightshade Emblem": 0.0287,
+      "[P2P] Nightshade Emblem": 0.0287,
+      "Ruffroot": 0.27968,
+      "[P2P] Ruffroot": 0.27968,
+      "Chewed Bone": 0.2672,
+      "[P2P] Chewed Bone": 0.2672,
+      "Heart Leaf": 0.28494,
+      "[P2P] Heart Leaf": 0.28494,
+      "Moonfur": 1.821,
+      "[P2P] Moonfur": 1.821,
+      "Ribbon": 0.2844,
+      "[P2P] Ribbon": 0.2844,
+      "Dewberry": 0.28,
+      "[P2P] Dewberry": 0.28,
+      "Wild Grass": 0.26666667,
+      "[P2P] Wild Grass": 0.26666667,
+      "Frost Pebble": 0.27758,
+      "[P2P] Frost Pebble": 0.27758,
+      "Capsule Bait": 0.0161,
+      "[P2P] Capsule Bait": 0.0161,
+      "Umbrella Bait": 0.0219,
+      "[P2P] Umbrella Bait": 0.0219,
+      "Crimson Baitfish": 0.02456,
+      "[P2P] Crimson Baitfish": 0.02456,
+      "Saltwort": 0.049996,
+      "[P2P] Saltwort": 0.049996,
+      "Merinowool": 0.0039,
+      "[P2P] Merinowool": 0.0039,
+      "Goblinemblem": 0.05,
+      "[P2P] Goblinemblem": 0.05,
+      "Bumpkinemblem": 0.05,
+      "[P2P] Bumpkinemblem": 0.05,
+      "Sunflorianemblem": 0.05,
+      "[P2P] Sunflorianemblem": 0.05,
+      "Nightshadeemblem": 0.05,
+      "[P2P] Nightshadeemblem": 0.05,
+      "Chewedbone": 0.05,
+      "[P2P] Chewedbone": 0.05,
+      "Heartleaf": 0.05,
+      "[P2P] Heartleaf": 0.05,
+      "Wildgrass": 0.02,
+      "[P2P] Wildgrass": 0.02,
+      "Frostpebble": 0.05,
+      "[P2P] Frostpebble": 0.05,
+      "Capsulebait": 0.06,
+      "[P2P] Capsulebait": 0.06,
+      "Umbrellabait": 0.06,
+      "[P2P] Umbrellabait": 0.06,
+      "Crimsonbaitfish": 0.08,
+      "[P2P] Crimsonbaitfish": 0.08
+    },
+    "items": {
+      "Sunflower": {
+        "price": 0.0001845,
+        "floor": 0.0001845,
+        "latestSale": 0.0001845
+      },
+      "Potato": {
+        "price": 0.0001995,
+        "floor": 0.0001995,
+        "latestSale": 0.0001995
+      },
+      "Pumpkin": {
+        "price": 0.0004992,
+        "floor": 0.0004992,
+        "latestSale": 0.0004992
+      },
+      "Carrot": {
+        "price": 0.00172212,
+        "floor": 0.00172212,
+        "latestSale": 0.00172212
+      },
+      "Cabbage": {
+        "price": 0.001514,
+        "floor": 0.001514,
+        "latestSale": 0.001514
+      },
+      "Beetroot": {
+        "price": 0.003998,
+        "floor": 0.003998,
+        "latestSale": 0.003998
+      },
+      "Cauliflower": {
+        "price": 0.0054995,
+        "floor": 0.0054995,
+        "latestSale": 0.0054995
+      },
+      "Parsnip": {
+        "price": 0.00913958,
+        "floor": 0.00913958,
+        "latestSale": 0.00913958
+      },
+      "Radish": {
+        "price": 0.0082,
+        "floor": 0.0082,
+        "latestSale": 0.0082
+      },
+      "Wheat": {
+        "price": 0.0141,
+        "floor": 0.0141,
+        "latestSale": 0.0141
+      },
+      "Kale": {
+        "price": 0.0169875,
+        "floor": 0.0169875,
+        "latestSale": 0.0169875
+      },
+      "Apple": {
+        "price": 0.01675667,
+        "floor": 0.01675667,
+        "latestSale": 0.01675667
+      },
+      "Blueberry": {
+        "price": 0.0209038,
+        "floor": 0.0209038,
+        "latestSale": 0.0209038
+      },
+      "Orange": {
+        "price": 0.014798,
+        "floor": 0.014798,
+        "latestSale": 0.014798
+      },
+      "Eggplant": {
+        "price": 0.006994,
+        "floor": 0.006994,
+        "latestSale": 0.006994
+      },
+      "Corn": {
+        "price": 0.01794941,
+        "floor": 0.01794941,
+        "latestSale": 0.01794941
+      },
+      "Banana": {
+        "price": 0.01694,
+        "floor": 0.01694,
+        "latestSale": 0.01694
+      },
+      "Soybean": {
+        "price": 0.001718,
+        "floor": 0.001718,
+        "latestSale": 0.001718
+      },
+      "Grape": {
+        "price": 0.20304,
+        "floor": 0.20304,
+        "latestSale": 0.20304
+      },
+      "Rice": {
+        "price": 0.20977333,
+        "floor": 0.20977333,
+        "latestSale": 0.20977333
+      },
+      "Olive": {
+        "price": 0.325,
+        "floor": 0.325,
+        "latestSale": 0.325
+      },
+      "Tomato": {
+        "price": 0.00699333,
+        "floor": 0.00699333,
+        "latestSale": 0.00699333
+      },
+      "Lemon": {
+        "price": 0.00742,
+        "floor": 0.00742,
+        "latestSale": 0.00742
+      },
+      "Barley": {
+        "price": 0.0189998,
+        "floor": 0.0189998,
+        "latestSale": 0.0189998
+      },
+      "Rhubarb": {
+        "price": 0.000468,
+        "floor": 0.000468,
+        "latestSale": 0.000468
+      },
+      "Zucchini": {
+        "price": 0.000414,
+        "floor": 0.000414,
+        "latestSale": 0.000414
+      },
+      "Yam": {
+        "price": 0.001894,
+        "floor": 0.001894,
+        "latestSale": 0.001894
+      },
+      "Broccoli": {
+        "price": 0.0022,
+        "floor": 0.0022,
+        "latestSale": 0.0022
+      },
+      "Pepper": {
+        "price": 0.004436,
+        "floor": 0.004436,
+        "latestSale": 0.004436
+      },
+      "Onion": {
+        "price": 0.01279933,
+        "floor": 0.01279933,
+        "latestSale": 0.01279933
+      },
+      "Turnip": {
+        "price": 0.01508,
+        "floor": 0.01508,
+        "latestSale": 0.01508
+      },
+      "Artichoke": {
+        "price": 0.009048,
+        "floor": 0.009048,
+        "latestSale": 0.009048
+      },
+      "Duskberry": {
+        "price": 0.71394,
+        "floor": 0.71394,
+        "latestSale": 0.71394
+      },
+      "Lunara": {
+        "price": 0.36993636,
+        "floor": 0.36993636,
+        "latestSale": 0.36993636
+      },
+      "Celestine": {
+        "price": 0.13899167,
+        "floor": 0.13899167,
+        "latestSale": 0.13899167
+      },
+      "Wood": {
+        "price": 0.0112,
+        "floor": 0.0112,
+        "latestSale": 0.0112
+      },
+      "Stone": {
+        "price": 0.02098,
+        "floor": 0.02098,
+        "latestSale": 0.02098
+      },
+      "Iron": {
+        "price": 0.06839,
+        "floor": 0.06839,
+        "latestSale": 0.06839
+      },
+      "Gold": {
+        "price": 0.30412,
+        "floor": 0.30412,
+        "latestSale": 0.30412
+      },
+      "Egg": {
+        "price": 0.020775,
+        "floor": 0.020775,
+        "latestSale": 0.020775
+      },
+      "Honey": {
+        "price": 0.0889,
+        "floor": 0.0889,
+        "latestSale": 0.0889
+      },
+      "Crimstone": {
+        "price": 0.7284,
+        "floor": 0.7284,
+        "latestSale": 0.7284
+      },
+      "Leather": {
+        "price": 0.07839474,
+        "floor": 0.07839474,
+        "latestSale": 0.07839474
+      },
+      "Wool": {
+        "price": 0.02,
+        "floor": 0.02,
+        "latestSale": 0.02
+      },
+      "Merino Wool": {
+        "price": 0.00532251,
+        "floor": 0.00532251,
+        "latestSale": 0.00532251
+      },
+      "Feather": {
+        "price": 0.0037,
+        "floor": 0.0037,
+        "latestSale": 0.0037
+      },
+      "Milk": {
+        "price": 0.13205,
+        "floor": 0.13205,
+        "latestSale": 0.13205
+      },
+      "Obsidian": {
+        "price": 14.4999,
+        "floor": 14.4999,
+        "latestSale": 14.4999
+      },
+      "Salt": {
+        "price": 0.004116,
+        "floor": 0.004116,
+        "latestSale": 0.004116
+      },
+      "Goblin Emblem": {
+        "price": 0.05896,
+        "floor": 0.05896,
+        "latestSale": 0.05896
+      },
+      "Bumpkin Emblem": {
+        "price": 0.0552,
+        "floor": 0.0552,
+        "latestSale": 0.0552
+      },
+      "Sunflorian Emblem": {
+        "price": 0.04199,
+        "floor": 0.04199,
+        "latestSale": 0.04199
+      },
+      "Nightshade Emblem": {
+        "price": 0.0287,
+        "floor": 0.0287,
+        "latestSale": 0.0287
+      },
+      "Ruffroot": {
+        "price": 0.27968,
+        "floor": 0.27968,
+        "latestSale": 0.27968
+      },
+      "Chewed Bone": {
+        "price": 0.2672,
+        "floor": 0.2672,
+        "latestSale": 0.2672
+      },
+      "Heart Leaf": {
+        "price": 0.28494,
+        "floor": 0.28494,
+        "latestSale": 0.28494
+      },
+      "Moonfur": {
+        "price": 1.821,
+        "floor": 1.821,
+        "latestSale": 1.821
+      },
+      "Ribbon": {
+        "price": 0.2844,
+        "floor": 0.2844,
+        "latestSale": 0.2844
+      },
+      "Dewberry": {
+        "price": 0.28,
+        "floor": 0.28,
+        "latestSale": 0.28
+      },
+      "Wild Grass": {
+        "price": 0.26666667,
+        "floor": 0.26666667,
+        "latestSale": 0.26666667
+      },
+      "Frost Pebble": {
+        "price": 0.27758,
+        "floor": 0.27758,
+        "latestSale": 0.27758
+      },
+      "Capsule Bait": {
+        "price": 0.0161,
+        "floor": 0.0161,
+        "latestSale": 0.0161
+      },
+      "Umbrella Bait": {
+        "price": 0.0219,
+        "floor": 0.0219,
+        "latestSale": 0.0219
+      },
+      "Crimson Baitfish": {
+        "price": 0.02456,
+        "floor": 0.02456,
+        "latestSale": 0.02456
+      },
+      "Saltwort": {
+        "price": 0.049996,
+        "floor": 0.049996,
+        "latestSale": 0.049996
+      },
+      "Merinowool": {
+        "price": 0.0039,
+        "floor": 0.0039,
+        "latestSale": 0.0039
+      },
+      "Goblinemblem": {
+        "price": 0.05,
+        "floor": 0.05,
+        "latestSale": 0.05
+      },
+      "Bumpkinemblem": {
+        "price": 0.05,
+        "floor": 0.05,
+        "latestSale": 0.05
+      },
+      "Sunflorianemblem": {
+        "price": 0.05,
+        "floor": 0.05,
+        "latestSale": 0.05
+      },
+      "Nightshadeemblem": {
+        "price": 0.05,
+        "floor": 0.05,
+        "latestSale": 0.05
+      },
+      "Chewedbone": {
+        "price": 0.05,
+        "floor": 0.05,
+        "latestSale": 0.05
+      },
+      "Heartleaf": {
+        "price": 0.05,
+        "floor": 0.05,
+        "latestSale": 0.05
+      },
+      "Wildgrass": {
+        "price": 0.02,
+        "floor": 0.02,
+        "latestSale": 0.02
+      },
+      "Frostpebble": {
+        "price": 0.05,
+        "floor": 0.05,
+        "latestSale": 0.05
+      },
+      "Capsulebait": {
+        "price": 0.06,
+        "floor": 0.06,
+        "latestSale": 0.06
+      },
+      "Umbrellabait": {
+        "price": 0.06,
+        "floor": 0.06,
+        "latestSale": 0.06
+      },
+      "Crimsonbaitfish": {
+        "price": 0.08,
+        "floor": 0.08,
+        "latestSale": 0.08
+      }
+    },
+    "updated_at": "2026-09-24T15:56:53.068Z"
+  },
+  "nftsPayload": [
+    {
+      "name": "Apple",
+      "price": 0.01675667,
+      "floor": 0.01675667,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Artichoke",
+      "price": 0.009048,
+      "floor": 0.009048,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Banana",
+      "price": 0.01694,
+      "floor": 0.01694,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Barley",
+      "price": 0.0189998,
+      "floor": 0.0189998,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Beetroot",
+      "price": 0.003998,
+      "floor": 0.003998,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Blueberry",
+      "price": 0.0209038,
+      "floor": 0.0209038,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Broccoli",
+      "price": 0.0022,
+      "floor": 0.0022,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Bumpkin Emblem",
+      "price": 0.0552,
+      "floor": 0.0552,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Bumpkinemblem",
+      "price": 0.05,
+      "floor": 0.05,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Cabbage",
+      "price": 0.001514,
+      "floor": 0.001514,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Capsule Bait",
+      "price": 0.0161,
+      "floor": 0.0161,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Capsulebait",
+      "price": 0.06,
+      "floor": 0.06,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Carrot",
+      "price": 0.00172212,
+      "floor": 0.00172212,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Cauliflower",
+      "price": 0.0054995,
+      "floor": 0.0054995,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Celestine",
+      "price": 0.13899167,
+      "floor": 0.13899167,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Chewed Bone",
+      "price": 0.2672,
+      "floor": 0.2672,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Chewedbone",
+      "price": 0.05,
+      "floor": 0.05,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Corn",
+      "price": 0.01794941,
+      "floor": 0.01794941,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Crimson Baitfish",
+      "price": 0.02456,
+      "floor": 0.02456,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Crimsonbaitfish",
+      "price": 0.08,
+      "floor": 0.08,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Crimstone",
+      "price": 0.7284,
+      "floor": 0.7284,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Dewberry",
+      "price": 0.28,
+      "floor": 0.28,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Duskberry",
+      "price": 0.71394,
+      "floor": 0.71394,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Egg",
+      "price": 0.020775,
+      "floor": 0.020775,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Eggplant",
+      "price": 0.006994,
+      "floor": 0.006994,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Feather",
+      "price": 0.0037,
+      "floor": 0.0037,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Frost Pebble",
+      "price": 0.27758,
+      "floor": 0.27758,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Frostpebble",
+      "price": 0.05,
+      "floor": 0.05,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Goblin Emblem",
+      "price": 0.05896,
+      "floor": 0.05896,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Goblinemblem",
+      "price": 0.05,
+      "floor": 0.05,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Gold",
+      "price": 0.30412,
+      "floor": 0.30412,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Grape",
+      "price": 0.20304,
+      "floor": 0.20304,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Heart Leaf",
+      "price": 0.28494,
+      "floor": 0.28494,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Heartleaf",
+      "price": 0.05,
+      "floor": 0.05,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Honey",
+      "price": 0.0889,
+      "floor": 0.0889,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Iron",
+      "price": 0.06839,
+      "floor": 0.06839,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Kale",
+      "price": 0.0169875,
+      "floor": 0.0169875,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Leather",
+      "price": 0.07839474,
+      "floor": 0.07839474,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Lemon",
+      "price": 0.00742,
+      "floor": 0.00742,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Lunara",
+      "price": 0.36993636,
+      "floor": 0.36993636,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Merino Wool",
+      "price": 0.00532251,
+      "floor": 0.00532251,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Merinowool",
+      "price": 0.0039,
+      "floor": 0.0039,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Milk",
+      "price": 0.13205,
+      "floor": 0.13205,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Moonfur",
+      "price": 1.821,
+      "floor": 1.821,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Nightshade Emblem",
+      "price": 0.0287,
+      "floor": 0.0287,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Nightshadeemblem",
+      "price": 0.05,
+      "floor": 0.05,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Obsidian",
+      "price": 14.4999,
+      "floor": 14.4999,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Olive",
+      "price": 0.325,
+      "floor": 0.325,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Onion",
+      "price": 0.01279933,
+      "floor": 0.01279933,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Orange",
+      "price": 0.014798,
+      "floor": 0.014798,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Parsnip",
+      "price": 0.00913958,
+      "floor": 0.00913958,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Pepper",
+      "price": 0.004436,
+      "floor": 0.004436,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Potato",
+      "price": 0.0001995,
+      "floor": 0.0001995,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Pumpkin",
+      "price": 0.0004992,
+      "floor": 0.0004992,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Radish",
+      "price": 0.0082,
+      "floor": 0.0082,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Rhubarb",
+      "price": 0.000468,
+      "floor": 0.000468,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Ribbon",
+      "price": 0.2844,
+      "floor": 0.2844,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Rice",
+      "price": 0.20977333,
+      "floor": 0.20977333,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Ruffroot",
+      "price": 0.27968,
+      "floor": 0.27968,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Salt",
+      "price": 0.004116,
+      "floor": 0.004116,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Saltwort",
+      "price": 0.049996,
+      "floor": 0.049996,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Soybean",
+      "price": 0.001718,
+      "floor": 0.001718,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Stone",
+      "price": 0.02098,
+      "floor": 0.02098,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Sunflorian Emblem",
+      "price": 0.04199,
+      "floor": 0.04199,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Sunflorianemblem",
+      "price": 0.05,
+      "floor": 0.05,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Sunflower",
+      "price": 0.0001845,
+      "floor": 0.0001845,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Tomato",
+      "price": 0.00699333,
+      "floor": 0.00699333,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Turnip",
+      "price": 0.01508,
+      "floor": 0.01508,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Umbrella Bait",
+      "price": 0.0219,
+      "floor": 0.0219,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Umbrellabait",
+      "price": 0.06,
+      "floor": 0.06,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Wheat",
+      "price": 0.0141,
+      "floor": 0.0141,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Wild Grass",
+      "price": 0.26666667,
+      "floor": 0.26666667,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Wildgrass",
+      "price": 0.02,
+      "floor": 0.02,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Wood",
+      "price": 0.0112,
+      "floor": 0.0112,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Wool",
+      "price": 0.02,
+      "floor": 0.02,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Yam",
+      "price": 0.001894,
+      "floor": 0.001894,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    },
+    {
+      "name": "Zucchini",
+      "price": 0.000414,
+      "floor": 0.000414,
+      "boost": "No Boost",
+      "collection": "collectibles",
+      "itemId": "0"
+    }
+  ],
+  "exchangePayload": {
+    "sfl": {
+      "usd": 0.13458
+    },
+    "flowerPrice": 0.13458,
+    "updated_at": "2026-09-24T15:56:53.084Z"
+  },
+  "timestamp": 1790265413084
+}
