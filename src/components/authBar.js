@@ -522,8 +522,16 @@ export async function handleFarmSync() {
   }
 
   try {
-    // 1. Fetch live market prices from SFL.world
-    await loadPrices(true).catch(e => console.warn("Prices sync note:", e.message));
+    // 1. Fetch live market prices, exchange rates, and NFT catalog with API key
+    await Promise.allSettled([
+      loadPrices(true),
+      ApiService.getExchangeRates({ force: true }),
+      ApiService.getNfts({ force: true }).then(nfts => {
+        if (Array.isArray(nfts) && nfts.length > 0) {
+          try { localStorage.setItem('sfl_nft_catalog', JSON.stringify(nfts)); } catch (_) {}
+        }
+      })
+    ]).catch(e => console.warn("Market sync note:", e.message));
 
     // 2. Fetch Marketplace Trades & save to TiDB Cloud (does not hit farm inventory)
     let tradesCount = 0;

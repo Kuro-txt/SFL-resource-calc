@@ -3,12 +3,30 @@ const { getSflHeaders } = require('./farmApi');
 const { getItemNameById } = require('./knownIds');
 const { CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES } = require('./prices');
 
+const fs = require('fs');
+const path = require('path');
+const MARKETPLACE_CACHE_FILE = path.join(__dirname, 'lastMarketplaceData.json');
+const PRICES_CACHE_FILE = path.join(__dirname, 'lastMarketPrices.json');
+
 const SFL_API_KEY = process.env.SFL_API_KEY || process.env.COMMUNITY_API_KEY || process.env.API_KEY || process.env.SUNFLOWER_API_KEY || process.env.VITE_SFL_API_KEY || "";
 const SFL_MARKETPLACE_URL = 'https://api.sunflower-land.com/community/data?type=marketplaceActivity';
 
-// In-memory cache for marketplace activity (TTL: 60s)
-let cachedData = null;
-let lastFetchTime = 0;
+function loadSavedMarketplaceData() {
+  try {
+    if (fs.existsSync(MARKETPLACE_CACHE_FILE)) {
+      const raw = fs.readFileSync(MARKETPLACE_CACHE_FILE, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.pricesPayload) {
+        return parsed;
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+// In-memory cache for marketplace activity (initialized from disk JSON if available)
+let cachedData = loadSavedMarketplaceData();
+let lastFetchTime = cachedData?.timestamp || 0;
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds
 let inFlightPromise = null;
 
@@ -140,6 +158,15 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
         timestamp: Date.now()
       };
       lastFetchTime = Date.now();
+
+      // Persist to local JSON files in code so offline/cached access is always up to date
+      try {
+        fs.writeFileSync(MARKETPLACE_CACHE_FILE, JSON.stringify(cachedData, null, 2), 'utf8');
+        fs.writeFileSync(PRICES_CACHE_FILE, JSON.stringify(p2pPrices, null, 2), 'utf8');
+        console.log(`💾 [Marketplace Activity] Saved fresh marketplace JSON to ${MARKETPLACE_CACHE_FILE}`);
+      } catch (fileErr) {
+        console.warn("⚠️ Failed to write marketplace cache file:", fileErr.message);
+      }
 
       return cachedData;
     } catch (err) {
