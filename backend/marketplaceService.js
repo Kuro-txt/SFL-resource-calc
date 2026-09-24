@@ -150,6 +150,15 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
         return cachedData;
       }
 
+      // Construct base fallback in case of errors
+      const fallbackP2p = {};
+      for (const [k, v] of Object.entries(CROP_FLOWER_PRICES)) {
+        fallbackP2p[k.charAt(0).toUpperCase() + k.slice(1)] = v;
+      }
+      for (const [k, v] of Object.entries(RESOURCE_FLOWER_FALLBACK_PRICES)) {
+        fallbackP2p[k.charAt(0).toUpperCase() + k.slice(1)] = v;
+      }
+
       // Secondary attempt: fallback to sfl.world in case API key is missing/unauthorized
       try {
         const sflWorldRes = await axios.get('https://sfl.world/api/v1/prices', {
@@ -162,26 +171,29 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
         });
         if (sflWorldRes.data) {
           const raw = typeof sflWorldRes.data === 'string' ? JSON.parse(sflWorldRes.data) : sflWorldRes.data;
-          const p2p = raw.p2p || raw.prices || {};
+          const p2p = {};
+          if (raw && typeof raw === 'object') {
+            for (const [k, v] of Object.entries(raw)) {
+              if (k === 'flowerPrice' || typeof v !== 'number') continue;
+              const cleanKey = k.replace(/\[.*?\]/g, '').trim();
+              if (cleanKey && v > 0) p2p[cleanKey] = v;
+            }
+          }
           const flPrice = parseFloat(raw.flowerPrice) || 0.13458;
-          return {
-            flowerPrice: flPrice,
-            pricesPayload: { flowerPrice: flPrice, p2p, crops: p2p, items: {} },
-            nftsPayload: [],
-            exchangePayload: { sfl: { usd: flPrice }, flowerPrice: flPrice },
-            timestamp: Date.now()
-          };
+          for (const [k, v] of Object.entries(fallbackP2p)) {
+            if (p2p[k] === undefined) p2p[k] = v;
+          }
+          if (Object.keys(p2p).length > 0) {
+            return {
+              flowerPrice: flPrice,
+              pricesPayload: { flowerPrice: flPrice, p2p, crops: p2p, items: {} },
+              nftsPayload: [],
+              exchangePayload: { sfl: { usd: flPrice }, flowerPrice: flPrice },
+              timestamp: Date.now()
+            };
+          }
         }
       } catch (_) {}
-
-      // If no cache and no secondary endpoint, construct base fallback
-      const fallbackP2p = {};
-      for (const [k, v] of Object.entries(CROP_FLOWER_PRICES)) {
-        fallbackP2p[k.charAt(0).toUpperCase() + k.slice(1)] = v;
-      }
-      for (const [k, v] of Object.entries(RESOURCE_FLOWER_FALLBACK_PRICES)) {
-        fallbackP2p[k.charAt(0).toUpperCase() + k.slice(1)] = v;
-      }
 
       return {
         flowerPrice: 0.13458,
