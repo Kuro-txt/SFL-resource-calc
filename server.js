@@ -14,8 +14,26 @@ const express = require('express');
 const cors    = require('cors');
 const axios   = require('axios');
 const path    = require('path');
+const fs      = require('fs');
 const cron    = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
+
+// ── Auto-load local .env in development if present (.env* is gitignored) ─────
+try {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+        const idx = trimmed.indexOf('=');
+        const k = trimmed.substring(0, idx).trim();
+        const v = trimmed.substring(idx + 1).trim().replace(/^["']|["']$/g, '');
+        if (!process.env[k]) process.env[k] = v;
+      }
+    });
+  }
+} catch (_) {}
 
 // ── Backend service modules ────────────────────────────────────────────────
 // Note: TiDB is used exclusively for marketplace trades in backend/tradeSync.js & api/trades.js
@@ -30,12 +48,17 @@ const { processAutoSyncTrades }                  = require('./backend/tradeSync'
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://gtvglgeoznnrsdcfazpc.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0dmdsZ2Vvem5ucnNkY2ZhenBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MTA4NzIsImV4cCI6MjEwMDI4Njg3Mn0.oKTNu5vXA2hJ4p9D-unvkeiF7tEyu1_PFVgnEigmKoo';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || '';
+const supabase = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+if (!supabase) {
+  console.warn("⚠️ [Server Startup Notice] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured in environment variables.");
+}
 
-const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || 'anubhav@877';
+const CRON_SECRET_KEY = process.env.CRON_SECRET_KEY || '';
+if (!CRON_SECRET_KEY) {
+  console.warn("⚠️ [Security Warning] CRON_SECRET_KEY is not set in environment variables. Trigger endpoints requiring authorization will reject calls.");
+}
 
 const SFL_API_KEY = process.env.SFL_API_KEY || process.env.COMMUNITY_API_KEY || process.env.API_KEY || process.env.SUNFLOWER_API_KEY || process.env.VITE_SFL_API_KEY || "";
 if (!SFL_API_KEY) {
@@ -69,10 +92,11 @@ app.use(express.static(path.join(__dirname)));
 
 // ── Auth helper ────────────────────────────────────────────────────────────
 function verifyCronAuth(req) {
+  if (!CRON_SECRET_KEY) return false;
   const key = req.query.key || (req.headers.authorization
     ? req.headers.authorization.replace(/^Bearer\s+/i, '')
     : '');
-  return key === CRON_SECRET_KEY;
+  return Boolean(key) && key === CRON_SECRET_KEY;
 }
 
 // ── Server In-Memory Cache with TTL & Deduplication ────────────────────────
@@ -108,6 +132,14 @@ function clearServerCache(prefix) {
 
 // ── Simple API proxy routes ────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => res.status(200).send('OK'));
+
+app.get('/api/config', (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
+  });
+});
 
 app.get('/api/get-data', async (req, res) => {
   const force = req.query.force === 'true';

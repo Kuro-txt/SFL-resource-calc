@@ -1,3 +1,4 @@
+import { initSupabaseClient } from './config/constants.js';
 import { renderHeader } from './components/header.js';
 import { renderAuthBar } from './components/authBar.js';
 import { renderNavTabs } from './components/navTabs.js';
@@ -18,6 +19,9 @@ import { initDashboardPanel, mountDashboard } from './panels/dashboard/dashboard
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log("🚀 Bootstrapping SFL Resource Calculator...");
+
+  // Dynamically load Supabase client configuration from environment variables
+  await initSupabaseClient();
 
   renderWelcomeGate();
   renderHeader();
