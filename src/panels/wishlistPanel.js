@@ -19,22 +19,38 @@ try {
   if (Array.isArray(allNfts)) {
     allNfts.forEach(nft => {
       if (nft && nft.name) {
-        nft.boost = getItemBoost(nft.name) || nft.boost || 'No Boost';
+        const realBoost = getItemBoost(nft.name);
+        if (realBoost) nft.boost = realBoost;
       }
     });
   }
 } catch (_) {}
+
 let wishlistItems = [];
 try {
   wishlistItems = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]');
   if (Array.isArray(wishlistItems)) {
+    let changed = false;
     wishlistItems.forEach(item => {
       if (item && item.name) {
-        item.boost = getItemBoost(item.name) || item.boost || 'No Boost';
+        const realBoost = getItemBoost(item.name);
+        if (realBoost && (!item.boost || item.boost === 'No Boost' || item.boost !== realBoost)) {
+          item.boost = realBoost;
+          changed = true;
+        }
       }
     });
+    if (changed) {
+      try { localStorage.setItem('sfl_wishlist', JSON.stringify(wishlistItems)); } catch (_) {}
+    }
   }
 } catch (_) { wishlistItems = []; }
+
+if (typeof window !== 'undefined') {
+  window.getItemBoost = getItemBoost;
+  window.wishlistItems = wishlistItems;
+  window.allNfts = allNfts;
+}
 
 export function getFlowerUsdRate() {
   // 1. If user selected a specific gem pack at top, calculate USD per flower from that pack:
@@ -104,21 +120,38 @@ export function renderWishlistTemplate() {
         </button>
       </div>
 
-      <div class="bg-sfl-card/80 p-4 rounded-xl border-2 border-sfl-cardBorder space-y-2">
+      <div class="bg-sfl-card/80 dark:bg-slate-800/80 p-4 rounded-xl border-2 border-sfl-cardBorder dark:border-slate-700 space-y-2.5">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood">🔍 Search & Add SFL NFTs or Collectibles</label>
-          <span id="wishlist-catalog-status" class="text-[10px] font-bold text-sfl-woodLight"></span>
+          <label class="block text-xs font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200">🔍 Search & Add SFL NFTs or Collectibles</label>
+          <span id="wishlist-catalog-status" class="text-[10px] font-bold text-sfl-woodLight dark:text-slate-400"></span>
         </div>
+
+        <!-- QUICK FILTER PILLS -->
+        <div class="flex items-center gap-1.5 flex-wrap text-[11px]">
+          <button type="button" id="nft-filter-all" class="nft-catalog-filter active bg-sfl-wood text-amber-100 dark:bg-amber-600 dark:text-white px-2.5 py-1 rounded-lg font-bold border border-sfl-dirt shadow-xs transition cursor-pointer">
+            🌟 All (<span id="filter-count-all">0</span>)
+          </button>
+          <button type="button" id="nft-filter-boosted" class="nft-catalog-filter bg-amber-100/80 hover:bg-amber-200 dark:bg-slate-700/80 dark:hover:bg-slate-600 text-sfl-dirt dark:text-amber-100 px-2.5 py-1 rounded-lg font-bold border border-amber-300/80 dark:border-slate-600 transition cursor-pointer">
+            ⚡ Boosted (<span id="filter-count-boosted">239</span>)
+          </button>
+          <button type="button" id="nft-filter-collectibles" class="nft-catalog-filter bg-amber-100/80 hover:bg-amber-200 dark:bg-slate-700/80 dark:hover:bg-slate-600 text-sfl-dirt dark:text-amber-100 px-2.5 py-1 rounded-lg font-bold border border-amber-300/80 dark:border-slate-600 transition cursor-pointer">
+            🗿 Collectibles
+          </button>
+          <button type="button" id="nft-filter-wearables" class="nft-catalog-filter bg-amber-100/80 hover:bg-amber-200 dark:bg-slate-700/80 dark:hover:bg-slate-600 text-sfl-dirt dark:text-amber-100 px-2.5 py-1 rounded-lg font-bold border border-amber-300/80 dark:border-slate-600 transition cursor-pointer">
+            👕 Wearables
+          </button>
+        </div>
+
         <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
           <div class="relative flex-1">
-            <input type="text" id="wishlist-search-input" placeholder="Type or click to search NFT name or boost..." autocomplete="off" class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt focus:outline-none focus:ring-2 focus:ring-sfl-gold">
-            <ul id="wishlist-search-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto bg-white border-2 border-sfl-woodLight rounded-lg shadow-xl z-30 divide-y divide-sfl-cardBorder/30 text-sm">
-              <li class="p-2 text-sfl-woodLight italic text-xs">Click "Load Live NFTs" to search items.</li>
+            <input type="text" id="wishlist-search-input" placeholder="Search by name, boost, or type 'boost' (e.g. +20% Wood, +0.1 Stone)..." autocomplete="off" class="w-full sfl-input rounded-lg px-3 py-2 text-sm text-sfl-dirt dark:text-amber-100 bg-white dark:bg-slate-900 border border-sfl-cardBorder dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-sfl-gold">
+            <ul id="wishlist-search-menu" class="hidden absolute left-0 right-0 top-full mt-1 max-h-72 overflow-y-auto bg-white dark:bg-slate-900 border-2 border-sfl-woodLight dark:border-slate-700 rounded-lg shadow-xl z-30 divide-y divide-sfl-cardBorder/30 dark:divide-slate-800 text-sm">
+              <li class="p-2 text-sfl-woodLight dark:text-slate-400 italic text-xs">Click "Load Live NFTs" to search items.</li>
             </ul>
           </div>
           <button type="button" id="load-nfts-btn" class="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-black px-4 py-2 rounded-xl border-2 border-sfl-dirt shadow-md hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-1.5 shrink-0 text-xs uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed">
             <svg id="load-nfts-icon" class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            <span id="load-nfts-btn-text">Load Live NFTs</span>
+            <span id="load-nfts-btn-text">Refresh Prices</span>
           </button>
         </div>
       </div>
@@ -183,6 +216,8 @@ export function initWishlistPanel() {
   renderWishlistTemplate();
   initGoalTracker(wishlistItems);
   initNftCombobox();
+  bindFilterPills();
+  updateFilterCounts();
   renderWishlist();
   updateCatalogStatus();
 
@@ -296,7 +331,58 @@ export async function loadNftCatalog(force = false) {
   }
 }
 
-let isComboboxBound = false;
+let activeNftCategory = 'all'; // 'all', 'boosted', 'collectibles', 'wearables'
+
+function updateFilterCounts() {
+  const allEl = document.getElementById('filter-count-all');
+  const boostedEl = document.getElementById('filter-count-boosted');
+  if (allEl) allEl.textContent = allNfts.length.toLocaleString();
+  if (boostedEl) {
+    const boostedCount = allNfts.filter(n => (getItemBoost(n.name) || n.boost || 'No Boost') !== 'No Boost').length;
+    boostedEl.textContent = boostedCount.toLocaleString();
+  }
+}
+
+function updateFilterPillUI() {
+  const pills = {
+    all: document.getElementById('nft-filter-all'),
+    boosted: document.getElementById('nft-filter-boosted'),
+    collectibles: document.getElementById('nft-filter-collectibles'),
+    wearables: document.getElementById('nft-filter-wearables'),
+  };
+
+  Object.entries(pills).forEach(([key, btn]) => {
+    if (!btn) return;
+    if (key === activeNftCategory) {
+      btn.className = 'nft-catalog-filter active bg-sfl-wood text-amber-100 dark:bg-amber-600 dark:text-white px-2.5 py-1 rounded-lg font-bold border border-sfl-dirt shadow-xs transition cursor-pointer';
+    } else {
+      btn.className = 'nft-catalog-filter bg-amber-100/80 hover:bg-amber-200 dark:bg-slate-700/80 dark:hover:bg-slate-600 text-sfl-dirt dark:text-amber-100 px-2.5 py-1 rounded-lg font-bold border border-amber-300/80 dark:border-slate-600 transition cursor-pointer';
+    }
+  });
+}
+
+function bindFilterPills() {
+  const pills = [
+    { id: 'nft-filter-all', cat: 'all' },
+    { id: 'nft-filter-boosted', cat: 'boosted' },
+    { id: 'nft-filter-collectibles', cat: 'collectibles' },
+    { id: 'nft-filter-wearables', cat: 'wearables' }
+  ];
+
+  pills.forEach(({ id, cat }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.onclick = () => {
+      activeNftCategory = cat;
+      updateFilterPillUI();
+      const input = document.getElementById('wishlist-search-input');
+      if (input) {
+        input.focus();
+        input.dispatchEvent(new Event('input'));
+      }
+    };
+  });
+}
 
 function initNftCombobox() {
   const input = document.getElementById('wishlist-search-input');
@@ -310,7 +396,7 @@ function initNftCombobox() {
 
     if (allNfts.length === 0) {
       menu.innerHTML = `
-        <li class="p-3 text-center text-xs text-sfl-woodLight space-y-1.5">
+        <li class="p-3 text-center text-xs text-sfl-woodLight dark:text-slate-400 space-y-1.5">
           <p>NFT catalog not loaded yet.</p>
           <button type="button" id="menu-load-nfts-btn" class="inline-flex items-center gap-1 bg-emerald-600 text-white font-bold px-2.5 py-1 rounded text-[11px] shadow-xs hover:bg-emerald-500 cursor-pointer">
             <span>✨</span> Load Live NFTs
@@ -324,30 +410,56 @@ function initNftCombobox() {
       return;
     }
 
-    const matches = allNfts.filter(nft => {
-      if (!query) return true;
+    const isBoostQuery = /^(boost|boosted|boosts|boosted\s*item(s)?|buff|buffs|has\s*boost)$/i.test(query);
+
+    let filtered = allNfts.filter(nft => {
       const boost = getItemBoost(nft.name) || nft.boost || '';
-      return nft.name.toLowerCase().includes(query) || 
-             boost.toLowerCase().includes(query);
-    }).slice(0, 30);
+      const hasBoost = boost && boost !== 'No Boost' && boost.trim() !== '';
+
+      if (activeNftCategory === 'boosted' && !hasBoost) return false;
+      if (activeNftCategory === 'collectibles' && nft.collection !== 'collectibles') return false;
+      if (activeNftCategory === 'wearables' && nft.collection !== 'wearables') return false;
+
+      if (!query) return true;
+      if (isBoostQuery) return hasBoost;
+
+      return nft.name.toLowerCase().includes(query) || boost.toLowerCase().includes(query);
+    });
+
+    // Prioritize boosted items to the top
+    filtered.sort((a, b) => {
+      const aBoost = (getItemBoost(a.name) || a.boost || 'No Boost') !== 'No Boost';
+      const bBoost = (getItemBoost(b.name) || b.boost || 'No Boost') !== 'No Boost';
+      if (aBoost && !bBoost) return -1;
+      if (!aBoost && bBoost) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    const matches = filtered.slice(0, 40);
 
     if (matches.length === 0) {
-      menu.innerHTML = '<li class="p-3 text-sfl-woodLight italic text-xs">No matching NFTs found</li>';
+      menu.innerHTML = '<li class="p-3 text-sfl-woodLight dark:text-slate-400 italic text-xs">No matching NFTs found</li>';
     } else {
       matches.forEach(nft => {
         const li = document.createElement('li');
-        li.className = 'p-2.5 hover:bg-amber-100 cursor-pointer transition flex justify-between items-center text-xs border-b border-sfl-cardBorder/30 last:border-b-0';
+        li.className = 'p-2.5 hover:bg-amber-100 dark:hover:bg-slate-800 cursor-pointer transition flex justify-between items-center text-xs border-b border-sfl-cardBorder/30 dark:border-slate-800 last:border-b-0';
 
         const priceNum = typeof nft.price === 'number' ? nft.price : parseFloat(nft.price) || 0;
         const { rate: usdRate } = getFlowerUsdRate();
         const boostText = getItemBoost(nft.name) || nft.boost || 'No Boost';
+        const hasBoost = boostText !== 'No Boost' && boostText.trim() !== '';
 
         li.innerHTML = `
           <div class="flex items-center gap-2 overflow-hidden mr-2">
             <span>⭐</span>
             <div class="truncate">
-              <div class="font-bold text-sfl-dirt dark:text-amber-100 truncate">${nft.name}</div>
-              <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate">${boostText}</div>
+              <div class="font-bold text-sfl-dirt dark:text-amber-100 truncate flex items-center gap-1.5">
+                <span>${nft.name}</span>
+                ${hasBoost ? `<span class="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[9px] font-black uppercase px-1.5 py-0.2 rounded border border-emerald-300/80 dark:border-emerald-600/60 shrink-0">⚡ Boost</span>` : ''}
+              </div>
+              <div class="text-[10px] ${hasBoost ? 'text-emerald-700 dark:text-emerald-300 font-semibold' : 'text-sfl-woodLight dark:text-slate-400'} truncate mt-0.5">
+                ${boostText}
+              </div>
             </div>
           </div>
           <div class="text-right whitespace-nowrap font-mono shrink-0">
@@ -372,9 +484,10 @@ function initNftCombobox() {
     menu.classList.remove('hidden');
   }
 
-  if (!isComboboxBound) {
-    input.addEventListener('input', renderMenu);
-    input.addEventListener('focus', renderMenu);
+  input.oninput = renderMenu;
+  input.onfocus = renderMenu;
+
+  if (typeof window !== 'undefined' && !window._wishlistDocClickBound) {
     document.addEventListener('click', (e) => {
       const activeInput = document.getElementById('wishlist-search-input');
       const activeMenu = document.getElementById('wishlist-search-menu');
@@ -382,7 +495,7 @@ function initNftCombobox() {
         activeMenu.classList.add('hidden');
       }
     });
-    isComboboxBound = true;
+    window._wishlistDocClickBound = true;
   }
 }
 
@@ -506,9 +619,21 @@ export function renderWishlist() {
     tdName.className = "px-3 py-2.5 font-bold flex items-center gap-2 text-sfl-dirt dark:text-amber-100";
     tdName.innerHTML = `<span>⭐</span><span>${nft.name}</span>`;
 
+    const displayBoost = getItemBoost(nft.name) || nft.boost || 'No Boost';
+    const hasBoost = displayBoost !== 'No Boost' && displayBoost.trim() !== '';
+
     const tdBoost = document.createElement('td');
-    tdBoost.className = "px-3 py-2.5 text-xs text-sfl-woodLight dark:text-slate-400 whitespace-pre-line";
-    tdBoost.textContent = getItemBoost(nft.name) || nft.boost || 'No Boost';
+    tdBoost.className = "px-3 py-2.5 text-xs align-middle";
+    if (hasBoost) {
+      tdBoost.innerHTML = `
+        <div class="flex items-start gap-1.5">
+          <span class="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-[9px] font-black uppercase px-1.5 py-0.5 rounded border border-emerald-300/80 dark:border-emerald-600/60 shrink-0 mt-0.5 shadow-2xs">⚡ Boost</span>
+          <span class="font-semibold text-emerald-800 dark:text-emerald-300 whitespace-pre-line leading-relaxed text-xs">${displayBoost}</span>
+        </div>
+      `;
+    } else {
+      tdBoost.innerHTML = `<span class="text-sfl-woodLight dark:text-slate-500 italic text-xs">No Boost</span>`;
+    }
 
     const tdFloor = document.createElement('td');
     tdFloor.className = "px-3 py-2.5 font-mono whitespace-nowrap";
