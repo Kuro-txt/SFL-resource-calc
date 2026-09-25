@@ -5,11 +5,13 @@ import {
   FLOWER_IMG_SMALL_HTML,
   SFL_PLOT_CROPS,
   SFL_GREENHOUSE_CROPS,
-  SFL_FRUITS
+  SFL_FRUITS,
+  getItemTaxRate
 } from '../../config/constants.js';
 import { normalizeItemKey, roundUpToThreeDecimals } from '../../utils/formatters.js';
 import { ApiService } from '../../services/api.js';
 import { getFlowerUsdRate, formatUsdAmount } from '../wishlistPanel.js';
+import { PanelManager } from '../../services/panelManager.js';
 
 // Item Categorization Sets for Quick Presets
 export const CROPS_SET = new Set([
@@ -35,7 +37,7 @@ export const EMBLEMS_SET = new Set([
 ]);
 
 // Module State
-let activeTargetName = '';
+let activeTargetNames = new Set(); // Set of string NFT names (multiple targets allowed)
 let priceMode = 'floor'; // 'floor' | 'offer'
 let includeBalance = true;
 let isTrackerCollapsed = false;
@@ -50,7 +52,19 @@ let cachedWishlistItems = [];
 // Initialize default state from localStorage
 export function initGoalTrackerState() {
   try {
-    activeTargetName = localStorage.getItem('sfl_wishlist_goal_target') || '';
+    const savedTargets = localStorage.getItem('sfl_wishlist_goal_targets');
+    if (savedTargets) {
+      const parsed = JSON.parse(savedTargets);
+      if (Array.isArray(parsed)) {
+        activeTargetNames = new Set(parsed);
+      }
+    } else {
+      const single = localStorage.getItem('sfl_wishlist_goal_target');
+      if (single) {
+        activeTargetNames = new Set([single]);
+      }
+    }
+
     priceMode = localStorage.getItem('sfl_wishlist_goal_price_type') || 'floor';
     includeBalance = localStorage.getItem('sfl_wishlist_goal_include_balance') !== 'false';
     isTrackerCollapsed = localStorage.getItem('sfl_wishlist_goal_collapsed') === 'true';
@@ -89,8 +103,74 @@ function saveIncludedKeys() {
   } catch (_) {}
 }
 
+function saveGoalTargets() {
+  try {
+    const arr = Array.from(activeTargetNames);
+    localStorage.setItem('sfl_wishlist_goal_targets', JSON.stringify(arr));
+    if (arr.length > 0) {
+      localStorage.setItem('sfl_wishlist_goal_target', arr[0]);
+    } else {
+      localStorage.removeItem('sfl_wishlist_goal_target');
+    }
+  } catch (_) {}
+}
+
+// Goal Target Helpers (Multiple Targets Supported)
+export function getActiveGoalItems() {
+  return Array.from(activeTargetNames);
+}
+
+export function isItemInGoal(itemName) {
+  if (!itemName) return false;
+  return activeTargetNames.has(itemName);
+}
+
+export function toggleGoalItem(itemName) {
+  if (!itemName) return;
+  if (activeTargetNames.has(itemName)) {
+    activeTargetNames.delete(itemName);
+  } else {
+    activeTargetNames.add(itemName);
+  }
+  saveGoalTargets();
+  renderGoalTracker(cachedWishlistItems);
+}
+
+export function addGoalItem(itemName) {
+  if (!itemName) return;
+  activeTargetNames.add(itemName);
+  saveGoalTargets();
+  renderGoalTracker(cachedWishlistItems);
+}
+
+export function removeGoalItem(itemName) {
+  if (!itemName) return;
+  activeTargetNames.delete(itemName);
+  saveGoalTargets();
+  renderGoalTracker(cachedWishlistItems);
+}
+
+export function clearGoalItems() {
+  activeTargetNames.clear();
+  saveGoalTargets();
+  renderGoalTracker(cachedWishlistItems);
+}
+
+export function setAllWishlistAsGoals(wishlistItems = []) {
+  activeTargetNames.clear();
+  wishlistItems.forEach(i => activeTargetNames.add(i.name));
+  saveGoalTargets();
+  renderGoalTracker(wishlistItems);
+}
+
+// Backward-compatibility helpers
 export function getActiveGoalItem() {
-  return activeTargetName;
+  const arr = Array.from(activeTargetNames);
+  return arr.length > 0 ? arr[0] : '';
+}
+
+export function setActiveGoalItem(itemName) {
+  toggleGoalItem(itemName);
 }
 
 export function getSortIndicator(field) {
@@ -126,22 +206,8 @@ export function sortInventoryRows(rows) {
       if (diff !== 0) return mult * diff;
       return b.flowerValue - a.flowerValue;
     }
-    return 0;
+    return 0; // 'default': category/whitelist order
   });
-}
-
-export function setActiveGoalItem(itemName) {
-  activeTargetName = itemName || '';
-  try {
-    localStorage.setItem('sfl_wishlist_goal_target', activeTargetName);
-  } catch (_) {}
-  renderGoalTracker(cachedWishlistItems);
-
-  // Smooth scroll up to tracker
-  const mountEl = document.getElementById('wishlist-goal-tracker-mount');
-  if (mountEl) {
-    mountEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
 }
 
 // Price and Inventory Helpers
@@ -194,7 +260,6 @@ export function getItemInventoryQuantity(cleanKey) {
   const inv = getFarmInventoryData();
   if (!inv || typeof inv !== 'object') return 0;
   
-  // Direct match or normalized key search
   const foundKey = Object.keys(inv).find(k => normalizeItemKey(k) === cleanKey);
   if (foundKey && inv[foundKey] !== undefined) {
     const qty = parseFloat(inv[foundKey]);
@@ -217,6 +282,55 @@ export function getItemCategoryInfo(cleanKey) {
     return { category: 'Resource', badge: '🪵 Resource', badgeClass: 'bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300' };
   }
   return { category: 'Emblem/Forage', badge: '🛡️ Emblem/Other', badgeClass: 'bg-purple-100 text-purple-900 dark:bg-purple-950/70 dark:text-purple-300' };
+}
+
+export function getInventoryRows(usdRate) {
+  let totalGrossInventory = 0;
+  let totalTaxDeducted = 0;
+  let totalPledgedInventory = 0;
+  let selectedCount = 0;
+  let totalOwnedStockCount = 0;
+
+  const rows = ALLOWED_DIFFERENCE_ITEMS.map(itemName => {
+    const cleanKey = normalizeItemKey(itemName);
+    const qty = getItemInventoryQuantity(cleanKey);
+    const unitPrice = getItemFlowerPrice(cleanKey);
+    const grossFlowerValue = qty * unitPrice;
+    const taxRate = getItemTaxRate(itemName);
+    const taxDeduction = grossFlowerValue * taxRate;
+    const flowerValue = grossFlowerValue - taxDeduction;
+    const isIncluded = includedItemKeys.has(cleanKey);
+
+    if (qty > 0) totalOwnedStockCount++;
+    if (isIncluded) {
+      totalGrossInventory += grossFlowerValue;
+      totalTaxDeducted += taxDeduction;
+      totalPledgedInventory += flowerValue;
+      selectedCount++;
+    }
+
+    return {
+      name: itemName,
+      cleanKey,
+      qty,
+      unitPrice,
+      taxRate,
+      taxDeduction,
+      grossFlowerValue,
+      flowerValue,
+      usdValue: flowerValue * usdRate,
+      isIncluded
+    };
+  });
+
+  return {
+    rows,
+    totalGrossInventory,
+    totalTaxDeducted,
+    totalPledgedInventory,
+    selectedCount,
+    totalOwnedStockCount
+  };
 }
 
 function formatLastUpdated(isoString) {
@@ -287,70 +401,195 @@ export async function refreshGoalTrackerInventory() {
   }
 }
 
+// Render Global Goal Reached Banner (Mounts at top of the app)
+export function renderGlobalGoalBanner() {
+  const mountEl = document.getElementById('global-goal-banner-mount');
+  if (!mountEl) return;
+
+  let state = null;
+  try {
+    const raw = localStorage.getItem('sfl_wishlist_goal_reached_state');
+    if (raw) state = JSON.parse(raw);
+  } catch (_) {}
+
+  // Fallback: If state is missing or unverified, evaluate from cached targets, balance, and inventory
+  if ((!state || typeof state.reached !== 'boolean') && typeof localStorage !== 'undefined') {
+    let targets = [];
+    try {
+      targets = JSON.parse(localStorage.getItem('sfl_wishlist_goal_targets') || '[]');
+    } catch (_) {}
+    if (targets.length === 0) {
+      const single = localStorage.getItem('sfl_wishlist_goal_target');
+      if (single) targets = [single];
+    }
+
+    if (targets.length > 0) {
+      let wishlist = [];
+      try { wishlist = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]'); } catch (_) {}
+      const targetItems = wishlist.filter(i => targets.includes(i.name));
+      if (targetItems.length > 0) {
+        const pMode = localStorage.getItem('sfl_wishlist_goal_price_type') || 'floor';
+        let cost = 0;
+        targetItems.forEach(i => {
+          cost += pMode === 'offer' ? (parseFloat(i.offerPrice) || parseFloat(i.price) || 0) : (parseFloat(i.price) || 0);
+        });
+
+        const incBal = localStorage.getItem('sfl_wishlist_goal_include_balance') !== 'false';
+        const bal = incBal ? (parseFloat(localStorage.getItem('sfl_farm_balance')) || 0) : 0;
+        
+        let invVal = 0;
+        let incKeys = null;
+        try {
+          const rawKeys = localStorage.getItem('sfl_wishlist_goal_items');
+          if (rawKeys) incKeys = new Set(JSON.parse(rawKeys));
+        } catch (_) {}
+
+        ALLOWED_DIFFERENCE_ITEMS.forEach(name => {
+          const clean = normalizeItemKey(name);
+          if (!incKeys || incKeys.has(clean)) {
+            const qty = getItemInventoryQuantity(clean);
+            const price = getItemFlowerPrice(clean);
+            const gross = qty * price;
+            const tax = gross * getItemTaxRate(name);
+            invVal += (gross - tax);
+          }
+        });
+
+        const total = bal + invVal;
+        if (cost > 0 && total >= cost) {
+          state = {
+            reached: true,
+            targetNames: targetItems.map(i => i.name),
+            targetCount: targetItems.length,
+            targetCost: cost,
+            totalAssets: total,
+            surplus: total - cost,
+            usdRate: 0.13458
+          };
+          try { localStorage.setItem('sfl_wishlist_goal_reached_state', JSON.stringify(state)); } catch (_) {}
+        }
+      }
+    }
+  }
+
+  if (!state || !state.reached || !state.targetNames || state.targetNames.length === 0) {
+    mountEl.innerHTML = '<div class="hidden sm:block w-28"></div>';
+    return;
+  }
+
+  let currentUsdRate = 0.13458;
+  try {
+    const res = getFlowerUsdRate();
+    if (res && res.rate > 0) currentUsdRate = res.rate;
+  } catch (_) {}
+  const effectiveUsdRate = state.usdRate || currentUsdRate;
+  const surplusUsd = (state.surplus || 0) * effectiveUsdRate;
+
+  // Format list of target items
+  const names = state.targetNames;
+  const targetLabel = names.length === 1 
+    ? `⭐ <strong>${names[0]}</strong>` 
+    : `⭐ <strong>${names.length} Goals</strong> (${names.slice(0, 2).join(', ')}${names.length > 2 ? '...' : ''})`;
+
+  mountEl.innerHTML = `
+    <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 dark:from-emerald-800 dark:via-teal-800 dark:to-green-900 border-2 border-amber-300 dark:border-amber-400 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-white shadow-md flex items-center gap-2 max-w-full sm:max-w-xs md:max-w-sm animate-fadeIn">
+      <div class="w-7 h-7 rounded-lg bg-amber-400 text-amber-950 flex items-center justify-center text-sm shrink-0 shadow-xs font-black">
+        🎉
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+          <span class="text-[9px] font-black uppercase tracking-wider bg-amber-300 text-amber-950 px-1.5 py-0.2 rounded-full shadow-2xs whitespace-nowrap">
+            Goal Reached!
+          </span>
+          <span class="text-[11px] font-black text-amber-100 truncate" title="${names.join(', ')}">
+            ${targetLabel}
+          </span>
+        </div>
+        <div class="text-[10px] text-emerald-100 font-mono font-semibold truncate mt-0.5">
+          Target: <strong>${(state.targetCost || 0).toFixed(1)} 🌸</strong> • Pledged: <strong class="text-white">${(state.totalAssets || 0).toFixed(1)} 🌸</strong> <span class="text-amber-200 font-bold">(+${(state.surplus || 0).toFixed(1)})</span>
+        </div>
+      </div>
+      <button id="global-goal-view-btn" type="button" class="bg-amber-400 hover:bg-amber-300 active:translate-y-0.5 text-amber-950 font-black px-2 py-1 rounded-lg border border-amber-500 shadow-xs transition cursor-pointer text-[10px] whitespace-nowrap shrink-0" title="View Wishlist Goals">
+        🎯 View
+      </button>
+    </div>
+  `;
+
+  document.getElementById('global-goal-view-btn')?.addEventListener('click', () => {
+    if (typeof PanelManager !== 'undefined' && PanelManager.switch) {
+      PanelManager.switch('wishlist');
+    } else if (typeof window.PanelManager !== 'undefined' && window.PanelManager.switch) {
+      window.PanelManager.switch('wishlist');
+    }
+    const targetMount = document.getElementById('wishlist-goal-tracker-mount');
+    if (targetMount) {
+      targetMount.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+}
+
 // Render the Entire Goal Tracker Widget
 export function renderGoalTracker(wishlistItems = []) {
   cachedWishlistItems = wishlistItems;
   const container = document.getElementById('wishlist-goal-tracker-mount');
   if (!container) return;
 
-  // Resolve Active Target Goal
-  let targetItem = null;
-  if (activeTargetName) {
-    targetItem = wishlistItems.find(item => item.name.toLowerCase() === activeTargetName.toLowerCase());
-  }
-  if (!targetItem && wishlistItems.length > 0) {
-    targetItem = wishlistItems[0];
-    activeTargetName = targetItem.name;
-    try { localStorage.setItem('sfl_wishlist_goal_target', activeTargetName); } catch (_) {}
+  // Resolve Active Target Goal Items (multiple targets supported)
+  const targetItems = wishlistItems.filter(item => activeTargetNames.has(item.name));
+
+  // If no targets explicitly set and wishlist has items, default to the first one
+  if (targetItems.length === 0 && wishlistItems.length > 0 && activeTargetNames.size === 0) {
+    activeTargetNames.add(wishlistItems[0].name);
+    targetItems.push(wishlistItems[0]);
+    saveGoalTargets();
   }
 
-  // Calculate Target Cost
+  // Calculate Target Cost across all selected goals
   let targetCost = 0;
-  if (targetItem) {
-    const floorPrice = typeof targetItem.price === 'number' ? targetItem.price : parseFloat(targetItem.price) || 0;
-    const offerPrice = typeof targetItem.offerPrice === 'number' ? targetItem.offerPrice : parseFloat(targetItem.offerPrice) || floorPrice;
-    targetCost = priceMode === 'offer' ? offerPrice : floorPrice;
-  }
+  targetItems.forEach(item => {
+    const floorPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
+    const offerPrice = typeof item.offerPrice === 'number' ? item.offerPrice : parseFloat(item.offerPrice) || floorPrice;
+    targetCost += (priceMode === 'offer' ? offerPrice : floorPrice);
+  });
 
   const { rate: usdRate } = getFlowerUsdRate();
   const farmBalance = getOnFarmBalance();
   const effectiveBalance = includeBalance ? farmBalance : 0;
 
-  // Calculate Inventory Valuation across the 64 whitelist items
-  let totalPledgedInventory = 0;
-  let selectedCount = 0;
-  let totalOwnedStockCount = 0;
-
-  const inventoryRows = ALLOWED_DIFFERENCE_ITEMS.map(itemName => {
-    const cleanKey = normalizeItemKey(itemName);
-    const qty = getItemInventoryQuantity(cleanKey);
-    const unitPrice = getItemFlowerPrice(cleanKey);
-    const flowerValue = qty * unitPrice;
-    const isIncluded = includedItemKeys.has(cleanKey);
-
-    if (qty > 0) totalOwnedStockCount++;
-    if (isIncluded) {
-      totalPledgedInventory += flowerValue;
-      selectedCount++;
-    }
-
-    return {
-      name: itemName,
-      cleanKey,
-      qty,
-      unitPrice,
-      flowerValue,
-      usdValue: flowerValue * usdRate,
-      isIncluded
-    };
-  });
+  // Calculate Inventory Valuation across the 64 whitelist items (applying market tax rate)
+  const {
+    rows: inventoryRows,
+    totalGrossInventory,
+    totalTaxDeducted,
+    totalPledgedInventory,
+    selectedCount,
+    totalOwnedStockCount
+  } = getInventoryRows(usdRate);
 
   const totalAvailableAssets = effectiveBalance + totalPledgedInventory;
   const progressPercent = targetCost > 0 ? Math.min(100, (totalAvailableAssets / targetCost) * 100) : 0;
   const actualRatioPercent = targetCost > 0 ? (totalAvailableAssets / targetCost) * 100 : 0;
   const remainingFlowers = Math.max(0, targetCost - totalAvailableAssets);
   const surplusFlowers = Math.max(0, totalAvailableAssets - targetCost);
-  const isGoalReached = targetCost > 0 && totalAvailableAssets >= targetCost;
+  const isGoalReached = targetCost > 0 && targetItems.length > 0 && totalAvailableAssets >= targetCost;
+
+  // Persist goal reached state to localStorage so it never resets when refreshed or tab is closed
+  try {
+    const reachedState = {
+      reached: isGoalReached,
+      targetNames: targetItems.map(i => i.name),
+      targetCount: targetItems.length,
+      targetCost,
+      totalAssets: totalAvailableAssets,
+      surplus: surplusFlowers,
+      usdRate,
+      timestamp: new Date().toISOString()
+    };
+    localStorage.setItem('sfl_wishlist_goal_reached_state', JSON.stringify(reachedState));
+  } catch (_) {}
+
+  // Update global banner across the app
+  renderGlobalGoalBanner();
 
   const lastUpdated = localStorage.getItem('sfl_farm_inventory_updated_at');
   const formattedUpdated = formatLastUpdated(lastUpdated);
@@ -366,7 +605,7 @@ export function renderGoalTracker(wishlistItems = []) {
             <span>🎯</span> Wishlist Goal Tracker & Inventory Liquidation
           </h3>
           <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-semibold mt-0.5">
-            Pledge your on-farm SFL balance and inventory to calculate funding toward your dream NFT in real time.
+            Pledge your on-farm SFL balance and inventory to calculate funding toward your dream NFT bundle in real time.
           </p>
         </div>
 
@@ -389,34 +628,61 @@ export function renderGoalTracker(wishlistItems = []) {
       <!-- MAIN BODY (COLLAPSIBLE) -->
       <div id="goal-tracker-body" class="${isTrackerCollapsed ? 'hidden' : 'space-y-4'}">
         
-        <!-- TARGET GOAL & PRICE MODE SELECTOR BAR -->
-        <div class="bg-white/80 dark:bg-slate-800/80 p-3 rounded-xl border border-amber-300/80 dark:border-slate-700 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-xs">
+        <!-- TARGET GOALS (MULTIPLE ITEMS SUPPORTED) & PRICE MODE SELECTOR BAR -->
+        <div class="bg-white/80 dark:bg-slate-800/80 p-3.5 rounded-xl border border-amber-300/80 dark:border-slate-700 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-xs">
           
-          <!-- Dropdown -->
-          <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-1">
-            <label class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wider shrink-0 flex items-center gap-1">
-              <span>🎯 Target Goal:</span>
-            </label>
-            ${wishlistItems.length === 0 ? `
-              <div class="text-xs text-sfl-woodLight dark:text-slate-400 italic">
-                Add NFTs to your wishlist below to select a target goal!
+          <!-- Target Goals Pills & Quick Add -->
+          <div class="flex-1 space-y-2">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <label class="text-xs font-black text-sfl-wood dark:text-amber-200 uppercase tracking-wider flex items-center gap-1.5">
+                <span>🎯 Active Goals (${targetItems.length}):</span>
+              </label>
+
+              <div class="flex items-center gap-1.5 text-xs">
+                <button id="goal-select-all-btn" class="text-[10px] font-bold text-amber-800 dark:text-amber-300 hover:underline cursor-pointer">
+                  Select All (${wishlistItems.length})
+                </button>
+                <span class="text-slate-300 dark:text-slate-600">•</span>
+                <button id="goal-clear-all-btn" class="text-[10px] font-bold text-rose-700 dark:text-rose-400 hover:underline cursor-pointer">
+                  Clear Goals
+                </button>
               </div>
-            ` : `
-              <select id="goal-target-select" class="w-full sm:w-auto flex-1 sfl-input rounded-lg px-3 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 bg-amber-50/70 dark:bg-slate-900 border border-amber-300/80 dark:border-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer">
-                ${wishlistItems.map(item => {
-                  const floorVal = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
-                  const offerVal = typeof item.offerPrice === 'number' ? item.offerPrice : parseFloat(item.offerPrice) || floorVal;
-                  const isSelected = targetItem && item.name.toLowerCase() === targetItem.name.toLowerCase();
-                  return `<option value="${item.name}" ${isSelected ? 'selected' : ''}>
-                    ⭐ ${item.name} — Floor: ${floorVal.toFixed(2)} 🌸 (Offer: ${offerVal.toFixed(2)} 🌸)
-                  </option>`;
-                }).join('')}
-              </select>
-            `}
+            </div>
+
+            <!-- Active Goals Pills -->
+            <div class="flex flex-wrap items-center gap-1.5">
+              ${targetItems.length === 0 ? `
+                <span class="text-xs text-sfl-woodLight dark:text-slate-400 italic">
+                  No active goals selected. Pick items from dropdown or click "Add to Goal" in the wishlist table below!
+                </span>
+              ` : targetItems.map(item => {
+                const floorVal = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
+                const offerVal = typeof item.offerPrice === 'number' ? item.offerPrice : parseFloat(item.offerPrice) || floorVal;
+                const cost = priceMode === 'offer' ? offerVal : floorVal;
+                return `
+                  <span class="inline-flex items-center gap-1.5 bg-amber-200/90 dark:bg-amber-950/80 text-amber-950 dark:text-amber-200 border border-amber-400/80 dark:border-amber-700 px-2.5 py-1 rounded-lg text-xs font-bold shadow-xs">
+                    <span>⭐ ${item.name}</span>
+                    <span class="text-[10px] font-mono text-amber-900 dark:text-amber-300 font-extrabold">(${cost.toFixed(2)} 🌸)</span>
+                    <button type="button" data-remove-target="${item.name}" class="goal-remove-pill-btn text-amber-800 hover:text-red-700 font-black ml-0.5 cursor-pointer text-sm leading-none" title="Remove from goals">✕</button>
+                  </span>
+                `;
+              }).join('')}
+
+              <!-- Quick Add Dropdown for Remaining Wishlist Items -->
+              ${wishlistItems.filter(i => !activeTargetNames.has(i.name)).length > 0 ? `
+                <select id="goal-add-target-select" class="sfl-input rounded-lg px-2 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-100 bg-amber-50/80 dark:bg-slate-900 border border-amber-300/80 dark:border-slate-600 focus:outline-none cursor-pointer">
+                  <option value="">➕ Add More Items to Goal...</option>
+                  ${wishlistItems.filter(i => !activeTargetNames.has(i.name)).map(item => {
+                    const floorVal = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
+                    return `<option value="${item.name}">+ ${item.name} (${floorVal.toFixed(2)} 🌸)</option>`;
+                  }).join('')}
+                </select>
+              ` : ''}
+            </div>
           </div>
 
           <!-- Price Mode Radio / Toggle -->
-          <div class="flex items-center gap-2 bg-amber-100/70 dark:bg-slate-900/60 p-1.5 rounded-lg border border-amber-300/60 dark:border-slate-700 text-xs font-bold shrink-0 self-end sm:self-auto">
+          <div class="flex items-center gap-2 bg-amber-100/70 dark:bg-slate-900/60 p-1.5 rounded-lg border border-amber-300/60 dark:border-slate-700 text-xs font-bold shrink-0 self-end md:self-center">
             <span class="text-[10px] uppercase text-sfl-woodLight dark:text-slate-400 pl-1">Basis:</span>
             <button id="goal-mode-floor-btn" class="px-2.5 py-1 rounded-md text-xs font-extrabold transition cursor-pointer ${priceMode === 'floor' ? 'bg-sfl-wood text-amber-100 shadow-xs' : 'text-sfl-wood dark:text-slate-300 hover:bg-amber-200/50 dark:hover:bg-slate-800'}">
               Floor Price
@@ -443,8 +709,8 @@ export function renderGoalTracker(wishlistItems = []) {
             <div class="text-[11px] font-mono font-bold text-amber-800 dark:text-amber-300 mt-0.5">
               ≈ ${formatUsdAmount(targetCost * usdRate)} USD
             </div>
-            <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate mt-0.5">
-              ${targetItem ? targetItem.name : 'No item selected'}
+            <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate mt-0.5" title="${targetItems.map(i => i.name).join(', ')}">
+              ${targetItems.length === 0 ? 'No goals selected' : `${targetItems.length} Goal Item${targetItems.length === 1 ? '' : 's'}`}
             </div>
           </div>
 
@@ -469,10 +735,10 @@ export function renderGoalTracker(wishlistItems = []) {
             </div>
           </div>
 
-          <!-- Card 3: Pledged Inventory -->
+          <!-- Card 3: Pledged Inventory (Net after Tax) -->
           <div class="bg-amber-100/80 dark:bg-slate-800 border-2 border-amber-400/80 dark:border-amber-700/60 rounded-xl p-3 shadow-xs">
             <div class="text-[10px] font-black uppercase tracking-wider text-sfl-woodLight dark:text-amber-300 flex items-center justify-between">
-              <span>📦 Pledged Inventory</span>
+              <span>📦 Pledged Inventory (Net)</span>
               <span class="text-[9px] font-bold text-amber-900 dark:text-amber-200">${selectedCount}/64 items</span>
             </div>
             <div class="text-base sm:text-xl font-mono font-black text-sfl-green dark:text-emerald-400 mt-1 flex items-center gap-1">
@@ -482,8 +748,8 @@ export function renderGoalTracker(wishlistItems = []) {
             <div class="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400 mt-0.5">
               ≈ ${formatUsdAmount(totalPledgedInventory * usdRate)} USD
             </div>
-            <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate mt-0.5">
-              64 Whitelist Items Valuated
+            <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate mt-0.5" title="Net proceeds after market tax. Gross value: ${totalGrossInventory.toFixed(2)} 🌸 (Tax: -${totalTaxDeducted.toFixed(2)} 🌸)">
+              Net after Tax (Gross: ${totalGrossInventory.toFixed(2)} 🌸)
             </div>
           </div>
 
@@ -503,7 +769,7 @@ export function renderGoalTracker(wishlistItems = []) {
               ≈ ${formatUsdAmount(totalAvailableAssets * usdRate)} USD
             </div>
             <div class="text-[10px] ${isGoalReached ? 'text-emerald-700 dark:text-emerald-300 font-bold' : 'text-sfl-woodLight dark:text-slate-400'} truncate mt-0.5">
-              ${isGoalReached ? '🎉 Goal Achieved!' : `Remaining: ${remainingFlowers.toFixed(2)} 🌸`}
+              ${isGoalReached ? '🎉 All Goals Achieved!' : `Remaining: ${remainingFlowers.toFixed(2)} 🌸`}
             </div>
           </div>
 
@@ -537,8 +803,8 @@ export function renderGoalTracker(wishlistItems = []) {
               <div class="flex items-center gap-2">
                 <span class="text-lg">🎉</span>
                 <div>
-                  <span class="font-extrabold text-emerald-950 dark:text-emerald-100">Goal Achieved!</span>
-                  <span> You have enough pledged assets to purchase <strong>${targetItem?.name || 'this item'}</strong>!</span>
+                  <span class="font-extrabold text-emerald-950 dark:text-emerald-100">All Goals Reached!</span>
+                  <span> You have enough pledged assets to purchase ${targetItems.length === 1 ? `<strong>${targetItems[0].name}</strong>` : `all <strong>${targetItems.length} target items</strong>`}!</span>
                 </div>
               </div>
               <div class="font-mono text-xs text-emerald-800 dark:text-emerald-300 whitespace-nowrap bg-emerald-200/60 dark:bg-emerald-900/60 px-2.5 py-1 rounded-lg border border-emerald-400/60">
@@ -667,13 +933,13 @@ export function renderGoalTracker(wishlistItems = []) {
                         <span class="text-[9px] ${sortField === 'price' ? 'font-black text-amber-800 dark:text-amber-300' : 'opacity-40'}">${getSortIndicator('price')}</span>
                       </div>
                     </th>
-                    <th class="px-3 py-2 text-right cursor-pointer hover:bg-amber-200/70 dark:hover:bg-slate-800 transition" data-sort-field="value" title="Click to sort by pledged flower value">
+                    <th class="px-3 py-2 text-right cursor-pointer hover:bg-amber-200/70 dark:hover:bg-slate-800 transition" data-sort-field="value" title="Click to sort by net pledged flower value (after market tax)">
                       <div class="flex items-center justify-end gap-1">
-                        <span>Pledged Value (🌸)</span>
+                        <span>Pledged Net (🌸)</span>
                         <span class="text-[9px] ${sortField === 'value' ? 'font-black text-amber-800 dark:text-amber-300' : 'opacity-40'}">${getSortIndicator('value')}</span>
                       </div>
                     </th>
-                    <th class="px-3 py-2 text-right cursor-pointer hover:bg-amber-200/70 dark:hover:bg-slate-800 transition" data-sort-field="usd" title="Click to sort by value in USD">
+                    <th class="px-3 py-2 text-right cursor-pointer hover:bg-amber-200/70 dark:hover:bg-slate-800 transition" data-sort-field="usd" title="Click to sort by net value in USD">
                       <div class="flex items-center justify-end gap-1">
                         <span>Value ($ USD)</span>
                         <span class="text-[9px] ${sortField === 'usd' ? 'font-black text-amber-800 dark:text-amber-300' : 'opacity-40'}">${getSortIndicator('usd')}</span>
@@ -690,7 +956,8 @@ export function renderGoalTracker(wishlistItems = []) {
                       <span class="text-[10px] text-amber-800 dark:text-amber-300">${selectedCount} sel</span>
                     </td>
                     <td class="px-3 py-2 text-sfl-wood dark:text-amber-200" colspan="3">
-                      Total Pledged Inventory Valuation:
+                      Total Pledged Inventory (Net after Tax):
+                      <span class="text-[10px] font-normal text-sfl-woodLight dark:text-slate-400 block sm:inline sm:ml-1">(Gross: ${totalGrossInventory.toFixed(2)} 🌸 • Tax: -${totalTaxDeducted.toFixed(2)} 🌸)</span>
                     </td>
                     <td class="px-3 py-2 text-right font-mono text-sfl-green dark:text-emerald-400">
                       ${totalPledgedInventory.toFixed(2)} 🌸
@@ -765,7 +1032,8 @@ function renderInventoryTableRows(rows, usdRate) {
         ${item.unitPrice.toFixed(4)} 🌸
       </td>
       <td class="px-3 py-2 text-right font-mono ${item.isIncluded && item.flowerValue > 0 ? 'font-bold text-sfl-green dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}">
-        ${item.flowerValue.toFixed(3)} 🌸
+        <div>${item.flowerValue.toFixed(3)} 🌸</div>
+        ${item.taxDeduction > 0 && item.qty > 0 ? `<div class="text-[9px] text-sfl-woodLight dark:text-slate-400 font-normal">(-${(item.taxRate * 100).toFixed(0)}% tax)</div>` : ''}
       </td>
       <td class="px-3 py-2 text-right font-mono ${item.isIncluded && item.usdValue > 0 ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}">
         ${formatUsdAmount(item.usdValue)}
@@ -796,11 +1064,42 @@ function bindGoalTrackerEvents(wishlistItems) {
     refreshGoalTrackerInventory();
   });
 
-  // Target Dropdown
-  document.getElementById('goal-target-select')?.addEventListener('change', (e) => {
-    activeTargetName = e.target.value;
-    try { localStorage.setItem('sfl_wishlist_goal_target', activeTargetName); } catch (_) {}
-    renderGoalTracker(wishlistItems);
+  // Quick Add Target Dropdown
+  document.getElementById('goal-add-target-select')?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (val) {
+      addGoalItem(val);
+      if (typeof window.renderWishlist === 'function') {
+        window.renderWishlist();
+      }
+    }
+  });
+
+  // Remove Individual Goal Pill Buttons
+  document.querySelectorAll('.goal-remove-pill-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const target = btn.getAttribute('data-remove-target');
+      if (target) {
+        removeGoalItem(target);
+        if (typeof window.renderWishlist === 'function') {
+          window.renderWishlist();
+        }
+      }
+    });
+  });
+
+  // Select All Wishlist Items as Goals
+  document.getElementById('goal-select-all-btn')?.addEventListener('click', () => {
+    setAllWishlistAsGoals(wishlistItems);
+    if (typeof window.renderWishlist === 'function') {
+      window.renderWishlist();
+    }
+  });
+
+  // Clear All Goals
+  document.getElementById('goal-clear-all-btn')?.addEventListener('click', () => {
+    clearGoalItems();
     if (typeof window.renderWishlist === 'function') {
       window.renderWishlist();
     }
@@ -921,21 +1220,7 @@ function bindGoalTrackerEvents(wishlistItems) {
     showInStockOnly = e.target.checked;
     try { localStorage.setItem('sfl_wishlist_goal_show_in_stock_only', String(showInStockOnly)); } catch (_) {}
     const { rate: usdRate } = getFlowerUsdRate();
-    const rows = ALLOWED_DIFFERENCE_ITEMS.map(itemName => {
-      const cleanKey = normalizeItemKey(itemName);
-      const qty = getItemInventoryQuantity(cleanKey);
-      const unitPrice = getItemFlowerPrice(cleanKey);
-      const flowerValue = qty * unitPrice;
-      return {
-        name: itemName,
-        cleanKey,
-        qty,
-        unitPrice,
-        flowerValue,
-        usdValue: flowerValue * usdRate,
-        isIncluded: includedItemKeys.has(cleanKey)
-      };
-    });
+    const { rows } = getInventoryRows(usdRate);
     renderInventoryTableRows(rows, usdRate);
   });
 
@@ -945,36 +1230,36 @@ function bindGoalTrackerEvents(wishlistItems) {
     searchInput.addEventListener('input', (e) => {
       searchQuery = e.target.value;
       const { rate: usdRate } = getFlowerUsdRate();
-      const rows = ALLOWED_DIFFERENCE_ITEMS.map(itemName => {
-        const cleanKey = normalizeItemKey(itemName);
-        const qty = getItemInventoryQuantity(cleanKey);
-        const unitPrice = getItemFlowerPrice(cleanKey);
-        const flowerValue = qty * unitPrice;
-        return {
-          name: itemName,
-          cleanKey,
-          qty,
-          unitPrice,
-          flowerValue,
-          usdValue: flowerValue * usdRate,
-          isIncluded: includedItemKeys.has(cleanKey)
-        };
-      });
+      const { rows } = getInventoryRows(usdRate);
       renderInventoryTableRows(rows, usdRate);
     });
   }
+
+  // Tax Rate Select Listener
+  document.getElementById('tax-select')?.addEventListener('change', () => {
+    renderGoalTracker(wishlistItems);
+  });
 }
 
 // Initialize Goal Tracker
 export function initGoalTracker(wishlistItems = []) {
   initGoalTrackerState();
   renderGoalTracker(wishlistItems);
+  renderGlobalGoalBanner();
 }
 
 // Global exposure for event callbacks
 if (typeof window !== 'undefined') {
   window.initGoalTracker = initGoalTracker;
   window.renderGoalTracker = renderGoalTracker;
+  window.getActiveGoalItems = getActiveGoalItems;
+  window.getActiveGoalItem = getActiveGoalItem;
   window.setActiveGoalItem = setActiveGoalItem;
+  window.toggleGoalItem = toggleGoalItem;
+  window.addGoalItem = addGoalItem;
+  window.removeGoalItem = removeGoalItem;
+  window.clearGoalItems = clearGoalItems;
+  window.setAllWishlistAsGoals = setAllWishlistAsGoals;
   window.refreshGoalTrackerInventory = refreshGoalTrackerInventory;
+  window.renderGlobalGoalBanner = renderGlobalGoalBanner;
 }

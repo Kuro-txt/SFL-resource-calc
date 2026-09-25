@@ -8,7 +8,10 @@ export function renderHeader() {
     <div class="space-y-3">
       <!-- HEADER BANNER & SUBTITLE -->
       <div class="relative flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-        <div class="hidden sm:block w-28"></div>
+        <!-- TOP-LEFT GOAL REACHED BANNER MOUNT / SPACER -->
+        <div id="global-goal-banner-mount" class="w-full sm:w-auto sm:self-center order-first sm:order-none flex justify-center sm:justify-start">
+          <div class="hidden sm:block w-28"></div>
+        </div>
 
         <div class="text-center space-y-1">
           <!-- BANNER WRAPPER WITH PEEKING CAT -->
@@ -145,6 +148,9 @@ export function renderHeader() {
   `;
 
   bindHeaderEvents();
+  if (typeof window.renderGlobalGoalBanner === 'function') {
+    window.renderGlobalGoalBanner();
+  }
 }
 
 function bindHeaderEvents() {

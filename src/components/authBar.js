@@ -183,6 +183,8 @@ function bindFarmSyncEvents() {
     if (typeof window.renderCropTrackerRows === 'function') window.renderCropTrackerRows();
     if (typeof window.renderCurrentTradeView === 'function') window.renderCurrentTradeView();
     if (typeof window.refreshDashboardView === 'function') window.refreshDashboardView();
+    if (typeof window.renderGoalTracker === 'function') window.renderGoalTracker();
+    if (typeof window.renderGlobalGoalBanner === 'function') window.renderGlobalGoalBanner();
   });
 
   const savedRatio = localStorage.getItem('sfl_coin_flower_ratio') || '1000';

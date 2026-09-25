@@ -3,8 +3,13 @@ import { ApiService } from '../services/api.js';
 import { 
   initGoalTracker, 
   renderGoalTracker, 
+  getActiveGoalItems,
   getActiveGoalItem, 
-  setActiveGoalItem 
+  setActiveGoalItem,
+  isItemInGoal,
+  toggleGoalItem,
+  removeGoalItem,
+  clearGoalItems
 } from './wishlist/goalTracker.js';
 
 let allNfts = [];
@@ -384,6 +389,10 @@ export function updateOfferPrice(index, value) {
 }
 
 export function removeFromWishlist(index) {
+  const item = wishlistItems[index];
+  if (item && item.name) {
+    removeGoalItem(item.name);
+  }
   wishlistItems.splice(index, 1);
   saveWishlist();
   renderWishlist();
@@ -392,6 +401,7 @@ export function removeFromWishlist(index) {
 export function clearWishlist() {
   if (wishlistItems.length === 0) return;
   if (confirm("Are you sure you want to clear your entire wishlist?")) {
+    clearGoalItems();
     wishlistItems = [];
     saveWishlist();
     renderWishlist();
@@ -519,8 +529,7 @@ export function renderWishlist() {
     tdOffer.appendChild(offerInputWrapper);
     tdOffer.appendChild(offerUsdDiv);
 
-    const activeGoalName = getActiveGoalItem();
-    const isGoalActive = activeGoalName && activeGoalName.toLowerCase() === nft.name.toLowerCase();
+    const isGoalActive = isItemInGoal(nft.name);
 
     const tdAction = document.createElement('td');
     tdAction.className = "px-2 py-2.5 text-center whitespace-nowrap";
@@ -530,14 +539,19 @@ export function renderWishlist() {
 
     const goalBtn = document.createElement('button');
     if (isGoalActive) {
-      goalBtn.className = "bg-amber-500 hover:bg-amber-400 text-amber-950 font-black px-2 py-1 rounded text-[10px] shadow-xs flex items-center gap-1 border border-amber-600 cursor-default";
-      goalBtn.innerHTML = `<span>🎯</span><span>Active Goal</span>`;
+      goalBtn.className = "bg-amber-500 hover:bg-amber-400 text-amber-950 font-black px-2 py-1 rounded text-[10px] shadow-xs flex items-center gap-1 border border-amber-600 cursor-pointer transition";
+      goalBtn.innerHTML = `<span>🎯</span><span>In Goal (✓)</span>`;
+      goalBtn.title = "Click to remove this item from your active goals bundle";
+      goalBtn.addEventListener('click', () => {
+        toggleGoalItem(nft.name);
+        renderWishlist();
+      });
     } else {
       goalBtn.className = "bg-sfl-wood hover:bg-sfl-dirt text-amber-100 px-2 py-1 rounded text-[10px] font-bold shadow-xs flex items-center gap-1 border border-sfl-dirt cursor-pointer transition";
-      goalBtn.innerHTML = `<span>🎯</span><span>Set Goal</span>`;
-      goalBtn.title = "Set this item as your active Goal Tracker target";
+      goalBtn.innerHTML = `<span>🎯</span><span>Add to Goal</span>`;
+      goalBtn.title = "Click to add this item to your active goals bundle";
       goalBtn.addEventListener('click', () => {
-        setActiveGoalItem(nft.name);
+        toggleGoalItem(nft.name);
         renderWishlist();
       });
     }

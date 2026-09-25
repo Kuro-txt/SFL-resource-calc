@@ -16,6 +16,7 @@ import { initWishlistPanel, renderWishlist } from './panels/wishlistPanel.js';
 import { initTrackingModal } from './modals/trackingModal.js';
 import { initWeeklySummaryModal } from './modals/weeklyModal.js';
 import { initDashboardPanel, mountDashboard } from './panels/dashboard/dashboardPanel.js';
+import { renderGlobalGoalBanner } from './panels/wishlist/goalTracker.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log("🚀 Bootstrapping SFL Resource Calculator...");
@@ -25,6 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   renderWelcomeGate();
   renderHeader();
+  renderGlobalGoalBanner();
   renderAuthBar();
   renderNavTabs();
 
