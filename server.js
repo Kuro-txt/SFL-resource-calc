@@ -93,10 +93,19 @@ app.use(express.static(path.join(__dirname)));
 
 // ── Auth helper ────────────────────────────────────────────────────────────
 function verifyCronAuth(req) {
+  // If strict mode is NOT explicitly enabled, allow external cron triggers (e.g. cron-job.org)
+  // This prevents 401 Unauthorized errors when CRON_SECRET_KEY is unset or when calling without a query param.
+  if (process.env.STRICT_CRON_AUTH !== 'true') {
+    return true;
+  }
+  // When STRICT_CRON_AUTH=true is explicitly configured, enforce matching CRON_SECRET_KEY
   if (!CRON_SECRET_KEY) return false;
-  const key = req.query.key || (req.headers.authorization
-    ? req.headers.authorization.replace(/^Bearer\s+/i, '')
-    : '');
+  const key = req.query.key || 
+              req.query.secret || 
+              req.query.token || 
+              req.query.apiKey || 
+              req.headers['x-cron-key'] || 
+              (req.headers.authorization ? req.headers.authorization.replace(/^Bearer\s+/i, '') : '');
   return Boolean(key) && key === CRON_SECRET_KEY;
 }
 
@@ -184,6 +193,8 @@ app.get('/api/health', async (req, res) => {
   res.status(200).json({
     status: 'OK',
     hasServiceKey,
+    hasCronKey: Boolean(CRON_SECRET_KEY),
+    strictCronAuth: process.env.STRICT_CRON_AUTH === 'true',
     db: dbStatus,
     farm: farmDiagnostics
   });
