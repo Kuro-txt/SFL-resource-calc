@@ -23,6 +23,21 @@ export function getInitialPrices() {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        // Sanity check: the old sfl.world/api/v1/prices returned lot-level prices
+        // (e.g. "Parsnip": 596 meaning 596 flowers for a full lot).
+        // Per-unit P2P prices should always be < 1000 flowers for crops/resources.
+        // If any crop/resource key has a price > 100, the cache is stale — discard it.
+        const KNOWN_CROP_KEYS = ['sunflower','potato','pumpkin','carrot','cabbage','beetroot','cauliflower','parsnip','eggplant','corn','radish','wheat','kale','soybean'];
+        const isStale = KNOWN_CROP_KEYS.some(k => {
+          const canonical = k.charAt(0).toUpperCase() + k.slice(1);
+          const v = parsed[canonical] ?? parsed[k] ?? parsed[`[P2P] ${canonical}`];
+          return v !== undefined && parseFloat(v) > 100;
+        });
+        if (isStale) {
+          console.warn('[SFL] Detected stale price cache (lot-price format), clearing...');
+          try { localStorage.removeItem('sfl_live_prices'); } catch (_) {}
+          return getFallbackPrices();
+        }
         return { ...getFallbackPrices(), ...parsed };
       }
     }
