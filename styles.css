@@ -258,6 +258,30 @@ input[type=number] {
   color: #f1f5f9 !important;
 }
 
+/* Ensure dark text on bright yellow/amber badges and buttons remains dark and readable in dark mode */
+.dark .bg-amber-300,
+.dark .bg-amber-400,
+.dark .bg-amber-500,
+.dark .bg-yellow-300,
+.dark .bg-yellow-400 {
+  color: #1a0e05 !important;
+}
+
+.dark .bg-amber-300 *,
+.dark .bg-amber-400 *,
+.dark .bg-amber-500 *,
+.dark .bg-yellow-300 *,
+.dark .bg-yellow-400 * {
+  color: #1a0e05;
+}
+
+.dark .goal-reached-dark-fix,
+.dark #global-goal-view-btn,
+.dark #global-goal-banner-mount .bg-amber-300,
+.dark #global-goal-banner-mount .bg-amber-400 {
+  color: #1a0e05 !important;
+}
+
 /* BORDERS & DIVIDERS */
 .dark .border-sfl-cardBorder,
 .dark .border-sfl-cardBorder\/30,

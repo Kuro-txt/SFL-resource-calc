@@ -1,4 +1,5 @@
 import { getItemNameById } from '../src/data/knownIds.js';
+import { getItemBoost } from '../src/data/itemBoosts.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -79,7 +80,7 @@ export default async function handler(req, res) {
           name: itemName,
           price: unitPrice,
           floor: unitPrice,
-          boost: 'No Boost',
+          boost: getItemBoost(itemName) || 'No Boost',
           collection,
           itemId
         });

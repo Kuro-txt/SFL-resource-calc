@@ -1,5 +1,6 @@
 import { BACKEND_URL } from '../config/constants.js';
 import { ApiService } from '../services/api.js';
+import { getItemBoost } from '../data/itemBoosts.js';
 import { 
   initGoalTracker, 
   renderGoalTracker, 
@@ -15,10 +16,24 @@ import {
 let allNfts = [];
 try {
   allNfts = JSON.parse(localStorage.getItem('sfl_nft_catalog') || '[]');
+  if (Array.isArray(allNfts)) {
+    allNfts.forEach(nft => {
+      if (nft && nft.name) {
+        nft.boost = getItemBoost(nft.name) || nft.boost || 'No Boost';
+      }
+    });
+  }
 } catch (_) {}
 let wishlistItems = [];
 try {
   wishlistItems = JSON.parse(localStorage.getItem('sfl_wishlist') || '[]');
+  if (Array.isArray(wishlistItems)) {
+    wishlistItems.forEach(item => {
+      if (item && item.name) {
+        item.boost = getItemBoost(item.name) || item.boost || 'No Boost';
+      }
+    });
+  }
 } catch (_) { wishlistItems = []; }
 
 export function getFlowerUsdRate() {
@@ -234,9 +249,12 @@ export async function loadNftCatalog(force = false) {
   try {
     const data = await ApiService.getNfts({ force });
     if (Array.isArray(data) && data.length > 0) {
-      allNfts = data;
+      allNfts = data.map(nft => ({
+        ...nft,
+        boost: getItemBoost(nft.name) || nft.boost || 'No Boost'
+      }));
       try {
-        localStorage.setItem('sfl_nft_catalog', JSON.stringify(data));
+        localStorage.setItem('sfl_nft_catalog', JSON.stringify(allNfts));
       } catch (_) {}
     } else {
       throw new Error("Empty dataset");
@@ -246,7 +264,7 @@ export async function loadNftCatalog(force = false) {
       let match = allNfts.find(n => n.name.toLowerCase() === savedItem.name.toLowerCase());
       if (match) {
         savedItem.price = match.price;
-        savedItem.boost = match.boost;
+        savedItem.boost = getItemBoost(savedItem.name) || match.boost || 'No Boost';
         if (savedItem.offerPrice === undefined) {
           savedItem.offerPrice = match.price;
         }
@@ -308,8 +326,9 @@ function initNftCombobox() {
 
     const matches = allNfts.filter(nft => {
       if (!query) return true;
+      const boost = getItemBoost(nft.name) || nft.boost || '';
       return nft.name.toLowerCase().includes(query) || 
-             (nft.boost && nft.boost.toLowerCase().includes(query));
+             boost.toLowerCase().includes(query);
     }).slice(0, 30);
 
     if (matches.length === 0) {
@@ -321,13 +340,14 @@ function initNftCombobox() {
 
         const priceNum = typeof nft.price === 'number' ? nft.price : parseFloat(nft.price) || 0;
         const { rate: usdRate } = getFlowerUsdRate();
+        const boostText = getItemBoost(nft.name) || nft.boost || 'No Boost';
 
         li.innerHTML = `
           <div class="flex items-center gap-2 overflow-hidden mr-2">
             <span>⭐</span>
             <div class="truncate">
               <div class="font-bold text-sfl-dirt dark:text-amber-100 truncate">${nft.name}</div>
-              <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate">${nft.boost || 'No Boost'}</div>
+              <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate">${boostText}</div>
             </div>
           </div>
           <div class="text-right whitespace-nowrap font-mono shrink-0">
@@ -373,10 +393,11 @@ export function addToWishlist(nft) {
   }
 
   const priceNum = typeof nft.price === 'number' ? nft.price : parseFloat(nft.price) || 0;
+  const boostText = getItemBoost(nft.name) || nft.boost || 'No Boost';
 
   wishlistItems.push({
     name: nft.name,
-    boost: nft.boost || 'No Boost',
+    boost: boostText,
     price: priceNum,
     offerPrice: priceNum
   });
@@ -486,8 +507,8 @@ export function renderWishlist() {
     tdName.innerHTML = `<span>⭐</span><span>${nft.name}</span>`;
 
     const tdBoost = document.createElement('td');
-    tdBoost.className = "px-3 py-2.5 text-xs text-sfl-woodLight dark:text-slate-400";
-    tdBoost.textContent = nft.boost || 'No Boost';
+    tdBoost.className = "px-3 py-2.5 text-xs text-sfl-woodLight dark:text-slate-400 whitespace-pre-line";
+    tdBoost.textContent = getItemBoost(nft.name) || nft.boost || 'No Boost';
 
     const tdFloor = document.createElement('td');
     tdFloor.className = "px-3 py-2.5 font-mono whitespace-nowrap";

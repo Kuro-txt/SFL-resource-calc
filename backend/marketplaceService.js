@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { getSflHeaders } = require('./farmApi');
 const { getItemNameById } = require('./knownIds');
+const { getItemBoost } = require('./itemBoosts');
 const { CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES } = require('./prices');
 
 const fs = require('fs');
@@ -150,7 +151,7 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
               name: itemName,
               price: unitPrice,
               floor: unitPrice,
-              boost: 'No Boost',
+              boost: getItemBoost(itemName) || 'No Boost',
               collection,
               itemId
             });

@@ -492,25 +492,26 @@ export function renderGlobalGoalBanner() {
     : `⭐ <strong>${names.length} Goals</strong> (${names.slice(0, 2).join(', ')}${names.length > 2 ? '...' : ''})`;
 
   mountEl.innerHTML = `
-    <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 dark:from-emerald-800 dark:via-teal-800 dark:to-green-900 border-2 border-amber-300 dark:border-amber-400 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-white shadow-md flex items-center gap-2 max-w-full sm:max-w-xs md:max-w-sm animate-fadeIn">
-      <div class="w-7 h-7 rounded-lg bg-amber-400 text-amber-950 flex items-center justify-center text-sm shrink-0 shadow-xs font-black">
+    <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 dark:from-emerald-950 dark:via-teal-900 dark:to-slate-900 border-2 border-amber-300 dark:border-amber-400 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-white shadow-md dark:shadow-[0_0_18px_rgba(251,191,36,0.35)] ring-1 ring-amber-400/40 flex items-center gap-2 max-w-full sm:max-w-xs md:max-w-sm animate-fadeIn">
+      <div class="w-7 h-7 rounded-lg bg-amber-400 text-stone-950 flex items-center justify-center text-sm shrink-0 shadow-xs font-black ring-1 ring-amber-300/60" style="color: #1a0e05 !important;">
         🎉
       </div>
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
-          <span class="text-[9px] font-black uppercase tracking-wider bg-amber-300 text-amber-950 px-1.5 py-0.2 rounded-full shadow-2xs whitespace-nowrap">
+          <span class="text-[9px] font-black uppercase tracking-wider bg-amber-300 text-stone-950 px-1.5 py-0.5 rounded-full shadow-2xs whitespace-nowrap border border-amber-400/60" style="color: #1a0e05 !important;">
             Goal Reached!
           </span>
-          <span class="text-[11px] font-black text-amber-100 truncate" title="${names.join(', ')}">
+          <span class="text-[11px] font-black text-amber-100 dark:text-amber-200 truncate drop-shadow-xs" title="${names.join(', ')}">
             ${targetLabel}
           </span>
         </div>
-        <div class="text-[10px] text-emerald-100 font-mono font-semibold truncate mt-0.5">
-          Target: <strong>${(state.targetCost || 0).toFixed(1)} 🌸</strong> • Pledged: <strong class="text-white">${(state.totalAssets || 0).toFixed(1)} 🌸</strong> <span class="text-amber-200 font-bold">(+${(state.surplus || 0).toFixed(1)})</span>
+        <div class="text-[10px] text-emerald-100 dark:text-emerald-200 font-mono font-semibold truncate mt-0.5">
+          Target: <strong class="text-white font-bold">${(state.targetCost || 0).toFixed(1)} 🌸</strong> • Pledged: <strong class="text-white dark:text-emerald-300 font-black">${(state.totalAssets || 0).toFixed(1)} 🌸</strong> <span class="text-amber-200 dark:text-yellow-300 font-bold">(+${(state.surplus || 0).toFixed(1)})</span>
         </div>
       </div>
-      <button id="global-goal-view-btn" type="button" class="bg-amber-400 hover:bg-amber-300 active:translate-y-0.5 text-amber-950 font-black px-2 py-1 rounded-lg border border-amber-500 shadow-xs transition cursor-pointer text-[10px] whitespace-nowrap shrink-0" title="View Wishlist Goals">
-        🎯 View
+      <button id="global-goal-view-btn" type="button" class="bg-amber-400 hover:bg-amber-300 active:translate-y-0.5 text-stone-950 font-black px-2 py-1 rounded-lg border border-amber-500 shadow-xs transition cursor-pointer text-[10px] whitespace-nowrap shrink-0 flex items-center gap-1" style="color: #1a0e05 !important;" title="View Wishlist Goals">
+        <span>🎯</span>
+        <span>View</span>
       </button>
     </div>
   `;
@@ -799,7 +800,7 @@ export function renderGoalTracker(wishlistItems = []) {
 
           <!-- Progress Status Banner -->
           ${isGoalReached ? `
-            <div class="bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-950/80 dark:to-green-950/80 border-2 border-emerald-400/80 dark:border-emerald-600/80 rounded-xl p-3 text-emerald-900 dark:text-emerald-200 text-xs font-bold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-xs">
+            <div class="bg-gradient-to-r from-emerald-100 to-green-100 dark:from-emerald-950/90 dark:to-teal-950/90 border-2 border-emerald-400/80 dark:border-emerald-500 rounded-xl p-3 text-emerald-900 dark:text-emerald-200 text-xs font-bold flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-xs dark:shadow-[0_0_15px_rgba(16,185,129,0.25)]">
               <div class="flex items-center gap-2">
                 <span class="text-lg">🎉</span>
                 <div>
@@ -807,7 +808,7 @@ export function renderGoalTracker(wishlistItems = []) {
                   <span> You have enough pledged assets to purchase ${targetItems.length === 1 ? `<strong>${targetItems[0].name}</strong>` : `all <strong>${targetItems.length} target items</strong>`}!</span>
                 </div>
               </div>
-              <div class="font-mono text-xs text-emerald-800 dark:text-emerald-300 whitespace-nowrap bg-emerald-200/60 dark:bg-emerald-900/60 px-2.5 py-1 rounded-lg border border-emerald-400/60">
+              <div class="font-mono text-xs text-emerald-800 dark:text-emerald-300 whitespace-nowrap bg-emerald-200/60 dark:bg-emerald-900/70 px-2.5 py-1 rounded-lg border border-emerald-400/60 dark:border-emerald-500/60">
                 +${surplusFlowers.toFixed(2)} 🌸 Surplus (≈ ${formatUsdAmount(surplusFlowers * usdRate)})
               </div>
             </div>
