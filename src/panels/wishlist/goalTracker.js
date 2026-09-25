@@ -42,6 +42,8 @@ let isTrackerCollapsed = false;
 let isTableCollapsed = false;
 let showInStockOnly = false;
 let searchQuery = '';
+let sortField = 'default'; // 'default' | 'name' | 'qty' | 'price' | 'value' | 'usd' | 'pledged'
+let sortOrder = 'desc'; // 'asc' | 'desc'
 let includedItemKeys = new Set();
 let cachedWishlistItems = [];
 
@@ -54,6 +56,8 @@ export function initGoalTrackerState() {
     isTrackerCollapsed = localStorage.getItem('sfl_wishlist_goal_collapsed') === 'true';
     isTableCollapsed = localStorage.getItem('sfl_wishlist_goal_table_collapsed') === 'true';
     showInStockOnly = localStorage.getItem('sfl_wishlist_goal_show_in_stock_only') === 'true';
+    sortField = localStorage.getItem('sfl_wishlist_goal_sort_field') || 'default';
+    sortOrder = localStorage.getItem('sfl_wishlist_goal_sort_order') || 'desc';
 
     const savedKeys = localStorage.getItem('sfl_wishlist_goal_items');
     if (savedKeys) {
@@ -87,6 +91,43 @@ function saveIncludedKeys() {
 
 export function getActiveGoalItem() {
   return activeTargetName;
+}
+
+export function getSortIndicator(field) {
+  if (sortField === field) {
+    return sortOrder === 'asc' ? '▲' : '▼';
+  }
+  return '⇅';
+}
+
+export function sortInventoryRows(rows) {
+  const mult = sortOrder === 'asc' ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    if (sortField === 'name') {
+      return mult * a.name.localeCompare(b.name);
+    }
+    if (sortField === 'qty') {
+      const diff = a.qty - b.qty;
+      if (diff !== 0) return mult * diff;
+      return a.name.localeCompare(b.name);
+    }
+    if (sortField === 'price') {
+      const diff = a.unitPrice - b.unitPrice;
+      if (diff !== 0) return mult * diff;
+      return a.name.localeCompare(b.name);
+    }
+    if (sortField === 'value' || sortField === 'usd') {
+      const diff = a.flowerValue - b.flowerValue;
+      if (diff !== 0) return mult * diff;
+      return a.name.localeCompare(b.name);
+    }
+    if (sortField === 'pledged') {
+      const diff = (a.isIncluded ? 1 : 0) - (b.isIncluded ? 1 : 0);
+      if (diff !== 0) return mult * diff;
+      return b.flowerValue - a.flowerValue;
+    }
+    return 0;
+  });
 }
 
 export function setActiveGoalItem(itemName) {
@@ -568,14 +609,31 @@ export function renderGoalTracker(wishlistItems = []) {
                 </button>
               </div>
 
-              <!-- Filter Checkbox & Search Input -->
+              <!-- Filter Checkbox, Sort Select & Search Input -->
               <div class="flex items-center gap-2 flex-wrap">
                 <label class="inline-flex items-center gap-1.5 text-[11px] font-bold text-sfl-wood dark:text-slate-300 cursor-pointer">
                   <input type="checkbox" id="goal-filter-instock-chk" ${showInStockOnly ? 'checked' : ''} class="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500 cursor-pointer">
                   <span>Show stock > 0 only</span>
                 </label>
+
+                <div class="flex items-center gap-1 bg-amber-100/70 dark:bg-slate-800/80 px-2 py-0.5 rounded-lg border border-amber-300/60 dark:border-slate-700 text-xs">
+                  <span class="text-[10px] font-black uppercase text-sfl-woodLight dark:text-slate-400 whitespace-nowrap">Sort:</span>
+                  <select id="goal-sort-select" class="sfl-input rounded px-1.5 py-0.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 bg-white dark:bg-slate-900 border border-amber-300 dark:border-slate-600 focus:outline-none cursor-pointer">
+                    <option value="default_asc" ${sortField === 'default' ? 'selected' : ''}>Default (Category)</option>
+                    <option value="value_desc" ${sortField === 'value' && sortOrder === 'desc' ? 'selected' : ''}>Pledged Value (High to Low)</option>
+                    <option value="value_asc" ${sortField === 'value' && sortOrder === 'asc' ? 'selected' : ''}>Pledged Value (Low to High)</option>
+                    <option value="qty_desc" ${sortField === 'qty' && sortOrder === 'desc' ? 'selected' : ''}>Owned Qty (High to Low)</option>
+                    <option value="qty_asc" ${sortField === 'qty' && sortOrder === 'asc' ? 'selected' : ''}>Owned Qty (Low to High)</option>
+                    <option value="price_desc" ${sortField === 'price' && sortOrder === 'desc' ? 'selected' : ''}>Unit Price (High to Low)</option>
+                    <option value="price_asc" ${sortField === 'price' && sortOrder === 'asc' ? 'selected' : ''}>Unit Price (Low to High)</option>
+                    <option value="name_asc" ${sortField === 'name' && sortOrder === 'asc' ? 'selected' : ''}>Item Name (A-Z)</option>
+                    <option value="name_desc" ${sortField === 'name' && sortOrder === 'desc' ? 'selected' : ''}>Item Name (Z-A)</option>
+                    <option value="pledged_desc" ${sortField === 'pledged' && sortOrder === 'desc' ? 'selected' : ''}>Pledge Status (Pledged First)</option>
+                  </select>
+                </div>
+
                 <div class="relative">
-                  <input type="text" id="goal-item-search-input" value="${searchQuery}" placeholder="Search items..." class="w-32 sm:w-40 sfl-input rounded-lg px-2 py-1 text-xs text-sfl-dirt dark:text-amber-100 bg-white dark:bg-slate-800 border border-amber-300/80 dark:border-slate-600">
+                  <input type="text" id="goal-item-search-input" value="${searchQuery}" placeholder="Search items..." class="w-32 sm:w-36 sfl-input rounded-lg px-2 py-1 text-xs text-sfl-dirt dark:text-amber-100 bg-white dark:bg-slate-800 border border-amber-300/80 dark:border-slate-600">
                 </div>
               </div>
             </div>
@@ -583,17 +641,44 @@ export function renderGoalTracker(wishlistItems = []) {
             <!-- Table -->
             <div class="overflow-x-auto max-h-96 border border-amber-200 dark:border-slate-700 rounded-xl">
               <table class="w-full text-left text-xs text-sfl-dirt dark:text-slate-200">
-                <thead class="bg-amber-100/90 dark:bg-slate-900 border-b border-amber-200 dark:border-slate-700 text-sfl-wood dark:text-amber-200 uppercase text-[10px] sticky top-0 z-10">
+                <thead class="bg-amber-100/90 dark:bg-slate-900 border-b border-amber-200 dark:border-slate-700 text-sfl-wood dark:text-amber-200 uppercase text-[10px] sticky top-0 z-10 select-none">
                   <tr>
-                    <th class="px-3 py-2 text-center w-12">
-                      <span class="sr-only">Toggle</span>
-                      Pledge
+                    <th class="px-3 py-2 text-center w-14 cursor-pointer hover:bg-amber-200/70 dark:hover:bg-slate-800 transition" data-sort-field="pledged" title="Click to sort by pledge status">
+                      <div class="flex items-center justify-center gap-1">
+                        <span>Pledge</span>
+                        <span class="text-[9px] ${sortField === 'pledged' ? 'font-black text-amber-800 dark:text-amber-300' : 'opacity-40'}">${getSortIndicator('pledged')}</span>
+                      </div>
                     </th>
-                    <th class="px-3 py-2">Item Name</th>
-                    <th class="px-3 py-2 text-right">Owned Qty</th>
-                    <th class="px-3 py-2 text-right">Unit Price (🌸)</th>
-                    <th class="px-3 py-2 text-right">Pledged Value (🌸)</th>
-                    <th class="px-3 py-2 text-right">Value ($ USD)</th>
+                    <th class="px-3 py-2 cursor-pointer hover:bg-amber-200/70 dark:hover:bg-slate-800 transition" data-sort-field="name" title="Click to sort by item name">
+                      <div class="flex items-center gap-1">
+                        <span>Item Name</span>
+                        <span class="text-[9px] ${sortField === 'name' ? 'font-black text-amber-800 dark:text-amber-300' : 'opacity-40'}">${getSortIndicator('name')}</span>
+                      </div>
+                    </th>
+                    <th class="px-3 py-2 text-right cursor-pointer hover:bg-amber-200/70 dark:hover:bg-slate-800 transition" data-sort-field="qty" title="Click to sort by owned quantity">
+                      <div class="flex items-center justify-end gap-1">
+                        <span>Owned Qty</span>
+                        <span class="text-[9px] ${sortField === 'qty' ? 'font-black text-amber-800 dark:text-amber-300' : 'opacity-40'}">${getSortIndicator('qty')}</span>
+                      </div>
+                    </th>
+                    <th class="px-3 py-2 text-right cursor-pointer hover:bg-amber-200/70 dark:hover:bg-slate-800 transition" data-sort-field="price" title="Click to sort by unit price">
+                      <div class="flex items-center justify-end gap-1">
+                        <span>Unit Price (🌸)</span>
+                        <span class="text-[9px] ${sortField === 'price' ? 'font-black text-amber-800 dark:text-amber-300' : 'opacity-40'}">${getSortIndicator('price')}</span>
+                      </div>
+                    </th>
+                    <th class="px-3 py-2 text-right cursor-pointer hover:bg-amber-200/70 dark:hover:bg-slate-800 transition" data-sort-field="value" title="Click to sort by pledged flower value">
+                      <div class="flex items-center justify-end gap-1">
+                        <span>Pledged Value (🌸)</span>
+                        <span class="text-[9px] ${sortField === 'value' ? 'font-black text-amber-800 dark:text-amber-300' : 'opacity-40'}">${getSortIndicator('value')}</span>
+                      </div>
+                    </th>
+                    <th class="px-3 py-2 text-right cursor-pointer hover:bg-amber-200/70 dark:hover:bg-slate-800 transition" data-sort-field="usd" title="Click to sort by value in USD">
+                      <div class="flex items-center justify-end gap-1">
+                        <span>Value ($ USD)</span>
+                        <span class="text-[9px] ${sortField === 'usd' ? 'font-black text-amber-800 dark:text-amber-300' : 'opacity-40'}">${getSortIndicator('usd')}</span>
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody id="goal-inventory-tbody" class="divide-y divide-amber-100 dark:divide-slate-700/60 font-medium">
@@ -644,7 +729,9 @@ function renderInventoryTableRows(rows, usdRate) {
     return true;
   });
 
-  if (filtered.length === 0) {
+  const sorted = sortInventoryRows(filtered);
+
+  if (sorted.length === 0) {
     tbody.innerHTML = `
       <tr>
         <td colspan="6" class="px-4 py-8 text-center text-sfl-woodLight dark:text-slate-400 italic">
@@ -656,7 +743,7 @@ function renderInventoryTableRows(rows, usdRate) {
   }
 
   tbody.innerHTML = '';
-  filtered.forEach(item => {
+  sorted.forEach(item => {
     const info = getItemCategoryInfo(item.cleanKey);
     const tr = document.createElement('tr');
     tr.className = `hover:bg-amber-50/60 dark:hover:bg-slate-700/40 transition align-middle ${item.isIncluded && item.qty > 0 ? 'bg-amber-50/30 dark:bg-slate-800/40' : ''}`;
@@ -796,6 +883,37 @@ function bindGoalTrackerEvents(wishlistItems) {
     includedItemKeys = new Set();
     saveIncludedKeys();
     renderGoalTracker(wishlistItems);
+  });
+
+  // Sort Dropdown Change
+  document.getElementById('goal-sort-select')?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    const [field, dir] = val.split('_');
+    sortField = field;
+    sortOrder = dir || 'desc';
+    try {
+      localStorage.setItem('sfl_wishlist_goal_sort_field', sortField);
+      localStorage.setItem('sfl_wishlist_goal_sort_order', sortOrder);
+    } catch (_) {}
+    renderGoalTracker(wishlistItems);
+  });
+
+  // Table Header Sort Clicks
+  document.querySelectorAll('th[data-sort-field]').forEach(th => {
+    th.addEventListener('click', () => {
+      const field = th.getAttribute('data-sort-field');
+      if (sortField === field) {
+        sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortField = field;
+        sortOrder = (field === 'name' ? 'asc' : 'desc');
+      }
+      try {
+        localStorage.setItem('sfl_wishlist_goal_sort_field', sortField);
+        localStorage.setItem('sfl_wishlist_goal_sort_order', sortOrder);
+      } catch (_) {}
+      renderGoalTracker(wishlistItems);
+    });
   });
 
   // In-Stock Only Filter Checkbox
