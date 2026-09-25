@@ -29,6 +29,19 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
+      try {
+        const renderRes = await fetch('https://sfl-calculator-backend.onrender.com/api/get-data', {
+          signal: AbortSignal.timeout(10000)
+        });
+        if (renderRes.ok) {
+          const renderData = await renderRes.json();
+          if (renderData && renderData.p2p && Object.keys(renderData.p2p).length > 0) {
+            res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+            return res.status(200).json(renderData);
+          }
+        }
+      } catch (_) {}
+
       const fallbackP2p = {};
       for (const [k, v] of Object.entries(CROP_FLOWER_PRICES)) {
         fallbackP2p[k.charAt(0).toUpperCase() + k.slice(1)] = v;
@@ -72,18 +85,27 @@ export default async function handler(req, res) {
       else if (!isNaN(lowPrice) && lowPrice > 0) unitPrice = lowPrice;
 
       if (unitPrice > 0) {
-        p2pPrices[itemName] = unitPrice;
+        if (collection === 'collectibles') {
+          p2pPrices[itemName] = unitPrice;
+          p2pPrices[`[P2P] ${itemName}`] = unitPrice;
+        }
         itemBreakdowns[itemName] = { ...itemData, price: unitPrice, collection, itemId };
       }
     }
 
     for (const [crop, p] of Object.entries(CROP_FLOWER_PRICES)) {
       const canonical = crop.charAt(0).toUpperCase() + crop.slice(1);
-      if (p2pPrices[canonical] === undefined) p2pPrices[canonical] = p;
+      if (p2pPrices[canonical] === undefined) {
+        p2pPrices[canonical] = p;
+        p2pPrices[`[P2P] ${canonical}`] = p;
+      }
     }
     for (const [resKey, p] of Object.entries(RESOURCE_FLOWER_FALLBACK_PRICES)) {
       const canonical = resKey.charAt(0).toUpperCase() + resKey.slice(1);
-      if (p2pPrices[canonical] === undefined) p2pPrices[canonical] = p;
+      if (p2pPrices[canonical] === undefined) {
+        p2pPrices[canonical] = p;
+        p2pPrices[`[P2P] ${canonical}`] = p;
+      }
     }
 
     res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
@@ -94,6 +116,19 @@ export default async function handler(req, res) {
       items: itemBreakdowns
     });
   } catch (error) {
+    try {
+      const renderRes = await fetch('https://sfl-calculator-backend.onrender.com/api/get-data', {
+        signal: AbortSignal.timeout(10000)
+      });
+      if (renderRes.ok) {
+        const renderData = await renderRes.json();
+        if (renderData && renderData.p2p && Object.keys(renderData.p2p).length > 0) {
+          res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+          return res.status(200).json(renderData);
+        }
+      }
+    } catch (_) {}
+
     const fallbackP2p = {};
     for (const [k, v] of Object.entries(CROP_FLOWER_PRICES)) {
       fallbackP2p[k.charAt(0).toUpperCase() + k.slice(1)] = v;

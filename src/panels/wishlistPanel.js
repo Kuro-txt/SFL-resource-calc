@@ -183,7 +183,7 @@ export function initWishlistPanel() {
     loadNftCatalog(false).catch(() => {});
   }
 
-  // Listen for gem pack selection changes or live rate refreshes from authBar
+  // Listen for gem pack selection changes, farm sync, or live rate refreshes
   if (typeof window !== 'undefined' && !window._wishlistGemListenerBound) {
     window.addEventListener('gemPackChanged', () => {
       updateWishlistTotals();
@@ -193,6 +193,13 @@ export function initWishlistPanel() {
     window.addEventListener('farmDataSynced', () => {
       renderGoalTracker(wishlistItems);
     });
+    window.addEventListener('pricesLoaded', () => {
+      updateWishlistTotals();
+      renderGoalTracker(wishlistItems);
+      renderWishlist();
+    });
+    window.renderWishlist = renderWishlist;
+    window.renderGoalTracker = () => renderGoalTracker(wishlistItems);
     window._wishlistGemListenerBound = true;
   }
 }

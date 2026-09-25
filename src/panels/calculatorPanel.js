@@ -152,12 +152,28 @@ export async function loadPrices(force = false) {
           localStorage.setItem('sfl_prices_updated_at', new Date().toISOString());
         } catch (_) {}
 
+        if (rawData.flowerPrice && parseFloat(rawData.flowerPrice) > 0) {
+          window.flowerUsdRate = parseFloat(rawData.flowerPrice);
+          try {
+            localStorage.setItem('sfl_flower_usd_rate', String(window.flowerUsdRate));
+          } catch (_) {}
+        }
+
         // Notify active panels to re-render with fresh real prices
         if (typeof window.renderSnapshotHistory === 'function') {
           window.renderSnapshotHistory();
         }
         if (typeof window.refreshDashboardView === 'function') {
           window.refreshDashboardView();
+        }
+        if (typeof window.renderGoalTracker === 'function') {
+          window.renderGoalTracker();
+        }
+        if (typeof window.renderWishlist === 'function') {
+          window.renderWishlist();
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('pricesLoaded', { detail: window.allPrices }));
         }
       }
     }

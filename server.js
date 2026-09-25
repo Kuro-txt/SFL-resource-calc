@@ -211,22 +211,58 @@ app.get('/api/get-data', async (req, res) => {
 
 app.get('/api/get-exchange', async (req, res) => {
   const force = req.query.force === 'true';
-  const customApiKey = (req.query.apiKey || req.headers['x-api-key'] || '').trim();
+  const cacheKey = 'sfl_exchange';
+  if (!force) {
+    const cached = getServerCache(cacheKey, 60 * 1000); // 60s
+    if (cached) {
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      res.setHeader('X-Cache', 'HIT');
+      return res.json(cached);
+    }
+  }
   try {
-    const data = await fetchMarketplaceActivity(customApiKey, force);
+    const response = await axios.get('https://sfl.world/api/v1.1/exchange', {
+      headers: SFL_WORLD_HEADERS,
+      timeout: 10000
+    });
+    if (response.data && (response.data.gems || response.data.sfl)) {
+      setServerCache(cacheKey, response.data);
 
-    // Save exchange rate snapshot to cloud asynchronously (throttled to 15m)
-    try {
-      const pool = getTiDBPool();
-      if (pool && data.exchangePayload) {
-        recordExchangeRateInCloud(pool, data.exchangePayload).catch(() => {});
-      }
-    } catch (_) {}
+      // Save exchange rate snapshot to cloud asynchronously (throttled to 15m)
+      try {
+        const pool = getTiDBPool();
+        if (pool && response.data) {
+          recordExchangeRateInCloud(pool, response.data).catch(() => {});
+        }
+      } catch (_) {}
 
-    res.setHeader('Cache-Control', 'public, max-age=60');
-    return res.json(data.exchangePayload);
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      res.setHeader('X-Cache', 'MISS');
+      return res.json(response.data);
+    }
+    throw new Error('Invalid exchange payload from sfl.world');
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch exchange data', details: err.message });
+    const stale = serverCache.get(cacheKey)?.data;
+    if (stale) {
+      res.setHeader('X-Cache', 'STALE');
+      return res.json(stale);
+    }
+    const flPrice = 0.1403;
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    return res.json({
+      sfl: { usd: flPrice },
+      pol: { usd: 0.18 },
+      gems: {
+        "100": { gem: 100, usd: 1.29, sfl: 9.19, sfl1: 0.0919, pol: 1.93 },
+        "650": { gem: 650, usd: 6.49, sfl: 46.25, sfl1: 0.0711, pol: 9.73 },
+        "1350": { gem: 1350, usd: 12.99, sfl: 92.58, sfl1: 0.0685, pol: 19.48 },
+        "2800": { gem: 2800, usd: 25.99, sfl: 185.24, sfl1: 0.0661, pol: 38.98 },
+        "7400": { gem: 7400, usd: 64.99, sfl: 463.22, sfl1: 0.0626, pol: 97.48 },
+        "15500": { gem: 15500, usd: 129.99, sfl: 926.51, sfl1: 0.0597, pol: 194.98 },
+        "200000": { gem: 200000, usd: 1299.99, sfl: 9265.78, sfl1: 0.0463, pol: 1949.98 }
+      },
+      fallback: true
+    });
   }
 });
 
@@ -345,7 +381,7 @@ app.all('/api/trades', async (req, res) => {
   }
 });
 
-app.get('/api/nfts', async (req, res) => {
+app.get(['/api/nfts', '/api/nft'], async (req, res) => {
   const force = req.query.force === 'true';
   const customApiKey = (req.query.apiKey || req.headers['x-api-key'] || '').trim();
   try {

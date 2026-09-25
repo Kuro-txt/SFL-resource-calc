@@ -127,8 +127,13 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
         }
 
         if (unitPrice > 0) {
-          p2pPrices[itemName] = unitPrice;
-          p2pPrices[`[P2P] ${itemName}`] = unitPrice;
+          // Strictly only assign SFT collectibles/crops/resources to p2pPrices.
+          // Buds, Pets, Wearables, and Mini-games are NFTs and must never pollute crop/resource P2P pricing.
+          if (collection === 'collectibles') {
+            p2pPrices[itemName] = unitPrice;
+            p2pPrices[`[P2P] ${itemName}`] = unitPrice;
+          }
+
           itemBreakdowns[itemName] = {
             ...itemData,
             price: unitPrice,

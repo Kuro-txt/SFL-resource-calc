@@ -108,10 +108,13 @@ export const ApiService = {
         const headers = apiKey ? { 'x-api-key': apiKey } : {};
         const keyQuery = apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : '';
 
-        // 1. Try Backend server proxy
+        // 1. Try Backend server proxy with 8s timeout
         try {
           const url = `${BACKEND_URL}/api/get-exchange?${force ? 'force=true' : ''}${keyQuery}`;
-          const response = await fetch(url, { headers });
+          const controller = new AbortController();
+          const to = setTimeout(() => controller.abort(), 8000);
+          const response = await fetch(url, { headers, signal: controller.signal });
+          clearTimeout(to);
           if (response.ok) data = await response.json();
         } catch (e) {}
 
@@ -119,15 +122,21 @@ export const ApiService = {
         if (!data) {
           try {
             const url = `/api/get-exchange?${force ? 'force=true' : ''}${keyQuery}`;
-            const response = await fetch(url, { headers });
+            const controller = new AbortController();
+            const to = setTimeout(() => controller.abort(), 8000);
+            const response = await fetch(url, { headers, signal: controller.signal });
+            clearTimeout(to);
             if (response.ok) data = await response.json();
           } catch (e) {}
         }
 
-        // 3. Try direct SFL world exchange API
+        // 3. Try direct SFL world exchange API for live Gem Packs
         if (!data) {
           try {
-            const response = await fetch('https://sfl.world/api/v1.1/exchange');
+            const controller = new AbortController();
+            const to = setTimeout(() => controller.abort(), 8000);
+            const response = await fetch('https://sfl.world/api/v1.1/exchange', { signal: controller.signal });
+            clearTimeout(to);
             if (response.ok) data = await response.json();
           } catch (e) {}
         }
@@ -190,22 +199,34 @@ export const ApiService = {
       if (cached) return cached;
     }
     return fetchDeduplicated(cacheKey, async () => {
-      try {
-        const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
-        const headers = apiKey ? { 'x-api-key': apiKey } : {};
-        const keyQuery = apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : '';
-        const url = `${BACKEND_URL}/api/nfts?${force ? 'force=true' : ''}${keyQuery}`;
-        const response = await fetch(url, { headers });
-        if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-        const data = await response.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setCached(cacheKey, data);
-        }
-        return data;
-      } catch (err) {
-        console.warn("⚠️ Failed to load live NFTs:", err.message);
-        return clientCache.get(cacheKey)?.data || [];
+      const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
+      const headers = apiKey ? { 'x-api-key': apiKey } : {};
+      const keyQuery = apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : '';
+
+      const candidateUrls = [
+        `${BACKEND_URL}/api/nfts?${force ? 'force=true' : ''}${keyQuery}`,
+        `${BACKEND_URL}/api/nft?${force ? 'force=true' : ''}${keyQuery}`,
+        `/api/nfts?${force ? 'force=true' : ''}${keyQuery}`,
+        `/api/nft?${force ? 'force=true' : ''}${keyQuery}`
+      ];
+
+      for (const url of candidateUrls) {
+        try {
+          const controller = new AbortController();
+          const to = setTimeout(() => controller.abort(), 12000);
+          const response = await fetch(url, { headers, signal: controller.signal });
+          clearTimeout(to);
+          if (!response.ok) continue;
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setCached(cacheKey, data);
+            return data;
+          }
+        } catch (_) {}
       }
+
+      console.warn("⚠️ All NFT proxies unavailable, returning cached catalog if present.");
+      return clientCache.get(cacheKey)?.data || [];
     });
   },
 

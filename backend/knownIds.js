@@ -2115,43 +2115,43 @@ function getItemNameById(id, collection = 'collectibles') {
 
   const strId = String(id).trim();
   const lowerCol = String(collection || '').toLowerCase();
-  const isWearable = lowerCol.includes('wearable') || strId.startsWith('wearables-') || strId.startsWith('wearable-');
-
-  // 1. Direct key match (e.g. numeric id, "101", "wearables-101", or full name)
-  if (isWearable && WEARABLE_ITEMS[strId]) {
-    return WEARABLE_ITEMS[strId];
-  }
-  if (!isWearable && KNOWN_ITEMS[strId]) {
-    return KNOWN_ITEMS[strId];
-  }
-
-  // 2. Extract digits (handles "Item #201", "#201", "wearables-101", "201")
   const numMatch = strId.match(/(\d+)/);
-  if (numMatch) {
-    const num = numMatch[1];
-    if (isWearable) {
-      if (WEARABLE_ITEMS[num]) return WEARABLE_ITEMS[num];
-    } else {
-      if (KNOWN_ITEMS[num]) return KNOWN_ITEMS[num];
-    }
-    // Fallback: If not found in primary collection, check the other collection if collection was not explicitly 'wearables'
-    if (!lowerCol.includes('wearable')) {
-      if (KNOWN_ITEMS[num]) return KNOWN_ITEMS[num];
-      if (WEARABLE_ITEMS[num]) return WEARABLE_ITEMS[num];
-    } else {
-      if (WEARABLE_ITEMS[num]) return WEARABLE_ITEMS[num];
-      if (KNOWN_ITEMS[num]) return KNOWN_ITEMS[num];
-    }
+  const num = numMatch ? numMatch[1] : '';
+
+  // 1. Buds (Unique NFT companions - MUST NEVER collide with crop/resource IDs)
+  if (lowerCol.includes('bud') || strId.startsWith('buds-') || strId.startsWith('bud-')) {
+    return num ? `Bud #${num}` : (strId.startsWith('Bud') ? strId : `Bud #${strId}`);
   }
 
-  // 3. If already a human-readable name that isn't raw numbers or "Item #..."
+  // 2. Pets (Unique NFT companions - MUST NEVER collide with crop/resource IDs)
+  if (lowerCol.includes('pet') || strId.startsWith('pets-') || strId.startsWith('pet-')) {
+    return num ? `Pet #${num}` : (strId.startsWith('Pet') ? strId : `Pet #${strId}`);
+  }
+
+  // 3. Mini-game Economies (Dino hunt, survivor, etc.)
+  if (lowerCol.includes('econom') || strId.includes('dinohunt') || strId.includes('survivor')) {
+    const rawName = num && KNOWN_ITEMS[num] ? KNOWN_ITEMS[num] : (num ? `Item #${num}` : strId);
+    return `[Mini-game] ${rawName}`;
+  }
+
+  // 4. Wearables (Bumpkin cosmetics & equipment)
+  const isWearable = lowerCol.includes('wearable') || strId.startsWith('wearables-') || strId.startsWith('wearable-');
+  if (isWearable) {
+    if (WEARABLE_ITEMS[strId]) return WEARABLE_ITEMS[strId];
+    if (num && WEARABLE_ITEMS[num]) return WEARABLE_ITEMS[num];
+    return num ? `Wearable #${num}` : strId;
+  }
+
+  // 5. Collectibles (SFTs, crops, resources, craftables, tools, monuments)
+  if (KNOWN_ITEMS[strId]) return KNOWN_ITEMS[strId];
+  if (num && KNOWN_ITEMS[num]) return KNOWN_ITEMS[num];
+
+  // 6. Direct human-readable name fallback
   if (isNaN(Number(strId)) && !strId.startsWith('Item #')) {
     return strId;
   }
 
-  // 4. Final fallback
-  const num = strId.replace(/[^0-9]/g, '');
-  return num ? (isWearable ? `Wearable #${num}` : `Item #${num}`) : strId;
+  return num ? `Item #${num}` : strId;
 }
 
 module.exports = {

@@ -217,7 +217,7 @@ export function getItemFlowerPrice(cleanKey) {
     if (matchedKey) {
       const rawPrice = parseFloat(window.allPrices[matchedKey]) || 0;
       if (rawPrice > 0) {
-        return rawPrice > 100 ? rawPrice / 1000 : rawPrice;
+        return rawPrice;
       }
     }
   }

@@ -28,6 +28,18 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
+      try {
+        const renderRes = await fetch('https://sfl-calculator-backend.onrender.com/api/nfts', {
+          signal: AbortSignal.timeout(10000)
+        });
+        if (renderRes.ok) {
+          const list = await renderRes.json();
+          if (Array.isArray(list) && list.length > 0) {
+            res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=1200');
+            return res.status(200).json(list);
+          }
+        }
+      } catch (_) {}
       return res.status(200).json([]);
     }
 
@@ -78,6 +90,18 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=1200');
     return res.status(200).json(nftsList);
   } catch (err) {
+    try {
+      const renderRes = await fetch('https://sfl-calculator-backend.onrender.com/api/nfts', {
+        signal: AbortSignal.timeout(10000)
+      });
+      if (renderRes.ok) {
+        const list = await renderRes.json();
+        if (Array.isArray(list) && list.length > 0) {
+          res.setHeader('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=1200');
+          return res.status(200).json(list);
+        }
+      }
+    } catch (_) {}
     return res.status(200).json([]);
   }
 }
