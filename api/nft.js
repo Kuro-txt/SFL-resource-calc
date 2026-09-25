@@ -74,8 +74,9 @@ export default async function handler(req, res) {
       else if (!isNaN(latestSalePrice) && latestSalePrice > 0) unitPrice = latestSalePrice;
       else if (!isNaN(lowPrice) && lowPrice > 0) unitPrice = lowPrice;
 
-      if (unitPrice > 0 && !seenNames.has(itemName)) {
-        seenNames.add(itemName);
+      const nftKey = `${collection}-${itemId}`;
+      if (unitPrice > 0 && !seenNames.has(nftKey)) {
+        seenNames.add(nftKey);
         nftsList.push({
           name: itemName,
           price: unitPrice,

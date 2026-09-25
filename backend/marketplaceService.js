@@ -7,8 +7,6 @@ const { CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES } = require('./price
 const fs = require('fs');
 const path = require('path');
 const MARKETPLACE_CACHE_FILE = path.join(__dirname, 'lastMarketplaceData.json');
-const PRICES_CACHE_FILE = path.join(__dirname, 'lastMarketPrices.json');
-const NFTS_CACHE_FILE = path.join(__dirname, 'lastNfts.json');
 
 const SFL_MARKETPLACE_URL = 'https://api.sunflower-land.com/community/data?type=marketplaceActivity';
 
@@ -32,31 +30,9 @@ function loadSavedMarketplaceData() {
       }
     }
   } catch (_) {}
-
-  try {
-    if (fs.existsSync(PRICES_CACHE_FILE)) {
-      const raw = fs.readFileSync(PRICES_CACHE_FILE, 'utf8');
-      const p2p = JSON.parse(raw);
-      if (p2p && typeof p2p === 'object' && Object.keys(p2p).length > 0) {
-        let nftsList = [];
-        try {
-          if (fs.existsSync(NFTS_CACHE_FILE)) {
-            nftsList = JSON.parse(fs.readFileSync(NFTS_CACHE_FILE, 'utf8')) || [];
-          }
-        } catch (_) {}
-        return {
-          flowerPrice: 0.13458,
-          pricesPayload: { flowerPrice: 0.13458, p2p, crops: p2p, items: {} },
-          nftsPayload: nftsList,
-          exchangePayload: { sfl: { usd: 0.13458 }, flowerPrice: 0.13458 },
-          timestamp: Date.now()
-        };
-      }
-    }
-  } catch (_) {}
-
   return null;
 }
+
 
 // In-memory cache for marketplace activity (initialized from disk JSON if available)
 let cachedData = loadSavedMarketplaceData();
@@ -135,7 +111,9 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
             p2pPrices[`[P2P] ${itemName}`] = unitPrice;
           }
 
-          itemBreakdowns[itemName] = {
+          // Disambiguate itemBreakdowns key by type so wearables never overwrite crops/collectibles
+          const breakdownKey = collection === 'wearables' ? `${itemName} (Wearable)` : itemName;
+          itemBreakdowns[breakdownKey] = {
             ...itemData,
             price: unitPrice,
             floor: !isNaN(floorPrice) ? floorPrice : null,
@@ -144,9 +122,10 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
             itemId
           };
 
-          // Also build NFT catalog entry for collectibles, wearables, pets, buds
-          if (!seenNfts.has(itemName)) {
-            seenNfts.add(itemName);
+          // Build NFT catalog entry by unique collection-itemId key
+          const nftKey = `${collection}-${itemId}`;
+          if (!seenNfts.has(nftKey)) {
+            seenNfts.add(nftKey);
             nftsList.push({
               name: itemName,
               price: unitPrice,
@@ -229,14 +208,12 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
       };
       lastFetchTime = Date.now();
 
-      // Persist to local JSON files in code so offline/cached access is always up to date
+      // Persist to single master JSON file in code so offline/cached access is always up to date
       try {
         fs.writeFileSync(MARKETPLACE_CACHE_FILE, JSON.stringify(cachedData, null, 2), 'utf8');
-        fs.writeFileSync(PRICES_CACHE_FILE, JSON.stringify(p2pPrices, null, 2), 'utf8');
-        fs.writeFileSync(NFTS_CACHE_FILE, JSON.stringify(nftsList, null, 2), 'utf8');
-        console.log(`💾 [Marketplace Activity] Updated JSON files in code repository (lastMarketplaceData.json, lastMarketPrices.json, lastNfts.json)`);
+        console.log(`💾 [Marketplace Activity] Updated master cache file in code repository (lastMarketplaceData.json)`);
       } catch (fileErr) {
-        console.warn("⚠️ Failed to write marketplace cache files:", fileErr.message);
+        console.warn("⚠️ Failed to write marketplace cache file:", fileErr.message);
       }
 
       return cachedData;
@@ -268,7 +245,7 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
           timeout: 6000
         });
         if (sflWorldRes.data) {
-          const raw = typeof sflWorldRes.data === 'string' ? JSON.parse(sflWorldRes.data) : sflWorldRes.data;
+          const raw = sflWorldRes.data.data?.p2p || sflWorldRes.data.data || sflWorldRes.data;
           const p2p = {};
           if (raw && typeof raw === 'object') {
             for (const [k, v] of Object.entries(raw)) {
@@ -277,7 +254,7 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
               if (cleanKey && v > 0) p2p[cleanKey] = v;
             }
           }
-          const flPrice = parseFloat(raw.flowerPrice) || 0.13458;
+          const flPrice = parseFloat(sflWorldRes.data.data?.flowerPrice || sflWorldRes.data.flowerPrice) || 0.1435;
           for (const [k, v] of Object.entries(fallbackP2p)) {
             if (p2p[k] === undefined) p2p[k] = v;
           }

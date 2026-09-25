@@ -89,7 +89,8 @@ export default async function handler(req, res) {
           p2pPrices[itemName] = unitPrice;
           p2pPrices[`[P2P] ${itemName}`] = unitPrice;
         }
-        itemBreakdowns[itemName] = { ...itemData, price: unitPrice, collection, itemId };
+        const breakdownKey = collection === 'wearables' ? `${itemName} (Wearable)` : itemName;
+        itemBreakdowns[breakdownKey] = { ...itemData, price: unitPrice, collection, itemId };
       }
     }
 

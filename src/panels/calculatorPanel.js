@@ -20,7 +20,7 @@ export function getFallbackPrices() {
 // ── Price Cache Format Version ─────────────────────────────────────────────
 // Bump this string whenever the price format/scale changes so all browsers
 // automatically clear their stale localStorage cache on next load.
-const PRICE_FORMAT_VERSION = 'v3-per-unit';
+const PRICE_FORMAT_VERSION = 'v4-type-isolated';
 
 export function getInitialPrices() {
   try {
@@ -206,7 +206,23 @@ export function extractPrices(data) {
   let pricesMap = {};
   if (!data || typeof data !== 'object') return pricesMap;
 
-  const GLOBAL_EXCLUDES = ['updated_text', 'updatedtext', 'updatedat', 'updated_at', 'created_at', 'id'];
+  // Crucial: 'items' contains NFT wearables and collectibles breakdown and MUST NOT be traversed,
+  // preventing NFT floor prices (e.g. Wearable #56 Parsnip floor 596) from overwriting crop P2P prices (0.0096).
+  const GLOBAL_EXCLUDES = ['updated_text', 'updatedtext', 'updatedat', 'updated_at', 'created_at', 'id', 'items'];
+
+  // 1. Direct priority extraction from p2p and crops dictionaries
+  const sourceDicts = [data.p2p, data.crops];
+  for (const dict of sourceDicts) {
+    if (dict && typeof dict === 'object') {
+      for (const [k, v] of Object.entries(dict)) {
+        const num = typeof v === 'number' ? v : parseFloat(v);
+        if (!isNaN(num) && num > 0) {
+          pricesMap[k] = num;
+          if (!k.startsWith('[')) pricesMap[`[P2P] ${k}`] = num;
+        }
+      }
+    }
+  }
 
   function searchObj(obj, prefix = '') {
     for (let key in obj) {
@@ -220,18 +236,18 @@ export function extractPrices(data) {
       let val = obj[key];
 
       if (typeof val === 'number') {
-        pricesMap[key] = val; // Direct canonical key (e.g. "Sunflower") overwrites fallback
-        if (prefix) pricesMap[prefix + key] = val; // Also keep prefixed key (e.g. "[P2P] Sunflower")
+        if (pricesMap[key] === undefined) pricesMap[key] = val;
+        if (prefix && pricesMap[prefix + key] === undefined) pricesMap[prefix + key] = val;
       } else if (typeof val === 'string' && !isNaN(parseFloat(val))) {
         const num = parseFloat(val);
-        pricesMap[key] = num;
-        if (prefix) pricesMap[prefix + key] = num;
+        if (pricesMap[key] === undefined) pricesMap[key] = num;
+        if (prefix && pricesMap[prefix + key] === undefined) pricesMap[prefix + key] = num;
       } else if (val && typeof val === 'object') {
         let p = val.price ?? val.sfl ?? val.sflPrice ?? val.flowerPrice ?? val.unitPrice;
         if (p !== undefined && p !== null) {
           const num = parseFloat(p) || 0;
-          pricesMap[key] = num;
-          if (prefix) pricesMap[prefix + key] = num;
+          if (pricesMap[key] === undefined) pricesMap[key] = num;
+          if (prefix && pricesMap[prefix + key] === undefined) pricesMap[prefix + key] = num;
         } else {
           let newPrefix = key.length <= 4 ? `[${key.toUpperCase()}] ` : '';
           searchObj(val, newPrefix);

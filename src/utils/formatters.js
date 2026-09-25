@@ -37,7 +37,14 @@ export function formatFourDecimals(val) {
   return num.toFixed(4);
 }
 
+export function formatFiveDecimals(val) {
+  let num = typeof val === 'number' ? val : parseFloat(val);
+  if (isNaN(num)) return '0.00000';
+  return num.toFixed(5);
+}
+
 export function getBettyUnitPrice(cleanName) {
   let key = normalizeItemKey(cleanName);
   return BETTY_SHOP_PRICES[key] !== undefined ? BETTY_SHOP_PRICES[key] : null;
 }
+
