@@ -9,7 +9,10 @@ import { mountDashboard } from '../panels/dashboard/dashboardPanel.js';
 
 let savedInventory = {};
 try { savedInventory = JSON.parse(localStorage.getItem('sfl_farm_inventory') || '{}'); } catch (_) {}
+let savedBalance = 0;
+try { savedBalance = parseFloat(localStorage.getItem('sfl_farm_balance')) || 0; } catch (_) {}
 window.farmInventoryData = (window.farmInventoryData && Object.keys(window.farmInventoryData).length > 0) ? window.farmInventoryData : savedInventory;
+window.farmBalance = (typeof window.farmBalance === 'number' && window.farmBalance > 0) ? window.farmBalance : savedBalance;
 window.farmNpcData = window.farmNpcData || JSON.parse(localStorage.getItem('sfl_farm_npcs') || '{}');
 window.syncCount = window.syncCount || 0;
 window.syncCooldownTimer = window.syncCooldownTimer || null;
@@ -540,7 +543,33 @@ export async function handleFarmSync() {
       loadNftCatalog(true)
     ]).catch(e => console.warn("Market sync note:", e.message));
 
-    // 2. Fetch Marketplace Trades & save to TiDB Cloud (does not hit farm inventory)
+    // 2. Fetch Live Farm Inventory & SFL Balance via get-farm API
+    try {
+      if (farmId) {
+        const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
+        if (farmObj) {
+          window.farmData = farmObj;
+          const liveInv = farmObj.inventory || {};
+          window.farmInventoryData = liveInv;
+          const liveBalance = parseFloat(farmObj.balance) || 0;
+          window.farmBalance = liveBalance;
+          try {
+            localStorage.setItem('sfl_farm_inventory', JSON.stringify(liveInv));
+            localStorage.setItem('sfl_farm_balance', String(liveBalance));
+            localStorage.setItem('sfl_farm_inventory_updated_at', new Date().toISOString());
+          } catch (_) {}
+          try {
+            window.dispatchEvent(new CustomEvent('farmDataSynced', {
+              detail: { inventory: liveInv, balance: liveBalance }
+            }));
+          } catch (_) {}
+        }
+      }
+    } catch (farmErr) {
+      console.warn("Live farm inventory fetch notice:", farmErr.message);
+    }
+
+    // 3. Fetch Marketplace Trades & save to TiDB Cloud (does not hit farm inventory)
     let tradesCount = 0;
     try {
       const tradeRes = await fetchMarketplaceTrades(true);

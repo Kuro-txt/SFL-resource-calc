@@ -1,5 +1,11 @@
 import { BACKEND_URL } from '../config/constants.js';
 import { ApiService } from '../services/api.js';
+import { 
+  initGoalTracker, 
+  renderGoalTracker, 
+  getActiveGoalItem, 
+  setActiveGoalItem 
+} from './wishlist/goalTracker.js';
 
 let allNfts = [];
 try {
@@ -94,6 +100,9 @@ export function renderWishlistTemplate() {
         </div>
       </div>
 
+      <!-- WISHLIST GOAL TRACKER & INVENTORY LIQUIDATION MOUNT -->
+      <div id="wishlist-goal-tracker-mount"></div>
+
       <div class="overflow-x-auto bg-white/80 border-2 border-sfl-cardBorder rounded-xl shadow-sm">
         <table class="w-full text-left text-xs text-sfl-dirt">
           <thead class="bg-sfl-card border-b-2 border-sfl-cardBorder text-sfl-wood uppercase text-[11px]">
@@ -152,6 +161,7 @@ export function renderWishlistTemplate() {
 
 export function initWishlistPanel() {
   renderWishlistTemplate();
+  initGoalTracker(wishlistItems);
   initNftCombobox();
   renderWishlist();
   updateCatalogStatus();
@@ -172,7 +182,11 @@ export function initWishlistPanel() {
   if (typeof window !== 'undefined' && !window._wishlistGemListenerBound) {
     window.addEventListener('gemPackChanged', () => {
       updateWishlistTotals();
+      renderGoalTracker(wishlistItems);
       renderWishlist();
+    });
+    window.addEventListener('farmDataSynced', () => {
+      renderGoalTracker(wishlistItems);
     });
     window._wishlistGemListenerBound = true;
   }
@@ -365,6 +379,7 @@ export function updateOfferPrice(index, value) {
     wishlistItems[index].offerPrice = isNaN(parsed) ? 0 : parsed;
     saveWishlist();
     updateWishlistTotals();
+    renderGoalTracker(wishlistItems);
   }
 }
 
@@ -429,6 +444,7 @@ export function renderWishlist() {
   if (wishlistItems.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-sfl-woodLight italic">Your wishlist is empty! Search above to add items.</td></tr>`;
     updateWishlistTotals();
+    renderGoalTracker(wishlistItems);
     return;
   }
 
@@ -503,13 +519,37 @@ export function renderWishlist() {
     tdOffer.appendChild(offerInputWrapper);
     tdOffer.appendChild(offerUsdDiv);
 
+    const activeGoalName = getActiveGoalItem();
+    const isGoalActive = activeGoalName && activeGoalName.toLowerCase() === nft.name.toLowerCase();
+
     const tdAction = document.createElement('td');
-    tdAction.className = "px-2 py-2.5 text-center";
+    tdAction.className = "px-2 py-2.5 text-center whitespace-nowrap";
+
+    const actionContainer = document.createElement('div');
+    actionContainer.className = "flex items-center justify-center gap-1.5";
+
+    const goalBtn = document.createElement('button');
+    if (isGoalActive) {
+      goalBtn.className = "bg-amber-500 hover:bg-amber-400 text-amber-950 font-black px-2 py-1 rounded text-[10px] shadow-xs flex items-center gap-1 border border-amber-600 cursor-default";
+      goalBtn.innerHTML = `<span>🎯</span><span>Active Goal</span>`;
+    } else {
+      goalBtn.className = "bg-sfl-wood hover:bg-sfl-dirt text-amber-100 px-2 py-1 rounded text-[10px] font-bold shadow-xs flex items-center gap-1 border border-sfl-dirt cursor-pointer transition";
+      goalBtn.innerHTML = `<span>🎯</span><span>Set Goal</span>`;
+      goalBtn.title = "Set this item as your active Goal Tracker target";
+      goalBtn.addEventListener('click', () => {
+        setActiveGoalItem(nft.name);
+        renderWishlist();
+      });
+    }
+
     const removeBtn = document.createElement('button');
     removeBtn.className = "bg-sfl-accent text-white px-2 py-1 rounded text-[10px] font-bold hover:bg-red-700 shadow-sm cursor-pointer";
     removeBtn.textContent = '🗑️ Remove';
     removeBtn.addEventListener('click', () => removeFromWishlist(index));
-    tdAction.appendChild(removeBtn);
+
+    actionContainer.appendChild(goalBtn);
+    actionContainer.appendChild(removeBtn);
+    tdAction.appendChild(actionContainer);
 
     tr.appendChild(tdName);
     tr.appendChild(tdBoost);
@@ -521,6 +561,7 @@ export function renderWishlist() {
   });
 
   updateWishlistTotals();
+  renderGoalTracker(wishlistItems);
 }
 
 if (typeof window !== 'undefined') {
