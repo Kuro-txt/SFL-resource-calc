@@ -17,27 +17,26 @@ export function getFallbackPrices() {
   return map;
 }
 
+// ── Price Cache Format Version ─────────────────────────────────────────────
+// Bump this string whenever the price format/scale changes so all browsers
+// automatically clear their stale localStorage cache on next load.
+const PRICE_FORMAT_VERSION = 'v3-per-unit';
+
 export function getInitialPrices() {
   try {
+    // If the stored format version doesn't match, wipe old price cache entirely.
+    const storedVersion = localStorage.getItem('sfl_prices_format_version');
+    if (storedVersion !== PRICE_FORMAT_VERSION) {
+      console.warn('[SFL] Price format version mismatch — clearing stale price cache.');
+      try { localStorage.removeItem('sfl_live_prices'); } catch (_) {}
+      try { localStorage.setItem('sfl_prices_format_version', PRICE_FORMAT_VERSION); } catch (_) {}
+      return getFallbackPrices();
+    }
+
     const saved = localStorage.getItem('sfl_live_prices');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-        // Sanity check: the old sfl.world/api/v1/prices returned lot-level prices
-        // (e.g. "Parsnip": 596 meaning 596 flowers for a full lot).
-        // Per-unit P2P prices should always be < 1000 flowers for crops/resources.
-        // If any crop/resource key has a price > 100, the cache is stale — discard it.
-        const KNOWN_CROP_KEYS = ['sunflower','potato','pumpkin','carrot','cabbage','beetroot','cauliflower','parsnip','eggplant','corn','radish','wheat','kale','soybean'];
-        const isStale = KNOWN_CROP_KEYS.some(k => {
-          const canonical = k.charAt(0).toUpperCase() + k.slice(1);
-          const v = parsed[canonical] ?? parsed[k] ?? parsed[`[P2P] ${canonical}`];
-          return v !== undefined && parseFloat(v) > 100;
-        });
-        if (isStale) {
-          console.warn('[SFL] Detected stale price cache (lot-price format), clearing...');
-          try { localStorage.removeItem('sfl_live_prices'); } catch (_) {}
-          return getFallbackPrices();
-        }
         return { ...getFallbackPrices(), ...parsed };
       }
     }
@@ -46,6 +45,7 @@ export function getInitialPrices() {
 }
 
 window.allPrices = window.allPrices && Object.keys(window.allPrices).length > 0 ? window.allPrices : getInitialPrices();
+
 
 export function renderCalculatorTemplate() {
   const container = document.getElementById('calc-section');
@@ -165,7 +165,9 @@ export async function loadPrices(force = false) {
         try {
           localStorage.setItem('sfl_live_prices', JSON.stringify(window.allPrices));
           localStorage.setItem('sfl_prices_updated_at', new Date().toISOString());
+          localStorage.setItem('sfl_prices_format_version', PRICE_FORMAT_VERSION);
         } catch (_) {}
+
 
         if (rawData.flowerPrice && parseFloat(rawData.flowerPrice) > 0) {
           window.flowerUsdRate = parseFloat(rawData.flowerPrice);
