@@ -1,4 +1,10 @@
 {
+  "rewrites": [
+    {
+      "source": "/api/nfts",
+      "destination": "/api/nft"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
