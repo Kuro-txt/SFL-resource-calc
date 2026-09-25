@@ -74,6 +74,9 @@ export function renderWishlistTemplate() {
 
   container.innerHTML = `
     <div class="space-y-4">
+      <!-- WISHLIST GOAL TRACKER & INVENTORY LIQUIDATION MOUNT (Placed at top) -->
+      <div id="wishlist-goal-tracker-mount"></div>
+
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
           <h3 class="text-sm font-bold text-sfl-wood uppercase flex items-center gap-2">
@@ -104,9 +107,6 @@ export function renderWishlistTemplate() {
           </button>
         </div>
       </div>
-
-      <!-- WISHLIST GOAL TRACKER & INVENTORY LIQUIDATION MOUNT -->
-      <div id="wishlist-goal-tracker-mount"></div>
 
       <div class="overflow-x-auto bg-white/80 border-2 border-sfl-cardBorder rounded-xl shadow-sm">
         <table class="w-full text-left text-xs text-sfl-dirt">
