@@ -216,7 +216,9 @@ export function getItemFlowerPrice(cleanKey) {
     const matchedKey = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanKey);
     if (matchedKey) {
       const rawPrice = parseFloat(window.allPrices[matchedKey]) || 0;
-      if (rawPrice > 0) {
+      // Sanity cap: per-unit P2P flower prices for crops/resources are never > 50.
+      // Values > 50 indicate stale lot-level data from the old sfl.world/api/v1/prices.
+      if (rawPrice > 0 && rawPrice <= 50) {
         return rawPrice;
       }
     }
