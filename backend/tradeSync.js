@@ -189,7 +189,7 @@ async function processAutoSyncTrades(supabase) {
   console.log(`🎉 [Auto-Sync Trades] Finished auto-sync batch for ${farmEntries.length} farms. Total trades: ${totalSynced}.`);
 }
 
-async function getTodayTradesForFarm(farmId, todayDate) {
+async function getTodayTradesForFarm(farmId, todayDate, allowLiveApi = false) {
   const cleanFarmId = String(farmId).trim();
   const dayStartMs = new Date(todayDate + 'T00:00:00Z').getTime();
   const dayEndMs = new Date(todayDate + 'T22:30:00Z').getTime();
@@ -218,8 +218,8 @@ async function getTodayTradesForFarm(farmId, todayDate) {
     console.warn(`Notice: TiDB query for trades Farm #${cleanFarmId}:`, err.message);
   }
 
-  // 2. Fallback to direct API if TiDB had no trades or is not connected
-  if (trades.length === 0) {
+  // 2. Fallback to direct API ONLY IF allowLiveApi is enabled and TiDB had no trades
+  if (allowLiveApi && trades.length === 0) {
     try {
       const rawTrades = await fetchMarketplaceTradesWithRetry(cleanFarmId, '', 1);
       if (Array.isArray(rawTrades)) {

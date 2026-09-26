@@ -317,7 +317,7 @@ async function processYieldCalculation(supabase) {
     // ── Fetch Today's P2P Trades (00:00 to 22:30 UTC) ──
     let todayTrades = { tradesBought: {}, tradesSold: {}, rawTradesCount: 0 };
     try {
-      todayTrades = await getTodayTradesForFarm(cleanFarmId, todayDate);
+      todayTrades = await getTodayTradesForFarm(cleanFarmId, todayDate, false);
     } catch (err) {
       console.warn(`Notice: Failed to fetch trades for Farm #${cleanFarmId}:`, err.message);
     }
