@@ -32,11 +32,19 @@ export default async function handler(req, res) {
         }
       }
 
-      if (targetUserIds.length > 0) {
-        let query = supabase
-          .from('monthly_yields')
-          .select('*')
-          .in('user_id', targetUserIds);
+      let query = supabase
+        .from('monthly_yields')
+        .select('*');
+
+      if (cleanFarmId && targetUserIds.length > 0) {
+        query = query.or(`farm_id.eq.${cleanFarmId},user_id.in.(${targetUserIds.join(',')})`);
+      } else if (cleanFarmId) {
+        query = query.eq('farm_id', cleanFarmId);
+      } else if (targetUserIds.length > 0) {
+        query = query.in('user_id', targetUserIds);
+      } else {
+        return res.status(200).json({ success: true, source: 'supabase_monthly', data: [] });
+      }
 
         if (monthKey) {
           query = query.eq('month_key', String(monthKey).trim());
@@ -64,7 +72,6 @@ export default async function handler(req, res) {
           uniqueMonthly.sort((a, b) => (b.month_start || '').localeCompare(a.month_start || ''));
           return res.status(200).json({ success: true, source: 'supabase_monthly', data: uniqueMonthly });
         }
-      }
 
       return res.status(200).json({ success: true, source: 'supabase_monthly', data: [] });
     }

@@ -32,16 +32,23 @@ async function processBaselineSnapshot(supabase) {
   // 2. Batch fetch all unique farms (20 per batch, 11s spacing, binary-split retry)
   const allFarms = await fetchAllFarmsBatched(Array.from(farmIdsToFetch));
 
-  // 3. Unpack and save each profile's data with verified ID matching
-  let savedCount = 0;
+  // 3. Unpack and save each unique farm's baseline data (save once per farm_id)
+  const uniqueFarmEntries = new Map();
   for (const user of validUsers) {
+    if (!uniqueFarmEntries.has(user.cleanFarmId)) {
+      uniqueFarmEntries.set(user.cleanFarmId, user);
+    }
+  }
+
+  let savedCount = 0;
+  for (const [cleanFarmId, primaryUser] of uniqueFarmEntries.entries()) {
     // Explicit key existence check
-    if (!Object.prototype.hasOwnProperty.call(allFarms, user.cleanFarmId)) {
-      console.warn(`⚠️ Farm #${user.cleanFarmId} not returned by SFL. Skipping User ${user.id}.`);
+    if (!Object.prototype.hasOwnProperty.call(allFarms, cleanFarmId)) {
+      console.warn(`⚠️ Farm #${cleanFarmId} not returned by SFL. Skipping.`);
       continue;
     }
 
-    const farmData = allFarms[user.cleanFarmId];
+    const farmData = allFarms[cleanFarmId];
     const inventory = { ...(farmData.inventory || {}) };
     const farmActivity = { ...(farmData.farmActivity || farmData.activity || (farmData.farm && (farmData.farm.farmActivity || farmData.farm.bumpkin?.activity)) || {}) };
     const coins = parseFloat(farmData.coins || farmData.balance || 0);
@@ -54,26 +61,26 @@ async function processBaselineSnapshot(supabase) {
       const { error: dbError } = await supabase
         .from('preharvest_baselines')
         .upsert({
-          user_id: user.id,
-          farm_id: user.cleanFarmId,
+          user_id: primaryUser.id,
+          farm_id: cleanFarmId,
           snapshot_date: todayDate,
           stock: inventory,
           farm_activity: farmActivity
         }, { onConflict: 'user_id,snapshot_date' });
 
       if (dbError) {
-        console.error(`❌ [Supabase DB Error] Baseline save failed for Farm #${user.cleanFarmId}: ${dbError.message}`);
+        console.error(`❌ [Supabase DB Error] Baseline save failed for Farm #${cleanFarmId}: ${dbError.message}`);
       } else {
         savedCount++;
-        console.log(`✅ 00:00 UTC Baseline saved for Farm #${user.cleanFarmId} on ${todayDate}`);
+        console.log(`✅ 00:00 UTC Baseline saved for Farm #${cleanFarmId} on ${todayDate}`);
       }
     } catch (err) {
-      console.error(`❌ Failed baseline save for Farm #${user.cleanFarmId}: ${err.message}`);
+      console.error(`❌ Failed baseline save for Farm #${cleanFarmId}: ${err.message}`);
     }
   }
 
-  console.log(`🏁 [Baseline Cron Finished] ${savedCount}/${validUsers.length} profiles saved to preharvest_baselines.`);
-  return { success: true, processed: validUsers.length, saved: savedCount };
+  console.log(`🏁 [Baseline Cron Finished] ${savedCount}/${uniqueFarmEntries.size} unique farms saved to preharvest_baselines.`);
+  return { success: true, processed: uniqueFarmEntries.size, saved: savedCount };
 }
 
 module.exports = { processBaselineSnapshot };

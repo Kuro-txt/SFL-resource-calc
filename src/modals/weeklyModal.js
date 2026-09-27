@@ -22,8 +22,16 @@ export async function getWeeklyArchive(mondayStr) {
       const farmId = localStorage.getItem('sfl_farm_id') || '';
       let loaded = [];
 
-      if (client && activeUser) {
-        const { data } = await client.from('weekly_yields').select('*').eq('user_id', activeUser.id);
+      if (client && (activeUser || farmId)) {
+        let query = client.from('weekly_yields').select('*');
+        if (farmId && activeUser?.id) {
+          query = query.or(`farm_id.eq.${farmId},user_id.eq.${activeUser.id}`);
+        } else if (farmId) {
+          query = query.eq('farm_id', farmId);
+        } else if (activeUser?.id) {
+          query = query.eq('user_id', activeUser.id);
+        }
+        const { data } = await query;
         if (Array.isArray(data) && data.length > 0) loaded = data;
       }
 

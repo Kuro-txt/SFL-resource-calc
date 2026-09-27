@@ -68,21 +68,31 @@ export default async function handler(req, res) {
         }
       }
 
-      if (targetUserIds.length > 0) {
-        const { data: supaRows, error: sErr } = await supabase
-          .from('daily_yields')
-          .select('*')
-          .in('user_id', targetUserIds)
-          .gt('total_count', 0)
-          .order('yield_date', { ascending: false })
-          .limit(100);
+      let query = supabase
+        .from('daily_yields')
+        .select('*')
+        .gt('total_count', 0)
+        .order('yield_date', { ascending: false })
+        .limit(100);
 
-        if (!sErr && Array.isArray(supaRows) && supaRows.length > 0) {
-          supaRows.sort((a, b) => {
-            if (requestedUserId) {
-              if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
-              if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
-            }
+      if (cleanFarmId && targetUserIds.length > 0) {
+        query = query.or(`farm_id.eq.${cleanFarmId},user_id.in.(${targetUserIds.join(',')})`);
+      } else if (cleanFarmId) {
+        query = query.eq('farm_id', cleanFarmId);
+      } else if (targetUserIds.length > 0) {
+        query = query.in('user_id', targetUserIds);
+      } else {
+        return res.status(200).json({ success: true, data: [] });
+      }
+
+      const { data: supaRows, error: sErr } = await query;
+
+      if (!sErr && Array.isArray(supaRows) && supaRows.length > 0) {
+        supaRows.sort((a, b) => {
+          if (requestedUserId) {
+            if (a.user_id === requestedUserId && b.user_id !== requestedUserId) return -1;
+            if (b.user_id === requestedUserId && a.user_id !== requestedUserId) return 1;
+          }
             return (b.total_count || 0) - (a.total_count || 0);
           });
 
@@ -135,7 +145,6 @@ export default async function handler(req, res) {
           res.setHeader('Cache-Control', 'private, s-maxage=60, stale-while-revalidate=120');
           return res.status(200).json({ success: true, source: 'supabase', data: uniqueYields });
         }
-      }
 
       res.setHeader('Cache-Control', 'private, s-maxage=60, stale-while-revalidate=120');
       return res.status(200).json({ success: true, source: 'supabase', data: [] });

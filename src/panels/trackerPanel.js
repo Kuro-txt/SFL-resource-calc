@@ -428,13 +428,22 @@ export async function loadCloudYieldHistory(force = false) {
         }
       }
 
-      if (targetUserIds.length > 0) {
-        const { data, error } = await client
+      if (targetUserIds.length > 0 || farmId) {
+        let query = client
           .from('daily_yields')
           .select('*')
-          .in('user_id', targetUserIds)
           .gt('total_count', 0)
           .order('yield_date', { ascending: false });
+
+        if (farmId && targetUserIds.length > 0) {
+          query = query.or(`farm_id.eq.${farmId},user_id.in.(${targetUserIds.join(',')})`);
+        } else if (farmId) {
+          query = query.eq('farm_id', farmId);
+        } else {
+          query = query.in('user_id', targetUserIds);
+        }
+
+        const { data, error } = await query;
 
         if (!error && Array.isArray(data) && data.length > 0) {
           // Deduplicate by yield_date

@@ -32,12 +32,22 @@ export default async function handler(req, res) {
         }
       }
 
-      if (targetUserIds.length > 0) {
-        const { data: rows, error } = await supabase
-          .from('weekly_yields')
-          .select('*')
-          .in('user_id', targetUserIds)
-          .order('week_start', { ascending: false });
+      let query = supabase
+        .from('weekly_yields')
+        .select('*')
+        .order('week_start', { ascending: false });
+
+      if (cleanFarmId && targetUserIds.length > 0) {
+        query = query.or(`farm_id.eq.${cleanFarmId},user_id.in.(${targetUserIds.join(',')})`);
+      } else if (cleanFarmId) {
+        query = query.eq('farm_id', cleanFarmId);
+      } else if (targetUserIds.length > 0) {
+        query = query.in('user_id', targetUserIds);
+      } else {
+        return res.status(200).json({ success: true, source: 'supabase_weekly', data: [] });
+      }
+
+      const { data: rows, error } = await query;
 
         if (!error && Array.isArray(rows) && rows.length > 0) {
           rows.sort((a, b) => {
@@ -59,7 +69,6 @@ export default async function handler(req, res) {
           uniqueWeekly.sort((a, b) => (b.week_start || '').localeCompare(a.week_start || ''));
           return res.status(200).json({ success: true, source: 'supabase_weekly', data: uniqueWeekly });
         }
-      }
 
       return res.status(200).json({ success: true, source: 'supabase_weekly', data: [] });
     }

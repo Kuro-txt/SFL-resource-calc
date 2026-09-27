@@ -210,12 +210,18 @@ async function processYieldCalculation(supabase) {
   // Batch fetch all unique farms (20 per batch, 11s spacing, binary-split retry)
   const allFarms = await fetchAllFarmsBatched(Array.from(farmIdsToFetch));
 
+  // Deduplicate by cleanFarmId: calculate and save once per unique farm
+  const uniqueFarmEntries = new Map();
+  for (const user of validUsers) {
+    if (!uniqueFarmEntries.has(user.cleanFarmId)) {
+      uniqueFarmEntries.set(user.cleanFarmId, user);
+    }
+  }
+
   let savedYieldsCount = 0;
 
-  for (const user of validUsers) {
-    const cleanFarmId = user.cleanFarmId;
-
-    let targets = user.tracked_items;
+  for (const [cleanFarmId, primaryUser] of uniqueFarmEntries.entries()) {
+    let targets = primaryUser.tracked_items;
     if (typeof targets === 'string') {
       try { targets = JSON.parse(targets); } catch (e) { targets = []; }
     }
@@ -224,8 +230,9 @@ async function processYieldCalculation(supabase) {
     const { data: exactBaseline, error: baselineErr } = await supabase
       .from('preharvest_baselines')
       .select('stock, farm_activity, snapshot_date')
-      .eq('user_id', user.id)
+      .or(`farm_id.eq.${cleanFarmId},user_id.eq.${primaryUser.id}`)
       .eq('snapshot_date', todayDate)
+      .limit(1)
       .maybeSingle();
 
     if (!baselineErr && exactBaseline?.farm_activity && Object.keys(exactBaseline.farm_activity).length > 0) {
@@ -235,7 +242,7 @@ async function processYieldCalculation(supabase) {
       const { data: fallbackRecord } = await supabase
         .from('preharvest_baselines')
         .select('stock, farm_activity, snapshot_date')
-        .eq('user_id', user.id)
+        .or(`farm_id.eq.${cleanFarmId},user_id.eq.${primaryUser.id}`)
         .lt('snapshot_date', todayDate)
         .order('snapshot_date', { ascending: false })
         .limit(1)
@@ -533,7 +540,8 @@ async function processYieldCalculation(supabase) {
     }
 
     const { error: dbError } = await supabase.from('daily_yields').upsert({
-      user_id: user.id,
+      user_id: primaryUser.id,
+      farm_id: cleanFarmId,
       yield_date: todayDate,
       total_count: Math.ceil(totalHarvestCount * 10) / 10,
       net_flowers: Math.ceil(totalNetFlowers * 1000) / 1000,
@@ -570,7 +578,7 @@ async function processYieldCalculation(supabase) {
     console.error("⚠️ [Log Pruning Error]:", err.message);
   }
 
-  return { success: true, processed: users.length, saved: savedYieldsCount };
+  return { success: true, processed: uniqueFarmEntries.size, saved: savedYieldsCount };
 }
 
 async function backfillDailyYields(supabase) {
@@ -918,11 +926,12 @@ async function aggregateCompletedWeeks(supabase, forceAll = false) {
       continue;
     }
 
-    const key = `${row.user_id}___${monday}`;
+    const farmId = row.farm_id || userFarmMap[row.user_id] || '';
+    const key = farmId ? `${farmId}___${monday}` : `${row.user_id}___${monday}`;
     if (!weeksMap.has(key)) {
       weeksMap.set(key, {
         user_id: row.user_id,
-        farm_id: userFarmMap[row.user_id] || '',
+        farm_id: farmId,
         week_start: monday,
         week_end: sunday,
         total_items: 0,
@@ -1113,11 +1122,12 @@ async function aggregateCompletedMonths(supabase, forceAll = false) {
       continue;
     }
 
-    const key = `${row.user_id}___${monthKey}`;
+    const farmId = row.farm_id || userFarmMap[row.user_id] || '';
+    const key = farmId ? `${farmId}___${monthKey}` : `${row.user_id}___${monthKey}`;
     if (!monthsMap.has(key)) {
       monthsMap.set(key, {
         user_id: row.user_id,
-        farm_id: userFarmMap[row.user_id] || '',
+        farm_id: farmId,
         month_key: monthKey,
         month_start: monthStart,
         month_end: monthEnd,
