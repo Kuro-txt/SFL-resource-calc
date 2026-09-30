@@ -37,7 +37,9 @@ function loadSavedMarketplaceData() {
 // In-memory cache for marketplace activity (initialized from disk JSON if available)
 let cachedData = loadSavedMarketplaceData();
 let lastFetchTime = cachedData?.timestamp || 0;
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+let lastDiskWriteTime = 0;
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds normal TTL
+const MIN_UPDATE_INTERVAL_MS = 20 * 1000; // 20 seconds throttle limit between live updates/file writes
 let inFlightPromise = null;
 
 /**
@@ -46,11 +48,21 @@ let inFlightPromise = null;
  */
 async function fetchMarketplaceActivity(customApiKey = '', force = false) {
   const now = Date.now();
+
+  // 1. 20-second throttle: If we already have cached data and it was updated less than
+  // 20 seconds ago, serve it immediately even if force=true.
+  // This prevents SFL API rate limits and disk write collisions when multiple users trigger updates,
+  // without affecting users or letting them know.
+  if (cachedData && (now - lastFetchTime < MIN_UPDATE_INTERVAL_MS)) {
+    return cachedData;
+  }
+
+  // 2. Normal cache TTL (60s): If not forced and cache is still fresh, serve it.
   if (!force && cachedData && (now - lastFetchTime < CACHE_TTL_MS)) {
     return cachedData;
   }
 
-  // Deduplicate simultaneous requests
+  // 3. Deduplicate simultaneous requests
   if (inFlightPromise) {
     return inFlightPromise;
   }
@@ -208,20 +220,33 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
       };
       lastFetchTime = Date.now();
 
-      // Persist to single master JSON file in code so offline/cached access is always up to date
-      try {
-        fs.writeFileSync(MARKETPLACE_CACHE_FILE, JSON.stringify(cachedData, null, 2), 'utf8');
-        console.log(`💾 [Marketplace Activity] Updated master cache file in code repository (lastMarketplaceData.json)`);
-      } catch (fileErr) {
-        console.warn("⚠️ Failed to write marketplace cache file:", fileErr.message);
+      // Persist to master cache file with 20s time limit to prevent file write collisions and disk thrashing
+      const nowWrite = Date.now();
+      if (nowWrite - lastDiskWriteTime >= MIN_UPDATE_INTERVAL_MS) {
+        try {
+          const tempFile = `${MARKETPLACE_CACHE_FILE}.tmp`;
+          fs.writeFileSync(tempFile, JSON.stringify(cachedData, null, 2), 'utf8');
+          try {
+            fs.renameSync(tempFile, MARKETPLACE_CACHE_FILE);
+          } catch (_) {
+            // Fallback if atomic rename is restricted on environment
+            fs.writeFileSync(MARKETPLACE_CACHE_FILE, JSON.stringify(cachedData, null, 2), 'utf8');
+            try { fs.unlinkSync(tempFile); } catch (_) {}
+          }
+          lastDiskWriteTime = nowWrite;
+          console.log(`💾 [Marketplace Activity] Updated master cache file in code repository (lastMarketplaceData.json)`);
+        } catch (fileErr) {
+          console.warn("⚠️ Failed to write marketplace cache file:", fileErr.message);
+        }
       }
 
       return cachedData;
     } catch (err) {
       console.warn("⚠️ [Marketplace Activity] Failed to fetch live data from SFL:", err.message);
 
-      // Return stale cache if available
+      // Return stale cache if available with 20s cooldown so we don't spam SFL on repeated errors
       if (cachedData) {
+        lastFetchTime = Date.now();
         return cachedData;
       }
 
@@ -287,5 +312,6 @@ async function fetchMarketplaceActivity(customApiKey = '', force = false) {
 
 module.exports = {
   fetchMarketplaceActivity,
-  CACHE_TTL_MS
+  CACHE_TTL_MS,
+  MIN_UPDATE_INTERVAL_MS
 };
