@@ -283,7 +283,7 @@ async function processYieldCalculation(supabase) {
       const { data: priorYields } = await supabase
         .from('daily_yields')
         .select('yield_date, crops, crop_activity_yields')
-        .eq('user_id', user.id)
+        .or(`farm_id.eq.${cleanFarmId},user_id.eq.${primaryUser.id}`)
         .gte('yield_date', baselineRecord.snapshot_date)
         .lt('yield_date', todayDate);
 
@@ -313,7 +313,7 @@ async function processYieldCalculation(supabase) {
     const baseActivity = baselineRecord.farm_activity || {};
 
     if (!Object.prototype.hasOwnProperty.call(allFarms, cleanFarmId)) {
-      console.warn(`⚠️ Farm #${cleanFarmId} not returned by SFL batch API. Skipping User ${user.id} at 22:30 UTC.`);
+      console.warn(`⚠️ Farm #${cleanFarmId} not returned by SFL batch API. Skipping Farm #${cleanFarmId} (User ${primaryUser.id}) at 22:30 UTC.`);
       continue;
     }
 
@@ -436,7 +436,7 @@ async function processYieldCalculation(supabase) {
       }
     });
 
-    const baseYields = user.crop_base_yields || {};
+    const baseYields = primaryUser.crop_base_yields || {};
     let cropActivityYields = [];
 
     for (let actKey in currActivity) {
