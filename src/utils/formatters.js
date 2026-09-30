@@ -48,3 +48,11 @@ export function getBettyUnitPrice(cleanName) {
   return BETTY_SHOP_PRICES[key] !== undefined ? BETTY_SHOP_PRICES[key] : null;
 }
 
+export function formatItemUnitPrice(val) {
+  let num = typeof val === 'number' ? val : parseFloat(val);
+  if (isNaN(num) || num <= 0) return '0.00000';
+  if (num >= 100) return num.toFixed(2);
+  if (num >= 1) return num.toFixed(4);
+  return num.toFixed(5);
+}
+

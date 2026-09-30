@@ -12,7 +12,7 @@ import {
   getSelectedGemRate,
   isGemDiscountActive
 } from '../../config/constants.js';
-import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
+import { normalizeItemKey, getBettyUnitPrice, formatItemUnitPrice } from '../../utils/formatters.js';
 import { tradeHistoryData } from '../tradeHistory/tradeData.js';
 import { ApiService } from '../../services/api.js';
 import { getItemNameById } from '../../data/knownIds.js';
@@ -544,6 +544,7 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
     .filter(i => i.name !== 'Coins' && i.name !== 'Gems')
     .map(i => ({
       ...i,
+      unitPrice: i.unitPrice || getItemPrice(i.name),
       category: getItemCategory(i.name)
     }))
     .sort((a, b) => b.flowers - a.flowers);
@@ -597,14 +598,17 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
 
     const maxFlowers = visibleItems[0]?.flowers || 1;
 
-    return visibleItems.map(({ name, qty, flowers, category }) => {
+    return visibleItems.map(({ name, qty, unitPrice, flowers, category }) => {
       const pct = Math.min(100, Math.max(8, Math.round((flowers / maxFlowers) * 100)));
       const icon = getItemIcon(name);
       const catMeta = CATEGORY_META[category] || { label: category, icon: '🌾' };
       const formattedQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
+      const effectiveUnitPrice = unitPrice || getItemPrice(name);
+      const formattedUnitPrice = formatItemUnitPrice(effectiveUnitPrice);
 
       return `
-        <div class="group flex items-center justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 text-xs hover:bg-orange-500/10 dark:hover:bg-orange-500/15 transition-colors">
+        <div class="group flex items-center justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 text-xs hover:bg-orange-500/10 dark:hover:bg-orange-500/15 transition-colors"
+          title="Unit Price: ${formattedUnitPrice} 🌸 | Total Cost: -${flowers.toFixed(3)} 🌸">
           <!-- Column 1: Item (Icon + Name + Category + Micro Share Bar) -->
           <div class="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
             <span class="text-base sm:text-lg shrink-0 select-none">${icon}</span>
@@ -622,13 +626,18 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
             </div>
           </div>
 
-          <!-- Column 2: Quantity Consumed (Aligned) -->
-          <div class="w-14 sm:w-24 text-right shrink-0 font-mono text-[11px] sm:text-xs">
+          <!-- Column 2: Unit Price (Aligned) -->
+          <div class="w-16 sm:w-24 text-right shrink-0 font-mono text-[10px] sm:text-xs text-sfl-woodLight dark:text-slate-400">
+            <span>${formattedUnitPrice} 🌸</span>
+          </div>
+
+          <!-- Column 3: Quantity Consumed (Aligned) -->
+          <div class="w-12 sm:w-20 text-right shrink-0 font-mono text-[11px] sm:text-xs">
             <span class="font-bold text-orange-700 dark:text-orange-400">-${formattedQty}</span>
           </div>
 
-          <!-- Column 3: Flower Cost (Aligned) -->
-          <div class="w-20 sm:w-28 text-right shrink-0 font-mono text-[11px] sm:text-xs">
+          <!-- Column 4: Flower Cost (Aligned) -->
+          <div class="w-16 sm:w-24 text-right shrink-0 font-mono text-[11px] sm:text-xs">
             <span class="font-bold text-orange-700 dark:text-orange-400 sm:text-[13px]">-${flowers.toFixed(3)} 🌸</span>
           </div>
         </div>`;
@@ -796,11 +805,15 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
       <div class="rounded-xl border border-amber-200/60 dark:border-slate-800 bg-amber-50/20 dark:bg-slate-900/40 overflow-hidden shadow-2xs">
         <div class="sticky top-0 z-10 flex items-center justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 bg-amber-100/90 dark:bg-slate-900/95 backdrop-blur-xs text-[10px] font-bold uppercase tracking-wider text-sfl-woodLight dark:text-slate-400 border-b border-amber-200/60 dark:border-slate-800">
           <span class="flex-1 min-w-0">Item</span>
-          <span class="w-14 sm:w-24 text-right">
+          <span class="w-16 sm:w-24 text-right">
+            <span class="sm:hidden">Price</span>
+            <span class="hidden sm:inline">Unit Price</span>
+          </span>
+          <span class="w-12 sm:w-20 text-right">
             <span class="sm:hidden">Qty</span>
             <span class="hidden sm:inline">Consumed</span>
           </span>
-          <span class="w-20 sm:w-28 text-right">
+          <span class="w-16 sm:w-24 text-right">
             <span class="sm:hidden">Cost</span>
             <span class="hidden sm:inline">Flower Cost</span>
           </span>

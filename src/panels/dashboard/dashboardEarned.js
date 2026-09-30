@@ -1,5 +1,5 @@
 import { FLOWER_IMG_SMALL_HTML, RESOURCE_FLOWER_FALLBACK_PRICES, isAllowedDifferenceItem, ALLOWED_ITEM_NAMES, getCoinFlowerRatio, getItemTaxRate } from '../../config/constants.js';
-import { normalizeItemKey, getBettyUnitPrice, roundUpToThreeDecimals } from '../../utils/formatters.js';
+import { normalizeItemKey, getBettyUnitPrice, roundUpToThreeDecimals, formatItemUnitPrice } from '../../utils/formatters.js';
 import { getDateRangeBounds } from './dashboardPanel.js';
 import { fetchRollupArchive, convertArchiveToEarnedTotals } from './dashboardArchiveLoader.js';
 
@@ -240,6 +240,7 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
     .map(([name, { qty, flowers, grossFlowers, taxAmount }]) => ({
       name,
       qty,
+      unitPrice: getItemPrice(name),
       flowers: parseFloat(flowers.toFixed(3)),
       grossFlowers: parseFloat((grossFlowers || flowers).toFixed(3)),
       taxAmount: parseFloat((taxAmount || 0).toFixed(3)),
@@ -296,14 +297,16 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
 
     const maxFlowers = visibleItems[0]?.flowers || 1;
 
-    return visibleItems.map(({ name, qty, flowers, grossFlowers, taxAmount, category }) => {
+    return visibleItems.map(({ name, qty, unitPrice, flowers, grossFlowers, taxAmount, category }) => {
       const pct = Math.min(100, Math.max(8, Math.round((flowers / maxFlowers) * 100)));
       const icon = getItemIcon(name);
       const catMeta = CATEGORY_META[category] || { label: category, icon: '🌾' };
       const formattedQty = qty % 1 === 0 ? qty.toLocaleString() : qty.toFixed(1);
+      const effectiveUnitPrice = unitPrice || getItemPrice(name);
+      const formattedUnitPrice = formatItemUnitPrice(effectiveUnitPrice);
       const taxTooltip = taxAmount > 0 
-        ? `Gross: ${grossFlowers.toFixed(3)} 🌸 | Tax (${taxPct}%): -${taxAmount.toFixed(3)} 🌸 | Net: ${flowers.toFixed(3)} 🌸`
-        : `Value: ${flowers.toFixed(3)} 🌸`;
+        ? `Unit Price: ${formattedUnitPrice} 🌸 | Gross: ${grossFlowers.toFixed(3)} 🌸 | Tax (${taxPct}%): -${taxAmount.toFixed(3)} 🌸 | Net: ${flowers.toFixed(3)} 🌸`
+        : `Unit Price: ${formattedUnitPrice} 🌸 | Value: ${flowers.toFixed(3)} 🌸`;
 
       return `
         <div class="group flex items-center justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 text-xs hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15 transition-colors"
@@ -325,13 +328,18 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
             </div>
           </div>
 
-          <!-- Column 2: Quantity Produced (Aligned) -->
-          <div class="w-14 sm:w-24 text-right shrink-0 font-mono text-[11px] sm:text-xs">
+          <!-- Column 2: Unit Price (Aligned) -->
+          <div class="w-16 sm:w-24 text-right shrink-0 font-mono text-[10px] sm:text-xs text-sfl-woodLight dark:text-slate-400">
+            <span>${formattedUnitPrice} 🌸</span>
+          </div>
+
+          <!-- Column 3: Quantity Produced (Aligned) -->
+          <div class="w-12 sm:w-20 text-right shrink-0 font-mono text-[11px] sm:text-xs">
             <span class="font-bold text-sfl-dirt dark:text-amber-100">+${formattedQty}</span>
           </div>
 
-          <!-- Column 3: Flower Value (Aligned) -->
-          <div class="w-20 sm:w-28 text-right shrink-0 font-mono text-[11px] sm:text-xs">
+          <!-- Column 4: Flower Value (Aligned) -->
+          <div class="w-16 sm:w-24 text-right shrink-0 font-mono text-[11px] sm:text-xs">
             <span class="font-bold text-sfl-green dark:text-emerald-400 sm:text-[13px]">+${flowers.toFixed(3)} 🌸</span>
           </div>
         </div>`;
@@ -436,11 +444,15 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
       <div class="rounded-xl border border-amber-200/60 dark:border-slate-800 bg-amber-50/20 dark:bg-slate-900/40 overflow-hidden shadow-2xs">
         <div class="sticky top-0 z-10 flex items-center justify-between gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 bg-amber-100/90 dark:bg-slate-900/95 backdrop-blur-xs text-[10px] font-bold uppercase tracking-wider text-sfl-woodLight dark:text-slate-400 border-b border-amber-200/60 dark:border-slate-800">
           <span class="flex-1 min-w-0">Item</span>
-          <span class="w-14 sm:w-24 text-right">
+          <span class="w-16 sm:w-24 text-right">
+            <span class="sm:hidden">Price</span>
+            <span class="hidden sm:inline">Unit Price</span>
+          </span>
+          <span class="w-12 sm:w-20 text-right">
             <span class="sm:hidden">Qty</span>
             <span class="hidden sm:inline">Produced</span>
           </span>
-          <span class="w-20 sm:w-28 text-right">
+          <span class="w-16 sm:w-24 text-right">
             <span class="sm:hidden">Value</span>
             <span class="hidden sm:inline">Value (Net)</span>
           </span>
