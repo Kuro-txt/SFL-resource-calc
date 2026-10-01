@@ -58,7 +58,13 @@ export const BUILDINGS_CATALOG = [
         name: 'Fiery Jackpot (+1 Yield)',
         boostName: 'Fiery Jackpot',
         chance: 20,
-        description: '20% to 30% chance for +1 food cooked in the Fire Pit',
+        currentRank: 1,
+        ranks: [
+          { rank: 1, chance: 20, label: 'Rank 1 (20%)' },
+          { rank: 2, chance: 35, label: 'Rank 2 (35%)' },
+          { rank: 3, chance: 50, label: 'Rank 3 (50%)' }
+        ],
+        description: '20% (Rank 1), 35% (Rank 2), or 50% (Rank 3) chance for +1 food cooked in the Fire Pit',
         effect: '+1 Extra Food',
         icon: '🔥',
         procBonus: 1,
@@ -580,7 +586,13 @@ export const PROC_PRESETS = [
     itemName: 'Mashed Potato',
     itemId: KNOWN_IDS['Mashed Potato'] || 519,
     chance: 20,
-    description: '20% to 30% chance for +1 food cooked in the Fire Pit',
+    currentRank: 1,
+    ranks: [
+      { rank: 1, chance: 20, label: 'Rank 1 (20%)' },
+      { rank: 2, chance: 35, label: 'Rank 2 (35%)' },
+      { rank: 3, chance: 50, label: 'Rank 3 (50%)' }
+    ],
+    description: '20% (Rank 1), 35% (Rank 2), or 50% (Rank 3) chance for +1 food cooked in the Fire Pit',
     effect: '+1 Extra Food',
     building: 'Fire Pit',
     activityKey: 'Mashed Potato Cooked',

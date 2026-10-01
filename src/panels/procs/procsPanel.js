@@ -259,7 +259,7 @@ function renderPanel(mountEl) {
           <div class="flex items-center gap-2.5">
             <span class="text-2xl">${currentBoost?.icon || '✨'}</span>
             <div>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <h4 class="text-xs sm:text-sm font-bold text-sfl-dirt dark:text-amber-100">${currentCriticalHitName}</h4>
                 <span class="text-xs px-2 py-0.5 rounded-full font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300">
                   ${chanceNum}% Chance
@@ -267,6 +267,16 @@ function renderPanel(mountEl) {
                 <span class="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400">
                   ${currentBoost?.effect || (isAdditive ? `+${procBonus} extra` : `x${procMultiplier} output`)}
                 </span>
+                ${currentBoost?.ranks ? `
+                  <div class="flex items-center gap-1 bg-amber-100/90 dark:bg-slate-800/90 px-1.5 py-0.5 rounded-lg border border-amber-300/80 dark:border-slate-700">
+                    <span class="text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400">Rank:</span>
+                    ${currentBoost.ranks.map(r => `
+                      <button type="button" data-rank="${r.rank}" data-rank-chance="${r.chance}" class="procs-rank-btn px-1.5 py-0.2 rounded text-[10px] font-mono font-bold transition cursor-pointer select-none ${chanceNum === r.chance ? 'bg-amber-600 text-white shadow-2xs' : 'bg-white/80 dark:bg-slate-700 text-sfl-wood dark:text-slate-300 hover:bg-amber-200'}">
+                        R${r.rank} (${r.chance}%)
+                      </button>
+                    `).join('')}
+                  </div>
+                ` : ''}
               </div>
               <p class="text-xs text-sfl-woodLight dark:text-slate-400 mt-0.5">
                 ${currentBoost?.description || `${chanceNum}% chance to trigger ${currentCriticalHitName}`}
@@ -594,6 +604,14 @@ function attachEventListeners(mountEl) {
         currentChance = chosen.chance;
         renderPanel(mountEl);
       }
+    });
+  });
+
+  mountEl.querySelectorAll('.procs-rank-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const ch = Number(e.currentTarget.dataset.rankChance) || 20;
+      currentChance = ch;
+      renderPanel(mountEl);
     });
   });
 
