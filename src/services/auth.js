@@ -14,13 +14,9 @@ export async function initAuth() {
   }
 
   const savedFarmId = localStorage.getItem('sfl_farm_id');
-  const savedApiKey = localStorage.getItem('sfl_api_key');
-
   const farmIdEl = document.getElementById('farm-id');
-  const apiKeyEl = document.getElementById('api-key');
 
   if (savedFarmId && farmIdEl) farmIdEl.value = savedFarmId;
-  if (savedApiKey && apiKeyEl) apiKeyEl.value = savedApiKey;
 
   bindAuthEventListeners();
 
@@ -372,9 +368,5 @@ function bindAuthEventListeners() {
     localStorage.setItem('sfl_farm_id', farmId);
     syncFarmIdToCloud(farmId);
     debouncedYieldSync(farmId);
-  });
-
-  document.getElementById('api-key')?.addEventListener('input', (e) => {
-    localStorage.setItem('sfl_api_key', e.target.value);
   });
 }

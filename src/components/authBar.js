@@ -132,15 +132,6 @@ export function renderAuthBar() {
                 </div>
               </div>
             </div>
-
-            <!-- Optional API Key -->
-            <form onsubmit="return false;" class="w-32 sm:w-36 m-0 p-0">
-              <label class="block text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 mb-1 flex items-center gap-1">
-                <span>🔑</span> API Key <span class="font-normal opacity-75">(Opt)</span>
-              </label>
-              <input type="password" id="api-key" placeholder="Custom Token" autocomplete="off"
-                class="w-full sfl-input rounded-xl px-2.5 py-1.5 text-xs text-sfl-dirt dark:text-amber-100 shadow-2xs">
-            </form>
           </div>
 
           <!-- Right: Sync Button -->
@@ -165,12 +156,9 @@ function bindFarmSyncEvents() {
   document.getElementById('import-farm-btn')?.addEventListener('click', handleFarmSync);
 
   const savedFarmId = localStorage.getItem('sfl_farm_id');
-  const savedApiKey = localStorage.getItem('sfl_api_key');
   const farmIdEl = document.getElementById('farm-id');
-  const apiKeyEl = document.getElementById('api-key');
 
   if (savedFarmId && farmIdEl) farmIdEl.value = savedFarmId;
-  if (savedApiKey && apiKeyEl) apiKeyEl.value = savedApiKey;
 
   const savedTaxRate = localStorage.getItem('sfl_tax_rate');
   const taxEl = document.getElementById('tax-select');
@@ -507,12 +495,11 @@ export function setupGemPacksDropdown() {
 
 export async function handleFarmSync() {
   const farmIdEl = document.getElementById('farm-id');
-  const apiKeyEl = document.getElementById('api-key');
   const status = document.getElementById('sync-status');
   const syncBtn = document.getElementById('import-farm-btn');
 
   const farmId = farmIdEl ? farmIdEl.value.trim() : (localStorage.getItem('sfl_farm_id') || '');
-  const apiKey = apiKeyEl ? apiKeyEl.value.trim() : (localStorage.getItem('sfl_api_key') || '');
+  const apiKey = localStorage.getItem('sfl_api_key') || '';
 
   if (!farmId) {
     if (status) {
@@ -522,11 +509,8 @@ export async function handleFarmSync() {
     return;
   }
 
-  // Save latest entered Farm ID & API Key
+  // Save latest entered Farm ID
   localStorage.setItem('sfl_farm_id', farmId);
-  if (apiKey) {
-    localStorage.setItem('sfl_api_key', apiKey);
-  }
 
   // Update button and status to active loading state
   if (syncBtn) {
