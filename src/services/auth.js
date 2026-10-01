@@ -370,3 +370,46 @@ function bindAuthEventListeners() {
     debouncedYieldSync(farmId);
   });
 }
+
+const farmUserIdsCache = new Map();
+
+/**
+ * Resolves user IDs associated with a farm ID, with a 5-minute memory cache
+ * to avoid duplicate Supabase profile lookups across sync tasks.
+ */
+export async function getTargetUserIds(client, activeUser, farmId) {
+  const targetUserIds = [];
+  if (activeUser?.id) targetUserIds.push(activeUser.id);
+  if (!farmId || !client) return targetUserIds;
+
+  const cleanFarmId = String(farmId).trim();
+  const cached = farmUserIdsCache.get(cleanFarmId);
+  if (cached && (Date.now() - cached.timestamp < 300000)) {
+    cached.ids.forEach(id => {
+      if (!targetUserIds.includes(id)) targetUserIds.push(id);
+    });
+    return targetUserIds;
+  }
+
+  try {
+    const { data: profs } = await client
+      .from('profiles')
+      .select('id')
+      .eq('farm_id', cleanFarmId);
+
+    const ids = [];
+    if (Array.isArray(profs)) {
+      profs.forEach(p => {
+        if (p.id) {
+          ids.push(p.id);
+          if (!targetUserIds.includes(p.id)) targetUserIds.push(p.id);
+        }
+      });
+    }
+    farmUserIdsCache.set(cleanFarmId, { ids, timestamp: Date.now() });
+  } catch (err) {
+    console.warn("Failed to fetch profiles for farm:", err.message);
+  }
+
+  return targetUserIds;
+}

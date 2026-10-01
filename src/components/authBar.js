@@ -6,6 +6,7 @@ import { renderWishlist, loadNftCatalog } from '../panels/wishlistPanel.js';
 import { loadPrices } from '../panels/calculatorPanel.js';
 import { loadCloudYieldHistory, updatePreHarvestUI } from '../panels/trackerPanel.js';
 import { mountDashboard } from '../panels/dashboard/dashboardPanel.js';
+import { getTargetUserIds } from '../services/auth.js';
 
 let savedInventory = {};
 try { savedInventory = JSON.parse(localStorage.getItem('sfl_farm_inventory') || '{}'); } catch (_) {}
@@ -522,80 +523,90 @@ export async function handleFarmSync() {
   }
 
   try {
-    // 1. Fetch live market prices, exchange rates, and NFT catalog with API key
-    await Promise.allSettled([
+    // 1. Parallel execution of independent sync streams
+    const marketPromise = Promise.allSettled([
       loadPrices(true),
       ApiService.getExchangeRates({ force: true }),
-      loadNftCatalog(true)
+      loadNftCatalog(false)
     ]).catch(e => console.warn("Market sync note:", e.message));
 
     // 2. Fetch Live Farm Inventory & SFL Balance via get-farm API
-    try {
-      if (farmId) {
-        const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
-        if (farmObj) {
-          window.farmData = farmObj;
-          const liveInv = farmObj.inventory || {};
-          window.farmInventoryData = liveInv;
-          const liveBalance = parseFloat(farmObj.balance) || 0;
-          window.farmBalance = liveBalance;
-          try {
-            localStorage.setItem('sfl_farm_inventory', JSON.stringify(liveInv));
-            localStorage.setItem('sfl_farm_balance', String(liveBalance));
-            localStorage.setItem('sfl_farm_inventory_updated_at', new Date().toISOString());
-          } catch (_) {}
-          try {
-            window.dispatchEvent(new CustomEvent('farmDataSynced', {
-              detail: { inventory: liveInv, balance: liveBalance }
-            }));
-          } catch (_) {}
-        }
-      }
-    } catch (farmErr) {
-      console.warn("Live farm inventory fetch notice:", farmErr.message);
-    }
-
-    // 3. Fetch Marketplace Trades & save to TiDB Cloud (does not hit farm inventory)
-    let tradesCount = 0;
-    try {
-      const tradeRes = await fetchMarketplaceTrades(true);
-      if (tradeRes && tradeRes.success) {
-        tradesCount = tradeRes.count || (tradeRes.trades?.length || 0);
-      }
-    } catch (tradeErr) {
-      console.warn("Marketplace trade sync warning:", tradeErr.message);
-    }
-
-    // 3. Fetch Cloud Yields & Daily Snapshots from Supabase
-    try {
-      await loadCloudYieldHistory(true);
-    } catch (yieldErr) {
-      console.warn("Cloud yield sync warning:", yieldErr.message);
-    }
-
-    // 4. Update Pre-Harvest Baseline UI from Cloud
-    try {
-      await updatePreHarvestUI();
-    } catch (_) {}
-
-    // 5. Load latest baseline inventory from Supabase (captured automatically by 00:01 UTC cron)
-    const client = window.supabaseClient;
-    const activeUser = window.currentUser;
-    if (client && (activeUser?.id || farmId)) {
+    const farmPromise = (async () => {
       try {
-        let targetUserIds = [];
-        if (activeUser?.id) targetUserIds.push(activeUser.id);
         if (farmId) {
-          const { data: profs } = await client
-            .from('profiles')
-            .select('id')
-            .eq('farm_id', farmId);
-          if (Array.isArray(profs)) {
-            profs.forEach(p => {
-              if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
-            });
+          const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
+          if (farmObj) {
+            window.farmData = farmObj;
+            const liveInv = farmObj.inventory || {};
+            window.farmInventoryData = liveInv;
+            const liveBalance = parseFloat(farmObj.balance) || 0;
+            window.farmBalance = liveBalance;
+            try {
+              localStorage.setItem('sfl_farm_inventory', JSON.stringify(liveInv));
+              localStorage.setItem('sfl_farm_balance', String(liveBalance));
+              localStorage.setItem('sfl_farm_inventory_updated_at', new Date().toISOString());
+            } catch (_) {}
+            try {
+              window.dispatchEvent(new CustomEvent('farmDataSynced', {
+                detail: { inventory: liveInv, balance: liveBalance }
+              }));
+            } catch (_) {}
+            return farmObj;
           }
         }
+      } catch (farmErr) {
+        console.warn("Live farm inventory fetch notice:", farmErr.message);
+      }
+      return null;
+    })();
+
+    // 3. Fetch Marketplace Trades & save to TiDB Cloud
+    const tradePromise = (async () => {
+      try {
+        const tradeRes = await fetchMarketplaceTrades(true);
+        if (tradeRes && tradeRes.success) {
+          return tradeRes.count || (tradeRes.trades?.length || 0);
+        }
+      } catch (tradeErr) {
+        console.warn("Marketplace trade sync warning:", tradeErr.message);
+      }
+      return 0;
+    })();
+
+    // 4. Fetch Cloud Yields & Daily Snapshots from Supabase
+    const yieldPromise = (async () => {
+      try {
+        await loadCloudYieldHistory(true);
+      } catch (yieldErr) {
+        console.warn("Cloud yield sync warning:", yieldErr.message);
+      }
+    })();
+
+    // 5. Update Pre-Harvest Baseline UI from Cloud
+    const preharvestPromise = (async () => {
+      try {
+        await updatePreHarvestUI();
+      } catch (_) {}
+    })();
+
+    // Await all independent sync operations in parallel
+    const [_, farmObjResult, tradesCountResult] = await Promise.all([
+      marketPromise,
+      farmPromise,
+      tradePromise,
+      yieldPromise,
+      preharvestPromise
+    ]);
+
+    const tradesCount = tradesCountResult || 0;
+
+    // 6. Fallback baseline inventory from Supabase if live farm inventory was not fetched or is empty
+    const client = window.supabaseClient;
+    const activeUser = window.currentUser;
+    const hasLiveInv = window.farmInventoryData && Object.keys(window.farmInventoryData).length > 0;
+    if (!hasLiveInv && client && (activeUser?.id || farmId)) {
+      try {
+        const targetUserIds = await getTargetUserIds(client, activeUser, farmId);
         if (targetUserIds.length > 0 || farmId) {
           let baseQuery = client
             .from('preharvest_baselines')

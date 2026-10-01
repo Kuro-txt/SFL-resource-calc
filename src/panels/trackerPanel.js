@@ -1,5 +1,6 @@
 import { normalizeItemKey, roundUpToOneDecimal, roundUpToThreeDecimals, getBettyUnitPrice } from '../utils/formatters.js';
 import { FLOWER_IMG_SMALL_HTML, getItemTaxRate, BACKEND_URL } from '../config/constants.js';
+import { getTargetUserIds } from '../services/auth.js';
 
 window.editingSnapshotDate = window.editingSnapshotDate || null;
 
@@ -414,19 +415,7 @@ export async function loadCloudYieldHistory(force = false) {
 
   if (client && (activeUser?.id || farmId)) {
     try {
-      let targetUserIds = [];
-      if (activeUser?.id) targetUserIds.push(activeUser.id);
-      if (farmId) {
-        const { data: profs } = await client
-          .from('profiles')
-          .select('id')
-          .eq('farm_id', farmId);
-        if (Array.isArray(profs)) {
-          profs.forEach(p => {
-            if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
-          });
-        }
-      }
+      let targetUserIds = await getTargetUserIds(client, activeUser, farmId);
 
       if (targetUserIds.length > 0 || farmId) {
         let query = client

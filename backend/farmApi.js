@@ -33,11 +33,11 @@ function getSflHeaders(customApiKey = '') {
 // If an ID fetch fails, retries 11 seconds later (up to 3 retries).
 let syncQueueChain = Promise.resolve();
 let lastSuccessTimestamp = 0;
-const SUCCESS_COOLDOWN_MS = 11000; // 11 seconds wait between farms to avoid HTTP 429
+const SUCCESS_COOLDOWN_MS = 2500; // 2.5s safe spacing between calls (down from 11s)
 
 function queueFarmSync(taskFn) {
   const queuedTask = syncQueueChain.then(async () => {
-    // Ensure at least 11 seconds have passed before next fetch
+    // Ensure at least 2.5s have passed before next fetch to avoid 429
     if (lastSuccessTimestamp > 0) {
       const elapsed = Date.now() - lastSuccessTimestamp;
       if (elapsed < SUCCESS_COOLDOWN_MS) {
@@ -64,8 +64,8 @@ function queueFarmSync(taskFn) {
   return queuedTask;
 }
 
-async function fetchFarmFullDataRaw(cleanFarmId, maxRetries = 3, customApiKey = '') {
-  const totalAttempts = 1 + maxRetries; // 1 initial attempt + 3 retries = 4 attempts total
+async function fetchFarmFullDataRaw(cleanFarmId, maxRetries = 2, customApiKey = '', retryWaitSec = 2) {
+  const totalAttempts = 1 + maxRetries; // 1 initial attempt + 2 retries = 3 attempts total
 
   for (let attempt = 1; attempt <= totalAttempts; attempt++) {
     try {
@@ -103,9 +103,9 @@ async function fetchFarmFullDataRaw(cleanFarmId, maxRetries = 3, customApiKey = 
         throw err;
       }
 
-      // If failed and retries remain (3 retries of 11s)
+      // If failed and retries remain (fast 2s retry delay)
       if (attempt <= maxRetries) {
-        const waitTimeSec = 11;
+        const waitTimeSec = retryWaitSec;
         const reason = isTimeoutOrAbort ? `Network/Timeout (${err.code || err.message})` : (status ? `HTTP ${status}` : err.message);
         const timeStr = new Date().toISOString().substring(11, 19);
         console.warn(`[${timeStr} UTC] ⚠️ [Farm #${cleanFarmId}] ${reason}. Sleeping ${waitTimeSec}s before retry ${attempt}/${maxRetries}...`);
@@ -121,8 +121,8 @@ async function fetchFarmFullDataRaw(cleanFarmId, maxRetries = 3, customApiKey = 
   return { inventory: {}, farmActivity: {}, npcs: {} };
 }
 
-async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 3, customApiKey = '') {
-  return queueFarmSync(() => fetchFarmFullDataRaw(cleanFarmId, maxRetries, customApiKey));
+async function fetchFarmFullDataWithRetry(cleanFarmId, maxRetries = 2, customApiKey = '', retryWaitSec = 2) {
+  return queueFarmSync(() => fetchFarmFullDataRaw(cleanFarmId, maxRetries, customApiKey, retryWaitSec));
 }
 
 function getStockAmount(stockObj, targetCleanKey) {
