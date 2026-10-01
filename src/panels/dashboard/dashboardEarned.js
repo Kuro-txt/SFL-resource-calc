@@ -221,7 +221,7 @@ try {
   if (saved !== null) isEarnedOpen = (saved === 'true');
 } catch (_) {}
 
-export async function loadEarnedTotals(boundsInput = 'day', preloadedArchive = null, deliveryResult = null) {
+export async function loadEarnedTotals(boundsInput = 'day', preloadedArchive = null) {
   const bounds = (typeof boundsInput === 'object' && boundsInput?.minDateStr)
     ? boundsInput
     : getDateRangeBounds(boundsInput || 'day');
@@ -234,23 +234,6 @@ export async function loadEarnedTotals(boundsInput = 'day', preloadedArchive = n
     if (archive) {
       totals = convertArchiveToEarnedTotals(archive);
     }
-  }
-
-  // Attach delivery flowers as metadata if provided (e.g. from live baseline diff), otherwise keep local snapshot's if present
-  if (deliveryResult && (deliveryResult.hasDelta || !totals['__delivery__'])) {
-    totals['__delivery__'] = {
-      qty: deliveryResult.deliveryFlowers || 0,
-      flowers: deliveryResult.deliveryFlowers || 0,
-      grossFlowers: deliveryResult.deliveryFlowers || 0,
-      taxAmount: 0,
-      _meta: deliveryResult
-    };
-  } else if (totals['__delivery__'] && !totals['__delivery__']._meta) {
-    totals['__delivery__']._meta = {
-      deliveryFlowers: totals['__delivery__'].flowers,
-      hasDelta: totals['__delivery__'].flowers > 0,
-      missingBaseline: false
-    };
   }
 
   return totals;
@@ -284,7 +267,7 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
 
   // Extract Delivery Flowers
   const deliveryData = totals['__delivery__'] || null;
-  const hasDeliveryFlowers = deliveryData && deliveryData._meta && deliveryData._meta.deliveryFlowers > 0;
+  const hasDeliveryFlowers = deliveryData && deliveryData.flowers > 0;
 
   // Classify all other items
   const nonCoinItems = Object.entries(totals)
@@ -422,47 +405,27 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
   }
 
   function getDeliveryBannerHtml() {
-    const meta = deliveryData?._meta;
-    if (!meta) return '';
+    const deliveryFlowers = parseFloat(deliveryData?.flowers || 0);
+    if (deliveryFlowers <= 0) return '';
 
-    if (meta.deliveryFlowers > 0) {
-      return `
-        <div class="bg-gradient-to-r from-purple-500/10 via-violet-500/15 to-purple-500/10 dark:from-purple-950/40 dark:to-violet-950/30 border border-purple-500/30 dark:border-purple-600/40 p-2.5 rounded-xl flex items-center justify-between shadow-2xs mb-3 min-h-[58px]">
-          <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-950/60 border border-purple-300 dark:border-purple-700 flex items-center justify-center text-xl shrink-0 shadow-2xs">
-              🌸
-            </div>
-            <div>
-              <p class="text-[10px] font-bold uppercase text-purple-800 dark:text-purple-300 tracking-wider">Flowers Earned from Deliveries</p>
-              <p class="font-mono text-sm font-bold text-purple-900 dark:text-purple-100">+${meta.deliveryFlowers.toFixed(3)} 🌸</p>
-            </div>
+    return `
+      <div class="bg-gradient-to-r from-purple-500/10 via-violet-500/15 to-purple-500/10 dark:from-purple-950/40 dark:to-violet-950/30 border border-purple-500/30 dark:border-purple-600/40 p-2.5 rounded-xl flex items-center justify-between shadow-2xs mb-3 min-h-[58px]">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-950/60 border border-purple-300 dark:border-purple-700 flex items-center justify-center text-xl shrink-0 shadow-2xs">
+            🌸
           </div>
-          <div class="text-right font-mono">
-            <span class="text-xs font-bold text-sfl-green dark:text-emerald-400 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded-lg shadow-2xs">
-              +${meta.deliveryFlowers.toFixed(3)} 🌸
-            </span>
-            <p class="text-[9px] text-sfl-woodLight dark:text-slate-400 mt-1">NPC Deliveries</p>
+          <div>
+            <p class="text-[10px] font-bold uppercase text-purple-800 dark:text-purple-300 tracking-wider">Flowers Earned from Deliveries</p>
+            <p class="font-mono text-sm font-bold text-purple-900 dark:text-purple-100">+${deliveryFlowers.toFixed(3)} 🌸</p>
           </div>
-        </div>`;
-    }
-
-    if (meta.missingBaseline && bounds.timeRange === 'day') {
-      return `
-        <div class="bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-800/40 p-2.5 rounded-xl flex items-center justify-between shadow-2xs mb-3">
-          <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-base shrink-0">
-              🌸
-            </div>
-            <div>
-              <p class="text-[10px] font-bold uppercase text-purple-800 dark:text-purple-300 tracking-wider">Flowers Earned from Deliveries</p>
-              <p class="text-[11px] text-amber-700 dark:text-amber-400 font-medium">⚠️ No 00:00 UTC baseline found to calculate today's deliveries.</p>
-            </div>
-          </div>
-          <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono">Set baseline to track</span>
-        </div>`;
-    }
-
-    return '';
+        </div>
+        <div class="text-right font-mono">
+          <span class="text-xs font-bold text-sfl-green dark:text-emerald-400 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded-lg shadow-2xs">
+            +${deliveryFlowers.toFixed(3)} 🌸
+          </span>
+          <p class="text-[9px] text-sfl-woodLight dark:text-slate-400 mt-1">NPC Deliveries</p>
+        </div>
+      </div>`;
   }
 
   function getCategoryPillsHtml() {

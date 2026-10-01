@@ -4,7 +4,7 @@
 // with historical date range navigation (previous/next arrows and touch swipe).
 
 import { renderEarnedSection, aggregateLocalEarned, loadEarnedTotals } from './dashboardEarned.js';
-import { renderSpentSection, loadSpentData, clearBaselineMemoryCache, loadDeliveryFlowers } from './dashboardSpent.js';
+import { renderSpentSection, loadSpentData, clearBaselineMemoryCache } from './dashboardSpent.js';
 
 let initialized = false;
 let activeTimeRange = 'day'; // 'day' | 'week' | 'month'
@@ -312,12 +312,11 @@ export async function populateSections(boundsInput = null, force = false) {
       try { await window.loadCloudYieldHistory(force); } catch (_) {}
     }
 
-    // 1. Fetch spent items, delivery flowers, and earned totals in parallel (hits in-memory RAM cache in 0ms if already cached)
-    const [spentItems, deliveryResult] = await Promise.all([
+    // 1. Fetch spent items and earned totals in parallel (hits in-memory RAM cache in 0ms if already cached)
+    const [spentItems, earnedTotals] = await Promise.all([
       loadSpentData(bounds, force),
-      loadDeliveryFlowers(bounds, force)
+      loadEarnedTotals(bounds)
     ]);
-    const earnedTotals = await loadEarnedTotals(bounds, null, deliveryResult);
 
     // If another date navigation occurred while waiting, drop this stale render
     if (renderId !== activeRenderId) return;
