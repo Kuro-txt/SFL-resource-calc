@@ -1402,6 +1402,7 @@ export const KNOWN_IDS = {
   "Capsule Bait": 2986,
   "Umbrella Bait": 2987,
   "Crimson Baitfish": 2988,
+  "Crimson Bait": 2988,
   "Salt Sculpture": 2989,
   "Pufferfish": 2990,
   "Fat Crab": 2991,

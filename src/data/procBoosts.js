@@ -10,6 +10,8 @@ export const BUILDINGS_CATALOG = [
     name: 'Fish Market',
     icon: '🐟',
     activitySuffix: 'Processed',
+    verb: 'Process',
+    verbPlural: 'Processes',
     description: 'Process raw catches into processed fish products and oils.',
     defaultBoosts: [
       {
@@ -22,17 +24,6 @@ export const BUILDINGS_CATALOG = [
         icon: '🫧',
         procBonus: 1,
         isAdditive: true
-      },
-      {
-        id: 'astrolabe-fm',
-        name: 'Astrolabe (2x Double)',
-        boostName: 'Astrolabe',
-        chance: 15,
-        description: '15% chance to double output',
-        effect: 'x2 Double Output',
-        icon: '🔭',
-        procMultiplier: 2,
-        isAdditive: false
       }
     ],
     items: [
@@ -47,6 +38,8 @@ export const BUILDINGS_CATALOG = [
     name: 'Fire Pit',
     icon: '🔥',
     activitySuffix: 'Cooked',
+    verb: 'Cook',
+    verbPlural: 'Cooks',
     description: 'Campfire cooking for hearty soups, roasts, and basic meals.',
     defaultBoosts: [
       {
@@ -98,6 +91,8 @@ export const BUILDINGS_CATALOG = [
     name: 'Kitchen',
     icon: '🍳',
     activitySuffix: 'Cooked',
+    verb: 'Cook',
+    verbPlural: 'Cooks',
     description: 'Advanced cooking station for multi-ingredient gourmet dishes.',
     defaultBoosts: [
       {
@@ -148,6 +143,8 @@ export const BUILDINGS_CATALOG = [
     name: 'Deli',
     icon: '🥪',
     activitySuffix: 'Cooked',
+    verb: 'Cook',
+    verbPlural: 'Cooks',
     description: 'Artisanal cheese aging, fermentation, and delicacy preservation.',
     defaultBoosts: [
       {
@@ -179,6 +176,8 @@ export const BUILDINGS_CATALOG = [
     name: 'Smoothie Shack',
     icon: '🥤',
     activitySuffix: 'Cooked',
+    verb: 'Cook',
+    verbPlural: 'Cooks',
     description: 'Refreshing juices and vitality shakes blended from fresh fruits.',
     defaultBoosts: [
       {
@@ -213,6 +212,8 @@ export const BUILDINGS_CATALOG = [
     name: 'Bakery',
     icon: '🧁',
     activitySuffix: 'Cooked',
+    verb: 'Cook',
+    verbPlural: 'Cooks',
     description: 'Pies, pastries, and delectable cakes baked to perfection.',
     defaultBoosts: [
       {
@@ -248,18 +249,58 @@ export const BUILDINGS_CATALOG = [
     ]
   },
   {
-    id: 'aging-shed',
-    name: 'Aging Shed',
-    icon: '🧪',
-    activitySuffix: 'Processed',
-    description: 'Fermentation Rack and Spice Rack for aged goods and seasonings.',
+    id: 'fermentation-rack',
+    name: 'Fermentation Rack',
+    icon: '🫙',
+    activitySuffix: 'Fermented',
+    verb: 'Ferment',
+    verbPlural: 'Ferments',
+    description: 'Ferment vegetables, baits, and specialty blends with Astrolabe double chance.',
     defaultBoosts: [
       {
-        id: 'astrolabe-aging',
+        id: 'astrolabe-fermentation',
         name: 'Astrolabe (2x Double)',
         boostName: 'Astrolabe',
         chance: 15,
-        description: '15% chance to double Fermentation & Spice Rack output',
+        description: '15% chance to double Fermentation Rack output',
+        effect: 'x2 Double Output',
+        icon: '🔭',
+        procMultiplier: 2,
+        isAdditive: false
+      }
+    ],
+    items: [
+      { name: 'Pickled Broccoli', id: KNOWN_IDS['Pickled Broccoli'] || 3007, icon: '🥦' },
+      { name: 'Pickled Onion', id: KNOWN_IDS['Pickled Onion'] || 2942, icon: '🧅' },
+      { name: 'Pickled Pepper', id: KNOWN_IDS['Pickled Pepper'] || 2943, icon: '🫑' },
+      { name: 'Pickled Radish', id: KNOWN_IDS['Pickled Radish'] || 2938, icon: '🔴' },
+      { name: 'Pickled Zucchini', id: KNOWN_IDS['Pickled Zucchini'] || 2939, icon: '🥒' },
+      { name: 'Pickled Tomato', id: KNOWN_IDS['Pickled Tomato'] || 2940, icon: '🍅' },
+      { name: 'Salt', id: KNOWN_IDS['Salt'] || 665, icon: '🧂' },
+      { name: 'Greenhouse Glow', id: KNOWN_IDS['Greenhouse Glow'] || 2982, icon: '💡' },
+      { name: 'Greenhouse Goodie', id: KNOWN_IDS['Greenhouse Goodie'] || 2983, icon: '🎁' },
+      { name: 'Sproutroot Surprise', id: KNOWN_IDS['Sproutroot Surprise'] || 2984, icon: '🌱' },
+      { name: 'Turbofruit Mix', id: KNOWN_IDS['Turbofruit Mix'] || 2985, icon: '🍓' },
+      { name: 'Capsule Bait', id: KNOWN_IDS['Capsule Bait'] || 2986, icon: '💊' },
+      { name: 'Umbrella Bait', id: KNOWN_IDS['Umbrella Bait'] || 2987, icon: '☂️' },
+      { name: 'Crimson Bait', id: KNOWN_IDS['Crimson Bait'] || KNOWN_IDS['Crimson Baitfish'] || 2988, icon: '🎣' }
+    ]
+  },
+  {
+    id: 'spice',
+    name: 'Spice',
+    icon: '🧂',
+    activitySuffix: 'Crafted',
+    verb: 'Craft',
+    verbPlural: 'Crafts',
+    description: 'Process refined salt, salt licks, and honey treats with Astrolabe double chance.',
+    defaultBoosts: [
+      {
+        id: 'astrolabe-spice',
+        name: 'Astrolabe (2x Double)',
+        boostName: 'Astrolabe',
+        chance: 15,
+        description: '15% chance to double Spice output',
         effect: 'x2 Double Output',
         icon: '🔭',
         procMultiplier: 2,
@@ -270,7 +311,7 @@ export const BUILDINGS_CATALOG = [
         name: 'Refiner (+1 Salt)',
         boostName: 'Refiner',
         chance: 20,
-        description: '20% chance for +1 Refined Salt from Spice Rack',
+        description: '20% chance for +1 Refined Salt from Spice',
         effect: '+1 Refined Salt',
         icon: '🧂',
         procBonus: 1,
@@ -278,9 +319,9 @@ export const BUILDINGS_CATALOG = [
       }
     ],
     items: [
-      { name: 'Fish Oil', id: KNOWN_IDS['Fish Oil'] || 2724, icon: '🛢️' },
-      { name: 'Fermented Fish', id: KNOWN_IDS['Fermented Fish'] || 553, icon: '🐟' },
-      { name: 'Refined Salt', id: KNOWN_IDS['Refined Salt'] || 666, icon: '🧂' }
+      { name: 'Refined Salt', id: KNOWN_IDS['Refined Salt'] || 666, icon: '🧂' },
+      { name: 'Salt Lick', id: KNOWN_IDS['Salt Lick'] || 667, icon: '🧱' },
+      { name: 'Honey Treat', id: KNOWN_IDS['Honey Treat'] || 668, icon: '🍯' }
     ]
   },
   {
@@ -288,6 +329,8 @@ export const BUILDINGS_CATALOG = [
     name: 'Crop Plots',
     icon: '🌾',
     activitySuffix: 'Harvested',
+    verb: 'Harvest',
+    verbPlural: 'Harvests',
     description: 'Farming plots with high-yield critical drops and wearable multipliers.',
     defaultBoosts: [
       {
@@ -415,8 +458,8 @@ export function getBoostsForItem(buildingId, itemName) {
     boosts.unshift(...item.itemBoosts);
   }
 
-  // Refiner only applies to Refined Salt in Aging Shed
-  if (buildingId === 'aging-shed' && itemName !== 'Refined Salt') {
+  // Refiner only applies to Refined Salt in Spice
+  if (buildingId === 'spice' && itemName !== 'Refined Salt') {
     return boosts.filter(b => b.boostName !== 'Refiner');
   }
 
@@ -483,17 +526,33 @@ export const PROC_PRESETS = [
     isAdditive: true
   },
   {
-    id: 'astrolabe-fish-oil',
-    name: 'Fish Oil (Astrolabe 2x)',
+    id: 'astrolabe-fermentation',
+    name: 'Fermentation (Astrolabe 2x)',
     boostName: 'Astrolabe',
-    itemName: 'Fish Oil',
-    itemId: KNOWN_IDS['Fish Oil'] || 2724,
+    itemName: 'Pickled Broccoli',
+    itemId: KNOWN_IDS['Pickled Broccoli'] || 3007,
     chance: 15,
-    description: '15% chance to double Fermentation & Spice Rack output',
+    description: '15% chance to double Fermentation Rack output',
     effect: 'x2 Double Output',
-    building: 'Fish Market / Aging Shed',
-    activityKey: 'Fish Oil Processed',
-    category: 'aging',
+    building: 'Fermentation Rack',
+    activityKey: 'Pickled Broccoli Fermented',
+    category: 'fermentation',
+    icon: '🔭',
+    procMultiplier: 2,
+    isAdditive: false
+  },
+  {
+    id: 'astrolabe-salt',
+    name: 'Refined Salt (Astrolabe 2x)',
+    boostName: 'Astrolabe',
+    itemName: 'Refined Salt',
+    itemId: KNOWN_IDS['Refined Salt'] || 666,
+    chance: 15,
+    description: '15% chance to double Spice output',
+    effect: 'x2 Double Output',
+    building: 'Spice',
+    activityKey: 'Refined Salt Crafted',
+    category: 'spice',
     icon: '🔭',
     procMultiplier: 2,
     isAdditive: false
@@ -502,13 +561,13 @@ export const PROC_PRESETS = [
     id: 'cleaver-cooking',
     name: "Master Chef's Cleaver (2x)",
     boostName: "Master Chef's Cleaver",
-    itemName: 'Pumpkin Soup',
-    itemId: KNOWN_IDS['Pumpkin Soup'] || 501,
+    itemName: 'Beetroot Blaze',
+    itemId: KNOWN_IDS['Beetroot Blaze'] || 539,
     chance: 10,
-    description: '10% chance to double cooked food in any kitchen building',
+    description: '10% chance to double food cooked in any kitchen building',
     effect: 'x2 Double Output',
-    building: 'Fire Pit / Kitchen / Bakery',
-    activityKey: 'Pumpkin Soup Cooked',
+    building: 'Kitchen',
+    activityKey: 'Beetroot Blaze Cooked',
     category: 'cooking',
     icon: '🔪',
     procMultiplier: 2,
