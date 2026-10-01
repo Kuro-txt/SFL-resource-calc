@@ -15,7 +15,6 @@ let currentCounter = 0;
 let currentBatchSize = 10;
 let showOnlyProcs = false;
 let itemSearchQuery = '';
-let isCustomMode = false;
 const forecastCount = 50;
 
 function getSyncedFarmActivity() {
@@ -191,7 +190,7 @@ function renderPanel(mountEl) {
           </div>
           <div class="flex flex-wrap gap-1.5" id="procs-buildings-container">
             ${BUILDINGS_CATALOG.map(b => {
-              const isActive = !isCustomMode && currentBuildingId === b.id;
+              const isActive = currentBuildingId === b.id;
               const activeCls = isActive 
                 ? 'bg-amber-600 text-white font-bold shadow-xs border-amber-700 ring-2 ring-amber-400/50' 
                 : 'bg-white/80 dark:bg-slate-800/80 text-sfl-wood dark:text-slate-300 hover:bg-amber-100/90 dark:hover:bg-slate-700 border-amber-200/80 dark:border-slate-700 font-medium';
@@ -203,14 +202,9 @@ function renderPanel(mountEl) {
                 </button>
               `;
             }).join('')}
-            <button type="button" id="procs-custom-mode-btn" class="px-2.5 py-1 rounded-xl text-xs border transition flex items-center gap-1 cursor-pointer select-none ${isCustomMode ? 'bg-amber-600 text-white font-bold shadow-xs border-amber-700 ring-2 ring-amber-400/50' : 'bg-white/80 dark:bg-slate-800/80 text-sfl-wood dark:text-slate-300 hover:bg-amber-100/90 dark:hover:bg-slate-700 border-amber-200/80 dark:border-slate-700 font-medium'}">
-              <span>⚙️</span>
-              <span>Custom</span>
-            </button>
           </div>
         </div>
 
-        ${!isCustomMode ? `
         <!-- TIER 2: Items in Selected Building -->
         <div class="mt-2.5 pt-2 border-t border-amber-200/40 dark:border-slate-800/80">
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 mb-1.5">
@@ -240,7 +234,6 @@ function renderPanel(mountEl) {
             ${buildingItems.length === 0 ? `<p class="text-xs text-slate-400 italic py-1">No items found matching "${itemSearchQuery}"</p>` : ''}
           </div>
         </div>
-        ` : ''}
       </div>
 
       <!-- Compact Hero "Next Proc" Banner -->
@@ -278,7 +271,7 @@ function renderPanel(mountEl) {
           </div>
 
           <!-- Boost Pills if multiple boosts available -->
-          ${!isCustomMode && availableBoosts.length > 1 ? `
+          ${availableBoosts.length > 1 ? `
             <div class="flex flex-wrap gap-1.5 self-end sm:self-auto shrink-0">
               ${availableBoosts.map(b => {
                 const isCur = currentCriticalHitName === b.boostName;
@@ -295,27 +288,6 @@ function renderPanel(mountEl) {
             </div>
           ` : ''}
         </div>
-
-        ${isCustomMode ? `
-        <!-- Custom Mode Parameters Drawer (Only shown in Custom Mode) -->
-        <div class="mt-3 pt-2.5 border-t border-amber-200/60 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-          <div>
-            <label class="block text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400 mb-0.5">Item Name & ID</label>
-            <div class="flex gap-1">
-              <input type="text" id="procs-item-name-input" value="${currentItemName}" class="w-full px-2 py-1 rounded border border-amber-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sfl-dirt dark:text-amber-100 font-semibold text-xs" />
-              <input type="number" id="procs-item-id-input" value="${currentItemId}" class="w-16 px-1.5 py-1 rounded border border-amber-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sfl-dirt dark:text-amber-100 font-mono text-xs" />
-            </div>
-          </div>
-          <div>
-            <label class="block text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400 mb-0.5">Critical Hit Name</label>
-            <input type="text" id="procs-crit-name-input" value="${currentCriticalHitName}" class="w-full px-2 py-1 rounded border border-amber-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sfl-dirt dark:text-amber-100 font-semibold text-xs" />
-          </div>
-          <div>
-            <label class="block text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400 mb-0.5">Chance (%)</label>
-            <input type="number" id="procs-chance-input" value="${currentChance}" min="0.1" max="100" step="0.1" class="w-full px-2 py-1 rounded border border-amber-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sfl-dirt dark:text-amber-100 font-mono text-xs" />
-          </div>
-        </div>
-        ` : ''}
       </div>
 
       <!-- Batch Cooking/Crafting Simulator -->
@@ -540,11 +512,6 @@ function attachEventListeners(mountEl) {
     });
   });
 
-  mountEl.querySelector('#procs-custom-mode-btn')?.addEventListener('click', () => {
-    isCustomMode = true;
-    renderPanel(mountEl);
-  });
-
   const filterInput = mountEl.querySelector('#procs-item-filter-input');
   if (filterInput) {
     filterInput.addEventListener('input', (e) => {
@@ -652,27 +619,6 @@ function attachEventListeners(mountEl) {
 
   mountEl.querySelector('#procs-farm-id-input')?.addEventListener('input', (e) => {
     currentFarmId = e.target.value.trim();
-  });
-
-  // Custom Mode Handlers
-  mountEl.querySelector('#procs-item-name-input')?.addEventListener('input', (e) => {
-    currentItemName = e.target.value.trim();
-    renderPanel(mountEl);
-  });
-
-  mountEl.querySelector('#procs-item-id-input')?.addEventListener('input', (e) => {
-    currentItemId = Number(e.target.value) || 0;
-    renderPanel(mountEl);
-  });
-
-  mountEl.querySelector('#procs-crit-name-input')?.addEventListener('input', (e) => {
-    currentCriticalHitName = e.target.value.trim();
-    renderPanel(mountEl);
-  });
-
-  mountEl.querySelector('#procs-chance-input')?.addEventListener('input', (e) => {
-    currentChance = Number(e.target.value) || 0;
-    renderPanel(mountEl);
   });
 
   mountEl.querySelectorAll('.procs-batch-size-btn').forEach(btn => {

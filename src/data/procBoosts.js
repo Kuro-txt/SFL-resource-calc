@@ -455,6 +455,17 @@ export const BUILDINGS_CATALOG = [
         icon: '🎲',
         procBonus: 1,
         isAdditive: true
+      },
+      {
+        id: 'green-amulet-gh',
+        name: 'Green Amulet (10x Yield)',
+        boostName: 'Green Amulet',
+        chance: 10,
+        description: '10% chance for 10x Crop Yield upon harvest (applies to Rice, Olive)',
+        effect: 'x10 Massive Drop',
+        icon: '📿',
+        procMultiplier: 10,
+        isAdditive: false
       }
     ],
     items: [
@@ -501,8 +512,8 @@ export function getBoostsForItem(buildingId, itemName) {
     boosts = boosts.filter(b => b.boostName !== 'Refiner');
   }
 
-  // Green Amulet does NOT work on Grapes or greenhouse crops
-  if (itemName === 'Grape' || itemName === 'Rice' || itemName === 'Olive') {
+  // Green Amulet does NOT work on Grapes (applies to Rice, Olive, and Field Crops)
+  if (itemName === 'Grape') {
     boosts = boosts.filter(b => b.boostName !== 'Green Amulet');
   }
 
