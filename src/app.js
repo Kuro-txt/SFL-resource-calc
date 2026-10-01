@@ -17,6 +17,7 @@ import { initTrackingModal } from './modals/trackingModal.js';
 import { initWeeklySummaryModal } from './modals/weeklyModal.js';
 import { initDashboardPanel, mountDashboard } from './panels/dashboard/dashboardPanel.js';
 import { renderGlobalGoalBanner } from './panels/wishlist/goalTracker.js';
+import { mountProcsPanel } from './panels/procs/procsPanel.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log("🚀 Bootstrapping SFL Resource Calculator...");
@@ -76,6 +77,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   PanelManager.register('wishlist', {
     onMount: () => renderWishlist()
+  });
+
+  PanelManager.register('procs', {
+    onMount: () => mountProcsPanel()
   });
 
   // Initializes tabs and restores last opened tab automatically

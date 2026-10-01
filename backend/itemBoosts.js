@@ -237,9 +237,11 @@ const ITEM_BOOSTS = {
   "paw aura": "Feed pets for free",
   "angel wings": "30% Chance of Instant Crops",
   "infernal drill": "Drill Oil without Oil Drill",
-  "ancient shovel": "Dig treasure without Sand Shovel",
-  "devil wings": "30% Chance of Instant Crops",
-  "infernal pitchfork": "+3 Crops"
+  "infernal pitchfork": "+3 Crops",
+  "astrolabe": "15% chance to double Fermentation & Spice Rack output\n+5% XP from Aged Fish",
+  "bubble aura": "20% chance for +1 yield from Fish Processing\n-20% Fish Market processing time",
+  "master chef's cleaver": "10% chance to double food cooked in any kitchen",
+  "green amulet": "10% chance for 10x Crop Yield"
 };
 
 function getItemBoost(name) {
