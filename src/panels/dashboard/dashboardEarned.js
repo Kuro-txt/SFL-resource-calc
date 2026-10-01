@@ -402,7 +402,7 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
               🌸
             </div>
             <div>
-              <p class="text-[10px] font-bold uppercase text-purple-800 dark:text-purple-300 tracking-wider">Flowers Earned</p>
+              <p class="text-[10px] font-bold uppercase text-purple-800 dark:text-purple-300 tracking-wider">Flowers Earned from Deliveries</p>
               <p class="font-mono text-sm font-bold text-purple-900 dark:text-purple-100">+${meta.deliveryFlowers.toFixed(3)} 🌸</p>
             </div>
           </div>
@@ -423,7 +423,7 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
               🌸
             </div>
             <div>
-              <p class="text-[10px] font-bold uppercase text-purple-800 dark:text-purple-300 tracking-wider">Flowers from Deliveries</p>
+              <p class="text-[10px] font-bold uppercase text-purple-800 dark:text-purple-300 tracking-wider">Flowers Earned from Deliveries</p>
               <p class="text-[11px] text-amber-700 dark:text-amber-400 font-medium">⚠️ No 00:00 UTC baseline found to calculate today's deliveries.</p>
             </div>
           </div>
