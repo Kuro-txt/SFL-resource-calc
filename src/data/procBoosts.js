@@ -427,8 +427,40 @@ export const BUILDINGS_CATALOG = [
       { name: 'Kale', id: KNOWN_IDS['Kale'] || 211, icon: '🥬' },
       { name: 'Corn', id: KNOWN_IDS['Corn'] || 216, icon: '🌽' },
       { name: 'Eggplant', id: KNOWN_IDS['Eggplant'] || 215, icon: '🍆' },
-      { name: 'Soybean', id: KNOWN_IDS['Soybean'] || 251, icon: '🌱' },
-      { name: 'Rice', id: KNOWN_IDS['Rice'] || 253, icon: '🍚' }
+      { name: 'Soybean', id: KNOWN_IDS['Soybean'] || 251, icon: '🌱' }
+    ]
+  },
+  {
+    id: 'greenhouse',
+    name: 'Greenhouse',
+    icon: '🏡',
+    activitySuffix: 'Harvested',
+    verb: 'Harvest',
+    verbPlural: 'Harvests',
+    description: 'Greenhouse facility for specialty crops: Grapes, Rice, and Olives with Greenhouse Gamble.',
+    defaultBoosts: [
+      {
+        id: 'greenhouse-gamble',
+        name: 'Greenhouse Gamble (+1 Yield)',
+        boostName: 'Greenhouse Gamble',
+        chance: 30,
+        currentRank: 1,
+        ranks: [
+          { rank: 1, chance: 30, label: 'Rank 1 (30%)' },
+          { rank: 2, chance: 40, label: 'Rank 2 (40%)' },
+          { rank: 3, chance: 50, label: 'Rank 3 (50%)' }
+        ],
+        description: '30% (Rank 1), 40% (Rank 2), or 50% (Rank 3) chance for +1 greenhouse produce on harvest',
+        effect: '+1 Extra Produce',
+        icon: '🎲',
+        procBonus: 1,
+        isAdditive: true
+      }
+    ],
+    items: [
+      { name: 'Grape', id: KNOWN_IDS['Grape'] || 252, icon: '🍇' },
+      { name: 'Rice', id: KNOWN_IDS['Rice'] || 253, icon: '🍚' },
+      { name: 'Olive', id: KNOWN_IDS['Olive'] || 254, icon: '🫒' }
     ]
   }
 ];
@@ -458,7 +490,7 @@ export function getBoostsForItem(buildingId, itemName) {
   if (!building) return [];
 
   const item = building.items.find(i => i.name === itemName);
-  const boosts = [...(building.defaultBoosts || [])];
+  let boosts = [...(building.defaultBoosts || [])];
 
   if (item?.itemBoosts) {
     boosts.unshift(...item.itemBoosts);
@@ -466,7 +498,12 @@ export function getBoostsForItem(buildingId, itemName) {
 
   // Refiner only applies to Refined Salt in Spice
   if (buildingId === 'spice' && itemName !== 'Refined Salt') {
-    return boosts.filter(b => b.boostName !== 'Refiner');
+    boosts = boosts.filter(b => b.boostName !== 'Refiner');
+  }
+
+  // Green Amulet does NOT work on Grapes or greenhouse crops
+  if (itemName === 'Grape' || itemName === 'Rice' || itemName === 'Olive') {
+    boosts = boosts.filter(b => b.boostName !== 'Green Amulet');
   }
 
   return boosts;

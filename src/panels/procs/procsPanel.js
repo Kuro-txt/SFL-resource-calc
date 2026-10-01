@@ -1,6 +1,7 @@
 import { KNOWN_IDS } from '../../data/knownIds.js';
 import { BUILDINGS_CATALOG, getBuildings, getBuildingById, getBoostsForItem } from '../../data/procBoosts.js';
 import { prngChance, findNextProc, forecastProcs, simulateBatchCraft } from '../../utils/prng.js';
+import { ApiService } from '../../services/api.js';
 
 // State
 let currentBuildingId = 'kitchen';
@@ -169,23 +170,15 @@ function renderPanel(mountEl) {
             </p>
           </div>
 
-          <!-- Farm ID & Compact Counter Inputs -->
-          <div class="flex flex-wrap items-center gap-2 self-stretch sm:self-auto shrink-0">
-            <div class="flex items-center gap-1.5 bg-white/80 dark:bg-slate-800/80 px-2.5 py-1 rounded-xl border border-amber-200/80 dark:border-slate-700">
-              <span class="text-xs font-semibold text-sfl-woodLight dark:text-slate-400">Farm:</span>
-              <input type="number" id="procs-farm-id-input" value="${currentFarmId}" 
-                placeholder="12345" 
-                class="w-16 px-1.5 py-0.5 text-xs font-mono font-bold rounded border border-amber-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sfl-dirt dark:text-amber-100 focus:outline-none focus:ring-1 focus:ring-amber-500" />
-            </div>
-
-            <div class="flex items-center gap-1 bg-white/80 dark:bg-slate-800/80 px-2 py-1 rounded-xl border border-amber-200/80 dark:border-slate-700">
-              <span class="text-xs font-semibold text-sfl-woodLight dark:text-slate-400">Counter:</span>
-              <button type="button" id="procs-counter-dec-btn" class="w-5 h-5 rounded bg-amber-100 dark:bg-slate-700 hover:bg-amber-200 text-xs font-bold text-sfl-dirt dark:text-slate-200 leading-none cursor-pointer select-none">-</button>
-              <input type="number" id="procs-counter-input" value="${currentCounter}" min="0" 
-                class="w-14 px-1 py-0.5 text-center font-mono font-bold text-xs rounded border border-amber-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sfl-dirt dark:text-amber-100 focus:outline-none" />
-              <button type="button" id="procs-counter-inc-btn" class="w-5 h-5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold leading-none cursor-pointer select-none">+</button>
-              <button type="button" id="procs-sync-counter-btn" class="text-xs ml-0.5 hover:opacity-80 cursor-pointer" title="Auto-detect from synced farmActivity">🔄</button>
-            </div>
+          <!-- Farm ID & Fetch Button -->
+          <div class="flex items-center gap-1.5 self-stretch sm:self-auto shrink-0 bg-white/80 dark:bg-slate-800/80 px-2.5 py-1 rounded-xl border border-amber-200/80 dark:border-slate-700">
+            <span class="text-xs font-semibold text-sfl-woodLight dark:text-slate-400">Farm:</span>
+            <input type="number" id="procs-farm-id-input" value="${currentFarmId}" 
+              placeholder="12345" 
+              class="w-20 px-2 py-0.5 text-xs font-mono font-bold rounded border border-amber-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sfl-dirt dark:text-amber-100 focus:outline-none focus:ring-1 focus:ring-amber-500" />
+            <button type="button" id="procs-fetch-btn" class="px-2.5 py-0.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-2xs transition cursor-pointer flex items-center gap-1 select-none">
+              <span>⚡</span> Fetch
+            </button>
           </div>
         </div>
 
@@ -615,30 +608,50 @@ function attachEventListeners(mountEl) {
     });
   });
 
+  const handleFetch = async () => {
+    const inputEl = mountEl.querySelector('#procs-farm-id-input');
+    const farmId = inputEl?.value?.trim() || currentFarmId;
+    if (!farmId) {
+      alert("⚠️ Please enter a Farm ID first!");
+      return;
+    }
+    currentFarmId = farmId;
+    try {
+      localStorage.setItem('sfl_farm_id', farmId);
+    } catch (_) {}
+
+    const fetchBtn = mountEl.querySelector('#procs-fetch-btn');
+    if (fetchBtn) {
+      fetchBtn.disabled = true;
+      fetchBtn.innerHTML = '<span>⏳</span> ...';
+    }
+
+    const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value.trim() || '';
+
+    try {
+      const farmObj = await ApiService.getFarmFullData(farmId, apiKey);
+      if (farmObj) {
+        window.farmData = farmObj;
+        const detected = autoDetectCounter(currentItemName, currentBuildingId);
+        currentCounter = detected;
+      }
+    } catch (err) {
+      console.warn("Procs farm fetch error:", err.message);
+      const detected = autoDetectCounter(currentItemName, currentBuildingId);
+      if (detected > 0) currentCounter = detected;
+    } finally {
+      renderPanel(mountEl);
+    }
+  };
+
+  mountEl.querySelector('#procs-fetch-btn')?.addEventListener('click', handleFetch);
+
+  mountEl.querySelector('#procs-farm-id-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleFetch();
+  });
+
   mountEl.querySelector('#procs-farm-id-input')?.addEventListener('input', (e) => {
     currentFarmId = e.target.value.trim();
-    renderPanel(mountEl);
-  });
-
-  mountEl.querySelector('#procs-counter-dec-btn')?.addEventListener('click', () => {
-    currentCounter = Math.max(0, currentCounter - 1);
-    renderPanel(mountEl);
-  });
-
-  mountEl.querySelector('#procs-counter-inc-btn')?.addEventListener('click', () => {
-    currentCounter++;
-    renderPanel(mountEl);
-  });
-
-  mountEl.querySelector('#procs-counter-input')?.addEventListener('input', (e) => {
-    currentCounter = Math.max(0, Number(e.target.value) || 0);
-    renderPanel(mountEl);
-  });
-
-  mountEl.querySelector('#procs-sync-counter-btn')?.addEventListener('click', () => {
-    const detected = autoDetectCounter(currentItemName, currentBuildingId);
-    currentCounter = detected;
-    renderPanel(mountEl);
   });
 
   // Custom Mode Handlers
