@@ -126,6 +126,22 @@ export function convertArchiveToEarnedTotals(archive) {
     };
   }
 
+  // Include Delivery Flowers if recorded in archive
+  const deliveryFlowers = parseFloat(archive.delivery_flowers || archive.items_summary?.__currencies__?.deliveryFlowers || 0);
+  if (deliveryFlowers > 0) {
+    totals['__delivery__'] = {
+      qty: deliveryFlowers,
+      flowers: deliveryFlowers,
+      grossFlowers: deliveryFlowers,
+      taxAmount: 0,
+      _meta: {
+        deliveryFlowers,
+        hasDelta: true,
+        missingBaseline: false
+      }
+    };
+  }
+
   return totals;
 }
 

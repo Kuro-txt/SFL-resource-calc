@@ -101,7 +101,7 @@ export default async function handler(req, res) {
             const acts = Array.isArray(r.crop_activity_yields) ? r.crop_activity_yields : (typeof r.crop_activity_yields === 'string' ? JSON.parse(r.crop_activity_yields || '[]') : []);
 
             if (!crops.length && acts.length) {
-              crops = acts.map(c => ({
+              crops = acts.filter(c => c && (!c.type || (c.type !== 'spent' && c.type !== 'coins' && c.type !== 'gems' && c.type !== 'delivery_flowers'))).map(c => ({
                 name: c.crop || c.name || 'Crop',
                 qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
                 flowers: parseFloat(c.netFlowers || c.flowers || 0)

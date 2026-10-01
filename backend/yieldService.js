@@ -348,6 +348,11 @@ async function processYieldCalculation(supabase) {
     const netGemsDiff = Math.round((currentGems - baselineGems) * 10) / 10;
     const dailyGemsSpent = netGemsDiff < 0 ? Math.abs(netGemsDiff) : 0;
 
+    // ── Delivery Flowers tracking at 22:30 UTC ──
+    const startSflEarned = parseFloat(baseActivity['SFL Earned'] || baseActivity['sfl earned'] || 0);
+    const endSflEarned = parseFloat(currActivity['SFL Earned'] || currActivity['sfl earned'] || 0);
+    const dailySflEarned = Math.max(0, Math.round((endSflEarned - startSflEarned) * 1000) / 1000);
+
     let yieldsList = [];
     let spentList = [];
     let totalHarvestCount = 0;
@@ -533,8 +538,20 @@ async function processYieldCalculation(supabase) {
       });
     }
 
-    if (totalHarvestCount <= 0 && yieldsList.length === 0 && spentList.length === 0 && cropActivityYields.length === 0 && Math.abs(netCoinsDiff) <= 0 && dailyCoinsEarned <= 0 && dailyCoinsSpent <= 0 && Math.abs(netGemsDiff) <= 0 && dailyGemsSpent <= 0) {
-      console.log(`ℹ️ [Yield Calculation] No harvest/trade/spent/coin/gem activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
+    // Include delivery flowers summary in cropActivityYields
+    if (dailySflEarned > 0) {
+      cropActivityYields.push({
+        type: 'delivery_flowers',
+        name: 'Flowers Earned from Deliveries',
+        startSflEarned: startSflEarned,
+        endSflEarned: endSflEarned,
+        flowers: dailySflEarned,
+        qty: dailySflEarned
+      });
+    }
+
+    if (totalHarvestCount <= 0 && yieldsList.length === 0 && spentList.length === 0 && cropActivityYields.length === 0 && Math.abs(netCoinsDiff) <= 0 && dailyCoinsEarned <= 0 && dailyCoinsSpent <= 0 && Math.abs(netGemsDiff) <= 0 && dailyGemsSpent <= 0 && dailySflEarned <= 0) {
+      console.log(`ℹ️ [Yield Calculation] No harvest/trade/spent/coin/gem/delivery activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
       await delay(20);
       continue;
     }
@@ -941,6 +958,7 @@ async function aggregateCompletedWeeks(supabase, forceAll = false) {
         coins_earned: 0,
         coins_spent: 0,
         gems_spent: 0,
+        delivery_flowers: 0,
         itemsMap: {},
         spentMap: {}
       });
@@ -961,7 +979,7 @@ async function aggregateCompletedWeeks(supabase, forceAll = false) {
     }
 
     if (!crops.length && acts.length) {
-      crops = acts.filter(c => c && c.type !== 'spent' && c.type !== 'coins' && c.type !== 'gems').map(c => ({
+      crops = acts.filter(c => c && c.type !== 'spent' && c.type !== 'coins' && c.type !== 'gems' && c.type !== 'delivery_flowers').map(c => ({
         name: c.crop || c.name || 'Crop',
         qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
         flowers: parseFloat(c.netFlowers || c.flowers || 0)
@@ -1008,6 +1026,8 @@ async function aggregateCompletedWeeks(supabase, forceAll = false) {
         wk.coins_spent += parseFloat(a.coinsSpent || 0);
       } else if (a.type === 'gems') {
         wk.gems_spent += parseFloat(a.gemsSpent || 0);
+      } else if (a.type === 'delivery_flowers') {
+        wk.delivery_flowers = (wk.delivery_flowers || 0) + parseFloat(a.flowers || a.qty || 0);
       }
     }
   }
@@ -1030,6 +1050,7 @@ async function aggregateCompletedWeeks(supabase, forceAll = false) {
       coinsEarned: Math.round(wk.coins_earned),
       coinsSpent: Math.round(wk.coins_spent),
       gemsSpent: Math.round(wk.gems_spent),
+      deliveryFlowers: Math.round((wk.delivery_flowers || 0) * 1000) / 1000,
       totalSpentFlowers: finalTotalSpentFlowers,
       netFlowers: finalNetFlowers
     };
@@ -1138,6 +1159,7 @@ async function aggregateCompletedMonths(supabase, forceAll = false) {
         coins_earned: 0,
         coins_spent: 0,
         gems_spent: 0,
+        delivery_flowers: 0,
         itemsMap: {},
         spentMap: {}
       });
@@ -1158,7 +1180,7 @@ async function aggregateCompletedMonths(supabase, forceAll = false) {
     }
 
     if (!crops.length && acts.length) {
-      crops = acts.filter(c => c && c.type !== 'spent' && c.type !== 'coins' && c.type !== 'gems').map(c => ({
+      crops = acts.filter(c => c && c.type !== 'spent' && c.type !== 'coins' && c.type !== 'gems' && c.type !== 'delivery_flowers').map(c => ({
         name: c.crop || c.name || 'Crop',
         qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
         flowers: parseFloat(c.netFlowers || c.flowers || 0)
@@ -1205,6 +1227,8 @@ async function aggregateCompletedMonths(supabase, forceAll = false) {
         m.coins_spent += parseFloat(a.coinsSpent || 0);
       } else if (a.type === 'gems') {
         m.gems_spent += parseFloat(a.gemsSpent || 0);
+      } else if (a.type === 'delivery_flowers') {
+        m.delivery_flowers = (m.delivery_flowers || 0) + parseFloat(a.flowers || a.qty || 0);
       }
     }
   }
@@ -1226,6 +1250,7 @@ async function aggregateCompletedMonths(supabase, forceAll = false) {
       coinsEarned: Math.round(m.coins_earned),
       coinsSpent: Math.round(m.coins_spent),
       gemsSpent: Math.round(m.gems_spent),
+      deliveryFlowers: Math.round((m.delivery_flowers || 0) * 1000) / 1000,
       totalSpentFlowers: finalTotalSpentFlowers,
       netFlowers: finalNetFlowers
     };

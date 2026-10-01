@@ -517,11 +517,12 @@ export async function loadCloudYieldHistory(force = false) {
       const totalSpentFlowers = spentAct ? parseFloat(spentAct.totalSpentFlowers || 0) : parseFloat(existing.totalSpentFlowers || 0);
 
       const gemsAct = cloudActs.find(a => a && a.type === 'gems');
+      const deliveryAct = cloudActs.find(a => a && (a.type === 'delivery_flowers' || a.type === 'deliveries'));
 
       let effectiveCrops = cloudCrops;
       if (effectiveCrops.length === 0 && cloudActs.length > 0) {
         effectiveCrops = cloudActs
-          .filter(c => c && c.type !== 'spent' && c.type !== 'coins' && c.type !== 'gems')
+          .filter(c => c && c.type !== 'spent' && c.type !== 'coins' && c.type !== 'gems' && c.type !== 'delivery_flowers')
           .map(c => ({
             name: c.crop || c.name || 'Crop',
             qty: parseFloat(c.totalProduced || c.qty || c.harvestCount || 0),
@@ -535,8 +536,8 @@ export async function loadCloudYieldHistory(force = false) {
 
       const totalCount = parseFloat(item.total_count || item.totalCount || existing.totalCount || 0);
 
-      // Skip 0-yield blank days with no crops, no spent items, and no gems activity
-      if (totalCount <= 0 && effectiveCrops.length === 0 && spentItems.length === 0 && !gemsAct) return;
+      // Skip 0-yield blank days with no crops, no spent items, no gems activity, and no deliveries
+      if (totalCount <= 0 && effectiveCrops.length === 0 && spentItems.length === 0 && !gemsAct && !deliveryAct) return;
 
       mergedMap.set(d, {
         date: d,
@@ -544,6 +545,7 @@ export async function loadCloudYieldHistory(force = false) {
         crops: effectiveCrops,
         spent: spentItems,
         gems: gemsAct || existing.gems || null,
+        deliveries: deliveryAct || existing.deliveries || null,
         totalSpentCount: totalSpentCount,
         totalSpentFlowers: totalSpentFlowers,
         cropActivityYields: cloudActs.length > 0 ? cloudActs : (existing.cropActivityYields || []),

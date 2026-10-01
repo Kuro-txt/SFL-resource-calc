@@ -162,6 +162,23 @@ export function getLocalEarnedRows(boundsInput = 'week') {
         totalFlowers += coinFlowers;
       }
 
+      // Include Delivery Flowers if recorded in snapshot
+      const deliveryObj = rawActs.find(a => a && (a.type === 'delivery_flowers' || a.type === 'deliveries')) || e.deliveries;
+      const deliveryFlowers = parseFloat(deliveryObj?.flowers || deliveryObj?.dailySflEarned || deliveryObj?.qty || 0);
+      if (deliveryFlowers > 0) {
+        items['__delivery__'] = {
+          qty: deliveryFlowers,
+          flowers: deliveryFlowers,
+          grossFlowers: deliveryFlowers,
+          taxAmount: 0,
+          _meta: {
+            deliveryFlowers,
+            hasDelta: true,
+            missingBaseline: false
+          }
+        };
+      }
+
       return {
         date: e.date || e.yield_date || '',
         items,
@@ -182,6 +199,14 @@ export function aggregateLocalEarned(boundsInput = 'week') {
       totals[name].flowers += data.flowers;
       totals[name].grossFlowers += (data.grossFlowers || data.flowers);
       totals[name].taxAmount += (data.taxAmount || 0);
+      if (data._meta) {
+        if (!totals[name]._meta) {
+          totals[name]._meta = { ...data._meta, deliveryFlowers: data.flowers };
+        } else {
+          totals[name]._meta.deliveryFlowers = Math.round((totals[name]._meta.deliveryFlowers + data.flowers) * 1000) / 1000;
+          totals[name]._meta.hasDelta = totals[name]._meta.deliveryFlowers > 0;
+        }
+      }
     });
   });
   return totals;
@@ -211,14 +236,20 @@ export async function loadEarnedTotals(boundsInput = 'day', preloadedArchive = n
     }
   }
 
-  // Attach delivery flowers as metadata if provided
-  if (deliveryResult) {
+  // Attach delivery flowers as metadata if provided (e.g. from live baseline diff), otherwise keep local snapshot's if present
+  if (deliveryResult && (deliveryResult.hasDelta || !totals['__delivery__'])) {
     totals['__delivery__'] = {
       qty: deliveryResult.deliveryFlowers || 0,
       flowers: deliveryResult.deliveryFlowers || 0,
       grossFlowers: deliveryResult.deliveryFlowers || 0,
       taxAmount: 0,
       _meta: deliveryResult
+    };
+  } else if (totals['__delivery__'] && !totals['__delivery__']._meta) {
+    totals['__delivery__']._meta = {
+      deliveryFlowers: totals['__delivery__'].flowers,
+      hasDelta: totals['__delivery__'].flowers > 0,
+      missingBaseline: false
     };
   }
 
