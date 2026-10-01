@@ -91,8 +91,11 @@ export function findNextProc({ farmId, itemId, currentCounter, chance, criticalH
     if (proc) {
       return {
         nextCounter: checkCounter,
-        distance: i, // 0 means the current/immediate action will proc!
-        roll
+        counter: checkCounter,
+        distance: i + 1, // 1 craft means the immediate next craft
+        rawDistance: i,
+        roll: parseFloat(roll.toFixed(2)),
+        rollPercentage: parseFloat(roll.toFixed(2))
       };
     }
   }
@@ -108,7 +111,7 @@ export function findNextProc({ farmId, itemId, currentCounter, chance, criticalH
  * @param {number} [params.count=50]
  * @param {number} params.chance
  * @param {string} params.criticalHitName
- * @returns {Array<{ actionIndex: number, counter: number, roll: number, proc: boolean }>}
+ * @returns {Array<{ actionIndex: number, step: number, counter: number, roll: number, rollPercentage: number, rollValue: number, proc: boolean }>}
  */
 export function forecastProcs({ farmId, itemId, startCounter, count = 50, chance, criticalHitName }) {
   const start = Number(startCounter) || 0;
@@ -121,8 +124,11 @@ export function forecastProcs({ farmId, itemId, startCounter, count = 50, chance
     const { proc, roll } = prngChance({ farmId, itemId, counter: currentCnt, chance: ch, criticalHitName });
     results.push({
       actionIndex: i + 1,
+      step: i + 1,
       counter: currentCnt,
       roll: parseFloat(roll.toFixed(2)),
+      rollPercentage: parseFloat(roll.toFixed(2)),
+      rollValue: roll / 100,
       proc
     });
   }
@@ -142,7 +148,7 @@ export function forecastProcs({ farmId, itemId, startCounter, count = 50, chance
  * @param {number} [params.procMultiplier=2] - multiplier on proc (e.g. 2 for 2x double)
  * @param {number} [params.procBonus=1] - bonus on proc if additive (e.g. +1)
  * @param {boolean} [params.isAdditive=false]
- * @returns {{ totalYield: number, procCount: number, procs: Array<number>, items: Array<{ craftNumber: number, counter: number, proc: boolean, yield: number }> }}
+ * @returns {{ totalYield: number, bonusYield: number, procCount: number, procsCount: number, batchSize: number, procs: Array<number>, procIndices: Array<number>, items: Array<{ craftNumber: number, counter: number, proc: boolean, yield: number }> }}
  */
 export function simulateBatchCraft({
   farmId,
@@ -192,8 +198,13 @@ export function simulateBatchCraft({
 
   return {
     totalYield,
+    bonusYield: totalYield - (size * baseYield),
     procCount,
+    procsCount: procCount,
+    batchSize: size,
     procs,
+    procIndices: procs,
     items
   };
 }
+
