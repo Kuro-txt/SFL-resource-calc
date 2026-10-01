@@ -4,7 +4,7 @@
 // with historical date range navigation (previous/next arrows and touch swipe).
 
 import { renderEarnedSection, aggregateLocalEarned, loadEarnedTotals } from './dashboardEarned.js';
-import { renderSpentSection, loadSpentData, clearBaselineMemoryCache } from './dashboardSpent.js';
+import { renderSpentSection, loadSpentData, clearBaselineMemoryCache, loadDeliveryFlowers } from './dashboardSpent.js';
 
 let initialized = false;
 let activeTimeRange = 'day'; // 'day' | 'week' | 'month'
@@ -104,9 +104,15 @@ async function renderKpiBanner(bounds = getDateRangeBounds(), preloadedSpentItem
 
   // 1. Earned Output (including Coins converted via user ratio)
   const totals = preloadedTotals || (await loadEarnedTotals(bounds));
-  const grandFlowers = Object.values(totals).reduce((s, v) => s + (v.flowers || 0), 0);
-  const totalItems = Object.values(totals).reduce((s, v) => s + (v.qty || 0), 0);
-  const grandTax = Object.values(totals).reduce((s, v) => s + (v.taxAmount || 0), 0);
+  const grandFlowers = Object.entries(totals)
+    .filter(([name]) => !name.startsWith('__'))
+    .reduce((s, [, v]) => s + (v.flowers || 0), 0);
+  const totalItems = Object.entries(totals)
+    .filter(([name]) => !name.startsWith('__'))
+    .reduce((s, [, v]) => s + (v.qty || 0), 0);
+  const grandTax = Object.entries(totals)
+    .filter(([name]) => !name.startsWith('__'))
+    .reduce((s, [, v]) => s + (v.taxAmount || 0), 0);
 
   // 2. Spent Output (including Coins spent converted via user ratio)
   let grandSpentFlowers = 0;
@@ -306,11 +312,12 @@ export async function populateSections(boundsInput = null, force = false) {
       try { await window.loadCloudYieldHistory(force); } catch (_) {}
     }
 
-    // 1. Fetch spent items and earned totals in parallel (hits in-memory RAM cache in 0ms if already cached)
-    const [spentItems, earnedTotals] = await Promise.all([
+    // 1. Fetch spent items, delivery flowers, and earned totals in parallel (hits in-memory RAM cache in 0ms if already cached)
+    const [spentItems, deliveryResult] = await Promise.all([
       loadSpentData(bounds, force),
-      loadEarnedTotals(bounds)
+      loadDeliveryFlowers(bounds, force)
     ]);
+    const earnedTotals = await loadEarnedTotals(bounds, null, deliveryResult);
 
     // If another date navigation occurred while waiting, drop this stale render
     if (renderId !== activeRenderId) return;

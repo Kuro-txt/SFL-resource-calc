@@ -196,7 +196,7 @@ try {
   if (saved !== null) isEarnedOpen = (saved === 'true');
 } catch (_) {}
 
-export async function loadEarnedTotals(boundsInput = 'day', preloadedArchive = null) {
+export async function loadEarnedTotals(boundsInput = 'day', preloadedArchive = null, deliveryResult = null) {
   const bounds = (typeof boundsInput === 'object' && boundsInput?.minDateStr)
     ? boundsInput
     : getDateRangeBounds(boundsInput || 'day');
@@ -211,6 +211,17 @@ export async function loadEarnedTotals(boundsInput = 'day', preloadedArchive = n
     }
   }
 
+  // Attach delivery flowers as metadata if provided
+  if (deliveryResult) {
+    totals['__delivery__'] = {
+      qty: deliveryResult.deliveryFlowers || 0,
+      flowers: deliveryResult.deliveryFlowers || 0,
+      grossFlowers: deliveryResult.deliveryFlowers || 0,
+      taxAmount: 0,
+      _meta: deliveryResult
+    };
+  }
+
   return totals;
 }
 
@@ -222,9 +233,15 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
     : getDateRangeBounds(boundsInput || 'day');
 
   const totals = preloadedTotals || (await loadEarnedTotals(bounds));
-  const grandFlowers = Object.values(totals).reduce((s, v) => s + v.flowers, 0);
-  const totalItemsCount = Object.values(totals).reduce((s, v) => s + v.qty, 0);
-  const grandTaxAmount = Object.values(totals).reduce((s, v) => s + (v.taxAmount || 0), 0);
+  const grandFlowers = Object.entries(totals)
+    .filter(([name]) => !name.startsWith('__'))
+    .reduce((s, [, v]) => s + v.flowers, 0);
+  const totalItemsCount = Object.entries(totals)
+    .filter(([name]) => !name.startsWith('__'))
+    .reduce((s, [, v]) => s + v.qty, 0);
+  const grandTaxAmount = Object.entries(totals)
+    .filter(([name]) => !name.startsWith('__'))
+    .reduce((s, [, v]) => s + (v.taxAmount || 0), 0);
 
   const savedTax = typeof localStorage !== 'undefined' ? localStorage.getItem('sfl_tax_rate') : null;
   const parsedTax = savedTax !== null ? parseFloat(savedTax) : NaN;
@@ -234,9 +251,13 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
   // Extract Coins for dedicated prominent card
   const coinsData = totals['Coins'] || null;
 
+  // Extract Delivery Flowers
+  const deliveryData = totals['__delivery__'] || null;
+  const hasDeliveryFlowers = deliveryData && deliveryData._meta && deliveryData._meta.deliveryFlowers > 0;
+
   // Classify all other items
   const nonCoinItems = Object.entries(totals)
-    .filter(([name]) => name !== 'Coins')
+    .filter(([name]) => name !== 'Coins' && !name.startsWith('__'))
     .map(([name, { qty, flowers, grossFlowers, taxAmount }]) => ({
       name,
       qty,
@@ -259,7 +280,7 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
 
   const rangeLabel = bounds.label || 'Selected Range';
 
-  if (nonCoinItems.length === 0 && !coinsData) {
+  if (nonCoinItems.length === 0 && !coinsData && !hasDeliveryFlowers) {
     mountEl.innerHTML = `
       <div class="flex items-center justify-between mb-3 border-b border-amber-200/60 dark:border-amber-800/40 pb-2.5">
         <div>
@@ -369,6 +390,50 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
       </div>`;
   }
 
+  function getDeliveryBannerHtml() {
+    const meta = deliveryData?._meta;
+    if (!meta) return '';
+
+    if (meta.deliveryFlowers > 0) {
+      return `
+        <div class="bg-gradient-to-r from-purple-500/10 via-violet-500/15 to-purple-500/10 dark:from-purple-950/40 dark:to-violet-950/30 border border-purple-500/30 dark:border-purple-600/40 p-2.5 rounded-xl flex items-center justify-between shadow-2xs mb-3 min-h-[58px]">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-950/60 border border-purple-300 dark:border-purple-700 flex items-center justify-center text-xl shrink-0 shadow-2xs">
+              🌸
+            </div>
+            <div>
+              <p class="text-[10px] font-bold uppercase text-purple-800 dark:text-purple-300 tracking-wider">Flowers Earned</p>
+              <p class="font-mono text-sm font-bold text-purple-900 dark:text-purple-100">+${meta.deliveryFlowers.toFixed(3)} 🌸</p>
+            </div>
+          </div>
+          <div class="text-right font-mono">
+            <span class="text-xs font-bold text-sfl-green dark:text-emerald-400 bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded-lg shadow-2xs">
+              +${meta.deliveryFlowers.toFixed(3)} 🌸
+            </span>
+            <p class="text-[9px] text-sfl-woodLight dark:text-slate-400 mt-1">NPC Deliveries</p>
+          </div>
+        </div>`;
+    }
+
+    if (meta.missingBaseline && bounds.timeRange === 'day') {
+      return `
+        <div class="bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-800/40 p-2.5 rounded-xl flex items-center justify-between shadow-2xs mb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-base shrink-0">
+              🌸
+            </div>
+            <div>
+              <p class="text-[10px] font-bold uppercase text-purple-800 dark:text-purple-300 tracking-wider">Flowers from Deliveries</p>
+              <p class="text-[11px] text-amber-700 dark:text-amber-400 font-medium">⚠️ No 00:00 UTC baseline found to calculate today's deliveries.</p>
+            </div>
+          </div>
+          <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono">Set baseline to track</span>
+        </div>`;
+    }
+
+    return '';
+  }
+
   function getCategoryPillsHtml() {
     const pill = (cat, label, icon, count) => {
       const isActive = currentEarnedCategory === cat;
@@ -407,7 +472,7 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
               Resources & Coins Earned
             </h4>
             <span class="text-[10px] font-bold text-sfl-woodLight dark:text-slate-400 bg-amber-200/50 dark:bg-slate-800 px-2 py-0.2 rounded-full border border-amber-300/50 dark:border-slate-700">
-              ${nonCoinItems.length + (coinsData ? 1 : 0)} items & coins
+              ${nonCoinItems.length + (coinsData ? 1 : 0)} items & coins${hasDeliveryFlowers ? ' + deliveries' : ''}
             </span>
           </div>
           <p class="text-[10px] text-sfl-woodLight dark:text-slate-400 truncate mt-0.5">${rangeLabel} • Net after ${taxPct}% tax ${grandTaxAmount > 0 ? `(-${grandTaxAmount.toFixed(3)} 🌸)` : ''}</p>
@@ -429,6 +494,9 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
     <div id="dash-earned-body" class="${isEarnedOpen ? '' : 'hidden'} mt-3 pt-3 border-t border-amber-200/60 dark:border-amber-800/40 space-y-3">
       <!-- Featured Coins Earned Card -->
       ${getCoinsBannerHtml()}
+
+      <!-- Featured Delivery Flowers Earned Card -->
+      ${getDeliveryBannerHtml()}
 
       <!-- Section Title & Category Filter Pills -->
       <div>
