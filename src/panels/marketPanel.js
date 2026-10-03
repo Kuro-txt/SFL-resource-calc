@@ -74,17 +74,45 @@ export const ITEM_CATEGORIES = {
   }
 };
 
+// ── State Persistence Helpers ─────────────────────────────────────────────
+function getSavedState(key, fallback) {
+  try {
+    const val = localStorage.getItem(key);
+    return val !== null && val !== undefined ? val : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function setSavedState(key, val) {
+  try {
+    localStorage.setItem(key, String(val));
+  } catch (_) {}
+}
+
 // ── State ─────────────────────────────────────────────────────────────────
 let marketData = null;
 let lastMarketFetch = 0;
-let selectedItem = 'Sunflower';
-let selectedRange = '24h';
-let activeCategory = 'all';
-let activeMoversWindow = '24h';
-let moversLimit = 'all'; // '5' | '10' | 'all'
+
+// Restore initial state from localStorage with fallbacks
+let selectedItem = getSavedState('sfl_market_selected_item', 'Sunflower');
+let selectedRange = getSavedState('sfl_market_chart_range', '24h');
+let activeCategory = getSavedState('sfl_market_active_category', 'all');
+let activeMoversWindow = getSavedState('sfl_market_movers_window', '24h');
+let moversLimit = getSavedState('sfl_market_movers_limit', 'all'); // '5' | '10' | 'all'
 let searchQuery = '';
 let activeChart = null;
 const historyCache = new Map();
+
+// Hydrate cached marketData from localStorage if available (instant boot)
+try {
+  const cachedDataStr = localStorage.getItem('sfl_market_data_cache');
+  const cachedTimeStr = localStorage.getItem('sfl_market_data_time');
+  if (cachedDataStr && cachedTimeStr) {
+    marketData = JSON.parse(cachedDataStr);
+    lastMarketFetch = parseInt(cachedTimeStr, 10) || 0;
+  }
+} catch (_) {}
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 export function getItemCategory(itemName) {
@@ -125,6 +153,10 @@ export async function fetchMarketData(force = false) {
     const json = await res.json();
     marketData = json;
     lastMarketFetch = Date.now();
+    try {
+      localStorage.setItem('sfl_market_data_cache', JSON.stringify(json));
+      localStorage.setItem('sfl_market_data_time', String(lastMarketFetch));
+    } catch (_) {}
     return json;
   } catch (err) {
     console.warn("[MarketPanel] Error fetching market data:", err.message);
@@ -346,6 +378,10 @@ export function initMarketPanel() {
   `;
 
   bindMarketEvents();
+  updateMoversWindowButtons();
+  updateMoversLimitButtons();
+  updateRangeButtons();
+  updateCategoryButtons();
 }
 
 // ── Event Bindings ────────────────────────────────────────────────────────
@@ -381,11 +417,13 @@ function bindMarketEvents() {
   // Movers window toggle
   document.getElementById('movers-window-24h')?.addEventListener('click', () => {
     activeMoversWindow = '24h';
+    setSavedState('sfl_market_movers_window', '24h');
     updateMoversWindowButtons();
     renderMovers();
   });
   document.getElementById('movers-window-12h')?.addEventListener('click', () => {
     activeMoversWindow = '12h';
+    setSavedState('sfl_market_movers_window', '12h');
     updateMoversWindowButtons();
     renderMovers();
   });
@@ -394,6 +432,7 @@ function bindMarketEvents() {
   ['5', '10', 'all'].forEach(lim => {
     document.getElementById(`movers-limit-${lim}`)?.addEventListener('click', () => {
       moversLimit = lim;
+      setSavedState('sfl_market_movers_limit', lim);
       updateMoversLimitButtons();
       renderMovers();
     });
@@ -402,6 +441,9 @@ function bindMarketEvents() {
   // Dedicated Quick Search above the Graph
   const chartSearch = document.getElementById('chart-item-search-input');
   const chartDropdown = document.getElementById('chart-item-search-dropdown');
+  if (chartSearch && selectedItem) {
+    chartSearch.value = selectedItem;
+  }
 
   function renderChartSearchDropdown(filter = '') {
     if (!chartDropdown || !marketData) return;
@@ -456,6 +498,7 @@ function bindMarketEvents() {
       const range = btn.getAttribute('data-range');
       if (range && range !== selectedRange) {
         selectedRange = range;
+        setSavedState('sfl_market_chart_range', range);
         updateRangeButtons();
         updateChartForItem(selectedItem, selectedRange);
       }
@@ -468,6 +511,7 @@ function bindMarketEvents() {
       const cat = btn.getAttribute('data-cat');
       if (cat) {
         activeCategory = cat;
+        setSavedState('sfl_market_active_category', cat);
         updateCategoryButtons();
         renderItemsGrid();
       }
@@ -714,6 +758,11 @@ function renderItemsGrid() {
 export function selectItemForChart(itemName) {
   if (!itemName) return;
   selectedItem = itemName;
+  setSavedState('sfl_market_selected_item', itemName);
+
+  // Sync search input if present
+  const chartSearch = document.getElementById('chart-item-search-input');
+  if (chartSearch) chartSearch.value = itemName;
 
   // Highlight in items grid
   renderItemsGrid();
@@ -733,8 +782,12 @@ async function updateChartForItem(itemName, range = '24h') {
   const changeBadge = document.getElementById('chart-item-change-badge');
   const rangeStats = document.getElementById('chart-range-stats');
   const overlay = document.getElementById('chart-loading-overlay');
+  const chartSearch = document.getElementById('chart-item-search-input');
 
   if (titleEl) titleEl.textContent = itemName;
+  if (chartSearch && chartSearch.value !== itemName) {
+    chartSearch.value = itemName;
+  }
 
   // Set current price and 24h change from marketData if available
   const norm = itemName.toLowerCase().trim();
@@ -994,12 +1047,30 @@ export async function mountMarketPanel(force = false) {
   const container = document.getElementById('market-section');
   if (!container) return;
 
+  // Synchronize button visual styles to restored preferences
+  updateMoversWindowButtons();
+  updateMoversLimitButtons();
+  updateRangeButtons();
+  updateCategoryButtons();
+
+  // If we already have cached data in memory or from localStorage, render immediately (zero-wait boot)
+  if (marketData) {
+    const lastUpdatedEl = document.getElementById('market-last-updated');
+    if (lastUpdatedEl && lastMarketFetch) {
+      const now = new Date(lastMarketFetch);
+      lastUpdatedEl.textContent = `Updated: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    }
+    renderMovers();
+    renderItemsGrid();
+    updateChartForItem(selectedItem, selectedRange);
+  }
+
   const data = await fetchMarketData(force);
   if (!data) return;
 
   const lastUpdatedEl = document.getElementById('market-last-updated');
   if (lastUpdatedEl) {
-    const now = new Date();
+    const now = new Date(lastMarketFetch || Date.now());
     lastUpdatedEl.textContent = `Updated: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
   }
 
