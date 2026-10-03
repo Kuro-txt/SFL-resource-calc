@@ -2,6 +2,30 @@ import { FLOWER_IMG_SMALL_HTML } from '../config/constants.js';
 
 const SUNCHART_BASE = 'https://sun-chart.vercel.app';
 
+// ── SFL 4-Week Rotating Seasons (Mon-Sun Cycle) ───────────────────────────
+// Sequence: Spring -> Summer -> Autumn -> Winter (1 week each, Mon 00:00 UTC to Sun 23:59:59 UTC)
+export const SFL_SEASONS = [
+  { name: 'Spring', icon: '🌸', color: '#ec4899', fillLight: 'rgba(236, 72, 153, 0.08)', fillDark: 'rgba(236, 72, 153, 0.16)' },
+  { name: 'Summer', icon: '☀️', color: '#eab308', fillLight: 'rgba(234, 179, 8, 0.08)', fillDark: 'rgba(234, 179, 8, 0.16)' },
+  { name: 'Autumn', icon: '🍂', color: '#ea580c', fillLight: 'rgba(234, 88, 12, 0.08)', fillDark: 'rgba(234, 88, 12, 0.16)' },
+  { name: 'Winter', icon: '❄️', color: '#06b6d4', fillLight: 'rgba(6, 182, 212, 0.08)', fillDark: 'rgba(6, 182, 212, 0.16)' }
+];
+
+export function getSeasonForDate(date) {
+  // Anchor: Monday September 28, 2026 00:00:00 UTC = Summer (index 1)
+  const ANCHOR_MONDAY = Date.UTC(2026, 8, 28);
+  const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+  const d = new Date(date || Date.now());
+  const day = d.getUTCDay(); // 0: Sun, 1: Mon, ...
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diffToMonday);
+
+  const weeksDiff = Math.floor((monday - ANCHOR_MONDAY) / MS_PER_WEEK);
+  const seasonIdx = ((1 + (weeksDiff % 4)) % 4 + 4) % 4;
+  return SFL_SEASONS[seasonIdx];
+}
+
 // ── Item Categorization Mapping ───────────────────────────────────────────
 export const ITEM_CATEGORIES = {
   crops: {
@@ -259,6 +283,20 @@ export function initMarketPanel() {
             </span>
           </div>
           <canvas id="market-price-chart" class="w-full h-full"></canvas>
+        </div>
+
+        <!-- SFL SEASONS LEGEND & CYCLE INFO -->
+        <div class="flex flex-wrap items-center justify-between gap-2 px-1 pt-0.5 text-[10px] text-sfl-woodLight font-mono">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <span class="font-bold text-sfl-wood dark:text-amber-200">SFL Seasons (Weekly Mon-Sun):</span>
+            <span class="inline-flex items-center gap-1 text-pink-600 dark:text-pink-400 font-bold"><span>🌸</span> Spring</span>
+            <span class="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold"><span>☀️</span> Summer</span>
+            <span class="inline-flex items-center gap-1 text-orange-600 dark:text-orange-400 font-bold"><span>🍂</span> Autumn</span>
+            <span class="inline-flex items-center gap-1 text-cyan-600 dark:text-cyan-400 font-bold"><span>❄️</span> Winter</span>
+          </div>
+          <div id="chart-active-season-notice" class="font-sans font-bold text-amber-900 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-950/90 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-700 flex items-center gap-1.5 shadow-xs">
+            <span>☀️</span> Active: <strong>Summer</strong>
+          </div>
         </div>
       </div>
 
@@ -750,6 +788,16 @@ async function updateChartForItem(itemName, range = '24h') {
     }
   }
 
+  // Update active season indicator
+  const currentSeason = getSeasonForDate(new Date());
+  const now = new Date();
+  const currentDay = now.getUTCDay();
+  const daysUntilSun = currentDay === 0 ? 0 : 7 - currentDay;
+  const seasonNotice = document.getElementById('chart-active-season-notice');
+  if (seasonNotice) {
+    seasonNotice.innerHTML = `<span>${currentSeason.icon}</span> Active: <strong>${currentSeason.name}</strong> (${daysUntilSun === 0 ? 'Last day!' : `${daysUntilSun}d left`})`;
+  }
+
   renderChartCanvas(history, itemName, range);
 }
 
@@ -789,6 +837,80 @@ function renderChartCanvas(historyData, itemName, range) {
   const gridColor = isDarkMode ? 'rgba(242, 169, 0, 0.10)' : 'rgba(196, 154, 108, 0.18)';
   const tickColor = isDarkMode ? '#fde68a' : '#8a5832';
 
+  // SFL Weekly Seasons Plugin for Chart.js
+  const seasonBandsPlugin = {
+    id: 'seasonBandsPlugin',
+    beforeDraw: (chart) => {
+      const { ctx, chartArea, scales } = chart;
+      if (!chartArea || !scales.x || !Array.isArray(historyData) || historyData.length === 0) return;
+
+      const { top, bottom, left, right } = chartArea;
+      const isDark = document.documentElement.classList.contains('dark');
+
+      // Group continuous data points by season
+      const segments = [];
+      let cur = null;
+
+      historyData.forEach((pt, i) => {
+        const s = getSeasonForDate(pt.recorded_at);
+        if (!cur || cur.season.name !== s.name) {
+          if (cur) {
+            cur.endIdx = i - 1;
+            segments.push(cur);
+          }
+          cur = { season: s, startIdx: i, endIdx: i };
+        } else {
+          cur.endIdx = i;
+        }
+      });
+      if (cur) segments.push(cur);
+
+      ctx.save();
+
+      segments.forEach((seg, sIdx) => {
+        let xStart = scales.x.getPixelForValue(seg.startIdx);
+        let xEnd = scales.x.getPixelForValue(seg.endIdx);
+
+        if (sIdx === 0) xStart = Math.min(xStart, left);
+        if (sIdx === segments.length - 1) xEnd = Math.max(xEnd, right);
+
+        xStart = Math.max(left, xStart);
+        xEnd = Math.min(right, xEnd);
+        if (xEnd <= xStart) return;
+
+        const bandW = xEnd - xStart;
+
+        // Fill season background band
+        ctx.fillStyle = isDark ? seg.season.fillDark : seg.season.fillLight;
+        ctx.fillRect(xStart, top, bandW, bottom - top);
+
+        // Draw vertical dashed line at Monday season cycle change
+        if (sIdx > 0 && xStart > left + 4) {
+          ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.22)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(xStart, top);
+          ctx.lineTo(xStart, bottom);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Draw Season Label at top of band
+        if (bandW > 30) {
+          ctx.font = 'bold 9.5px monospace, "Fredoka", sans-serif';
+          ctx.fillStyle = seg.season.color;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          const label = bandW > 65 ? `${seg.season.icon} ${seg.season.name}` : seg.season.icon;
+          ctx.fillText(label, xStart + bandW / 2, top + 5);
+        }
+      });
+
+      ctx.restore();
+    }
+  };
+
   activeChart = new Chart(canvas, {
     type: 'line',
     data: {
@@ -808,6 +930,7 @@ function renderChartCanvas(historyData, itemName, range) {
         pointBorderWidth: 1.5,
       }]
     },
+    plugins: [seasonBandsPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -831,7 +954,8 @@ function renderChartCanvas(historyData, itemName, range) {
               const rawObj = historyData[items[0].dataIndex];
               if (rawObj?.recorded_at) {
                 const dt = new Date(rawObj.recorded_at);
-                return dt.toLocaleString();
+                const s = getSeasonForDate(rawObj.recorded_at);
+                return `${dt.toLocaleString()} • ${s.icon} ${s.name}`;
               }
               return items[0].label;
             },
