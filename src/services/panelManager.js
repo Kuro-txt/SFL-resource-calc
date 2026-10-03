@@ -6,7 +6,8 @@ const TAB_TO_HASH = {
   calc: 'daily',
   tradehistory: 'trades',
   npc: 'npc',
-  wishlist: 'wishlist'
+  wishlist: 'wishlist',
+  market: 'market'
 };
 
 const HASH_TO_TAB = {
@@ -25,7 +26,11 @@ const HASH_TO_TAB = {
   gifts: 'npc',
   wishlist: 'wishlist',
   nfts: 'wishlist',
-  'nft-wishlist': 'wishlist'
+  'nft-wishlist': 'wishlist',
+  market: 'market',
+  'market-prices': 'market',
+  prices: 'market',
+  charts: 'market'
 };
 
 export const PanelManager = {
@@ -34,7 +39,7 @@ export const PanelManager = {
   },
 
   switch(targetId, updateUrlHash = true) {
-    const validTabs = ['dashboard', 'calc', 'tradehistory', 'npc', 'wishlist'];
+    const validTabs = ['dashboard', 'calc', 'tradehistory', 'npc', 'wishlist', 'market'];
     if (!validTabs.includes(targetId)) {
       targetId = 'dashboard';
     }
@@ -92,6 +97,7 @@ export const PanelManager = {
     document.getElementById('tab-tradehistory-btn')?.addEventListener('click', () => this.switch('tradehistory'));
     document.getElementById('tab-npc-btn')?.addEventListener('click', () => this.switch('npc'));
     document.getElementById('tab-wishlist-btn')?.addEventListener('click', () => this.switch('wishlist'));
+    document.getElementById('tab-market-btn')?.addEventListener('click', () => this.switch('market'));
 
     // Listen to browser Back/Forward navigation or direct hash changes
     window.addEventListener('hashchange', () => {
