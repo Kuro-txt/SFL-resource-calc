@@ -11,7 +11,7 @@ export const ITEM_CATEGORIES = {
       'Sunflower', 'Potato', 'Rhubarb', 'Pumpkin', 'Zucchini', 'Carrot', 'Yam',
       'Cabbage', 'Broccoli', 'Soybean', 'Beetroot', 'Pepper', 'Cauliflower',
       'Parsnip', 'Eggplant', 'Corn', 'Onion', 'Radish', 'Wheat', 'Turnip',
-      'Kale', 'Artichoke', 'Barley'
+      'Kale', 'Artichoke', 'Barley', 'Rice', 'Grape', 'Olive'
     ]
   },
   fruits: {
@@ -43,7 +43,7 @@ export const ITEM_CATEGORIES = {
     key: 'exotics',
     label: '✨ Exotics & Forage',
     items: [
-      'Celestine', 'Lunara', 'Duskberry', 'Grape', 'Rice', 'Olive', 'Saltwort',
+      'Celestine', 'Lunara', 'Duskberry', 'Saltwort',
       'Ruffroot', 'Chewed Bone', 'Heart Leaf', 'Moonfur', 'Ribbon', 'Dewberry',
       'Wild Grass', 'Frost Pebble'
     ]
