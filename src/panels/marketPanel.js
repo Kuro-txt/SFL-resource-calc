@@ -57,6 +57,7 @@ let selectedItem = 'Sunflower';
 let selectedRange = '24h';
 let activeCategory = 'all';
 let activeMoversWindow = '24h';
+let moversLimit = 'all'; // '5' | '10' | 'all'
 let searchQuery = '';
 let activeChart = null;
 const historyCache = new Map();
@@ -181,13 +182,23 @@ export function initMarketPanel() {
             <span id="market-last-updated" class="text-[10px] text-sfl-woodLight font-mono"></span>
           </div>
 
-          <div class="flex items-center gap-1 bg-amber-100/70 dark:bg-amber-950/40 p-0.5 rounded-lg border border-sfl-cardBorder/60 text-[11px] font-bold">
-            <button id="movers-window-24h" class="px-2.5 py-1 rounded-md transition cursor-pointer bg-sfl-wood text-amber-200 shadow-xs">
-              24h Window
-            </button>
-            <button id="movers-window-12h" class="px-2.5 py-1 rounded-md transition cursor-pointer text-sfl-woodLight hover:text-sfl-wood">
-              12h Window
-            </button>
+          <div class="flex items-center gap-2 flex-wrap">
+            <!-- Window Toggle (24h / 12h) -->
+            <div class="flex items-center gap-1 bg-amber-100/70 dark:bg-amber-950/40 p-0.5 rounded-lg border border-sfl-cardBorder/60 text-[11px] font-bold">
+              <button id="movers-window-24h" class="px-2.5 py-1 rounded-md transition cursor-pointer bg-sfl-wood text-amber-200 shadow-xs">
+                24h Window
+              </button>
+              <button id="movers-window-12h" class="px-2.5 py-1 rounded-md transition cursor-pointer text-sfl-woodLight hover:text-sfl-wood">
+                12h Window
+              </button>
+            </div>
+
+            <!-- Limit Toggle (Top 5 / Top 10 / All) -->
+            <div class="flex items-center gap-1 bg-amber-100/70 dark:bg-amber-950/40 p-0.5 rounded-lg border border-sfl-cardBorder/60 text-[11px] font-bold">
+              <button id="movers-limit-5" class="px-2 py-1 rounded-md transition cursor-pointer text-sfl-woodLight hover:text-sfl-wood">Top 5</button>
+              <button id="movers-limit-10" class="px-2 py-1 rounded-md transition cursor-pointer text-sfl-woodLight hover:text-sfl-wood">Top 10</button>
+              <button id="movers-limit-all" class="px-2 py-1 rounded-md transition cursor-pointer bg-sfl-wood text-amber-200 shadow-xs">All</button>
+            </div>
           </div>
         </div>
 
@@ -219,9 +230,19 @@ export function initMarketPanel() {
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- SEARCH OPTION & TIME RANGE SELECTOR DIRECTLY ABOVE GRAPH -->
+        <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2.5 pt-1">
+          <!-- Item Quick Search with Dropdown -->
+          <div class="relative flex-1 sm:max-w-xs">
+            <input type="text" id="chart-item-search-input" placeholder="🔍 Search item to chart (e.g. Iron, Wheat)..."
+              class="w-full bg-white dark:bg-amber-950/60 border-2 border-sfl-cardBorder dark:border-amber-700/60 rounded-xl px-3 py-1.5 text-xs text-sfl-dirt dark:text-amber-100 focus:outline-none focus:border-amber-500 transition font-sans shadow-xs">
+            <div id="chart-item-search-dropdown" class="hidden absolute left-0 right-0 top-full mt-1 bg-white dark:bg-amber-950 border-2 border-sfl-cardBorder dark:border-amber-700 rounded-xl shadow-2xl z-30 max-h-56 overflow-y-auto p-1 space-y-0.5"></div>
+          </div>
 
           <!-- Time Range Pill Selector -->
-          <div class="flex items-center gap-1 bg-amber-100/70 dark:bg-amber-950/40 p-0.5 rounded-lg border border-sfl-cardBorder/60 text-[11px] font-bold">
+          <div class="flex items-center justify-end gap-1 bg-amber-100/70 dark:bg-amber-950/40 p-0.5 rounded-lg border border-sfl-cardBorder/60 text-[11px] font-bold shrink-0">
             <button data-range="24h" class="chart-range-btn px-2.5 py-1 rounded-md transition cursor-pointer bg-sfl-wood text-amber-200 shadow-xs">24h</button>
             <button data-range="7d" class="chart-range-btn px-2.5 py-1 rounded-md transition cursor-pointer text-sfl-woodLight hover:text-sfl-wood">7d</button>
             <button data-range="30d" class="chart-range-btn px-2.5 py-1 rounded-md transition cursor-pointer text-sfl-woodLight hover:text-sfl-wood">30d</button>
@@ -331,6 +352,66 @@ function bindMarketEvents() {
     renderMovers();
   });
 
+  // Movers limit toggle
+  ['5', '10', 'all'].forEach(lim => {
+    document.getElementById(`movers-limit-${lim}`)?.addEventListener('click', () => {
+      moversLimit = lim;
+      updateMoversLimitButtons();
+      renderMovers();
+    });
+  });
+
+  // Dedicated Quick Search above the Graph
+  const chartSearch = document.getElementById('chart-item-search-input');
+  const chartDropdown = document.getElementById('chart-item-search-dropdown');
+
+  function renderChartSearchDropdown(filter = '') {
+    if (!chartDropdown || !marketData) return;
+    const rawPrices = marketData.prices || [];
+    const q = filter.toLowerCase().trim();
+    const matches = rawPrices.filter(p => p.name.toLowerCase().includes(q));
+
+    if (matches.length === 0) {
+      chartDropdown.innerHTML = `<div class="p-2 text-center text-xs text-sfl-woodLight italic">No items match "${filter}"</div>`;
+      chartDropdown.classList.remove('hidden');
+      return;
+    }
+
+    chartDropdown.innerHTML = matches.map(item => `
+      <div data-chart-item="${item.name}" class="chart-dropdown-row flex items-center justify-between p-2 rounded-lg hover:bg-amber-100/80 dark:hover:bg-amber-900/40 transition cursor-pointer text-xs">
+        <span class="font-bold text-sfl-dirt dark:text-amber-100">${item.name}</span>
+        <span class="font-mono font-semibold text-amber-800 dark:text-amber-300">${formatSflPrice(item.price)} 🌸</span>
+      </div>
+    `).join('');
+
+    chartDropdown.querySelectorAll('.chart-dropdown-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const name = row.getAttribute('data-chart-item');
+        if (name) {
+          selectItemForChart(name);
+          if (chartSearch) chartSearch.value = name;
+          chartDropdown.classList.add('hidden');
+        }
+      });
+    });
+
+    chartDropdown.classList.remove('hidden');
+  }
+
+  chartSearch?.addEventListener('focus', () => {
+    renderChartSearchDropdown(chartSearch.value);
+  });
+
+  chartSearch?.addEventListener('input', (e) => {
+    renderChartSearchDropdown(e.target.value);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (chartDropdown && !chartDropdown.contains(e.target) && e.target !== chartSearch) {
+      chartDropdown.classList.add('hidden');
+    }
+  });
+
   // Range pill buttons
   document.querySelectorAll('.chart-range-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -353,6 +434,19 @@ function bindMarketEvents() {
         renderItemsGrid();
       }
     });
+  });
+}
+
+function updateMoversLimitButtons() {
+  ['5', '10', 'all'].forEach(lim => {
+    const btn = document.getElementById(`movers-limit-${lim}`);
+    if (btn) {
+      if (moversLimit === lim) {
+        btn.className = "px-2 py-1 rounded-md transition cursor-pointer bg-sfl-wood text-amber-200 shadow-xs";
+      } else {
+        btn.className = "px-2 py-1 rounded-md transition cursor-pointer text-sfl-woodLight hover:text-sfl-wood";
+      }
+    }
   });
 }
 
@@ -403,18 +497,19 @@ function renderMovers() {
   const gainers = windowData.gainers || [];
   const losers = windowData.losers || [];
 
-  const topGainers = gainers.slice(0, 5);
-  const topLosers = losers.slice(0, 5);
+  const limit = moversLimit === 'all' ? gainers.length : (parseInt(moversLimit, 10) || 10);
+  const displayGainers = gainers.slice(0, limit);
+  const displayLosers = losers.slice(0, limit);
 
   container.innerHTML = `
     <!-- TOP GAINERS -->
     <div class="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 rounded-xl p-3 space-y-2">
       <div class="flex items-center justify-between text-xs font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
         <span class="flex items-center gap-1.5"><span>🚀</span> Top Gainers (${activeMoversWindow})</span>
-        <span class="text-[10px] font-mono">${topGainers.length} tracked</span>
+        <span class="text-[10px] font-mono">${displayGainers.length} of ${gainers.length} tracked</span>
       </div>
-      <div class="space-y-1.5">
-        ${topGainers.map(item => `
+      <div class="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+        ${displayGainers.map(item => `
           <div data-item="${item.name}" class="market-mover-row flex items-center justify-between p-2 rounded-lg bg-white/80 dark:bg-emerald-950/40 border border-emerald-200/60 hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 transition cursor-pointer select-none">
             <div class="flex items-center gap-2">
               <span class="text-xs font-bold text-sfl-dirt dark:text-amber-100">${item.name}</span>
@@ -427,7 +522,7 @@ function renderMovers() {
             </div>
           </div>
         `).join('')}
-        ${topGainers.length === 0 ? `<div class="p-2 text-center text-xs text-sfl-woodLight italic">No positive movers recorded.</div>` : ''}
+        ${displayGainers.length === 0 ? `<div class="p-2 text-center text-xs text-sfl-woodLight italic">No positive movers recorded.</div>` : ''}
       </div>
     </div>
 
@@ -435,10 +530,10 @@ function renderMovers() {
     <div class="bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50 rounded-xl p-3 space-y-2">
       <div class="flex items-center justify-between text-xs font-black text-rose-800 dark:text-rose-300 uppercase tracking-wide">
         <span class="flex items-center gap-1.5"><span>📉</span> Top Dips (${activeMoversWindow})</span>
-        <span class="text-[10px] font-mono">${topLosers.length} tracked</span>
+        <span class="text-[10px] font-mono">${displayLosers.length} of ${losers.length} tracked</span>
       </div>
-      <div class="space-y-1.5">
-        ${topLosers.map(item => `
+      <div class="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+        ${displayLosers.map(item => `
           <div data-item="${item.name}" class="market-mover-row flex items-center justify-between p-2 rounded-lg bg-white/80 dark:bg-rose-950/40 border border-rose-200/60 hover:border-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/40 transition cursor-pointer select-none">
             <div class="flex items-center gap-2">
               <span class="text-xs font-bold text-sfl-dirt dark:text-amber-100">${item.name}</span>
@@ -451,7 +546,7 @@ function renderMovers() {
             </div>
           </div>
         `).join('')}
-        ${topLosers.length === 0 ? `<div class="p-2 text-center text-xs text-sfl-woodLight italic">No negative movers recorded.</div>` : ''}
+        ${displayLosers.length === 0 ? `<div class="p-2 text-center text-xs text-sfl-woodLight italic">No negative movers recorded.</div>` : ''}
       </div>
     </div>
   `;
