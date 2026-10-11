@@ -239,7 +239,8 @@ export const ITEM_BOOSTS = {
   "infernal drill": "Drill Oil without Oil Drill",
   "ancient shovel": "Dig treasure without Sand Shovel",
   "devil wings": "30% Chance of Instant Crops",
-  "infernal pitchfork": "+3 Crops"
+  "infernal pitchfork": "+3 Crops",
+  "master chef's cleaver": "x0.85 Cooking Time, -10% Chance of +1 Food from Cooking"
 };
 
 export function getItemBoost(name) {

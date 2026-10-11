@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { getItemBoost } = require('./itemBoosts');
 
 const SFL_API_KEY = process.env.SFL_API_KEY || process.env.COMMUNITY_API_KEY || process.env.API_KEY || process.env.SUNFLOWER_API_KEY || process.env.VITE_SFL_API_KEY || "";
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -155,8 +156,13 @@ function formatNftItem(item, parentKey = '') {
   let boost = "No Boost";
   if (boostText) {
     boost = boostText;
-  } else if (item.have_boost) {
-    boost = "Boost Active";
+  } else {
+    const lookedUp = getItemBoost(name);
+    if (lookedUp) {
+      boost = lookedUp;
+    } else if (item.have_boost) {
+      boost = "Boost Active";
+    }
   }
 
   return { name, price, boost };
