@@ -132,7 +132,7 @@ export function renderWishlistTemplate() {
             🌟 All (<span id="filter-count-all">0</span>)
           </button>
           <button type="button" id="nft-filter-boosted" class="nft-catalog-filter bg-amber-100/80 hover:bg-amber-200 dark:bg-slate-700/80 dark:hover:bg-slate-600 text-sfl-dirt dark:text-amber-100 px-2.5 py-1 rounded-lg font-bold border border-amber-300/80 dark:border-slate-600 transition cursor-pointer">
-            ⚡ Boosted (<span id="filter-count-boosted">239</span>)
+            ⚡ Boosted (<span id="filter-count-boosted">240</span>)
           </button>
           <button type="button" id="nft-filter-collectibles" class="nft-catalog-filter bg-amber-100/80 hover:bg-amber-200 dark:bg-slate-700/80 dark:hover:bg-slate-600 text-sfl-dirt dark:text-amber-100 px-2.5 py-1 rounded-lg font-bold border border-amber-300/80 dark:border-slate-600 transition cursor-pointer">
             🗿 Collectibles
