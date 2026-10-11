@@ -1,5 +1,6 @@
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
-import { getTradeAmounts, currentSflUsdRate } from './tradeData.js';
+import { getTradeAmounts, currentSflUsdRate, tradeHistoryData } from './tradeData.js';
+import { isTradeResource, filterResources, filterNfts } from './tradeFilters.js';
 
 export function extractFarmTransferMetrics(farmObj) {
   if (!farmObj || typeof farmObj !== 'object') {
@@ -12,10 +13,8 @@ export function extractFarmTransferMetrics(farmObj) {
     };
   }
 
-  // Unwrap potential nested farm objects
   const root = farmObj.farm || farmObj.data || farmObj;
 
-  // Flatten potential activity dictionaries
   const activity = {
     ...(root.bumpkin?.activity || {}),
     ...(root.activity || {}),
@@ -65,7 +64,6 @@ export function extractFarmTransferMetrics(farmObj) {
     'sfl Deposit Started'
   ]);
 
-  // Fallback: case-insensitive scan if any is still 0
   if (!withdrawn || !deposited || !withdrawStarted || !depositStarted) {
     for (const [key, val] of Object.entries(activity)) {
       if (val === undefined || val === null) continue;
@@ -100,6 +98,101 @@ if (typeof window !== 'undefined') {
   window.extractFarmTransferMetrics = extractFarmTransferMetrics;
 }
 
+// Option B navigation caps
+export const MAX_DAY_OFFSET = -30;
+export const MAX_WEEK_OFFSET = -12;
+export const MAX_MONTH_OFFSET = -24;
+
+export let dayOffset = 0;
+export let weekOffset = 0;
+export let monthOffset = 0;
+
+export function stepDayOffset(delta) {
+  const next = dayOffset + delta;
+  if (next > 0 || next < MAX_DAY_OFFSET) return;
+  dayOffset = next;
+  renderTradeSummaryMetrics(tradeHistoryData, window.farmData);
+}
+
+export function stepWeekOffset(delta) {
+  const next = weekOffset + delta;
+  if (next > 0 || next < MAX_WEEK_OFFSET) return;
+  weekOffset = next;
+  renderTradeSummaryMetrics(tradeHistoryData, window.farmData);
+}
+
+export function stepMonthOffset(delta) {
+  const next = monthOffset + delta;
+  if (next > 0 || next < MAX_MONTH_OFFSET) return;
+  monthOffset = next;
+  renderTradeSummaryMetrics(tradeHistoryData, window.farmData);
+}
+
+export function resetPeriodOffsets() {
+  dayOffset = 0;
+  weekOffset = 0;
+  monthOffset = 0;
+  renderTradeSummaryMetrics(tradeHistoryData, window.farmData);
+}
+
+export function getDayWindow(offset = 0) {
+  const target = new Date();
+  target.setDate(target.getDate() + offset);
+  const start = new Date(target.getFullYear(), target.getMonth(), target.getDate(), 0, 0, 0, 0);
+  const end = new Date(target.getFullYear(), target.getMonth(), target.getDate(), 23, 59, 59, 999);
+
+  let label = 'Today';
+  if (offset === -1) {
+    label = 'Yesterday';
+  } else if (offset < -1) {
+    label = target.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  return { start: start.getTime(), end: end.getTime(), label };
+}
+
+export function getWeekWindow(offset = 0) {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0 is Sun, 1 is Mon...
+  const diffToMonday = (dayOfWeek === 0 ? -6 : 1 - dayOfWeek) + (offset * 7);
+
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  let label = 'This Week (Mon–Sun)';
+  if (offset === -1) {
+    label = 'Last Week';
+  } else if (offset < -1) {
+    const mStr = monday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const sStr = sunday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    label = `${mStr} – ${sStr}`;
+  }
+  return { start: monday.getTime(), end: sunday.getTime(), label };
+}
+
+export function getMonthWindow(offset = 0) {
+  const today = new Date();
+  const targetYear = today.getFullYear();
+  const targetMonth = today.getMonth() + offset;
+
+  const start = new Date(targetYear, targetMonth, 1, 0, 0, 0, 0);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+
+  let label = 'This Month';
+  if (offset === 0) {
+    label = `This Month (${start.toLocaleDateString(undefined, { month: 'short' })})`;
+  } else if (offset === -1) {
+    label = `Last Month (${start.toLocaleDateString(undefined, { month: 'short' })})`;
+  } else {
+    label = start.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  }
+  return { start: start.getTime(), end: end.getTime(), label };
+}
+
 export function renderTradeSummaryMetrics(profileData, farmData = null) {
   if (!profileData) return;
   const user = profileData.username || `Farm #${profileData.id || ''}`;
@@ -112,59 +205,40 @@ export function renderTradeSummaryMetrics(profileData, farmData = null) {
 
   const farmId = String(profileData.id || localStorage.getItem('sfl_farm_id') || '').trim();
 
-  const now = Date.now();
-  const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-  // Calculate Monday to Sunday of the current week
-  const dayOfWeek = today.getDay(); // 0 is Sun, 1 is Mon, 2 is Tue ...
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const currentWeekMonday = new Date(today);
-  currentWeekMonday.setDate(today.getDate() + diffToMonday);
-  currentWeekMonday.setHours(0, 0, 0, 0);
-
-  const currentWeekSunday = new Date(currentWeekMonday);
-  currentWeekSunday.setDate(currentWeekMonday.getDate() + 6);
-  currentWeekSunday.setHours(23, 59, 59, 999);
-
-  const mondayTime = currentWeekMonday.getTime();
-  const sundayTime = currentWeekSunday.getTime();
-
-  // Start of current month (1st of month at 00:00:00)
-  const monthStartTime = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0, 0).getTime();
+  const dayWin = getDayWindow(dayOffset);
+  const weekWin = getWeekWindow(weekOffset);
+  const monthWin = getMonthWindow(monthOffset);
 
   let todaySales = 0, todayBuys = 0, todayCount = 0, todaySalesUsd = 0, todayBuysUsd = 0;
   let weekSales = 0, weekBuys = 0, weekCount = 0, weekSalesUsd = 0, weekBuysUsd = 0;
   let monthSales = 0, monthBuys = 0, monthCount = 0, monthSalesUsd = 0, monthBuysUsd = 0;
   let totalSales = 0, totalBuys = 0;
+  let filteredTotalTrades = 0;
 
   trades.forEach(t => {
+    const isRes = isTradeResource(t);
+    if (!filterResources && isRes) return;
+    if (!filterNfts && !isRes) return;
+    filteredTotalTrades++;
+
     const { isSeller, netSfl, grossSfl } = getTradeAmounts(t, farmId);
     const time = Number(t.fulfilledAt || 0);
 
     const sflUsd = parseFloat(t.sflUsd || t.sfl_usd) || currentSflUsdRate || 0;
     const tradeUsd = sflUsd > 0 ? ((isSeller ? netSfl : grossSfl) * sflUsd) : 0;
 
-    let isToday = false;
-    if (time > 0) {
-      const d = new Date(time);
-      if (!isNaN(d.getTime())) {
-        const dKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        if (dKey === todayKey) isToday = true;
-      }
-    }
-
-    const isThisWeek = time >= mondayTime && time <= sundayTime;
-    const isThisMonth = time >= monthStartTime;
+    const isThisDay = (time >= dayWin.start && time <= dayWin.end);
+    const isThisWeek = (time >= weekWin.start && time <= weekWin.end);
+    const isThisMonth = (time >= monthWin.start && time <= monthWin.end);
 
     if (isSeller) {
       totalSales += netSfl;
-      if (isToday) { todaySales += netSfl; todaySalesUsd += tradeUsd; todayCount++; }
+      if (isThisDay) { todaySales += netSfl; todaySalesUsd += tradeUsd; todayCount++; }
       if (isThisWeek) { weekSales += netSfl; weekSalesUsd += tradeUsd; weekCount++; }
       if (isThisMonth) { monthSales += netSfl; monthSalesUsd += tradeUsd; monthCount++; }
     } else {
       totalBuys += grossSfl;
-      if (isToday) { todayBuys += grossSfl; todayBuysUsd += tradeUsd; todayCount++; }
+      if (isThisDay) { todayBuys += grossSfl; todayBuysUsd += tradeUsd; todayCount++; }
       if (isThisWeek) { weekBuys += grossSfl; weekBuysUsd += tradeUsd; weekCount++; }
       if (isThisMonth) { monthBuys += grossSfl; monthBuysUsd += tradeUsd; monthCount++; }
     }
@@ -176,7 +250,7 @@ export function renderTradeSummaryMetrics(profileData, farmData = null) {
     userSummaryEl.textContent = `Player: ${user} • Level: ${level} • Lifetime Market Volume: ${totalTradesCount.toLocaleString()} trades${rateNote}`;
   }
 
-  // 1. TODAY
+  // 1. TODAY / DAY CARD
   const todayNet = todaySales - todayBuys;
   const todayNetUsd = todaySalesUsd - todayBuysUsd;
   const todayNetEl = document.getElementById('trade-metric-today-net');
@@ -198,7 +272,7 @@ export function renderTradeSummaryMetrics(profileData, farmData = null) {
     todayBuysEl.textContent = `-${todayBuys.toFixed(3)}${bUsd}`;
   }
 
-  // 2. WEEK
+  // 2. WEEK CARD
   const weekNet = weekSales - weekBuys;
   const weekNetUsd = weekSalesUsd - weekBuysUsd;
   const weekNetEl = document.getElementById('trade-metric-week-net');
@@ -220,7 +294,7 @@ export function renderTradeSummaryMetrics(profileData, farmData = null) {
     weekBuysEl.textContent = `-${weekBuys.toFixed(3)}${wbUsd}`;
   }
 
-  // 3. MONTH
+  // 3. MONTH CARD
   const monthNet = monthSales - monthBuys;
   const monthNetUsd = monthSalesUsd - monthBuysUsd;
   const monthNetEl = document.getElementById('trade-metric-month-net');
@@ -265,7 +339,6 @@ export function renderTradeSummaryMetrics(profileData, farmData = null) {
     };
   }
 
-  // Cache in localStorage for immediate rendering on future loads
   try {
     localStorage.setItem('sfl_farm_transfers', JSON.stringify(transfers));
   } catch (_) {}
@@ -299,7 +372,43 @@ export function renderTradeSummaryMetrics(profileData, farmData = null) {
     flowerWithdrawnEl.title = `Total Withdrawn: -${transfers.withdrawn} Flower (${transfers.withdrawStarted} withdrawals)`;
   }
 
-  document.getElementById('subtab-trades-count').textContent = trades.length;
-  document.getElementById('subtab-listings-count').textContent = listings.length;
-  document.getElementById('subtab-offers-count').textContent = offers.length;
+  // Update navigation button states & labels
+  const dayLabelEl = document.getElementById('day-nav-label');
+  if (dayLabelEl) dayLabelEl.textContent = dayWin.label;
+  const dayPrevBtn = document.getElementById('day-nav-prev');
+  if (dayPrevBtn) dayPrevBtn.disabled = (dayOffset <= MAX_DAY_OFFSET);
+  const dayNextBtn = document.getElementById('day-nav-next');
+  if (dayNextBtn) dayNextBtn.disabled = (dayOffset >= 0);
+
+  const weekLabelEl = document.getElementById('week-nav-label');
+  if (weekLabelEl) weekLabelEl.textContent = weekWin.label;
+  const weekPrevBtn = document.getElementById('week-nav-prev');
+  if (weekPrevBtn) weekPrevBtn.disabled = (weekOffset <= MAX_WEEK_OFFSET);
+  const weekNextBtn = document.getElementById('week-nav-next');
+  if (weekNextBtn) weekNextBtn.disabled = (weekOffset >= 0);
+
+  const monthLabelEl = document.getElementById('month-nav-label');
+  if (monthLabelEl) monthLabelEl.textContent = monthWin.label;
+  const monthPrevBtn = document.getElementById('month-nav-prev');
+  if (monthPrevBtn) monthPrevBtn.disabled = (monthOffset <= MAX_MONTH_OFFSET);
+  const monthNextBtn = document.getElementById('month-nav-next');
+  if (monthNextBtn) monthNextBtn.disabled = (monthOffset >= 0);
+
+  const resetBtn = document.getElementById('trade-reset-periods-btn');
+  if (resetBtn) {
+    if (dayOffset !== 0 || weekOffset !== 0 || monthOffset !== 0) {
+      resetBtn.classList.remove('hidden');
+    } else {
+      resetBtn.classList.add('hidden');
+    }
+  }
+
+  const tradesCountEl = document.getElementById('subtab-trades-count');
+  if (tradesCountEl) {
+    tradesCountEl.textContent = filteredTotalTrades;
+  }
+  const listingsCountEl = document.getElementById('subtab-listings-count');
+  if (listingsCountEl) listingsCountEl.textContent = listings.length;
+  const offersCountEl = document.getElementById('subtab-offers-count');
+  if (offersCountEl) offersCountEl.textContent = offers.length;
 }

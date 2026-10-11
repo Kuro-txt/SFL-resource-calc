@@ -1,7 +1,7 @@
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { getItemNameById } from '../../data/knownIds.js';
 import { getTradeAmounts, isUserSeller, getTradeCounterparty, tradeHistoryData, currentSflUsdRate } from './tradeData.js';
-import { currentFilter, selectedItemFilter, calculateItemTradeMetrics } from './tradeFilters.js';
+import { currentFilter, selectedItemFilter, calculateItemTradeMetrics, filterResources, filterNfts, isTradeResource } from './tradeFilters.js';
 import { searchQuery } from './index.js';
 
 export function getTradeItemName(t) {
@@ -25,13 +25,32 @@ export function renderTradesTableView(mountEl, farmId) {
     const isSeller = isUserSeller(t, farmId);
     if (currentFilter === 'sold' && !isSeller) return false;
     if (currentFilter === 'bought' && isSeller) return false;
+
+    // 64 Resources vs NFTs filter
+    const isRes = isTradeResource(t);
+    if (!filterResources && isRes) return false;
+    if (!filterNfts && !isRes) return false;
+
+    // Specific item filter
+    if (selectedItemFilter && selectedItemFilter !== 'all') {
+      const name = getTradeItemName(t);
+      if (name.toLowerCase() !== selectedItemFilter.toLowerCase()) return false;
+    }
+
+    // Search query filter
+    if (searchQuery) {
+      const name = getTradeItemName(t).toLowerCase();
+      const cp = getTradeCounterparty(t, farmId, isSeller).toLowerCase();
+      if (!name.includes(searchQuery) && !cp.includes(searchQuery)) return false;
+    }
+
     return true;
   });
 
   if (filtered.length === 0) {
     mountEl.innerHTML = `
       <div class="p-8 text-center text-sfl-woodLight dark:text-amber-300/60 italic">
-        No completed trades found.
+        No completed trades found matching the current filters.
       </div>
     `;
     return;
@@ -41,7 +60,6 @@ export function renderTradesTableView(mountEl, farmId) {
   filtered.forEach(t => {
     const amounts = getTradeAmounts(t, farmId);
     const isSeller = amounts.isSeller;
-    const isEconomy = t.collection === 'economies' || Boolean(t.economy);
     const itemName = getTradeItemName(t);
     const qty = parseFloat(t.quantity || 1);
     const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
@@ -128,7 +146,6 @@ export function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
   dayData.trades.forEach(t => {
     const amounts = getTradeAmounts(t, farmId);
     const isSeller = amounts.isSeller;
-    const isEconomy = t.collection === 'economies' || Boolean(t.economy);
     const itemName = getTradeItemName(t);
     const qty = parseFloat(t.quantity || 1);
     const unitPrice = qty > 0 ? (amounts.grossSfl / qty) : amounts.grossSfl;
@@ -206,5 +223,4 @@ export function renderSelectedDayTradesTable(displayTitle, dayData, farmId) {
       </div>
     </div>
   `;
-
 }

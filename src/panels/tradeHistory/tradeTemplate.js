@@ -1,11 +1,15 @@
 import { FLOWER_IMG_SMALL_HTML, FLOWER_IMG_HTML } from '../../config/constants.js';
+import { filterResources, filterNfts } from './tradeFilters.js';
 
 export function renderTradeHistoryTemplate() {
   const container = document.getElementById('trade-history-section');
   if (!container) return;
 
+  const resChecked = filterResources ? 'checked' : '';
+  const nftsChecked = filterNfts ? 'checked' : '';
+
   container.innerHTML = `
-    <div class="space-y-6">
+    <div class="space-y-4">
       
       <!-- TOP HEADER & CONTROLS -->
       <div class="bg-sfl-card/90 p-4 rounded-xl border-2 border-sfl-cardBorder flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
@@ -28,21 +32,60 @@ export function renderTradeHistoryTemplate() {
         </div>
       </div>
 
-      <!-- 4 TIME-HORIZON SUMMARY CARDS (TODAY / WEEK / MONTH / CLOUD LEDGER) -->
+      <!-- FILTER & SEARCH TOOLBAR (64 RESOURCES / NFTS / SEARCH) -->
+      <div class="bg-white/80 dark:bg-amber-950/40 p-3 rounded-xl border-2 border-sfl-cardBorder dark:border-amber-700/60 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-xs">
+        <div class="flex flex-wrap items-center gap-2.5">
+          <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1">
+            <span>🔍</span> Filter:
+          </span>
+          <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border-2 border-sfl-cardBorder dark:border-amber-700/60 bg-amber-50/70 dark:bg-amber-900/40 text-sfl-dirt dark:text-amber-100 text-xs font-bold cursor-pointer select-none hover:bg-amber-100 transition shadow-2xs">
+            <input type="checkbox" id="trade-filter-resources" ${resChecked} class="w-3.5 h-3.5 accent-amber-600 rounded cursor-pointer">
+            <span>🌾 64 Resources</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border-2 border-sfl-cardBorder dark:border-amber-700/60 bg-amber-50/70 dark:bg-amber-900/40 text-sfl-dirt dark:text-amber-100 text-xs font-bold cursor-pointer select-none hover:bg-amber-100 transition shadow-2xs">
+            <input type="checkbox" id="trade-filter-nfts" ${nftsChecked} class="w-3.5 h-3.5 accent-amber-600 rounded cursor-pointer">
+            <span>🎨 NFTs &amp; Collectibles</span>
+          </label>
+          <button id="trade-reset-periods-btn" class="hidden bg-amber-200/90 dark:bg-amber-900 text-sfl-dirt dark:text-amber-200 px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-400 dark:border-amber-600 hover:bg-amber-300 transition cursor-pointer flex items-center gap-1 shadow-2xs">
+            <span>⏮️</span> Reset Dates to Present
+          </button>
+        </div>
+
+        <div class="relative w-full md:w-64">
+          <input type="text" id="trade-search-input" placeholder="Search item or counterparty..." class="w-full bg-white dark:bg-amber-950/60 border-2 border-sfl-cardBorder dark:border-amber-700/60 rounded-lg px-3 py-1.5 text-xs text-sfl-dirt dark:text-amber-100 placeholder-sfl-woodLight dark:placeholder-amber-300/40 focus:outline-none focus:border-amber-500 font-medium">
+        </div>
+      </div>
+
+      <!-- 4 TIME-HORIZON SUMMARY CARDS (DAY / WEEK / MONTH / TRANSFERS) -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         
-        <!-- CARD 1: TODAY -->
+        <!-- CARD 1: DAY (TODAY / PAST DAYS) -->
         <div class="bg-white/90 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 p-3 rounded-xl shadow-xs flex flex-col justify-between">
-          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-2">
-            <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
-              <span>📅</span> Today's Trading
-            </span>
-            <span id="trade-metric-today-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">0 trades</span>
+          <div>
+            <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-1.5">
+              <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
+                <span>📅</span> Day
+              </span>
+              <span id="trade-metric-today-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">0 trades</span>
+            </div>
+
+            <!-- Day Navigation Row (◀ Label ▶) -->
+            <div class="flex items-center justify-between bg-amber-50/70 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-lg border border-sfl-cardBorder/40 dark:border-amber-700/40 mb-2">
+              <button id="day-nav-prev" title="Previous day (max 30 days)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-amber-200/80 dark:hover:bg-amber-800 text-sfl-wood dark:text-amber-200 font-black text-xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition">
+                ◀
+              </button>
+              <span id="day-nav-label" class="text-[11px] font-bold text-sfl-dirt dark:text-amber-100 font-mono tracking-tight truncate px-1">Today</span>
+              <button id="day-nav-next" title="Next day" disabled class="w-5 h-5 flex items-center justify-center rounded hover:bg-amber-200/80 dark:hover:bg-amber-800 text-sfl-wood dark:text-amber-200 font-black text-xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition">
+                ▶
+              </button>
+            </div>
+
+            <div class="mb-2">
+              <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">Day Net Profit</span>
+              <span id="trade-metric-today-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+            </div>
           </div>
-          <div class="mb-2">
-            <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">Today Net Profit</span>
-            <span id="trade-metric-today-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
-          </div>
+
           <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40 dark:border-amber-700/40">
             <div>
               <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Sales</span>
@@ -55,18 +98,33 @@ export function renderTradeHistoryTemplate() {
           </div>
         </div>
 
-        <!-- CARD 2: WEEK -->
+        <!-- CARD 2: WEEK (MON–SUN / PAST WEEKS) -->
         <div class="bg-white/90 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 p-3 rounded-xl shadow-xs flex flex-col justify-between">
-          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-2">
-            <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
-              <span>📊</span> Weekly (Mon–Sun)
-            </span>
-            <span id="trade-metric-week-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">0 trades</span>
+          <div>
+            <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-1.5">
+              <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
+                <span>📊</span> Week (Mon–Sun)
+              </span>
+              <span id="trade-metric-week-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">0 trades</span>
+            </div>
+
+            <!-- Week Navigation Row (◀ Label ▶) -->
+            <div class="flex items-center justify-between bg-amber-50/70 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-lg border border-sfl-cardBorder/40 dark:border-amber-700/40 mb-2">
+              <button id="week-nav-prev" title="Previous week (max 12 weeks)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-amber-200/80 dark:hover:bg-amber-800 text-sfl-wood dark:text-amber-200 font-black text-xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition">
+                ◀
+              </button>
+              <span id="week-nav-label" class="text-[11px] font-bold text-sfl-dirt dark:text-amber-100 font-mono tracking-tight truncate px-1">This Week (Mon–Sun)</span>
+              <button id="week-nav-next" title="Next week" disabled class="w-5 h-5 flex items-center justify-center rounded hover:bg-amber-200/80 dark:hover:bg-amber-800 text-sfl-wood dark:text-amber-200 font-black text-xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition">
+                ▶
+              </button>
+            </div>
+
+            <div class="mb-2">
+              <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">Week Net Profit</span>
+              <span id="trade-metric-week-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+            </div>
           </div>
-          <div class="mb-2">
-            <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">Mon – Sun Net Profit</span>
-            <span id="trade-metric-week-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
-          </div>
+
           <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40 dark:border-amber-700/40">
             <div>
               <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Sales</span>
@@ -79,18 +137,33 @@ export function renderTradeHistoryTemplate() {
           </div>
         </div>
 
-        <!-- CARD 3: MONTH -->
+        <!-- CARD 3: MONTH (THIS MONTH / PAST MONTHS) -->
         <div class="bg-white/90 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 p-3 rounded-xl shadow-xs flex flex-col justify-between">
-          <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-2">
-            <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
-              <span>🗓️</span> Monthly Trading
-            </span>
-            <span id="trade-metric-month-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">0 trades</span>
+          <div>
+            <div class="flex items-center justify-between border-b border-sfl-cardBorder/60 dark:border-amber-700/40 pb-1.5 mb-1.5">
+              <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
+                <span>🗓️</span> Month
+              </span>
+              <span id="trade-metric-month-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60">0 trades</span>
+            </div>
+
+            <!-- Month Navigation Row (◀ Label ▶) -->
+            <div class="flex items-center justify-between bg-amber-50/70 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-lg border border-sfl-cardBorder/40 dark:border-amber-700/40 mb-2">
+              <button id="month-nav-prev" title="Previous month (max 24 months)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-amber-200/80 dark:hover:bg-amber-800 text-sfl-wood dark:text-amber-200 font-black text-xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition">
+                ◀
+              </button>
+              <span id="month-nav-label" class="text-[11px] font-bold text-sfl-dirt dark:text-amber-100 font-mono tracking-tight truncate px-1">This Month</span>
+              <button id="month-nav-next" title="Next month" disabled class="w-5 h-5 flex items-center justify-center rounded hover:bg-amber-200/80 dark:hover:bg-amber-800 text-sfl-wood dark:text-amber-200 font-black text-xs cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition">
+                ▶
+              </button>
+            </div>
+
+            <div class="mb-2">
+              <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">Month Net Profit</span>
+              <span id="trade-metric-month-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
+            </div>
           </div>
-          <div class="mb-2">
-            <span class="text-[9px] font-bold text-sfl-woodLight dark:text-amber-300/70 uppercase block">This Month Net Profit</span>
-            <span id="trade-metric-month-net" class="text-lg font-black text-sfl-wood dark:text-amber-100 font-mono">+0.000 ${FLOWER_IMG_SMALL_HTML}</span>
-          </div>
+
           <div class="grid grid-cols-2 gap-1 text-[11px] font-mono pt-1.5 border-t border-sfl-cardBorder/40 dark:border-amber-700/40">
             <div>
               <span class="text-[9px] text-sfl-woodLight dark:text-amber-300/70 block font-sans font-bold">Sales</span>
@@ -112,7 +185,6 @@ export function renderTradeHistoryTemplate() {
             <span id="trade-metric-transfers-count" class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-900/60 text-sfl-dirt dark:text-amber-200 border border-amber-300 dark:border-amber-700/60" title="Total On-Chain Transfers">0 total</span>
           </div>
 
-          <!-- Pure count and amount of both deposits & withdrawals (no net flow) -->
           <div class="space-y-1.5 my-auto">
             <!-- DEPOSITS -->
             <div class="bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50 px-2.5 py-1.5 rounded-lg flex items-center justify-between">
@@ -148,7 +220,7 @@ export function renderTradeHistoryTemplate() {
 
       </div>
 
-      <!-- NAVIGATION SUB-TABS (TRADES / CALENDAR / LISTINGS / OFFERS) -->
+      <!-- NAVIGATION SUB-TABS (TRADES / ITEMS / CALENDAR / LISTINGS / OFFERS) -->
       <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-sfl-cardBorder dark:border-amber-700/60 pb-2">
         <div class="flex items-center gap-1.5 flex-wrap">
           <button id="subtab-trades-btn" class="trade-subtab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border-2 border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-200 shadow-xs">
@@ -169,7 +241,7 @@ export function renderTradeHistoryTemplate() {
         </div>
       </div>
 
-      <!-- FILTER CONTROLS FOR TRADES VIEW (ALL / SOLD / BOUGHT) -->
+      <!-- FILTER CONTROLS FOR TRADES VIEW (ALL / SOLD / BOUGHT + ITEM FILTER DROPDOWN) -->
       <div id="trade-filters-bar" class="flex flex-wrap items-center justify-between gap-2.5">
         <div class="flex items-center gap-1.5 flex-wrap">
           <button id="trade-filter-all" class="trade-filter-btn active-all px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-dirt dark:border-amber-700 bg-sfl-wood dark:bg-amber-900 text-amber-100 shadow-xs">
@@ -180,6 +252,15 @@ export function renderTradeHistoryTemplate() {
           </button>
           <button id="trade-filter-bought" class="trade-filter-btn px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer border border-sfl-cardBorder dark:border-amber-700/60 bg-white dark:bg-amber-950/40 text-sfl-wood dark:text-amber-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-800 dark:hover:text-blue-300">
             🔵 Bought (Purchases)
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <select id="trade-item-filter" class="bg-white dark:bg-amber-950/60 border-2 border-sfl-cardBorder dark:border-amber-700/60 text-sfl-dirt dark:text-amber-100 text-xs rounded-lg px-2.5 py-1 font-bold focus:outline-none focus:border-amber-500 cursor-pointer">
+            <option value="all">📦 All Items</option>
+          </select>
+          <button id="trade-item-clear-btn" class="hidden text-[11px] font-bold text-sfl-woodLight hover:text-sfl-accent cursor-pointer">
+            ✕ Clear
           </button>
         </div>
       </div>

@@ -1,11 +1,27 @@
 import { renderTradeHistoryTemplate } from './tradeTemplate.js';
 import { fetchMarketplaceTrades, getTradeAmounts, tradeHistoryData } from './tradeData.js';
-import { switchSubTab, setTradeFilter, setItemFilter, selectedItemFilter, getUniqueTradedItems, currentView } from './tradeFilters.js';
+import {
+  switchSubTab,
+  setTradeFilter,
+  setItemFilter,
+  selectedItemFilter,
+  getUniqueTradedItems,
+  currentView,
+  setResourceNftFilter,
+  filterResources,
+  filterNfts
+} from './tradeFilters.js';
 import { exportTradesToCsv } from './tradeCsv.js';
 import { renderCalendarMainView } from './tradeCalendar.js';
 import { renderListingsView, renderOffersView } from './tradeListings.js';
 import { renderTradesTableView } from './tradeTableView.js';
-import { renderTradeSummaryMetrics } from './tradeMetrics.js';
+import {
+  renderTradeSummaryMetrics,
+  stepDayOffset,
+  stepWeekOffset,
+  stepMonthOffset,
+  resetPeriodOffsets
+} from './tradeMetrics.js';
 import { renderItemAnalyticsView } from './tradeItemAnalytics.js';
 
 export let searchQuery = '';
@@ -26,6 +42,36 @@ export function initTradeHistoryPanel() {
   document.getElementById('trade-filter-sold')?.addEventListener('click', () => setTradeFilter('sold'));
   document.getElementById('trade-filter-bought')?.addEventListener('click', () => setTradeFilter('bought'));
 
+  // Day / Week / Month arrow navigation
+  document.getElementById('day-nav-prev')?.addEventListener('click', () => stepDayOffset(-1));
+  document.getElementById('day-nav-next')?.addEventListener('click', () => stepDayOffset(1));
+  document.getElementById('week-nav-prev')?.addEventListener('click', () => stepWeekOffset(-1));
+  document.getElementById('week-nav-next')?.addEventListener('click', () => stepWeekOffset(1));
+  document.getElementById('month-nav-prev')?.addEventListener('click', () => stepMonthOffset(-1));
+  document.getElementById('month-nav-next')?.addEventListener('click', () => stepMonthOffset(1));
+  document.getElementById('trade-reset-periods-btn')?.addEventListener('click', () => resetPeriodOffsets());
+
+  // 64 Resources & NFT tick filter checkboxes
+  const resCheckbox = document.getElementById('trade-filter-resources');
+  const nftsCheckbox = document.getElementById('trade-filter-nfts');
+  const onFilterChange = (changedType) => {
+    const resVal = resCheckbox?.checked;
+    const nftsVal = nftsCheckbox?.checked;
+    if (!resVal && !nftsVal) {
+      if (changedType === 'resources' && resCheckbox) resCheckbox.checked = true;
+      if (changedType === 'nfts' && nftsCheckbox) nftsCheckbox.checked = true;
+      return;
+    }
+    setResourceNftFilter(Boolean(resCheckbox?.checked), Boolean(nftsCheckbox?.checked));
+    if (tradeHistoryData) {
+      renderTradeSummaryMetrics(tradeHistoryData, window.farmData);
+      populateItemFilterDropdown();
+      renderCurrentView();
+    }
+  };
+  resCheckbox?.addEventListener('change', () => onFilterChange('resources'));
+  nftsCheckbox?.addEventListener('change', () => onFilterChange('nfts'));
+
   const itemFilterEl = document.getElementById('trade-item-filter');
   itemFilterEl?.addEventListener('change', (e) => {
     setItemFilter(e.target.value);
@@ -38,7 +84,7 @@ export function initTradeHistoryPanel() {
 
   document.getElementById('tax-select')?.addEventListener('change', () => {
     if (tradeHistoryData) {
-      renderTradeSummaryMetrics(tradeHistoryData);
+      renderTradeSummaryMetrics(tradeHistoryData, window.farmData);
       renderCurrentView();
     }
   });
@@ -62,7 +108,7 @@ export function populateItemFilterDropdown() {
   const selectEl = document.getElementById('trade-item-filter');
   if (selectEl) {
     const currentVal = selectedItemFilter || 'all';
-    let html = `<option value="all">📦 All Items (${trades.length})</option>`;
+    let html = `<option value="all">📦 All Items (${uniqueItems.reduce((sum, i) => sum + i.count, 0)})</option>`;
     uniqueItems.forEach(item => {
       const isSel = (item.name.toLowerCase() === currentVal.toLowerCase());
       html += `<option value="${item.name}" ${isSel ? 'selected' : ''}>${item.name} (${item.count})</option>`;
@@ -107,7 +153,9 @@ window.switchSubTab = switchSubTab;
 window.setTradeFilter = setTradeFilter;
 window.setItemFilter = setItemFilter;
 window.exportTradesToCsv = exportTradesToCsv;
+window.stepDayOffset = stepDayOffset;
+window.stepWeekOffset = stepWeekOffset;
+window.stepMonthOffset = stepMonthOffset;
+window.resetPeriodOffsets = resetPeriodOffsets;
 
 export { fetchMarketplaceTrades, getTradeAmounts, renderTradeHistoryTemplate, setItemFilter };
-
-
