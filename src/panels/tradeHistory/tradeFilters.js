@@ -1,10 +1,42 @@
 import { renderCurrentView } from './index.js';
 import { getTradeAmounts } from './tradeData.js';
 import { getItemNameById } from '../../data/knownIds.js';
+import { isGlobalTaxItem } from '../../config/constants.js';
 
 export let currentView = 'trades';
 export let currentFilter = 'all';
 export let selectedItemFilter = 'all';
+
+export let filterResources = typeof localStorage !== 'undefined' ? (localStorage.getItem('sfl_trade_filter_resources') !== 'false') : true;
+export let filterNfts = typeof localStorage !== 'undefined' ? (localStorage.getItem('sfl_trade_filter_nfts') !== 'false') : true;
+
+// Guard against corrupt state where both are false
+if (!filterResources && !filterNfts) {
+  filterResources = true;
+  filterNfts = true;
+}
+
+export function isTradeResource(trade) {
+  if (!trade) return false;
+  let name = trade.itemName;
+  if (!name || name.startsWith('Item #')) {
+    name = getItemNameById(trade.itemId || name, trade.collection);
+  }
+  return isGlobalTaxItem(name);
+}
+
+export function setResourceNftFilter(resources, nfts) {
+  if (!resources && !nfts) {
+    return false;
+  }
+  filterResources = Boolean(resources);
+  filterNfts = Boolean(nfts);
+  try {
+    localStorage.setItem('sfl_trade_filter_resources', filterResources ? 'true' : 'false');
+    localStorage.setItem('sfl_trade_filter_nfts', filterNfts ? 'true' : 'false');
+  } catch (_) {}
+  return true;
+}
 
 export function switchSubTab(tab) {
   currentView = tab;
@@ -66,6 +98,10 @@ export function getUniqueTradedItems(trades) {
   if (!Array.isArray(trades) || trades.length === 0) return [];
   const map = new Map();
   trades.forEach(t => {
+    const isRes = isTradeResource(t);
+    if (!filterResources && isRes) return;
+    if (!filterNfts && !isRes) return;
+
     let name = t.itemName;
     if (!name || name.startsWith('Item #')) {
       name = getItemNameById(t.itemId || name, t.collection);

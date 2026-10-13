@@ -890,38 +890,30 @@ export function renderItemAnalyticsView(mountEl, farmId) {
 
       </div>
 
-      <!-- MULTI-ITEM SELECTOR (ONLY SHOW ITEMS THAT ARE SELECTED) -->
+      <!-- MULTI-ITEM SELECTOR (SEARCHABLE COMBOBOX AUTOFILL) -->
       <div class="bg-white/95 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 rounded-xl p-3.5 shadow-2xs space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div class="flex items-center gap-2 flex-wrap">
-            <label for="item-add-select" class="text-xs font-black text-sfl-dirt dark:text-amber-100 uppercase tracking-wide flex items-center gap-1.5">
+          <div class="flex items-center gap-2 flex-wrap relative">
+            <label for="item-compare-search-input" class="text-xs font-black text-sfl-dirt dark:text-amber-100 uppercase tracking-wide flex items-center gap-1.5">
               <span>🎯</span> Select Items to Compare:
             </label>
-            <select id="item-add-select" class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-200 dark:bg-amber-950/60 dark:border-amber-700/60 cursor-pointer max-w-[280px]">
-              <option value="">➕ Choose an item to add...</option>
-              ${availableItems.map(item => {
-                let badge = '';
-                if (analyticsTradeType === 'bought') {
-                  badge = `${item.boughtCount} buys, -${item.totalBoughtSfl.toFixed(2)} SFL`;
-                } else if (analyticsTradeType === 'sold') {
-                  badge = `${item.soldCount} sales, +${item.totalSoldSfl.toFixed(2)} SFL`;
-                } else {
-                  badge = `${item.count} trades | Net ${item.netSfl >= 0 ? '+' : ''}${item.netSfl.toFixed(2)} SFL`;
-                }
-                return `<option value="${item.name}">${item.name} (${badge})</option>`;
-              }).join('')}
-            </select>
+            <div class="relative w-full sm:w-72">
+              <input type="text" id="item-compare-search-input" placeholder="🔍 Type to search & add item..." autocomplete="off"
+                class="w-full sfl-input rounded-lg pl-3 pr-7 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-200 dark:bg-amber-950/60 dark:border-amber-700/60 focus:outline-none focus:border-amber-500">
+              <button id="item-compare-search-clear" class="hidden absolute right-2 top-1.5 text-xs font-bold text-sfl-woodLight hover:text-sfl-accent cursor-pointer">✕</button>
+
+              <!-- Floating Autofill Dropdown -->
+              <div id="item-compare-dropdown" class="hidden absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white/95 dark:bg-amber-950/95 border-2 border-sfl-cardBorder dark:border-amber-700/80 rounded-xl shadow-2xl z-50 divide-y divide-sfl-cardBorder/40 dark:divide-amber-800/40 backdrop-blur-xs"></div>
+            </div>
           </div>
 
           <div class="flex items-center gap-1.5 flex-wrap">
-            <button id="quick-top5-btn" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 dark:bg-amber-900/60 text-sfl-wood dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-700 transition cursor-pointer">
+            <button id="quick-top5-btn" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 dark:bg-amber-900/60 text-sfl-wood dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-700 transition cursor-pointer shadow-2xs">
               Top 5 Traded
             </button>
-            <button id="quick-clear-btn" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 dark:bg-amber-900/60 text-sfl-wood dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-700 transition cursor-pointer">
+            <button id="quick-clear-btn" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 dark:bg-amber-900/60 text-sfl-wood dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-700 transition cursor-pointer shadow-2xs">
               ✕ Clear All
             </button>
-            <input type="text" id="item-search-filter-input" placeholder="🔍 Filter items..." value="${itemSearchFilter}" 
-              class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-200 dark:bg-amber-950/60 dark:border-amber-700/60 w-36">
           </div>
         </div>
 
@@ -945,7 +937,7 @@ export function renderItemAnalyticsView(mountEl, farmId) {
             }).join('')}
             ${selectedList.length === 0 ? `
               <span class="text-xs text-sfl-woodLight dark:text-amber-300/60 italic">
-                No items selected. Choose an item from the dropdown or quick search below to view trading analytics.
+                No items selected. Type an item name above to view its activity graph and compare.
               </span>
             ` : ''}
           </div>
@@ -960,23 +952,6 @@ export function renderItemAnalyticsView(mountEl, farmId) {
             </div>
           ` : ''}
         </div>
-
-        ${itemSearchFilter ? `
-          <!-- Quick search matches to add -->
-          <div class="flex items-center gap-1.5 flex-wrap pt-1">
-            <span class="text-[11px] text-sfl-woodLight dark:text-amber-300/70">Matches:</span>
-            ${filteredItems.slice(0, 8).map(item => {
-              const isSelected = selectedItems.has(item.name);
-              return `
-                <button data-add-item="${item.name}" class="text-[11px] font-bold px-2 py-0.5 rounded border transition cursor-pointer ${
-                  isSelected ? 'bg-amber-200 dark:bg-amber-800 text-sfl-dirt dark:text-amber-100 border-amber-400' : 'bg-white dark:bg-amber-950/60 text-sfl-wood dark:text-amber-200 border-sfl-cardBorder hover:bg-amber-100'
-                }">
-                  ${isSelected ? '✓ ' : '+ '} ${item.name} (${item.count})
-                </button>
-              `;
-            }).join('')}
-          </div>
-        ` : ''}
       </div>
 
       <!-- COMBINED SELECTED ITEMS NET FLOWER SUMMARY CARD -->
@@ -1298,23 +1273,120 @@ export function renderItemAnalyticsView(mountEl, farmId) {
   document.getElementById('metric-sfl-btn')?.addEventListener('click', () => setAnalyticsMetric('sfl'));
   document.getElementById('metric-qty-btn')?.addEventListener('click', () => setAnalyticsMetric('qty'));
 
-  const selectPicker = document.getElementById('item-add-select');
-  selectPicker?.addEventListener('change', (e) => {
+  const searchInput = document.getElementById('item-compare-search-input');
+  const dropdown = document.getElementById('item-compare-dropdown');
+  const searchClear = document.getElementById('item-compare-search-clear');
+
+  function renderCompareDropdown(query = '') {
+    if (!dropdown) return;
+    const q = query.toLowerCase().trim();
+    const matches = tradedItems.filter(item => {
+      if (!q) return true;
+      return item.name.toLowerCase().includes(q);
+    });
+
+    if (matches.length === 0) {
+      dropdown.innerHTML = `
+        <div class="p-3 text-center text-xs text-sfl-woodLight dark:text-amber-300/60 italic">
+          No items match "${query}"
+        </div>
+      `;
+      dropdown.classList.remove('hidden');
+      return;
+    }
+
+    let html = '';
+    matches.forEach(item => {
+      const isSelected = selectedItems.has(item.name);
+      let badge = '';
+      if (analyticsTradeType === 'bought') {
+        badge = `${item.boughtCount} buys, -${item.totalBoughtSfl.toFixed(2)} SFL`;
+      } else if (analyticsTradeType === 'sold') {
+        badge = `${item.soldCount} sales, +${item.totalSoldSfl.toFixed(2)} SFL`;
+      } else {
+        badge = `${item.count} trades | Net ${item.netSfl >= 0 ? '+' : ''}${item.netSfl.toFixed(2)} SFL`;
+      }
+
+      html += `
+        <div class="compare-dropdown-item px-3 py-2 text-xs flex items-center justify-between gap-2 hover:bg-amber-100/70 dark:hover:bg-amber-900/60 cursor-pointer transition select-none ${isSelected ? 'bg-amber-50/80 dark:bg-amber-900/30' : ''}" data-item="${item.name}">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="font-bold text-sfl-dirt dark:text-amber-100 truncate">${item.name}</span>
+            <span class="text-[10px] text-sfl-woodLight dark:text-amber-300/70 font-mono shrink-0">(${badge})</span>
+          </div>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${isSelected ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-400' : 'bg-amber-100 dark:bg-amber-900 text-sfl-wood dark:text-amber-200 border border-amber-300'}">
+            ${isSelected ? '✓ Added' : '+ Add'}
+          </span>
+        </div>
+      `;
+    });
+
+    dropdown.innerHTML = html;
+
+    dropdown.querySelectorAll('.compare-dropdown-item').forEach(itemEl => {
+      itemEl.addEventListener('click', () => {
+        const name = itemEl.getAttribute('data-item');
+        if (name) {
+          if (selectedItems.has(name)) {
+            selectedItems.delete(name);
+          } else {
+            selectedItems.add(name);
+          }
+          if (searchInput) searchInput.value = '';
+          dropdown.classList.add('hidden');
+          renderItemAnalyticsView(mountEl, farmId);
+        }
+      });
+    });
+
+    dropdown.classList.remove('hidden');
+  }
+
+  searchInput?.addEventListener('focus', () => {
+    renderCompareDropdown(searchInput.value);
+  });
+
+  searchInput?.addEventListener('input', (e) => {
     const val = e.target.value;
-    if (val) {
-      selectedItems.add(val);
-      renderItemAnalyticsView(mountEl, farmId);
+    if (searchClear) {
+      if (val) searchClear.classList.remove('hidden');
+      else searchClear.classList.add('hidden');
+    }
+    renderCompareDropdown(val);
+  });
+
+  searchInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      dropdown?.classList.add('hidden');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const firstItem = dropdown?.querySelector('.compare-dropdown-item');
+      if (firstItem) {
+        firstItem.click();
+      }
     }
   });
 
+  searchClear?.addEventListener('click', () => {
+    if (searchInput) searchInput.value = '';
+    searchClear.classList.add('hidden');
+    renderCompareDropdown('');
+    searchInput?.focus();
+  });
+
+  if (typeof window !== 'undefined' && !window._itemCompareDocClickBound) {
+    document.addEventListener('click', (e) => {
+      const activeDropdown = document.getElementById('item-compare-dropdown');
+      const activeInput = document.getElementById('item-compare-search-input');
+      const activeClear = document.getElementById('item-compare-search-clear');
+      if (activeDropdown && !activeDropdown.contains(e.target) && e.target !== activeInput && e.target !== activeClear) {
+        activeDropdown.classList.add('hidden');
+      }
+    });
+    window._itemCompareDocClickBound = true;
+  }
+
   document.getElementById('quick-top5-btn')?.addEventListener('click', () => selectTopTradedItems(tradedItems, 5));
   document.getElementById('quick-clear-btn')?.addEventListener('click', () => clearSelectedItems());
-
-  const searchInput = document.getElementById('item-search-filter-input');
-  searchInput?.addEventListener('input', (e) => {
-    itemSearchFilter = e.target.value.trim();
-    renderItemAnalyticsView(mountEl, farmId);
-  });
 
   mountEl.querySelectorAll('[data-remove-item]').forEach(btn => {
     btn.addEventListener('click', () => {

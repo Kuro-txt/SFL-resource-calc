@@ -1,11 +1,27 @@
 import { renderTradeHistoryTemplate } from './tradeTemplate.js';
 import { fetchMarketplaceTrades, getTradeAmounts, tradeHistoryData } from './tradeData.js';
-import { switchSubTab, setTradeFilter, setItemFilter, selectedItemFilter, getUniqueTradedItems, currentView } from './tradeFilters.js';
+import {
+  switchSubTab,
+  setTradeFilter,
+  setItemFilter,
+  selectedItemFilter,
+  getUniqueTradedItems,
+  currentView,
+  setResourceNftFilter,
+  filterResources,
+  filterNfts
+} from './tradeFilters.js';
 import { exportTradesToCsv } from './tradeCsv.js';
 import { renderCalendarMainView } from './tradeCalendar.js';
 import { renderListingsView, renderOffersView } from './tradeListings.js';
 import { renderTradesTableView } from './tradeTableView.js';
-import { renderTradeSummaryMetrics } from './tradeMetrics.js';
+import {
+  renderTradeSummaryMetrics,
+  stepDayOffset,
+  stepWeekOffset,
+  stepMonthOffset,
+  resetPeriodOffsets
+} from './tradeMetrics.js';
 import { renderItemAnalyticsView } from './tradeItemAnalytics.js';
 
 export let searchQuery = '';
@@ -26,6 +42,36 @@ export function initTradeHistoryPanel() {
   document.getElementById('trade-filter-sold')?.addEventListener('click', () => setTradeFilter('sold'));
   document.getElementById('trade-filter-bought')?.addEventListener('click', () => setTradeFilter('bought'));
 
+  // Day / Week / Month arrow navigation
+  document.getElementById('day-nav-prev')?.addEventListener('click', () => stepDayOffset(-1));
+  document.getElementById('day-nav-next')?.addEventListener('click', () => stepDayOffset(1));
+  document.getElementById('week-nav-prev')?.addEventListener('click', () => stepWeekOffset(-1));
+  document.getElementById('week-nav-next')?.addEventListener('click', () => stepWeekOffset(1));
+  document.getElementById('month-nav-prev')?.addEventListener('click', () => stepMonthOffset(-1));
+  document.getElementById('month-nav-next')?.addEventListener('click', () => stepMonthOffset(1));
+  document.getElementById('trade-reset-periods-btn')?.addEventListener('click', () => resetPeriodOffsets());
+
+  // 64 Resources & NFT tick filter checkboxes
+  const resCheckbox = document.getElementById('trade-filter-resources');
+  const nftsCheckbox = document.getElementById('trade-filter-nfts');
+  const onFilterChange = (changedType) => {
+    const resVal = resCheckbox?.checked;
+    const nftsVal = nftsCheckbox?.checked;
+    if (!resVal && !nftsVal) {
+      if (changedType === 'resources' && resCheckbox) resCheckbox.checked = true;
+      if (changedType === 'nfts' && nftsCheckbox) nftsCheckbox.checked = true;
+      return;
+    }
+    setResourceNftFilter(Boolean(resCheckbox?.checked), Boolean(nftsCheckbox?.checked));
+    if (tradeHistoryData) {
+      renderTradeSummaryMetrics(tradeHistoryData, window.farmData);
+      populateItemFilterDropdown();
+      renderCurrentView();
+    }
+  };
+  resCheckbox?.addEventListener('change', () => onFilterChange('resources'));
+  nftsCheckbox?.addEventListener('change', () => onFilterChange('nfts'));
+
   const itemFilterEl = document.getElementById('trade-item-filter');
   itemFilterEl?.addEventListener('change', (e) => {
     setItemFilter(e.target.value);
@@ -38,14 +84,25 @@ export function initTradeHistoryPanel() {
 
   document.getElementById('tax-select')?.addEventListener('change', () => {
     if (tradeHistoryData) {
-      renderTradeSummaryMetrics(tradeHistoryData);
+      renderTradeSummaryMetrics(tradeHistoryData, window.farmData);
       renderCurrentView();
     }
   });
 
   const searchEl = document.getElementById('trade-search-input');
+  const searchClearBtn = document.getElementById('trade-search-clear-btn');
   searchEl?.addEventListener('input', (e) => {
     searchQuery = e.target.value.toLowerCase().trim();
+    if (searchClearBtn) {
+      if (searchQuery) searchClearBtn.classList.remove('hidden');
+      else searchClearBtn.classList.add('hidden');
+    }
+    renderCurrentView();
+  });
+  searchClearBtn?.addEventListener('click', () => {
+    if (searchEl) searchEl.value = '';
+    searchQuery = '';
+    searchClearBtn.classList.add('hidden');
     renderCurrentView();
   });
 }
@@ -59,10 +116,15 @@ export function populateItemFilterDropdown() {
     itemsCountEl.textContent = uniqueItems.length;
   }
 
+  // If previously selected item is no longer in filtered category, reset to 'all'
+  if (selectedItemFilter && selectedItemFilter !== 'all' && !uniqueItems.some(i => i.name.toLowerCase() === selectedItemFilter.toLowerCase())) {
+    setItemFilter('all');
+  }
+
   const selectEl = document.getElementById('trade-item-filter');
   if (selectEl) {
     const currentVal = selectedItemFilter || 'all';
-    let html = `<option value="all">📦 All Items (${trades.length})</option>`;
+    let html = `<option value="all">📦 All Items (${uniqueItems.reduce((sum, i) => sum + i.count, 0)})</option>`;
     uniqueItems.forEach(item => {
       const isSel = (item.name.toLowerCase() === currentVal.toLowerCase());
       html += `<option value="${item.name}" ${isSel ? 'selected' : ''}>${item.name} (${item.count})</option>`;
@@ -81,24 +143,30 @@ export function populateItemFilterDropdown() {
 export function renderCurrentView() {
   const mountEl = document.getElementById('trade-content-mount');
   const titleEl = document.getElementById('trade-table-title');
+  const searchContainer = document.getElementById('trade-search-container');
   if (!mountEl || !tradeHistoryData) return;
 
   const farmId = String(tradeHistoryData.id || localStorage.getItem('sfl_farm_id') || '').trim();
 
   if (currentView === 'trades') {
     if (titleEl) titleEl.textContent = "📜 Completed Trade Ledger (Archived in TiDB Cloud)";
+    if (searchContainer) searchContainer.classList.remove('hidden');
     renderTradesTableView(mountEl, farmId);
   } else if (currentView === 'items') {
     if (titleEl) titleEl.textContent = "📦 Individual Item Sales & Multi-Item Comparison";
+    if (searchContainer) searchContainer.classList.add('hidden');
     renderItemAnalyticsView(mountEl, farmId);
   } else if (currentView === 'calendar') {
     if (titleEl) titleEl.textContent = "📅 Trade Calendar & Profit Trends";
+    if (searchContainer) searchContainer.classList.add('hidden');
     renderCalendarMainView(mountEl, farmId);
   } else if (currentView === 'listings') {
     if (titleEl) titleEl.textContent = "🏷️ Active Marketplace Listings";
+    if (searchContainer) searchContainer.classList.add('hidden');
     renderListingsView(mountEl);
   } else if (currentView === 'offers') {
     if (titleEl) titleEl.textContent = "🎯 Open Buy Offers";
+    if (searchContainer) searchContainer.classList.add('hidden');
     renderOffersView(mountEl);
   }
 }
@@ -107,7 +175,9 @@ window.switchSubTab = switchSubTab;
 window.setTradeFilter = setTradeFilter;
 window.setItemFilter = setItemFilter;
 window.exportTradesToCsv = exportTradesToCsv;
+window.stepDayOffset = stepDayOffset;
+window.stepWeekOffset = stepWeekOffset;
+window.stepMonthOffset = stepMonthOffset;
+window.resetPeriodOffsets = resetPeriodOffsets;
 
 export { fetchMarketplaceTrades, getTradeAmounts, renderTradeHistoryTemplate, setItemFilter };
-
-
