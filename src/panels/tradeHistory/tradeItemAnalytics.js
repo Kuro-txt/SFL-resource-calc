@@ -1373,11 +1373,17 @@ export function renderItemAnalyticsView(mountEl, farmId) {
     searchInput?.focus();
   });
 
-  document.addEventListener('click', (e) => {
-    if (dropdown && !dropdown.contains(e.target) && e.target !== searchInput && e.target !== searchClear) {
-      dropdown.classList.add('hidden');
-    }
-  });
+  if (typeof window !== 'undefined' && !window._itemCompareDocClickBound) {
+    document.addEventListener('click', (e) => {
+      const activeDropdown = document.getElementById('item-compare-dropdown');
+      const activeInput = document.getElementById('item-compare-search-input');
+      const activeClear = document.getElementById('item-compare-search-clear');
+      if (activeDropdown && !activeDropdown.contains(e.target) && e.target !== activeInput && e.target !== activeClear) {
+        activeDropdown.classList.add('hidden');
+      }
+    });
+    window._itemCompareDocClickBound = true;
+  }
 
   document.getElementById('quick-top5-btn')?.addEventListener('click', () => selectTopTradedItems(tradedItems, 5));
   document.getElementById('quick-clear-btn')?.addEventListener('click', () => clearSelectedItems());

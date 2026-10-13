@@ -39,8 +39,8 @@ export function renderTradesTableView(mountEl, farmId) {
 
     // Search query filter
     if (searchQuery) {
-      const name = getTradeItemName(t).toLowerCase();
-      const cp = getTradeCounterparty(t, farmId, isSeller).toLowerCase();
+      const name = String(getTradeItemName(t) || '').toLowerCase();
+      const cp = String(getTradeCounterparty(t, farmId, isSeller) || '').toLowerCase();
       if (!name.includes(searchQuery) && !cp.includes(searchQuery)) return false;
     }
 

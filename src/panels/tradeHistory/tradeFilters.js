@@ -10,6 +10,12 @@ export let selectedItemFilter = 'all';
 export let filterResources = typeof localStorage !== 'undefined' ? (localStorage.getItem('sfl_trade_filter_resources') !== 'false') : true;
 export let filterNfts = typeof localStorage !== 'undefined' ? (localStorage.getItem('sfl_trade_filter_nfts') !== 'false') : true;
 
+// Guard against corrupt state where both are false
+if (!filterResources && !filterNfts) {
+  filterResources = true;
+  filterNfts = true;
+}
+
 export function isTradeResource(trade) {
   if (!trade) return false;
   let name = trade.itemName;

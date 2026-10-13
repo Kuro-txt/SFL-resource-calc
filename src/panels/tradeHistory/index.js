@@ -116,6 +116,11 @@ export function populateItemFilterDropdown() {
     itemsCountEl.textContent = uniqueItems.length;
   }
 
+  // If previously selected item is no longer in filtered category, reset to 'all'
+  if (selectedItemFilter && selectedItemFilter !== 'all' && !uniqueItems.some(i => i.name.toLowerCase() === selectedItemFilter.toLowerCase())) {
+    setItemFilter('all');
+  }
+
   const selectEl = document.getElementById('trade-item-filter');
   if (selectEl) {
     const currentVal = selectedItemFilter || 'all';
