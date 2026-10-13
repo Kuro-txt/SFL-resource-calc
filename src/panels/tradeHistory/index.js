@@ -90,8 +90,19 @@ export function initTradeHistoryPanel() {
   });
 
   const searchEl = document.getElementById('trade-search-input');
+  const searchClearBtn = document.getElementById('trade-search-clear-btn');
   searchEl?.addEventListener('input', (e) => {
     searchQuery = e.target.value.toLowerCase().trim();
+    if (searchClearBtn) {
+      if (searchQuery) searchClearBtn.classList.remove('hidden');
+      else searchClearBtn.classList.add('hidden');
+    }
+    renderCurrentView();
+  });
+  searchClearBtn?.addEventListener('click', () => {
+    if (searchEl) searchEl.value = '';
+    searchQuery = '';
+    searchClearBtn.classList.add('hidden');
     renderCurrentView();
   });
 }
@@ -127,24 +138,30 @@ export function populateItemFilterDropdown() {
 export function renderCurrentView() {
   const mountEl = document.getElementById('trade-content-mount');
   const titleEl = document.getElementById('trade-table-title');
+  const searchContainer = document.getElementById('trade-search-container');
   if (!mountEl || !tradeHistoryData) return;
 
   const farmId = String(tradeHistoryData.id || localStorage.getItem('sfl_farm_id') || '').trim();
 
   if (currentView === 'trades') {
     if (titleEl) titleEl.textContent = "📜 Completed Trade Ledger (Archived in TiDB Cloud)";
+    if (searchContainer) searchContainer.classList.remove('hidden');
     renderTradesTableView(mountEl, farmId);
   } else if (currentView === 'items') {
     if (titleEl) titleEl.textContent = "📦 Individual Item Sales & Multi-Item Comparison";
+    if (searchContainer) searchContainer.classList.add('hidden');
     renderItemAnalyticsView(mountEl, farmId);
   } else if (currentView === 'calendar') {
     if (titleEl) titleEl.textContent = "📅 Trade Calendar & Profit Trends";
+    if (searchContainer) searchContainer.classList.add('hidden');
     renderCalendarMainView(mountEl, farmId);
   } else if (currentView === 'listings') {
     if (titleEl) titleEl.textContent = "🏷️ Active Marketplace Listings";
+    if (searchContainer) searchContainer.classList.add('hidden');
     renderListingsView(mountEl);
   } else if (currentView === 'offers') {
     if (titleEl) titleEl.textContent = "🎯 Open Buy Offers";
+    if (searchContainer) searchContainer.classList.add('hidden');
     renderOffersView(mountEl);
   }
 }

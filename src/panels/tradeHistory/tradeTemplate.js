@@ -32,8 +32,8 @@ export function renderTradeHistoryTemplate() {
         </div>
       </div>
 
-      <!-- FILTER & SEARCH TOOLBAR (64 RESOURCES / NFTS / SEARCH) -->
-      <div class="bg-white/80 dark:bg-amber-950/40 p-3 rounded-xl border-2 border-sfl-cardBorder dark:border-amber-700/60 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-xs">
+      <!-- FILTER TOOLBAR (64 RESOURCES / NFTS / RESET DATES) -->
+      <div class="bg-white/80 dark:bg-amber-950/40 p-3 rounded-xl border-2 border-sfl-cardBorder dark:border-amber-700/60 flex flex-wrap justify-between items-center gap-3 shadow-xs">
         <div class="flex flex-wrap items-center gap-2.5">
           <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1">
             <span>🔍</span> Filter:
@@ -46,14 +46,11 @@ export function renderTradeHistoryTemplate() {
             <input type="checkbox" id="trade-filter-nfts" ${nftsChecked} class="w-3.5 h-3.5 accent-amber-600 rounded cursor-pointer">
             <span>🎨 NFTs &amp; Collectibles</span>
           </label>
-          <button id="trade-reset-periods-btn" class="hidden bg-amber-200/90 dark:bg-amber-900 text-sfl-dirt dark:text-amber-200 px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-400 dark:border-amber-600 hover:bg-amber-300 transition cursor-pointer flex items-center gap-1 shadow-2xs">
-            <span>⏮️</span> Reset Dates to Present
-          </button>
         </div>
 
-        <div class="relative w-full md:w-64">
-          <input type="text" id="trade-search-input" placeholder="Search item or counterparty..." class="w-full bg-white dark:bg-amber-950/60 border-2 border-sfl-cardBorder dark:border-amber-700/60 rounded-lg px-3 py-1.5 text-xs text-sfl-dirt dark:text-amber-100 placeholder-sfl-woodLight dark:placeholder-amber-300/40 focus:outline-none focus:border-amber-500 font-medium">
-        </div>
+        <button id="trade-reset-periods-btn" class="hidden bg-amber-200/90 dark:bg-amber-900 text-sfl-dirt dark:text-amber-200 px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-400 dark:border-amber-600 hover:bg-amber-300 transition cursor-pointer flex items-center gap-1 shadow-2xs">
+          <span>⏮️</span> Reset Dates to Present
+        </button>
       </div>
 
       <!-- 4 TIME-HORIZON SUMMARY CARDS (DAY / WEEK / MONTH / TRANSFERS) -->
@@ -267,9 +264,16 @@ export function renderTradeHistoryTemplate() {
 
       <!-- MAIN DATA CONTAINER -->
       <div class="bg-white/80 dark:bg-amber-950/40 border-2 border-sfl-cardBorder dark:border-amber-700/60 rounded-xl overflow-hidden shadow-sm">
-        <div class="bg-sfl-wood text-amber-200 px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-sfl-dirt flex justify-between items-center">
-          <span id="trade-table-title">📜 Completed Trade Transactions</span>
-          <span id="trade-history-status" class="text-[11px] text-amber-300 font-mono">Ready</span>
+        <div class="bg-sfl-wood text-amber-200 px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-sfl-dirt flex flex-wrap justify-between items-center gap-2">
+          <span id="trade-table-title">📜 Completed Trade Ledger (Archived in TiDB Cloud)</span>
+          
+          <div class="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+            <div id="trade-search-container" class="relative flex-1 sm:w-64">
+              <input type="text" id="trade-search-input" placeholder="🔍 Search item or counterparty..." class="w-full bg-sfl-dirt/80 dark:bg-amber-950/80 border border-amber-300/40 dark:border-amber-700/60 rounded-lg pl-2.5 pr-6 py-1 text-xs text-amber-100 placeholder-amber-200/50 dark:placeholder-amber-300/40 focus:outline-none focus:border-amber-400 font-medium normal-case shadow-inner">
+              <button id="trade-search-clear-btn" class="hidden absolute right-2 top-1 text-xs text-amber-300 hover:text-white font-bold cursor-pointer" title="Clear search">✕</button>
+            </div>
+            <span id="trade-history-status" class="text-[11px] text-amber-300 font-mono shrink-0">Ready</span>
+          </div>
         </div>
 
         <!-- DEDICATED ITEM PERFORMANCE SUMMARY BANNER -->
