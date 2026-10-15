@@ -67,7 +67,7 @@ export function renderHeader() {
           <p class="text-xs font-semibold text-sfl-woodLight dark:text-slate-400">Live SFL market prices, NFT wishlist & automated crop tracker</p>
         </div>
 
-        <div class="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2.5 pt-1 sm:pt-0 sm:self-start">
+        <div class="w-full sm:w-auto flex items-start justify-between sm:justify-end gap-2.5 pt-1 sm:pt-0 sm:self-start">
           <!-- GUIDE BUTTON -->
           <button id="guide-toggle-btn" class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 border-2 border-amber-300 dark:border-slate-600 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer whitespace-nowrap" title="How to Use Sun-Flux guide">
             <span>📖</span>
@@ -80,10 +80,22 @@ export function renderHeader() {
             <span>${isDark ? 'Light' : 'Dark'}</span>
           </button>
 
-          <!-- DONATE BUTTON -->
-          <button id="donate-btn" class="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold px-3 py-1.5 rounded-xl text-xs border-2 border-amber-600 shadow-xs transition cursor-pointer whitespace-nowrap" title="Copy donation address (Polygon POL)">
-            Donate
-          </button>
+          <!-- DONATE & CHEER GROUP -->
+          <div class="flex flex-col items-center sm:items-end gap-1 shrink-0">
+            <!-- DONATE BUTTON -->
+            <button id="donate-btn" class="w-full bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold px-3 py-1.5 rounded-xl text-xs border-2 border-amber-600 shadow-xs transition cursor-pointer whitespace-nowrap text-center" title="Copy donation address (Polygon POL)">
+              Donate
+            </button>
+
+            <!-- CHEER & HELP LINK -->
+            <a href="https://sunflower-land.com/play/#/visit/8472883706403914" target="_blank" rel="noopener noreferrer"
+               id="cheer-help-link"
+               class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 dark:text-amber-300 hover:text-amber-700 dark:hover:text-amber-100 bg-amber-100/90 hover:bg-amber-200 dark:bg-slate-800/90 dark:hover:bg-slate-700 px-2 py-0.5 rounded-lg border border-amber-300 dark:border-slate-600 shadow-2xs transition whitespace-nowrap"
+               title="Cheer & Help farm #8472883706403914 in Sunflower Land!">
+              <span>📣</span>
+              <span>Cheer &amp; Help</span>
+            </a>
+          </div>
         </div>
       </div>
 
