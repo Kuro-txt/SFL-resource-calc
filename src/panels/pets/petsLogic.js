@@ -108,9 +108,15 @@ export function getEnergyBonusPerFood(level) {
  */
 export function getFoodTierAndEnergy(foodName, slotIndex = 0) {
   if (foodName) {
-    const cleanKey = normalizeItemKey(foodName);
-    if (PET_FOOD_DIFFICULTY_TIERS[cleanKey]) {
-      return PET_FOOD_DIFFICULTY_TIERS[cleanKey];
+    const rawLower = String(foodName).toLowerCase().trim();
+    if (PET_FOOD_DIFFICULTY_TIERS[rawLower]) {
+      return PET_FOOD_DIFFICULTY_TIERS[rawLower];
+    }
+    const cleanNoSpace = rawLower.replace(/[^a-z0-9]/g, '');
+    for (const [key, val] of Object.entries(PET_FOOD_DIFFICULTY_TIERS)) {
+      if (key.replace(/[^a-z0-9]/g, '') === cleanNoSpace) {
+        return val;
+      }
     }
   }
 
