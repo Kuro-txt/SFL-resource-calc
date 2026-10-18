@@ -14,6 +14,7 @@ import {
 } from './petsData.js';
 import { getRecipe, getBaseIngredients, canCraftRecipe } from '../../data/recipes.js';
 import { normalizeItemKey } from '../../utils/formatters.js';
+import { BACKEND_URL } from '../../config/constants.js';
 
 // ── Pet Aura Multipliers & State Management ───────────────────────────────────
 const PET_AURAS_STORAGE_KEY = 'sfl_pet_auras';
@@ -788,51 +789,66 @@ export function recordFeedEvent(entry) {
 }
 
 // ── TiDB Cloud Ledger Synchronization ─────────────────────────────────────────
+function getPetApiEndpoints(pathAndQuery) {
+  const endpoints = [pathAndQuery];
+  if (typeof BACKEND_URL !== 'undefined' && BACKEND_URL && typeof window !== 'undefined' && BACKEND_URL !== window.location.origin) {
+    const cleanBase = BACKEND_URL.replace(/\/+$/, '');
+    const cleanPath = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`;
+    endpoints.push(`${cleanBase}${cleanPath}`);
+  }
+  return endpoints;
+}
+
 export async function fetchCloudPetLedger(farmId) {
   const cleanFarmId = getEffectiveFarmId(farmId);
   if (!cleanFarmId || cleanFarmId === 'preview') return getStoredEnergyLedger(cleanFarmId);
 
-  try {
-    const res = await fetch(`/api/pets?farmId=${cleanFarmId}&limit=100`, {
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!res.ok) return getStoredEnergyLedger(cleanFarmId);
-    const data = await res.json();
-    if (data && Array.isArray(data.events)) {
-      const allStored = getAllStoredEnergyLedger();
-      
-      data.events.forEach(cloudEvt => {
-        if (!cloudEvt || !cloudEvt.farmId) return;
-        const cloudDate = cloudEvt.fedAt ? new Date(Number(cloudEvt.fedAt)).toISOString().slice(0, 10) : '';
-        const matchIdx = allStored.findIndex(m => 
-          String(m.farmId) === String(cloudEvt.farmId) &&
-          m.petName === cloudEvt.petName &&
-          (cloudDate ? (m.fedAt && new Date(Number(m.fedAt)).toISOString().slice(0, 10) === cloudDate) : Number(m.fedAt) === Number(cloudEvt.fedAt))
-        );
+  const endpoints = getPetApiEndpoints(`/api/pets?farmId=${cleanFarmId}&limit=100`);
+  let data = null;
 
-        if (matchIdx >= 0) {
-          const local = allStored[matchIdx];
-          const localCount = Array.isArray(local.foodsFed) ? local.foodsFed.length : 0;
-          const cloudCount = Array.isArray(cloudEvt.foodsFed) ? cloudEvt.foodsFed.length : 0;
-          if (cloudCount >= localCount || Number(cloudEvt.fedAt) >= Number(local.fedAt)) {
-            allStored[matchIdx] = { ...local, ...cloudEvt };
-          }
-        } else {
-          allStored.push(cloudEvt);
-        }
-      });
-
-      allStored.sort((a, b) => (Number(b.fedAt) || 0) - (Number(a.fedAt) || 0));
-      const trimmed = allStored.slice(0, 300);
-      try {
-        localStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(trimmed));
-      } catch (_) {}
-
-      return trimmed.filter(item => String(item.farmId) === String(cleanFarmId));
-    }
-  } catch (err) {
-    console.warn("Notice: Could not load pet ledger from TiDB Cloud:", err.message);
+  for (const ep of endpoints) {
+    try {
+      const res = await fetch(ep, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) {
+        data = await res.json();
+        if (data && Array.isArray(data.events)) break;
+      }
+    } catch (_) {}
   }
+
+  if (data && Array.isArray(data.events)) {
+    const allStored = getAllStoredEnergyLedger();
+    
+    data.events.forEach(cloudEvt => {
+      if (!cloudEvt || !cloudEvt.farmId) return;
+      const cloudDate = cloudEvt.fedAt ? new Date(Number(cloudEvt.fedAt)).toISOString().slice(0, 10) : '';
+      const matchIdx = allStored.findIndex(m => 
+        String(m.farmId) === String(cloudEvt.farmId) &&
+        m.petName === cloudEvt.petName &&
+        (cloudDate ? (m.fedAt && new Date(Number(m.fedAt)).toISOString().slice(0, 10) === cloudDate) : Number(m.fedAt) === Number(cloudEvt.fedAt))
+      );
+
+      if (matchIdx >= 0) {
+        const local = allStored[matchIdx];
+        const localCount = Array.isArray(local.foodsFed) ? local.foodsFed.length : 0;
+        const cloudCount = Array.isArray(cloudEvt.foodsFed) ? cloudEvt.foodsFed.length : 0;
+        if (cloudCount >= localCount || Number(cloudEvt.fedAt) >= Number(local.fedAt)) {
+          allStored[matchIdx] = { ...local, ...cloudEvt };
+        }
+      } else {
+        allStored.push(cloudEvt);
+      }
+    });
+
+    allStored.sort((a, b) => (Number(b.fedAt) || 0) - (Number(a.fedAt) || 0));
+    const trimmed = allStored.slice(0, 300);
+    try {
+      localStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(trimmed));
+    } catch (_) {}
+
+    return trimmed.filter(item => String(item.farmId) === String(cleanFarmId));
+  }
+
   return getStoredEnergyLedger(cleanFarmId);
 }
 
@@ -840,20 +856,24 @@ export async function syncFeedEventToCloud(entry) {
   if (!entry || !entry.farmId || entry.farmId === 'preview') return;
   if (!isPetTrackerOptedIn()) return;
 
-  try {
-    await fetch('/api/pets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        farmId: entry.farmId,
-        entry,
-        optIn: isPetTrackerOptedIn(),
-        walrusOnesie: isWalrusOnesieActive()
-      }),
-      signal: AbortSignal.timeout(10000)
-    });
-  } catch (err) {
-    console.warn("Notice: TiDB pet feed event background upload notice:", err.message);
+  const endpoints = getPetApiEndpoints('/api/pets');
+  const payload = JSON.stringify({
+    farmId: entry.farmId,
+    entry,
+    optIn: isPetTrackerOptedIn(),
+    walrusOnesie: isWalrusOnesieActive()
+  });
+
+  for (const ep of endpoints) {
+    try {
+      const res = await fetch(ep, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        signal: AbortSignal.timeout(8000)
+      });
+      if (res.ok) break;
+    } catch (_) {}
   }
 }
 
@@ -887,16 +907,23 @@ export function setPetTrackerOptIn(optedIn) {
     // 2. Persist to TiDB Cloud preferences
     const farmId = getEffectiveFarmId();
     if (farmId && farmId !== 'preview') {
-      fetch('/api/pets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          farmId, 
-          optIn: Boolean(optedIn),
-          walrusOnesie: isWalrusOnesieActive()
-        }),
-        signal: AbortSignal.timeout(8000)
-      }).catch(() => {});
+      const endpoints = getPetApiEndpoints('/api/pets');
+      const payload = JSON.stringify({ 
+        farmId, 
+        optIn: Boolean(optedIn),
+        walrusOnesie: isWalrusOnesieActive()
+      });
+
+      for (const ep of endpoints) {
+        fetch(ep, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          signal: AbortSignal.timeout(8000)
+        }).then(res => {
+          if (res.ok) return;
+        }).catch(() => {});
+      }
     }
   } catch (_) {}
 }
