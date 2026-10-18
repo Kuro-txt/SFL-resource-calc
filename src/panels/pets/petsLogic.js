@@ -53,7 +53,18 @@ export function normalizeAuraString(raw) {
 }
 
 export function getPetAuraKey(petName, petObj = null) {
-  // 1. Auto-detect & autofill from live API traits (e.g. petObj.traits.aura = "Common Aura")
+  // 1. Check user manual override / stored aura in localStorage first
+  const auras = getStoredPetAuras();
+  if (petName && auras[petName]) {
+    const key = normalizeAuraString(auras[petName]);
+    if (PET_AURA_MULTIPLIERS[key]) return key;
+  }
+  if (petObj?.id && auras[String(petObj.id)]) {
+    const key = normalizeAuraString(auras[String(petObj.id)]);
+    if (PET_AURA_MULTIPLIERS[key]) return key;
+  }
+
+  // 2. Auto-detect & autofill from live API traits (e.g. petObj.traits.aura = "Common Aura")
   if (petObj) {
     const rawAura = petObj.traits?.aura ?? petObj.aura ?? petObj.auraType ?? petObj.auraMultiplier;
     if (rawAura !== undefined && rawAura !== null && rawAura !== '') {
@@ -65,17 +76,6 @@ export function getPetAuraKey(petName, petObj = null) {
         return detectedKey;
       }
     }
-  }
-
-  // 2. Check user manual override / stored aura in localStorage
-  const auras = getStoredPetAuras();
-  if (petName && auras[petName]) {
-    const key = normalizeAuraString(auras[petName]);
-    if (PET_AURA_MULTIPLIERS[key]) return key;
-  }
-  if (petObj?.id && auras[String(petObj.id)]) {
-    const key = normalizeAuraString(auras[String(petObj.id)]);
-    if (PET_AURA_MULTIPLIERS[key]) return key;
   }
 
   return 'none';
@@ -732,6 +732,62 @@ export function getStoredEnergyLedger(farmId) {
   const targetId = farmId !== undefined ? farmId : getEffectiveFarmId();
   if (!targetId || targetId === 'all') return all;
   return all.filter(item => String(item.farmId) === String(targetId));
+}
+
+/**
+ * Dynamically resolves a raw pet feed event into computed energy and costs.
+ * Applies active Aura Multipliers and Walrus Onesie boost in real-time.
+ */
+export function enrichLedgerEntry(entry, farmData = null, livePets = null) {
+  if (!entry) return entry;
+  if (!Array.isArray(entry.foodsFed) || entry.foodsFed.length === 0) {
+    return {
+      ...entry,
+      energyGained: parseInt(entry.energyGained || 0, 10),
+      costSfl: parseFloat(entry.costSfl || 0),
+      costPerEnergy: parseFloat(entry.costPerEnergy || 0)
+    };
+  }
+
+  const effectiveFarmData = farmData || (typeof window !== 'undefined' ? window.farmData : null);
+  const pets = (Array.isArray(livePets) && livePets.length > 0) 
+    ? livePets 
+    : parseFarmPets(effectiveFarmData);
+  const matchedPet = pets.find(p => p.name === entry.petName);
+
+  const auraMultiplier = getPetAuraMultiplier(entry.petName, matchedPet);
+  const isWalrusActive = isWalrusOnesieActive(effectiveFarmData);
+  const walrusBonus = isWalrusActive ? WALRUS_ONESIE_ENERGY_BOOST : 0;
+  const petLevel = matchedPet?.levelStats?.level || 1;
+  const energyBonus = getEnergyBonusPerFood(petLevel);
+
+  let totalEnergyGained = 0;
+  let totalCostSfl = 0;
+  const hasSavedCost = typeof entry.costSfl === 'number' && entry.costSfl > 0;
+
+  entry.foodsFed.forEach((foodName, idx) => {
+    const slotIdx = Array.isArray(matchedPet?.requests?.food) ? matchedPet.requests.food.indexOf(foodName) : idx;
+    const effectiveSlotIdx = slotIdx >= 0 ? slotIdx : idx;
+    const { baseEnergy } = getFoodTierAndEnergy(foodName, effectiveSlotIdx);
+    const baseWithAura = Math.round(baseEnergy * auraMultiplier);
+    totalEnergyGained += (baseWithAura + energyBonus + walrusBonus);
+
+    if (!hasSavedCost) {
+      totalCostSfl += getFoodPrice(foodName);
+    }
+  });
+
+  const costSfl = hasSavedCost ? entry.costSfl : Math.round(totalCostSfl * 10000) / 10000;
+  const costPerEnergy = totalEnergyGained > 0 ? (costSfl / totalEnergyGained) : 0;
+
+  return {
+    ...entry,
+    energyGained: totalEnergyGained,
+    costSfl,
+    costPerEnergy: Math.round(costPerEnergy * 1000000) / 1000000,
+    auraMultiplier,
+    walrusBonus
+  };
 }
 
 export function recordFeedEvent(entry) {

@@ -16,7 +16,8 @@ import {
   getPetAuraMultiplier,
   getPetAuraKey,
   setPetAura,
-  getEffectiveFarmId
+  getEffectiveFarmId,
+  enrichLedgerEntry
 } from './petsLogic.js';
 import { WALRUS_ONESIE_ENERGY_BOOST, PET_AURA_MULTIPLIERS } from './petsData.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
@@ -708,7 +709,9 @@ export function renderEnergyLedger() {
   if (!tbody) return;
 
   const farmId = getEffectiveFarmId();
-  let ledger = getStoredEnergyLedger(farmId);
+  const rawLedger = getStoredEnergyLedger(farmId);
+  const livePets = parseFarmPets(window.farmData);
+  const ledger = rawLedger.map(row => enrichLedgerEntry(row, window.farmData, livePets));
 
   let filtered = [...ledger];
 
