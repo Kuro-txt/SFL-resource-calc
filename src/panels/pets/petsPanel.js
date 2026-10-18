@@ -308,9 +308,12 @@ function bindPetsEventListeners() {
     cardsContainer.addEventListener('change', (e) => {
       if (e.target && e.target.classList.contains('pet-aura-select')) {
         const petName = e.target.getAttribute('data-pet-name');
+        const petId = e.target.getAttribute('data-pet-id');
         const newAura = e.target.value;
-        setPetAura(petName, newAura);
+        if (petName) setPetAura(petName, newAura);
+        if (petId) setPetAura(String(petId), newAura);
         renderPetsCards();
+        renderEnergyLedger();
       }
     });
   }
@@ -452,7 +455,7 @@ export function renderPetsCards() {
               <label for="pet-aura-select-${petIdx}" class="text-[9px] font-bold text-sfl-woodLight dark:text-slate-400 flex items-center gap-0.5" title="Aura multiplies base food energy (Common 1.5x, Rare 2x, Mythic 3x)">
                 <span>✨</span> Aura:
               </label>
-              <select id="pet-aura-select-${petIdx}" data-pet-name="${pet.name}" class="pet-aura-select bg-amber-50 dark:bg-slate-800 text-[9.5px] font-bold text-sfl-wood dark:text-amber-200 border border-amber-300/70 dark:border-slate-700 rounded px-1 py-0.5 cursor-pointer focus:ring-1 focus:ring-amber-500">
+              <select id="pet-aura-select-${petIdx}" data-pet-name="${pet.name}" data-pet-id="${pet.id || ''}" class="pet-aura-select bg-amber-50 dark:bg-slate-800 text-[9.5px] font-bold text-sfl-wood dark:text-amber-200 border border-amber-300/70 dark:border-slate-700 rounded px-1 py-0.5 cursor-pointer focus:ring-1 focus:ring-amber-500">
                 <option value="none" ${auraKey === 'none' ? 'selected' : ''}>None (1x)</option>
                 <option value="common" ${auraKey === 'common' ? 'selected' : ''}>Common (1.5x)</option>
                 <option value="rare" ${auraKey === 'rare' ? 'selected' : ''}>Rare (2x)</option>

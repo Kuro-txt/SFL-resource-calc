@@ -35,62 +35,54 @@ export function setPetAura(petName, auraKey) {
   } catch (_) {}
 }
 
-export function getPetAuraMultiplier(petName, petObj = null) {
-  // 1. Check user override in localStorage
-  const auras = getStoredPetAuras();
-  if (petName && auras[petName]) {
-    const key = String(auras[petName]).toLowerCase().replace(/aura/g, '').trim();
-    if (PET_AURA_MULTIPLIERS[key]) {
-      return PET_AURA_MULTIPLIERS[key].multiplier;
-    }
-    if (key === 'basic') return 1.5;
-    if (key === 'epic') return 2.0;
-    if (key === 'mega') return 3.0;
+export function normalizeAuraString(raw) {
+  if (!raw) return 'none';
+  if (typeof raw === 'number') {
+    if (raw === 1.5) return 'common';
+    if (raw === 2 || raw === 2.0) return 'rare';
+    if (raw === 3 || raw === 3.0) return 'mythic';
+    return raw > 1 ? String(raw) : 'none';
   }
-
-  // 2. Auto-detect from petObj (supports petObj.traits.aura like 'Common Aura' from live API)
-  if (petObj) {
-    const rawAura = petObj.traits?.aura ?? petObj.aura ?? petObj.auraType ?? petObj.auraMultiplier;
-    if (typeof rawAura === 'number' && rawAura > 0) {
-      return rawAura;
-    }
-    if (typeof rawAura === 'string') {
-      const lower = rawAura.toLowerCase().replace(/aura/g, '').trim();
-      if (PET_AURA_MULTIPLIERS[lower]) {
-        return PET_AURA_MULTIPLIERS[lower].multiplier;
-      }
-      if (lower === 'basic') return 1.5;
-      if (lower === 'epic') return 2.0;
-      if (lower === 'mega') return 3.0;
-    }
-  }
-
-  return 1.0;
+  const clean = String(raw).toLowerCase().replace(/aura/g, '').trim();
+  if (clean === 'common' || clean === 'basic') return 'common';
+  if (clean === 'rare' || clean === 'epic') return 'rare';
+  if (clean === 'mythic' || clean === 'mega') return 'mythic';
+  if (clean === 'none' || clean === 'no' || clean === '') return 'none';
+  return clean;
 }
 
 export function getPetAuraKey(petName, petObj = null) {
+  // 1. Auto-detect & autofill from live API traits (e.g. petObj.traits.aura = "Common Aura")
+  if (petObj) {
+    const rawAura = petObj.traits?.aura ?? petObj.aura ?? petObj.auraType ?? petObj.auraMultiplier;
+    if (rawAura !== undefined && rawAura !== null && rawAura !== '') {
+      const detectedKey = normalizeAuraString(rawAura);
+      if (detectedKey && PET_AURA_MULTIPLIERS[detectedKey]) {
+        // Automatically autofill into localStorage so state remains consistent
+        if (petName) setPetAura(petName, detectedKey);
+        if (petObj.id) setPetAura(String(petObj.id), detectedKey);
+        return detectedKey;
+      }
+    }
+  }
+
+  // 2. Check user manual override / stored aura in localStorage
   const auras = getStoredPetAuras();
   if (petName && auras[petName]) {
-    const key = String(auras[petName]).toLowerCase().replace(/aura/g, '').trim();
+    const key = normalizeAuraString(auras[petName]);
     if (PET_AURA_MULTIPLIERS[key]) return key;
-    if (key === 'basic') return 'common';
-    if (key === 'epic') return 'rare';
-    if (key === 'mega') return 'mythic';
   }
-  if (petObj) {
-    const rawAura = petObj.traits?.aura ?? petObj.aura ?? petObj.auraType;
-    if (typeof rawAura === 'string') {
-      const lower = rawAura.toLowerCase().replace(/aura/g, '').trim();
-      if (PET_AURA_MULTIPLIERS[lower]) return lower;
-      if (lower === 'basic') return 'common';
-      if (lower === 'epic') return 'rare';
-      if (lower === 'mega') return 'mythic';
-    }
-    if (petObj.auraMultiplier === 1.5) return 'common';
-    if (petObj.auraMultiplier === 2) return 'rare';
-    if (petObj.auraMultiplier === 3) return 'mythic';
+  if (petObj?.id && auras[String(petObj.id)]) {
+    const key = normalizeAuraString(auras[String(petObj.id)]);
+    if (PET_AURA_MULTIPLIERS[key]) return key;
   }
+
   return 'none';
+}
+
+export function getPetAuraMultiplier(petName, petObj = null) {
+  const key = getPetAuraKey(petName, petObj);
+  return PET_AURA_MULTIPLIERS[key]?.multiplier || 1.0;
 }
 
 // ── Walrus Onesie Boost Helpers (+5 Energy) ──────────────────────────────────
