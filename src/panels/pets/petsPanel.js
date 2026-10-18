@@ -333,6 +333,13 @@ export function renderPetsCards() {
       ? readyFetches.map(f => `<span>${f.icon} ${f.maxFetches}x (${f.totalYield})</span>`).join(' • ')
       : `<span class="text-sfl-woodLight dark:text-slate-400 font-normal">None ready (need 100⚡)</span>`;
 
+    let rarityBadgeClass = 'bg-amber-100 dark:bg-slate-800 text-sfl-dirt dark:text-amber-200 border-amber-300/60 dark:border-slate-700';
+    if (pet.rarity?.toLowerCase() === 'nft') {
+      rarityBadgeClass = 'bg-purple-100 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 border-purple-300/80 dark:border-purple-800';
+    } else if (pet.rarity?.toLowerCase() === 'rare') {
+      rarityBadgeClass = 'bg-sky-100 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300 border-sky-300/80 dark:border-sky-800';
+    }
+
     html += `
       <div class="bg-sfl-card/95 dark:bg-slate-900/90 rounded-xl border border-sfl-cardBorder dark:border-slate-800 p-3 shadow-xs space-y-2.5 hover:border-sfl-gold/60 transition">
 
@@ -343,12 +350,12 @@ export function renderPetsCards() {
             <div class="truncate">
               <div class="flex items-center gap-1.5">
                 <span class="text-xs font-bold text-sfl-wood dark:text-amber-100 truncate">${pet.name}</span>
-                <span class="bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 text-[9px] font-bold px-1.5 py-0.2 rounded shrink-0">
-                  ${pet.categoryInfo?.icon || '🌾'} ${pet.categoryInfo?.resource || 'Resource'}
+                <span class="${rarityBadgeClass} border text-[8.5px] font-black uppercase px-1.5 py-0.2 rounded shrink-0">
+                  ${pet.rarity}
                 </span>
               </div>
               <div class="text-[9.5px] text-sfl-woodLight dark:text-slate-400 font-semibold truncate">
-                ${pet.rarity} • Lv. ${levelStats.level} (${levelStats.progress}%)
+                ${pet.species} • Lv. ${levelStats.level} (${levelStats.progress}%)
               </div>
             </div>
           </div>
