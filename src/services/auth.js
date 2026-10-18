@@ -157,17 +157,33 @@ export async function loadCloudUserData() {
   cutoff.setDate(cutoff.getDate() - 30);
   const cutoffDateStr = cutoff.toISOString().split('T')[0];
 
-  const { data: profile } = await window.supabaseClient
+  let profile = null;
+  const { data: profWithPet, error: pErr } = await window.supabaseClient
     .from('profiles')
-    .select('farm_id, tracked_items, crop_base_yields')
+    .select('farm_id, tracked_items, crop_base_yields, pet_tracker_opt_in')
     .eq('id', window.currentUser.id)
     .maybeSingle();
+
+  if (!pErr && profWithPet) {
+    profile = profWithPet;
+  } else {
+    const { data: profFallback } = await window.supabaseClient
+      .from('profiles')
+      .select('farm_id, tracked_items, crop_base_yields')
+      .eq('id', window.currentUser.id)
+      .maybeSingle();
+    profile = profFallback;
+  }
 
   if (profile) {
     if (profile.farm_id) {
       const farmIdEl = document.getElementById('farm-id');
       if (farmIdEl) farmIdEl.value = profile.farm_id;
       localStorage.setItem('sfl_farm_id', profile.farm_id);
+    }
+
+    if (profile.pet_tracker_opt_in !== undefined && profile.pet_tracker_opt_in !== null) {
+      localStorage.setItem('sfl_pet_tracker_opt_in', profile.pet_tracker_opt_in ? 'true' : 'false');
     }
 
     if (Array.isArray(profile.tracked_items) && profile.tracked_items.length > 0) {
@@ -412,4 +428,22 @@ export async function getTargetUserIds(client, activeUser, farmId) {
   }
 
   return targetUserIds;
+}
+
+/**
+ * Persists pet_tracker_opt_in to Supabase profiles table for the current user
+ */
+export async function syncPetTrackerOptInToSupabase(optedIn) {
+  if (!window.currentUser || !window.supabaseClient) return;
+  try {
+    const { error } = await window.supabaseClient
+      .from('profiles')
+      .update({ pet_tracker_opt_in: Boolean(optedIn) })
+      .eq('id', window.currentUser.id);
+    if (error) {
+      console.warn("Notice: Supabase pet_tracker_opt_in update notice:", error.message);
+    }
+  } catch (err) {
+    console.warn("Notice: Failed to update pet_tracker_opt_in in Supabase:", err.message);
+  }
 }

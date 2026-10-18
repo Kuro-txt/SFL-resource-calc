@@ -568,17 +568,83 @@ export function recordFeedEvent(entry) {
     const exists = existing.some(e => 
       String(e.farmId) === String(entry.farmId) &&
       e.petName === entry.petName &&
-      e.fedAt === entry.fedAt
+      Number(e.fedAt) === Number(entry.fedAt)
     );
     if (!exists) {
       existing.unshift(entry);
       const trimmed = existing.slice(0, 300);
       localStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(trimmed));
+
+      // Asynchronously sync new feed event to TiDB Cloud if opted in
+      if (isPetTrackerOptedIn()) {
+        syncFeedEventToCloud(entry);
+      }
     }
   } catch (_) {}
 }
 
-// ── Opt-In State Management ───────────────────────────────────────────────────
+// ── TiDB Cloud Ledger Synchronization ─────────────────────────────────────────
+export async function fetchCloudPetLedger(farmId) {
+  const cleanFarmId = farmId || (typeof window !== 'undefined' ? (window.farmData?.farmId || window.currentFarmId) : null);
+  if (!cleanFarmId || cleanFarmId === 'preview') return [];
+
+  try {
+    const res = await fetch(`/api/pets?farmId=${cleanFarmId}&limit=100`, {
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (data && Array.isArray(data.events)) {
+      const localLedger = getStoredEnergyLedger(cleanFarmId);
+      const merged = [...localLedger];
+      
+      data.events.forEach(cloudEvt => {
+        const exists = merged.some(m => 
+          String(m.farmId) === String(cloudEvt.farmId) &&
+          m.petName === cloudEvt.petName &&
+          Number(m.fedAt) === Number(cloudEvt.fedAt)
+        );
+        if (!exists) {
+          merged.push(cloudEvt);
+        }
+      });
+
+      merged.sort((a, b) => (Number(b.fedAt) || 0) - (Number(a.fedAt) || 0));
+      const trimmed = merged.slice(0, 300);
+      try {
+        localStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(trimmed));
+      } catch (_) {}
+
+      return trimmed;
+    }
+  } catch (err) {
+    console.warn("Notice: Could not load pet ledger from TiDB Cloud:", err.message);
+  }
+  return [];
+}
+
+export async function syncFeedEventToCloud(entry) {
+  if (!entry || !entry.farmId || entry.farmId === 'preview') return;
+  if (!isPetTrackerOptedIn()) return;
+
+  try {
+    await fetch('/api/pets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        farmId: entry.farmId,
+        entry,
+        optIn: isPetTrackerOptedIn(),
+        walrusOnesie: isWalrusOnesieActive()
+      }),
+      signal: AbortSignal.timeout(10000)
+    });
+  } catch (err) {
+    console.warn("Notice: TiDB pet feed event background upload notice:", err.message);
+  }
+}
+
+// ── Opt-In State Management (Supabase profiles & TiDB) ─────────────────────────
 const PET_OPT_IN_KEY = 'sfl_pet_tracker_opt_in';
 
 export function isPetTrackerOptedIn() {
@@ -592,6 +658,33 @@ export function isPetTrackerOptedIn() {
 export function setPetTrackerOptIn(optedIn) {
   try {
     localStorage.setItem(PET_OPT_IN_KEY, optedIn ? 'true' : 'false');
+
+    // 1. Persist to Supabase profiles if authenticated user
+    if (typeof window !== 'undefined' && window.currentUser && window.supabaseClient) {
+      window.supabaseClient
+        .from('profiles')
+        .update({ pet_tracker_opt_in: Boolean(optedIn) })
+        .eq('id', window.currentUser.id)
+        .then(({ error }) => {
+          if (error) console.warn("Notice: Supabase pet_tracker_opt_in notice:", error.message);
+        })
+        .catch(err => console.warn("Notice: Supabase pet opt-in notice:", err.message));
+    }
+
+    // 2. Persist to TiDB Cloud preferences
+    const farmId = (typeof window !== 'undefined') ? (window.farmData?.farmId || window.currentFarmId) : null;
+    if (farmId && farmId !== 'preview') {
+      fetch('/api/pets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          farmId, 
+          optIn: Boolean(optedIn),
+          walrusOnesie: isWalrusOnesieActive()
+        }),
+        signal: AbortSignal.timeout(8000)
+      }).catch(() => {});
+    }
   } catch (_) {}
 }
 

@@ -1,4 +1,6 @@
 const axios = require('axios');
+const crypto = require('crypto');
+const { getTiDBPool } = require('./db');
 const { CROP_FLOWER_PRICES, RESOURCE_FLOWER_FALLBACK_PRICES, getFlowerUnitPrice, ALLOWED_DIFFERENCE_ITEMS, ALLOWED_ITEM_KEYS, ALLOWED_ITEM_NAMES, isAllowedDifferenceItem } = require('./prices');
 const { getStockAmount } = require('./farmApi');
 const { fetchAllFarmsBatched, normalizeFarmId } = require('./farmBatchSync');
@@ -159,10 +161,119 @@ function extractPrices(data) {
   return pricesMap;
 }
 
+// Difficulty Tiers (Base Energy: Easy = 20, Medium = 100, Hard = 300)
+const PET_FOOD_ENERGY_TIERS = {
+  // Easy (20)
+  'mashedpotato': 20, 'rhubarbtart': 20, 'pumpkinsoup': 20, 'reindeercarrot': 20, 'bumpkinbroth': 20,
+  'popcorn': 20, 'sunflowercrunch': 20, 'roastveggies': 20, 'clubsandwich': 20, 'fruitsalad': 20,
+  'cheese': 20, 'quickjuice': 20, 'carrotjuice': 20, 'purplesmoothie': 20,
+  // Medium (100)
+  'boiledeggs': 100, 'boiledegg': 100, 'cabbersnmash': 100, 'friedtofu': 100, 'kalestew': 100,
+  'cauliflowerburger': 100, 'bumpkinsalad': 100, 'goblinstreat': 100, 'pancakes': 100, 'pancake': 100,
+  'bumpkinganoush': 100, 'tofuscramble': 100, 'sunflowercake': 100, 'cornbread': 100, 'pumpkincake': 100,
+  'potatocake': 100, 'applepie': 100, 'orangecake': 100, 'carrotcake': 100, 'fermentedcarrots': 100,
+  'blueberryjam': 100, 'sauerkraut': 100, 'fancyfries': 100, 'orangejuice': 100, 'applejuice': 100,
+  'powersmoothie': 100, 'bumpkindetox': 100, 'sourshake': 100,
+  // Hard (300)
+  'kaleomelette': 300, 'ricebun': 300, 'antipasto': 300, 'pizzamargherita': 300, 'bumpkinroast': 300,
+  'goblinbrunch': 300, 'steamedredrice': 300, 'capresesalad': 300, 'spaghettiallimone': 300,
+  'cabbagecake': 300, 'wheatcake': 300, 'cauliflowercake': 300, 'radishcake': 300, 'beetrootcake': 300,
+  'parsnipcake': 300, 'eggplantcake': 300, 'honeycake': 300, 'lemoncheesecake': 300, 'bluecheese': 300,
+  'honeycheddar': 300, 'bananablast': 300, 'grapejuice': 300, 'slowjuice': 300, 'thelot': 300
+};
+
+async function archiveFarmPetsToTiDB(farmId, farmData) {
+  const pool = getTiDBPool();
+  if (!pool || !farmData) return;
+
+  try {
+    const farm = farmData.farm || farmData;
+    const rawPets = farm.pets;
+    if (!rawPets || typeof rawPets !== 'object') return;
+
+    // Check if wardrobe has Walrus Onesie (+5 energy)
+    const wardrobe = farm.wardrobe || {};
+    const inventory = farm.inventory || {};
+    const bumpkinEquipped = farm.bumpkin?.equipped || farm.equipped || {};
+    const hasWalrus = Boolean(wardrobe['Walrus Onesie'] || inventory['Walrus Onesie'] || bumpkinEquipped.suit === 'Walrus Onesie');
+    const walrusBonus = hasWalrus ? 5 : 0;
+
+    const petsList = [];
+    const extractPets = (obj) => {
+      for (const [k, v] of Object.entries(obj)) {
+        if (v && typeof v === 'object') {
+          if (v.requests || v.experience !== undefined) {
+            petsList.push({ name: v.name || k, ...v });
+          } else {
+            for (const [sk, sv] of Object.entries(v)) {
+              if (sv && typeof sv === 'object') {
+                petsList.push({ name: sv.name || sk, ...sv });
+              }
+            }
+          }
+        }
+      }
+    };
+    extractPets(rawPets);
+
+    for (const pet of petsList) {
+      const reqs = pet.requests;
+      if (reqs && reqs.fedAt && Array.isArray(reqs.foodFed) && reqs.foodFed.length > 0) {
+        const fedAt = parseInt(reqs.fedAt, 10);
+        const eventId = crypto.createHash('md5').update(`${farmId}_${pet.name}_${fedAt}`).digest('hex');
+        
+        // Calculate pet level bonus
+        const xp = Math.max(0, parseFloat(pet.experience) || 0);
+        const level = xp < 120 ? 1 : (Math.floor(Math.sqrt((xp / 60) - 1)) + 1);
+        let energyBonus = 0;
+        if (level >= 75) energyBonus = 15;
+        else if (level >= 35) energyBonus = 10;
+        else if (level >= 5) energyBonus = 5;
+
+        let totalEnergyGained = 0;
+        let totalCostSfl = 0;
+
+        for (const foodName of reqs.foodFed) {
+          const normName = foodName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const baseEnergy = PET_FOOD_ENERGY_TIERS[normName] || 100;
+          totalEnergyGained += (baseEnergy + energyBonus + walrusBonus);
+          totalCostSfl += (CROP_FLOWER_PRICES[normName] || RESOURCE_FLOWER_FALLBACK_PRICES[normName] || 0.05);
+        }
+
+        const costPerEnergy = totalEnergyGained > 0 ? (totalCostSfl / totalEnergyGained) : 0;
+        const totalPetEnergy = parseInt(pet.energy, 10) || 0;
+
+        await pool.query(
+          `INSERT INTO pet_feed_events 
+            (id, farm_id, pet_name, fed_at, energy_gained, total_energy, foods_fed, cost_sfl, cost_per_energy, logged_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+           ON DUPLICATE KEY UPDATE 
+            energy_gained = VALUES(energy_gained),
+            total_energy = VALUES(total_energy),
+            cost_sfl = VALUES(cost_sfl),
+            cost_per_energy = VALUES(cost_per_energy)`,
+          [eventId, farmId, pet.name, fedAt, totalEnergyGained, totalPetEnergy, JSON.stringify(reqs.foodFed), totalCostSfl, costPerEnergy]
+        );
+      }
+    }
+  } catch (err) {
+    console.warn(`Notice: Yield cron TiDB pet archive failed for Farm #${farmId}:`, err.message);
+  }
+}
+
 async function processYieldCalculation(supabase) {
   console.log("🔍 [CRON 22:30 UTC] Starting yield calculation process...");
   const todayDate = new Date().toISOString().split('T')[0];
-  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items, crop_base_yields');
+  
+  let users = null;
+  let { data: usersWithPet, error } = await supabase.from('profiles').select('id, farm_id, tracked_items, crop_base_yields, pet_tracker_opt_in');
+  if (!error && usersWithPet) {
+    users = usersWithPet;
+  } else {
+    const { data: usersFallback, error: fbErr } = await supabase.from('profiles').select('id, farm_id, tracked_items, crop_base_yields');
+    users = usersFallback;
+    error = fbErr;
+  }
 
   if (error || !users || users.length === 0) {
     console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
@@ -571,6 +682,15 @@ async function processYieldCalculation(supabase) {
     } else {
       savedYieldsCount++;
       console.log(`✅ 22:30 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
+    }
+
+    // ── Archive Pet Feed Events to TiDB Cloud if opted in ──
+    if (primaryUser.pet_tracker_opt_in) {
+      try {
+        await archiveFarmPetsToTiDB(cleanFarmId, currentData);
+      } catch (petErr) {
+        console.warn(`Notice: TiDB pet archive failed for Farm #${cleanFarmId}:`, petErr.message);
+      }
     }
   }
 

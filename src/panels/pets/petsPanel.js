@@ -11,7 +11,8 @@ import {
   setPetTrackerOptIn,
   isWalrusOnesieActive,
   setWalrusOnesieActive,
-  getFoodTierAndEnergy
+  getFoodTierAndEnergy,
+  fetchCloudPetLedger
 } from './petsLogic.js';
 import { WALRUS_ONESIE_ENERGY_BOOST } from './petsData.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
@@ -105,6 +106,15 @@ export function mountPetsPanel() {
 
   renderPetsCards();
   renderEnergyLedger();
+
+  const farmId = window.farmData?.farmId || window.currentFarmId;
+  if (farmId && farmId !== 'preview') {
+    fetchCloudPetLedger(farmId).then(events => {
+      if (events && events.length) {
+        renderEnergyLedger();
+      }
+    });
+  }
 }
 
 export function unmountPetsPanel() {

@@ -392,6 +392,15 @@ app.all('/api/trades', async (req, res) => {
   }
 });
 
+app.all('/api/pets', async (req, res) => {
+  try {
+    const { default: petsHandler } = await import('./api/pets.js');
+    return petsHandler(req, res);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process pets request', details: err.message });
+  }
+});
+
 app.get(['/api/nfts', '/api/nft'], async (req, res) => {
   const force = req.query.force === 'true';
   const customApiKey = (req.query.apiKey || req.headers['x-api-key'] || '').trim();
