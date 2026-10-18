@@ -109,7 +109,7 @@ async function ensurePetsTablesCreated(pool, dbName = 'test') {
   const preferencesSql = `
     CREATE TABLE IF NOT EXISTS pet_preferences (
       farm_id BIGINT PRIMARY KEY,
-      opt_in BOOLEAN DEFAULT TRUE,
+      opt_in BOOLEAN DEFAULT FALSE,
       walrus_onesie BOOLEAN DEFAULT FALSE,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     );
