@@ -1,52 +1,83 @@
-// Catalog of Sunflower Land Pets, Milestone Perks & Food Fallbacks
-export const KNOWN_PETS = {
-  Barkley: { id: 2601, name: "Barkley", rarity: "Common", emoji: "🐶", desc: "Loyal dog ready to fetch acorns and help around the farm." },
-  Meowchi: { id: 2602, name: "Meowchi", rarity: "Common", emoji: "🐱", desc: "Gentle cat fond of sunbathing and quick naps." },
-  Twizzle: { id: 2603, name: "Twizzle", rarity: "Common", emoji: "🦝", desc: "Curious raccoon with quick paws and an eye for treasures." },
-  Burro: { id: 2604, name: "Burro", rarity: "Common", emoji: "🫏", desc: "Sturdy donkey with huge appetite and relentless stamina." },
-  Mudhorn: { id: 2605, name: "Mudhorn", rarity: "Common", emoji: "🦏", desc: "Mighty horned beast who loves wallowing and fetching rare soil gems." },
-  Nibbles: { id: 2606, name: "Nibbles", rarity: "Common", emoji: "🐿️", desc: "Energetic squirrel constantly searching for acorns and nuts." },
-  Waddles: { id: 2607, name: "Waddles", rarity: "Common", emoji: "🦆", desc: "Cheerful duckling who loves paddling in farm ponds." },
-  Ramsey: { id: 2608, name: "Ramsey", rarity: "NFT", emoji: "🐏", desc: "Legendary horned ram that climbs the steepest mountain rocks." },
-  Biscuit: { id: 2609, name: "Biscuit", rarity: "Common", emoji: "🐕", desc: "Playful pup always excited for his next food treat." },
-  Cloudy: { id: 2610, name: "Cloudy", rarity: "Common", emoji: "☁️", desc: "Fluffy and soft companion who floats around your crops." },
-  Butters: { id: 2611, name: "Butters", rarity: "Common", emoji: "🧈", desc: "Sweet-tempered pet known for high energy and affectionate nuzzles." },
-  Smokey: { id: 2612, name: "Smokey", rarity: "Common", emoji: "🦨", desc: "Distinctive buddy with a mysterious charm." },
-  Flicker: { id: 2613, name: "Flicker", rarity: "Common", emoji: "🦊", desc: "Cunning fox that darts through the undergrowth." },
-  Pippin: { id: 2614, name: "Pippin", rarity: "Common", emoji: "🐦", desc: "Quick-winged companion bringing tidings from across Sunflower Land." },
-  Pinto: { id: 2615, name: "Pinto", rarity: "Rare", emoji: "🐎", desc: "Spotted steed eager to trot across the fields." },
-  Roan: { id: 2616, name: "Roan", rarity: "Rare", emoji: "🐴", desc: "Noble steed with high endurance." },
-  Stallion: { id: 2617, name: "Stallion", rarity: "NFT", emoji: "🦄", desc: "Majestic stallion with unmatched speed and resource instincts." },
-  Bison: { id: 2618, name: "Bison", rarity: "Rare", emoji: "🦬", desc: "Ancient wanderer of the plains." },
-  Oxen: { id: 2619, name: "Oxen", rarity: "Rare", emoji: "🐂", desc: "Powerful beast of burden, boosting farm hauling." },
-  Peanuts: { id: 2620, name: "Peanuts", rarity: "Common", emoji: "🥜", desc: "Tiny pet with an outsized personality and enormous heart." },
-  Pip: { id: 2621, name: "Pip", rarity: "Common", emoji: "🐣", desc: "Newly hatched companion, eager to discover the farm world." },
-  Skipper: { id: 2622, name: "Skipper", rarity: "Common", emoji: "🐧", desc: "Aquatic adventurer who loves cool dips and fish treats." }
+// Catalog of Sunflower Land Pets, Categories, Fetching Costs & Energy Data
+export const PET_CATEGORIES = {
+  Guardians: { name: "Guardians", resource: "Chewed Bone", icon: "🦴", energyCost: 200 },
+  Hunters: { name: "Hunters", resource: "Ribbon", icon: "🎀", energyCost: 200 },
+  Voyagers: { name: "Voyagers", resource: "Ruffroot", icon: "🌿", energyCost: 200 },
+  Beasts: { name: "Beasts", resource: "Wild Grass", icon: "🌾", energyCost: 200 },
+  Moonkin: { name: "Moonkin", resource: "Heart Leaf", icon: "💚", energyCost: 200 },
+  Snowkins: { name: "Snowkins", resource: "Frost Pebble", icon: "❄️", energyCost: 200 },
+  Foragers: { name: "Foragers", resource: "Dewberry", icon: "🫐", energyCost: 200 }
 };
 
-export const PET_MILESTONE_PERKS = [
-  { level: 3, perk: "Unlocks 1st Resource Category" },
-  { level: 5, perk: "+5 Energy per pet food" },
-  { level: 7, perk: "Unlocks 2nd Resource Category" },
-  { level: 10, perk: "Unlocks 3 Requests per day" },
-  { level: 12, perk: "Unlocks Moonfur fetching (NFT only)" },
-  { level: 15, perk: "10% Chance of Double Resource" },
-  { level: 18, perk: "+1 Acorn yield" },
-  { level: 20, perk: "Unlocks Fossil Shells" },
-  { level: 25, perk: "Unlocks 3rd Category (NFT only)" },
-  { level: 27, perk: "+10% Pet Experience Boost" },
-  { level: 30, perk: "Unlocks 4th request per day (NFT only)" },
-  { level: 35, perk: "+5 Energy per pet food (+10 total)" },
-  { level: 40, perk: "+15% Pet Experience Boost (+25% total)" },
-  { level: 50, perk: "15% Chance of Double Resource" },
-  { level: 60, perk: "+1 Non-acorn resource yield (NFT only)" },
-  { level: 75, perk: "+5 Energy per pet food (+15 total)" },
-  { level: 85, perk: "+25% Pet Experience Boost (+50% total)" },
-  { level: 100, perk: "25% Chance of Double Resource" },
-  { level: 150, perk: "50% Chance of +1 Moonfur yield (NFT only)" },
-  { level: 200, perk: "Access to 5th food request (NFT only)" }
+export const FETCHING_ENERGY_COSTS = {
+  Acorn: 100,
+  CategoryResource: 200,
+  "Fossil Shell": 300,
+  Moonfur: 1000
+};
+
+// Known Pet catalog with categories, IDs, and resource affinities
+export const KNOWN_PETS = {
+  Barkley: { id: 2601, name: "Barkley", category: "Guardians", rarity: "Common", emoji: "🐶", desc: "Fetches Chewed Bones & Acorns." },
+  Meowchi: { id: 2602, name: "Meowchi", category: "Hunters", rarity: "Common", emoji: "🐱", desc: "Fetches Ribbons & Acorns." },
+  Twizzle: { id: 2603, name: "Twizzle", category: "Voyagers", rarity: "Common", emoji: "🦝", desc: "Fetches Ruffroot & Acorns." },
+  Burro: { id: 2604, name: "Burro", category: "Voyagers", rarity: "Common", emoji: "🫏", desc: "Fetches Ruffroot & Acorns." },
+  Mudhorn: { id: 2605, name: "Mudhorn", category: "Beasts", rarity: "Common", emoji: "🦏", desc: "Fetches Wild Grass & Acorns." },
+  Nibbles: { id: 2606, name: "Nibbles", category: "Foragers", rarity: "Common", emoji: "🐿️", desc: "Fetches Dewberries & Acorns." },
+  Waddles: { id: 2607, name: "Waddles", category: "Snowkins", rarity: "Common", emoji: "🦆", desc: "Fetches Frost Pebbles & Acorns." },
+  Ramsey: { id: 2608, name: "Ramsey", category: "Guardians", rarity: "NFT", emoji: "🐏", desc: "NFT Ram fetching rare mountain finds." },
+  Biscuit: { id: 2609, name: "Biscuit", category: "Guardians", rarity: "Common", emoji: "🐕", desc: "Fetches Chewed Bones & Acorns." },
+  Cloudy: { id: 2610, name: "Cloudy", category: "Moonkin", rarity: "Common", emoji: "☁️", desc: "Fetches Heart Leaves & Acorns." },
+  Butters: { id: 2611, name: "Butters", category: "Foragers", rarity: "Common", emoji: "🧈", desc: "Fetches Dewberries & Acorns." },
+  Smokey: { id: 2612, name: "Smokey", category: "Hunters", rarity: "Common", emoji: "🦨", desc: "Fetches Ribbons & Acorns." },
+  Flicker: { id: 2613, name: "Flicker", category: "Hunters", rarity: "Common", emoji: "🦊", desc: "Fetches Ribbons & Acorns." },
+  Pippin: { id: 2614, name: "Pippin", category: "Voyagers", rarity: "Common", emoji: "🐦", desc: "Fetches Ruffroot & Acorns." },
+  Pinto: { id: 2615, name: "Pinto", category: "Beasts", rarity: "Rare", emoji: "🐎", desc: "Fetches Wild Grass & Acorns." },
+  Roan: { id: 2616, name: "Roan", category: "Beasts", rarity: "Rare", emoji: "🐴", desc: "Fetches Wild Grass & Acorns." },
+  Stallion: { id: 2617, name: "Stallion", category: "Beasts", rarity: "NFT", emoji: "🦄", desc: "NFT Stallion fetching rare resources." },
+  Bison: { id: 2618, name: "Bison", category: "Beasts", rarity: "Rare", emoji: "🦬", desc: "Fetches Wild Grass & Acorns." },
+  Oxen: { id: 2619, name: "Oxen", category: "Guardians", rarity: "Rare", emoji: "🐂", desc: "Fetches Chewed Bones & Acorns." },
+  Peanuts: { id: 2620, name: "Peanuts", category: "Foragers", rarity: "Common", emoji: "🥜", desc: "Fetches Dewberries & Acorns." },
+  Pip: { id: 2621, name: "Pip", category: "Snowkins", rarity: "Common", emoji: "🐣", desc: "Fetches Frost Pebbles & Acorns." },
+  Skipper: { id: 2622, name: "Skipper", category: "Snowkins", rarity: "Common", emoji: "🐧", desc: "Fetches Frost Pebbles & Acorns." },
+
+  // 7 Official NFT Pet Types
+  Dragon: { id: 2640, name: "Dragon", category: "Snowkins", rarity: "NFT", emoji: "🐉", desc: "NFT Dragon: 300 supply, multi-resource fetcher." },
+  Phoenix: { id: 2641, name: "Phoenix", category: "Moonkin", rarity: "NFT", emoji: "🦅", desc: "NFT Phoenix: 450 supply, multi-resource fetcher." },
+  Griffin: { id: 2642, name: "Griffin", category: "Voyagers", rarity: "NFT", emoji: "🦅", desc: "NFT Griffin: 450 supply, multi-resource fetcher." },
+  Ram: { id: 2643, name: "Ram", category: "Hunters", rarity: "NFT", emoji: "🐏", desc: "NFT Ram: 450 supply, multi-resource fetcher." },
+  Warthog: { id: 2644, name: "Warthog", category: "Beasts", rarity: "NFT", emoji: "🐗", desc: "NFT Warthog: 450 supply, multi-resource fetcher." },
+  Wolf: { id: 2645, name: "Wolf", category: "Guardians", rarity: "NFT", emoji: "🐺", desc: "NFT Wolf: 450 supply, multi-resource fetcher." },
+  Bear: { id: 2646, name: "Bear", category: "Foragers", rarity: "NFT", emoji: "🐻", desc: "NFT Bear: 450 supply, multi-resource fetcher." }
+};
+
+// Energy yield level perks
+export const ENERGY_LEVEL_PERKS = [
+  { level: 5, bonusEnergy: 5, label: "+5 Energy per pet food" },
+  { level: 15, decimalYield: 0.1, label: "+0.1 extra fetched resource" },
+  { level: 18, acornBonus: 1.0, label: "+1 Acorn yield per fetch" },
+  { level: 20, unlocksFossil: true, label: "Unlocks Fossil Shell (300E)" },
+  { level: 35, bonusEnergy: 10, label: "+10 Total Energy per pet food" },
+  { level: 50, decimalYield: 0.15, label: "+0.15 Total extra fetched resource" },
+  { level: 75, bonusEnergy: 15, label: "+15 Total Energy per pet food" },
+  { level: 100, decimalYield: 0.25, label: "+0.25 Total extra fetched resource" }
 ];
 
+// Foods that pets will NEVER request (contain fish or mushrooms)
+export const NON_REQUESTED_FOODS = [
+  "Rapid Roast",
+  "Beetroot Blaze",
+  "Mushroom Soup",
+  "Mushroom Jacket Potatoes",
+  "Kale & Mushroom Pie",
+  "Shroom Syrup",
+  "Furikake Sprinkle",
+  "Creamy Crab Bite",
+  "Crimstone Infused Fish Oil",
+  "Surimi Rice Bowl"
+];
+
+// Fallback market prices for popular pet food items in Flower / SFL
 export const PET_FOOD_FALLBACK_PRICES = {
   "Carrot Juice": 0.05,
   "Goblin's Treat": 0.12,

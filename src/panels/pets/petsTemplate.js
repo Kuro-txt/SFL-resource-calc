@@ -11,14 +11,21 @@ export function renderPetsTemplate() {
       <div class="bg-sfl-card/90 dark:bg-slate-900/80 p-4 rounded-xl border-2 border-sfl-cardBorder dark:border-slate-700/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 shadow-sm">
         <div>
           <h3 class="text-sm font-bold text-sfl-wood dark:text-amber-300 uppercase flex items-center gap-2">
-            <span>🐾</span> Pet Haven & Energy Ledger
+            <span>🐾</span> Pet Energy & Diet Cost Calculator
           </h3>
           <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-semibold mt-0.5">
-            Track pet levels, hunger requests, energy yields, and diet costs across Daily, Weekly, and Monthly cycles.
+            Optimize your pet diet to get the cheapest Energy per SFL, track historical feeding costs, and simulate resource fetching capacity.
           </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <!-- UTC RESET COUNTDOWN -->
+          <div class="bg-amber-100/90 dark:bg-slate-800/90 border border-amber-300 dark:border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs text-sfl-dirt dark:text-amber-100">
+            <span class="text-orange-500 font-bold">⏳ Reset:</span>
+            <span id="pets-utc-reset-timer" class="font-mono font-extrabold text-sfl-wood dark:text-amber-200">--:--:--</span>
+            <span class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-semibold">(00:00 UTC)</span>
+          </div>
+
           <!-- REFRESH / SYNC BUTTON -->
           <button type="button" id="pets-refresh-btn"
             class="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-bold px-3 py-1.5 rounded-lg border border-emerald-800 shadow-xs transition cursor-pointer flex items-center gap-1.5 text-xs whitespace-nowrap"
@@ -29,15 +36,15 @@ export function renderPetsTemplate() {
         </div>
       </div>
 
-      <!-- SUMMARY KPI METRICS -->
+      <!-- SUMMARY KPI METRICS: FOCUS ON ENERGY & COSTS -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <!-- Total Pets -->
+        <!-- Total Pets & Level -->
         <div class="bg-sfl-card/80 dark:bg-slate-900/70 p-3 rounded-xl border-2 border-sfl-cardBorder dark:border-slate-800 flex items-center gap-3 shadow-xs">
           <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-slate-800 flex items-center justify-center text-xl shrink-0">
             🐾
           </div>
           <div>
-            <div class="text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400">Total Pets</div>
+            <div class="text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400">Active Pets</div>
             <div id="pets-stat-count" class="text-base font-extrabold text-sfl-wood dark:text-amber-200">0</div>
           </div>
         </div>
@@ -48,8 +55,8 @@ export function renderPetsTemplate() {
             ⚡
           </div>
           <div>
-            <div class="text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400">Current Energy</div>
-            <div id="pets-stat-energy" class="text-base font-extrabold text-amber-600 dark:text-amber-300">0</div>
+            <div class="text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400">Total Energy</div>
+            <div id="pets-stat-energy" class="text-base font-extrabold text-amber-600 dark:text-amber-300">0 ⚡</div>
           </div>
         </div>
 
@@ -64,14 +71,16 @@ export function renderPetsTemplate() {
           </div>
         </div>
 
-        <!-- Today Social XP -->
+        <!-- Average Cost per Energy -->
         <div class="bg-sfl-card/80 dark:bg-slate-900/70 p-3 rounded-xl border-2 border-sfl-cardBorder dark:border-slate-800 flex items-center gap-3 shadow-xs">
           <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-slate-800 flex items-center justify-center text-xl shrink-0">
-            🤝
+            🎯
           </div>
           <div>
-            <div class="text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400">Social XP Today</div>
-            <div id="pets-stat-social-xp" class="text-base font-extrabold text-emerald-600 dark:text-emerald-400">0 / 50</div>
+            <div class="text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400">Best Cost / Energy</div>
+            <div id="pets-stat-best-efficiency" class="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 truncate mt-1">
+              0.0000 SFL/⚡
+            </div>
           </div>
         </div>
       </div>
@@ -92,20 +101,17 @@ export function renderPetsTemplate() {
           <button type="button" data-filter="hungry" class="pets-filter-btn bg-amber-100/70 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-3 py-1 rounded-lg text-xs font-bold border border-amber-300/60 dark:border-slate-700 cursor-pointer transition">
             🍲 Needs Food
           </button>
-          <button type="button" data-filter="nap" class="pets-filter-btn bg-amber-100/70 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-3 py-1 rounded-lg text-xs font-bold border border-amber-300/60 dark:border-slate-700 cursor-pointer transition">
-            🖐️ Ready to Pet
-          </button>
         </div>
 
         <!-- Search Input -->
         <div class="w-full sm:w-64">
-          <input type="text" id="pets-search-input" placeholder="Search pet or food..."
+          <input type="text" id="pets-search-input" placeholder="Search pet, category or food..."
             class="sfl-input w-full rounded-lg px-3 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 focus:ring-1 focus:ring-sfl-gold placeholder:text-sfl-woodLight/60">
         </div>
       </div>
 
       <!-- PETS CARDS CONTAINER -->
-      <div id="pets-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div id="pets-cards-container" class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <!-- Rendered dynamically -->
       </div>
 
@@ -118,7 +124,7 @@ export function renderPetsTemplate() {
               <span>⚡</span> Pet Energy & Diet Cost Ledger
             </h4>
             <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-semibold">
-              Track energy gained against the market/crafting cost of foods fed to optimize your pet diet.
+              Track energy gained against the market/crafting cost of foods fed across Daily, Weekly, and Monthly cycles.
             </p>
           </div>
 

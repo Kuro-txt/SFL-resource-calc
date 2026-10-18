@@ -2,20 +2,21 @@ import { renderPetsTemplate } from './petsTemplate.js';
 import { 
   parseFarmPets, 
   checkFoodAvailability, 
-  getPetInteractionStatus, 
+  calculateFetchingCapacity,
+  getTimeUntilUtcReset,
   getStoredEnergyLedger, 
   recordFeedEvent,
   getFoodPrice
 } from './petsLogic.js';
-import { PanelManager } from '../../services/panelManager.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 
 let activeFilter = 'all';
 let searchQuery = '';
 let activePeriod = 'daily';
 let isInitialized = false;
+let resetTimerInterval = null;
 
-// Sample preview pet if user doesn't have pets loaded yet
+// Sample preview pet (Burro with 47,660 XP = Level 29)
 const SAMPLE_PREVIEW_FARM = {
   farm: {
     inventory: {
@@ -45,9 +46,6 @@ const SAMPLE_PREVIEW_FARM = {
             ]
           },
           pettedAt: Date.now() - 1800000,
-          dailySocialXP: {
-            [new Date().toISOString().split('T')[0]]: 25
-          },
           cheeredAt: Date.now() - (86400000 * 3)
         }
       }
@@ -61,7 +59,6 @@ export function initPetsPanel() {
 
   // Listen to live farm data sync from auth bar / API
   window.addEventListener('farmDataSynced', (e) => {
-    console.log("🐾 Pets Panel: Farm data synced!", e.detail);
     ingestLivePetFeedData(e.detail?.farmData || window.farmData);
     renderPetsCards();
     renderEnergyLedger();
@@ -78,17 +75,33 @@ export function mountPetsPanel() {
   const container = document.getElementById('pets-section');
   if (!container) return;
 
-  // Render template if empty
   if (!container.innerHTML.trim() || !document.getElementById('pets-cards-container')) {
     renderPetsTemplate();
     bindPetsEventListeners();
   }
 
-  // Check for new feedings from live farm data
+  // Start UTC countdown timer
+  startUtcResetTimer();
+
+  // Ingest any feedings from current farmData
   ingestLivePetFeedData(window.farmData);
 
   renderPetsCards();
   renderEnergyLedger();
+}
+
+function startUtcResetTimer() {
+  if (resetTimerInterval) clearInterval(resetTimerInterval);
+
+  const updateTimer = () => {
+    const el = document.getElementById('pets-utc-reset-timer');
+    if (!el) return;
+    const t = getTimeUntilUtcReset();
+    el.textContent = t.formatted;
+  };
+
+  updateTimer();
+  resetTimerInterval = setInterval(updateTimer, 1000);
 }
 
 /**
@@ -108,8 +121,8 @@ function ingestLivePetFeedData(farmData) {
         costSfl += getFoodPrice(foodName);
       });
 
-      // Energy calculation: standard SFL gives ~50-100 energy per food
-      const estimatedEnergyGained = requests.foodFed.length * 60;
+      // Energy calculation: Slot 0 gives ~45, Slot 1 ~75, Slot 2 ~115 (avg ~75)
+      const estimatedEnergyGained = requests.foodFed.length * (70 + (pet.energyBonus || 0));
       const costPerEnergy = estimatedEnergyGained > 0 ? (costSfl / estimatedEnergyGained) : 0;
 
       recordFeedEvent({
@@ -166,7 +179,7 @@ function bindPetsEventListeners() {
     });
   }
 
-  // 4. Ledger period toggles (Daily, Weekly, Monthly, All)
+  // 4. Ledger period toggles
   const periodBtns = document.querySelectorAll('.ledger-period-btn');
   periodBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -184,7 +197,6 @@ export function renderPetsCards() {
   const container = document.getElementById('pets-cards-container');
   if (!container) return;
 
-  // Use live farmData or sample preview if not synced yet
   let dataToUse = window.farmData;
   let isPreview = false;
   if (!dataToUse || !parseFarmPets(dataToUse).length) {
@@ -196,9 +208,6 @@ export function renderPetsCards() {
   const inventory = farm.inventory || {};
   let pets = parseFarmPets(dataToUse);
 
-  // Update top KPI stats
-  updateTopKpis(pets, isPreview);
-
   // Apply filters
   if (activeFilter === 'common') {
     pets = pets.filter(p => p.rarity.toLowerCase() === 'common');
@@ -206,13 +215,8 @@ export function renderPetsCards() {
     pets = pets.filter(p => p.rarity.toLowerCase() !== 'common');
   } else if (activeFilter === 'hungry') {
     pets = pets.filter(p => {
-      const foodReqs = checkFoodAvailability(p.requests, inventory);
+      const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1);
       return foodReqs.some(f => !f.isFed);
-    });
-  } else if (activeFilter === 'nap') {
-    pets = pets.filter(p => {
-      const interaction = getPetInteractionStatus(p);
-      return interaction.pettingReady;
     });
   }
 
@@ -220,11 +224,13 @@ export function renderPetsCards() {
   if (searchQuery) {
     pets = pets.filter(p => {
       const matchName = p.name.toLowerCase().includes(searchQuery);
-      const matchRarity = p.rarity.toLowerCase().includes(searchQuery);
+      const matchCategory = p.category?.toLowerCase().includes(searchQuery);
       const matchFood = p.requests?.food?.some(f => f.toLowerCase().includes(searchQuery));
-      return matchName || matchRarity || matchFood;
+      return matchName || matchCategory || matchFood;
     });
   }
+
+  updateTopKpis(pets, inventory);
 
   if (pets.length === 0) {
     container.innerHTML = `
@@ -250,12 +256,18 @@ export function renderPetsCards() {
 
   pets.forEach(pet => {
     const levelStats = pet.levelStats;
-    const perkInfo = pet.perkInfo;
-    const foodReqs = checkFoodAvailability(pet.requests, inventory);
-    const interaction = getPetInteractionStatus(pet);
-
+    const petLevel = levelStats.level;
+    const foodReqs = checkFoodAvailability(pet.requests, inventory, petLevel);
     const fedCount = foodReqs.filter(f => f.isFed).length;
     const totalRequests = foodReqs.length;
+
+    // Fetch capacity calculation based on current energy
+    const fetchCap = calculateFetchingCapacity(
+      pet.energy || 0,
+      petLevel,
+      pet.category,
+      pet.rarity === 'NFT'
+    );
 
     html += `
       <div class="bg-sfl-card/95 dark:bg-slate-900/90 rounded-2xl border-2 border-sfl-cardBorder dark:border-slate-800 p-4 shadow-sm space-y-4 hover:border-sfl-gold/60 transition">
@@ -272,8 +284,13 @@ export function renderPetsCards() {
                 <span class="bg-amber-100 dark:bg-slate-800 text-sfl-wood dark:text-amber-200 border border-amber-300/80 dark:border-slate-700 text-[10px] font-black uppercase px-2 py-0.5 rounded-md">
                   ${pet.rarity}
                 </span>
+                <!-- CATEGORY BADGE -->
+                <span class="bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <span>${pet.categoryInfo?.icon || '🌾'}</span>
+                  <span>${pet.category} ➔ ${pet.categoryInfo?.resource || 'Resource'}</span>
+                </span>
               </div>
-              <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-semibold line-clamp-1">
+              <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-semibold line-clamp-1 mt-0.5">
                 ${pet.desc || 'Faithful farm companion'}
               </p>
             </div>
@@ -283,52 +300,41 @@ export function renderPetsCards() {
             <div class="inline-block bg-gradient-to-r from-amber-500 to-amber-600 text-white font-black text-xs px-2.5 py-0.5 rounded-lg shadow-xs">
               Lv. ${levelStats.level}
             </div>
+            <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono mt-0.5">
+              ${levelStats.progress}%
+            </div>
           </div>
         </div>
 
-        <!-- LEVEL & XP PROGRESSION -->
-        <div class="bg-amber-50/60 dark:bg-slate-800/50 p-2.5 rounded-xl border border-amber-200/60 dark:border-slate-700/60 space-y-1.5">
-          <div class="flex justify-between items-center text-[11px] font-bold">
-            <span class="text-sfl-wood dark:text-amber-200">Experience</span>
-            <span class="text-sfl-woodLight dark:text-slate-400 font-mono">
-              ${Number(levelStats.currentXp).toLocaleString()} / ${Number(levelStats.nextXp).toLocaleString()} XP
-            </span>
+        <!-- CURRENT ENERGY CAPACITY DISPLAY -->
+        <div class="bg-gradient-to-r from-amber-100/80 to-amber-200/50 dark:from-slate-800/80 dark:to-slate-800/40 p-3 rounded-xl border border-amber-300/80 dark:border-slate-700 flex items-center justify-between shadow-xs">
+          <div>
+            <div class="text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400 flex items-center gap-1">
+              <span>⚡</span> Stored Energy Reserve
+            </div>
+            <div class="text-xl font-extrabold text-amber-600 dark:text-amber-300 font-mono">
+              ${(pet.energy || 0).toLocaleString()} ⚡
+            </div>
           </div>
-
-          <!-- Progress Bar -->
-          <div class="w-full bg-amber-200/60 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden p-0.5">
-            <div class="bg-gradient-to-r from-amber-500 to-amber-400 h-full rounded-full transition-all duration-500" style="width: ${levelStats.progress}%"></div>
-          </div>
-
-          <div class="flex justify-between items-center text-[10px] text-sfl-woodLight dark:text-slate-400 font-semibold">
-            <span>Progress: ${levelStats.progress}%</span>
-            <span>${Number(levelStats.remainingXp).toLocaleString()} XP to Lv. ${levelStats.level + 1}</span>
+          <div class="text-right text-[10px] text-sfl-woodLight dark:text-slate-400 font-semibold">
+            <div>Bonus: <span class="text-amber-600 dark:text-amber-300 font-bold">+${pet.energyBonus || 0}⚡</span> / food</div>
+            <div class="text-[9px] text-sfl-woodLight/80 dark:text-slate-500">Resets never expire</div>
           </div>
         </div>
 
-        <!-- ENERGY METER -->
-        <div class="flex items-center justify-between bg-amber-100/40 dark:bg-slate-800/40 px-3 py-2 rounded-xl border border-amber-200/50 dark:border-slate-700/50">
-          <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1.5">
-            <span>⚡</span> Current Energy
-          </span>
-          <span class="text-sm font-extrabold text-amber-600 dark:text-amber-300 font-mono">
-            ${pet.energy || 0}
-          </span>
-        </div>
-
-        <!-- FOOD REQUESTS & INVENTORY / RECIPES -->
+        <!-- FOOD REQUESTS & COST PER ENERGY ECONOMICS -->
         <div class="space-y-2">
           <div class="flex justify-between items-center">
             <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-              <span>🍲</span> Food Requests
+              <span>🍲</span> Daily Diet & Energy Costs
             </span>
             <span class="text-[11px] font-bold ${fedCount === totalRequests ? 'text-emerald-600 dark:text-emerald-400' : 'text-sfl-woodLight dark:text-slate-400'}">
               ${fedCount} / ${totalRequests} Fed
             </span>
           </div>
 
-          <div class="space-y-1.5">
-            ${foodReqs.map((food, idx) => {
+          <div class="space-y-2">
+            ${foodReqs.map(food => {
               let badgeHtml = '';
               let bgStyle = 'bg-amber-50/50 dark:bg-slate-800/40 border-amber-200/60 dark:border-slate-700';
 
@@ -343,7 +349,7 @@ export function renderPetsCards() {
                 badgeHtml = '<span class="text-orange-600 dark:text-orange-400 font-semibold text-[10px]">Need Ingredients</span>';
               }
 
-              // Build Recipe Ingredients breakdown
+              // Recipe ingredient tags
               let recipeDetailsHtml = '';
               if (food.ingredientDetails && food.ingredientDetails.length > 0) {
                 const ingsList = food.ingredientDetails.map(ing => `
@@ -360,11 +366,22 @@ export function renderPetsCards() {
               }
 
               return `
-                <div class="p-2 rounded-xl border ${bgStyle} flex flex-col gap-0.5">
+                <div class="p-2.5 rounded-xl border ${bgStyle} flex flex-col gap-1">
                   <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-sfl-dirt dark:text-amber-100 flex items-center gap-1.5">
-                      <span>•</span> ${food.foodName}
-                    </span>
+                    <div class="flex items-center gap-2">
+                      <span class="bg-amber-200/60 dark:bg-slate-700 text-sfl-wood dark:text-amber-200 text-[9.5px] font-black uppercase px-1.5 py-0.5 rounded">
+                        ${food.slotTier}
+                      </span>
+                      <span class="text-xs font-bold text-sfl-dirt dark:text-amber-100">
+                        ${food.foodName}
+                      </span>
+                      ${food.isBestValue ? `
+                        <span class="bg-amber-400 dark:bg-amber-500 text-sfl-dirt dark:text-slate-900 text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md shadow-xs animate-pulse">
+                          ⭐ Best Value
+                        </span>
+                      ` : ''}
+                    </div>
+
                     <div class="flex items-center gap-2">
                       <span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5">
                         ${food.price.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
@@ -372,6 +389,17 @@ export function renderPetsCards() {
                       ${badgeHtml}
                     </div>
                   </div>
+
+                  <!-- ENERGY RETURN & COST PER ENERGY RATIO -->
+                  <div class="flex items-center justify-between text-[10px] bg-black/5 dark:bg-white/5 px-2 py-1 rounded-md">
+                    <span class="text-amber-700 dark:text-amber-300 font-bold font-mono">
+                      ⚡ Yields +${food.totalEnergy} Energy
+                    </span>
+                    <span class="text-indigo-600 dark:text-indigo-400 font-mono font-bold">
+                      Cost: ${food.costPerEnergy.toFixed(6)} SFL/⚡
+                    </span>
+                  </div>
+
                   ${recipeDetailsHtml}
                 </div>
               `;
@@ -379,42 +407,58 @@ export function renderPetsCards() {
           </div>
         </div>
 
-        <!-- DAILY INTERACTIONS & TIMERS -->
-        <div class="grid grid-cols-2 gap-2 text-[10px] pt-1 border-t border-sfl-cardBorder/40 dark:border-slate-800">
-          <!-- Petting Nap -->
-          <div class="bg-amber-100/30 dark:bg-slate-800/30 p-2 rounded-lg">
-            <div class="font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
-              <span>🖐️</span> Petting Nap
-            </div>
-            <div class="text-[10px] ${interaction.pettingReady ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-sfl-woodLight dark:text-slate-400'} mt-0.5">
-              ${interaction.pettingText}
-            </div>
-            ${interaction.nextNapInText ? `<div class="text-[9px] text-sfl-woodLight/80 dark:text-slate-500">${interaction.nextNapInText}</div>` : ''}
+        <!-- INTERACTIVE FETCHING CAPACITY & RESOURCE SIMULATOR -->
+        <div class="bg-amber-100/40 dark:bg-slate-800/40 p-3 rounded-xl border border-amber-200/60 dark:border-slate-700/60 space-y-2">
+          <div class="flex justify-between items-center text-xs font-bold text-sfl-wood dark:text-amber-200">
+            <span class="flex items-center gap-1.5 uppercase">
+              <span>🏹</span> Resource Fetching Capacity
+            </span>
+            <span class="text-[10px] text-sfl-woodLight dark:text-slate-400">
+              Yield: +${fetchCap.decimalBonus}x bonus
+            </span>
           </div>
 
-          <!-- Social XP Today -->
-          <div class="bg-amber-100/30 dark:bg-slate-800/30 p-2 rounded-lg">
-            <div class="font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
-              <span>🤝</span> Social XP
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <!-- Acorn Option (100 Energy) -->
+            <div class="bg-white/80 dark:bg-slate-900/80 p-2 rounded-lg border border-amber-200 dark:border-slate-700">
+              <div class="flex justify-between items-center text-[11px] font-bold">
+                <span class="text-sfl-wood dark:text-amber-100">🌰 Acorns (100⚡)</span>
+                <span class="text-amber-600 font-bold">${fetchCap.acorn.maxFetches} fetches</span>
+              </div>
+              <div class="text-[10px] text-sfl-green font-mono font-bold mt-1">
+                Yield: ~${fetchCap.acorn.totalYield} Acorns
+              </div>
+              <div class="text-[9px] text-sfl-woodLight dark:text-slate-400">
+                (${fetchCap.acorn.yieldPerFetch} per fetch)
+              </div>
             </div>
-            <div class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 font-mono">
-              ${interaction.todaySocialXp} / ${interaction.socialCap} XP (${interaction.socialPercent}%)
+
+            <!-- Category Resource (200 Energy) -->
+            <div class="bg-white/80 dark:bg-slate-900/80 p-2 rounded-lg border border-amber-200 dark:border-slate-700">
+              <div class="flex justify-between items-center text-[11px] font-bold">
+                <span class="text-sfl-wood dark:text-amber-100">${fetchCap.category.icon} ${fetchCap.category.name} (200⚡)</span>
+                <span class="text-amber-600 font-bold">${fetchCap.category.maxFetches} fetches</span>
+              </div>
+              <div class="text-[10px] text-sfl-green font-mono font-bold mt-1">
+                Yield: ~${fetchCap.category.totalYield} ${fetchCap.category.name}
+              </div>
+              <div class="text-[9px] text-sfl-woodLight dark:text-slate-400">
+                (${fetchCap.category.yieldPerFetch} per fetch)
+              </div>
             </div>
-            <div class="text-[9px] text-sfl-woodLight/80 dark:text-slate-500">${interaction.cheerText}</div>
           </div>
+
+          ${fetchCap.fossilShell.unlocked ? `
+            <div class="bg-white/60 dark:bg-slate-900/60 px-2 py-1 rounded text-[10px] flex justify-between items-center text-sfl-woodLight dark:text-slate-400 font-semibold">
+              <span>🐚 Fossil Shells (300⚡):</span>
+              <span class="font-bold text-sfl-dirt dark:text-amber-200">${fetchCap.fossilShell.maxFetches} Shells ready to fetch</span>
+            </div>
+          ` : `
+            <div class="text-[9px] text-sfl-woodLight dark:text-slate-500 italic text-center">
+              Fossil Shells (300⚡) unlock at Level 20.
+            </div>
+          `}
         </div>
-
-        <!-- UPCOMING PERK -->
-        ${perkInfo.nextPerk ? `
-          <div class="bg-amber-100/60 dark:bg-slate-800/50 px-2.5 py-1.5 rounded-lg border border-amber-300/40 dark:border-slate-700/40 text-[10px] text-sfl-wood dark:text-amber-200 flex items-center justify-between">
-            <span class="font-bold flex items-center gap-1">
-              <span>🎁</span> Next at Lv. ${perkInfo.nextPerk.level}:
-            </span>
-            <span class="text-sfl-woodLight dark:text-slate-300 truncate max-w-[180px]" title="${perkInfo.nextPerk.perk}">
-              ${perkInfo.nextPerk.perk}
-            </span>
-          </div>
-        ` : ''}
 
       </div>
     `;
@@ -423,31 +467,38 @@ export function renderPetsCards() {
   container.innerHTML = html;
 }
 
-function updateTopKpis(pets, isPreview) {
+function updateTopKpis(pets, inventory) {
   const countEl = document.getElementById('pets-stat-count');
   const energyEl = document.getElementById('pets-stat-energy');
   const pendingEl = document.getElementById('pets-stat-pending-food');
-  const socialEl = document.getElementById('pets-stat-social-xp');
+  const bestEffEl = document.getElementById('pets-stat-best-efficiency');
 
   let totalEnergy = 0;
   let totalPendingFood = 0;
-  let maxSocialXp = 0;
+  let lowestCostPerEnergy = Infinity;
 
   pets.forEach(p => {
     totalEnergy += parseInt(p.energy || 0);
-    const reqs = p.requests?.food || [];
-    const fed = p.requests?.foodFed || [];
-    totalPendingFood += Math.max(0, reqs.length - fed.length);
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const sXp = p.dailySocialXP?.[todayStr] || 0;
-    if (sXp > maxSocialXp) maxSocialXp = sXp;
+    const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1);
+    
+    foodReqs.forEach(f => {
+      if (!f.isFed) {
+        totalPendingFood++;
+        if (f.costPerEnergy > 0 && f.costPerEnergy < lowestCostPerEnergy) {
+          lowestCostPerEnergy = f.costPerEnergy;
+        }
+      }
+    });
   });
 
   if (countEl) countEl.textContent = pets.length;
-  if (energyEl) energyEl.textContent = totalEnergy.toLocaleString();
+  if (energyEl) energyEl.textContent = `${totalEnergy.toLocaleString()} ⚡`;
   if (pendingEl) pendingEl.textContent = totalPendingFood;
-  if (socialEl) socialEl.textContent = `${maxSocialXp} / 50`;
+  if (bestEffEl) {
+    bestEffEl.textContent = lowestCostPerEnergy !== Infinity 
+      ? `${lowestCostPerEnergy.toFixed(5)} SFL/⚡` 
+      : '0.0000 SFL/⚡';
+  }
 }
 
 export function renderEnergyLedger() {
@@ -460,7 +511,7 @@ export function renderEnergyLedger() {
   const farmId = window.farmData?.farmId || window.currentFarmId || 'preview';
   let ledger = getStoredEnergyLedger(farmId);
 
-  // If local ledger is empty, inject sample historical feed entries for preview
+  // Fallback demo feeding entries for instant preview
   if (ledger.length === 0) {
     const today = new Date();
     ledger = [
@@ -468,10 +519,10 @@ export function renderEnergyLedger() {
         farmId,
         petName: "Burro",
         fedAt: today.getTime() - 3600000,
-        energyGained: 60,
+        energyGained: 45,
         foodsFed: ["Carrot Juice"],
         costSfl: 0.05,
-        costPerEnergy: 0.000833,
+        costPerEnergy: 0.001111,
         loggedAt: new Date(today.getTime() - 3600000).toISOString()
       },
       {
@@ -488,29 +539,24 @@ export function renderEnergyLedger() {
         farmId,
         petName: "Burro",
         fedAt: today.getTime() - (86400000 * 3),
-        energyGained: 180,
+        energyGained: 235,
         foodsFed: ["Carrot Juice", "Goblin's Treat", "Caprese Salad"],
-        costSfl: 0.45,
-        costPerEnergy: 0.002500,
+        costSfl: 0.40,
+        costPerEnergy: 0.001702,
         loggedAt: new Date(today.getTime() - (86400000 * 3)).toISOString()
       }
     ];
   }
 
-  // Filter or aggregate by activePeriod
-  const now = new Date();
   let filtered = [...ledger];
 
   if (activePeriod === 'daily') {
-    // Last 24 hours
     const cutoff = Date.now() - (24 * 60 * 60 * 1000);
     filtered = ledger.filter(item => item.fedAt >= cutoff);
   } else if (activePeriod === 'weekly') {
-    // Last 7 days
     const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
     filtered = ledger.filter(item => item.fedAt >= cutoff);
   } else if (activePeriod === 'monthly') {
-    // Last 30 days
     const cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
     filtered = ledger.filter(item => item.fedAt >= cutoff);
   }
@@ -525,7 +571,7 @@ export function renderEnergyLedger() {
 
   const avgCostPerEnergy = totalEnergy > 0 ? (totalCost / totalEnergy) : 0;
 
-  if (totalEnergyEl) totalEnergyEl.textContent = `+${totalEnergy.toLocaleString()}`;
+  if (totalEnergyEl) totalEnergyEl.textContent = `+${totalEnergy.toLocaleString()} ⚡`;
   if (totalCostEl) totalCostEl.innerHTML = `<span>${totalCost.toFixed(4)}</span> ${FLOWER_IMG_SMALL_HTML}`;
   if (avgEffEl) avgEffEl.textContent = `${avgCostPerEnergy.toFixed(6)} SFL/⚡`;
 
@@ -552,7 +598,7 @@ export function renderEnergyLedger() {
         <td class="p-2.5 font-mono text-[11px] text-sfl-woodLight dark:text-slate-400">${dateStr}</td>
         <td class="p-2.5 font-bold text-sfl-wood dark:text-amber-100">${row.petName}</td>
         <td class="p-2.5 text-sfl-dirt dark:text-slate-300">${foodsStr}</td>
-        <td class="p-2.5 text-right font-mono font-bold text-amber-600 dark:text-amber-300">+${row.energyGained}</td>
+        <td class="p-2.5 text-right font-mono font-bold text-amber-600 dark:text-amber-300">+${row.energyGained} ⚡</td>
         <td class="p-2.5 text-right font-mono font-bold text-sfl-green dark:text-emerald-400">${row.costSfl.toFixed(4)}</td>
         <td class="p-2.5 text-right font-mono text-[11px] text-indigo-600 dark:text-indigo-400 font-bold">${row.costPerEnergy.toFixed(6)}</td>
       </tr>
