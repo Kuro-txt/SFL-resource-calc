@@ -204,7 +204,7 @@ function bindPetsEventListeners() {
     });
   }
 
-  // 3. Refresh button
+  // 3. Refresh button (Dedicated to Pets: fetches farm pet data & cloud ledger without global sync)
   const refreshBtn = document.getElementById('pets-refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', async () => {
@@ -215,35 +215,44 @@ function bindPetsEventListeners() {
       refreshBtn.disabled = true;
 
       try {
-        if (typeof window.syncGlobalFarmData === 'function') {
-          await window.syncGlobalFarmData();
-        } else if (typeof window.handleFarmSync === 'function') {
-          await window.handleFarmSync();
-        } else {
-          const farmId = window.farmData?.farmId || window.currentFarmId || localStorage.getItem('sfl_farm_id');
-          const apiKey = localStorage.getItem('sfl_api_key') || '';
-          if (farmId) {
-            const freshFarm = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
-            if (freshFarm) {
-              window.farmData = freshFarm;
-              ingestLivePetFeedData(freshFarm);
-            }
-          }
+        const farmId = window.farmData?.farmId || window.currentFarmId || localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value?.trim();
+        const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value?.trim() || '';
+
+        if (!farmId || farmId === 'preview') {
+          alert('⚠️ Please enter your Farm ID at the top to sync your pets.');
+          return;
         }
 
-        const farmId = window.farmData?.farmId || window.currentFarmId || localStorage.getItem('sfl_farm_id');
-        if (farmId && farmId !== 'preview') {
+        // Fetch live farm data specifically for pets & inventory (bypasses global sync)
+        const freshFarm = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
+        if (freshFarm) {
+          window.farmData = freshFarm;
+          const liveInv = freshFarm.inventory || freshFarm.farm?.inventory || {};
+          window.farmInventoryData = liveInv;
+          try {
+            localStorage.setItem('sfl_farm_inventory', JSON.stringify(liveInv));
+          } catch (_) {}
+
+          // Ingest live feed data into local ledger
+          ingestLivePetFeedData(freshFarm);
+        }
+
+        // Fetch latest cloud pet feed events from TiDB Cloud
+        if (isPetTrackerOptedIn() && farmId && farmId !== 'preview') {
           try {
             await fetchCloudPetLedger(farmId);
           } catch (_) {}
         }
       } catch (err) {
-        console.warn("Notice: Pets sync notice:", err.message);
+        console.warn("Notice: Pet-specific sync notice:", err.message);
       } finally {
         if (icon) icon.classList.remove('animate-spin');
         if (label) label.textContent = 'Sync';
         refreshBtn.disabled = false;
-        mountPetsPanel();
+        renderPetsCards();
+        renderEnergyLedger();
+        const walrusToggle = document.getElementById('pets-walrus-onesie-toggle');
+        if (walrusToggle) walrusToggle.checked = isWalrusOnesieActive(window.farmData);
       }
     });
   }
