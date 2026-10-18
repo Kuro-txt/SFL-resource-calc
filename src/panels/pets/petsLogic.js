@@ -367,11 +367,72 @@ export function calculateFetchingCapacity(energy = 0, level = 1, categoryName = 
   unlocked.sort((a, b) => b.sflPer100Energy - a.sflPer100Energy);
   const bestFetch = unlocked[0] || null;
 
+  const allEnergyPlan = calculateOptimalEnergyAllocation(availableFetches, currentEnergy);
+
   return {
     currentEnergy,
     decimalBonus,
     fetches: availableFetches,
-    bestFetch
+    bestFetch,
+    allEnergyPlan
+  };
+}
+
+/**
+ * Calculates optimal allocation of ALL available pet energy to maximize SFL profit.
+ * Prioritizes highest SFL/100⚡ unlocked fetch, and allocates remainder down to Acorns.
+ */
+export function calculateOptimalEnergyAllocation(availableFetches, currentEnergy) {
+  let energyLeft = Math.max(0, parseInt(currentEnergy) || 0);
+  if (energyLeft < 100 || !Array.isArray(availableFetches)) {
+    return {
+      plan: [],
+      totalSfl: 0,
+      energyUsed: 0,
+      energyRemaining: energyLeft,
+      summaryText: 'Need 100⚡'
+    };
+  }
+
+  // Sort unlocked fetches descending by sflPer100Energy
+  const unlocked = availableFetches
+    .filter(f => f.isUnlocked && f.energyCost > 0)
+    .sort((a, b) => b.sflPer100Energy - a.sflPer100Energy);
+
+  const plan = [];
+  let totalSfl = 0;
+  let energyUsed = 0;
+
+  unlocked.forEach(f => {
+    if (energyLeft >= f.energyCost) {
+      const count = Math.floor(energyLeft / f.energyCost);
+      if (count > 0) {
+        const yieldAmount = Math.round(count * f.yieldPerFetch * 10) / 10;
+        const sflEarned = count * f.yieldPerFetch * f.unitPrice;
+        energyLeft -= (count * f.energyCost);
+        energyUsed += (count * f.energyCost);
+        totalSfl += sflEarned;
+        plan.push({
+          resource: f.resource,
+          icon: f.icon,
+          count,
+          yieldAmount,
+          sflEarned
+        });
+      }
+    }
+  });
+
+  const summaryText = plan.length > 0
+    ? plan.map(p => `${p.count}x ${p.icon} (${p.yieldAmount})`).join(' + ')
+    : 'None available';
+
+  return {
+    plan,
+    totalSfl: Math.round(totalSfl * 10000) / 10000,
+    energyUsed,
+    energyRemaining: energyLeft,
+    summaryText
   };
 }
 

@@ -448,6 +448,21 @@ export function renderPetsCards() {
               </div>
             </div>
           ` : ''}
+
+          ${fetchCap.allEnergyPlan?.plan?.length ? `
+            <!-- BEST FETCH WITH ALL ENERGY -->
+            <div class="flex items-center justify-between pt-1 border-t border-amber-200/50 dark:border-slate-700/50">
+              <span class="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                <span>💰</span> All Energy (${pet.energy || 0}⚡):
+              </span>
+              <div class="flex items-center gap-1.5 font-bold text-sfl-wood dark:text-amber-200">
+                <span class="font-mono text-[9.5px]">${fetchCap.allEnergyPlan.summaryText}</span>
+                <span class="font-mono text-[9px] text-amber-800 dark:text-amber-200 bg-amber-200/80 dark:bg-amber-950/60 px-1 py-0.5 rounded border border-amber-300 dark:border-amber-700" title="Total estimated SFL value generated using all available energy">
+                  ~${fetchCap.allEnergyPlan.totalSfl.toFixed(4)} SFL
+                </span>
+              </div>
+            </div>
+          ` : ''}
         </div>
 
       </div>
