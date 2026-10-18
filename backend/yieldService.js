@@ -182,7 +182,17 @@ const PET_FOOD_ENERGY_TIERS = {
   'honeycheddar': 300, 'bananablast': 300, 'grapejuice': 300, 'slowjuice': 300, 'thelot': 300
 };
 
-async function archiveFarmPetsToTiDB(farmId, farmData) {
+// Fallback pet food prices in SFL
+const PET_FOOD_FALLBACK_PRICES = {
+  'carrotjuice': 0.05, 'goblinstreat': 0.12, 'capresesalad': 0.28, 'mashedpotato': 0.03,
+  'boiledeggs': 0.04, 'boiledegg': 0.04, 'pancake': 0.08, 'pancakes': 0.08, 'roastveggies': 0.10,
+  'chowder': 0.15, 'pumpkinsoup': 0.06, 'rhubarbtart': 0.18, 'applepie': 0.22, 'sushi': 0.35,
+  'orangecake': 0.20, 'sunflowercake': 0.15, 'beetrootcake': 0.18, 'cabbersnmash': 0.15,
+  'quickjuice': 0.04, 'ricebun': 0.25, 'bumpkinroast': 0.45, 'cheese': 0.05, 'bluecheese': 0.30,
+  'orangejuice': 0.08, 'applejuice': 0.08, 'purplesmoothie': 0.06, 'powersmoothie': 0.12
+};
+
+async function archiveFarmPetsToTiDB(farmId, farmData, flatPrices = {}) {
   const pool = getTiDBPool();
   if (!pool || !farmData) return;
 
@@ -220,7 +230,8 @@ async function archiveFarmPetsToTiDB(farmId, farmData) {
       const reqs = pet.requests;
       if (reqs && reqs.fedAt && Array.isArray(reqs.foodFed) && reqs.foodFed.length > 0) {
         const fedAt = parseInt(reqs.fedAt, 10);
-        const eventId = crypto.createHash('md5').update(`${farmId}_${pet.name}_${fedAt}`).digest('hex');
+        const entryDate = new Date(fedAt).toISOString().slice(0, 10);
+        const eventId = `${farmId}_${String(pet.name).replace(/[^a-zA-Z0-9]/g, '')}_${entryDate}`;
         
         // Calculate pet level bonus
         const xp = Math.max(0, parseFloat(pet.experience) || 0);
@@ -230,14 +241,37 @@ async function archiveFarmPetsToTiDB(farmId, farmData) {
         else if (level >= 35) energyBonus = 10;
         else if (level >= 5) energyBonus = 5;
 
+        // Aura Multiplier (Common = 1.5x, Rare = 2.0x, Mythic = 3.0x)
+        let auraMultiplier = 1.0;
+        const auraTrait = pet.traits?.aura ? String(pet.traits.aura).toLowerCase() : '';
+        if (auraTrait.includes('mythic')) auraMultiplier = 3.0;
+        else if (auraTrait.includes('rare')) auraMultiplier = 2.0;
+        else if (auraTrait.includes('common')) auraMultiplier = 1.5;
+
         let totalEnergyGained = 0;
         let totalCostSfl = 0;
 
         for (const foodName of reqs.foodFed) {
           const normName = foodName.toLowerCase().replace(/[^a-z0-9]/g, '');
           const baseEnergy = PET_FOOD_ENERGY_TIERS[normName] || 100;
-          totalEnergyGained += (baseEnergy + energyBonus + walrusBonus);
-          totalCostSfl += (CROP_FLOWER_PRICES[normName] || RESOURCE_FLOWER_FALLBACK_PRICES[normName] || 0.05);
+          const baseWithAura = Math.round(baseEnergy * auraMultiplier);
+          totalEnergyGained += (baseWithAura + energyBonus + walrusBonus);
+
+          // Resolve food cost from live flatPrices -> CROP_FLOWER_PRICES -> PET_FOOD_FALLBACK_PRICES -> default
+          let price = 0.05;
+          if (flatPrices && typeof flatPrices === 'object') {
+            const matchedKey = Object.keys(flatPrices).find(k => k.replace(/\[.*?\]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim() === normName);
+            if (matchedKey) {
+              const p = parseFloat(flatPrices[matchedKey]);
+              if (!isNaN(p) && p > 0) price = p > 100 ? p / 1000 : p;
+            }
+          }
+          if (price === 0.05 && CROP_FLOWER_PRICES[normName]) {
+            price = CROP_FLOWER_PRICES[normName];
+          } else if (price === 0.05 && PET_FOOD_FALLBACK_PRICES[normName]) {
+            price = PET_FOOD_FALLBACK_PRICES[normName];
+          }
+          totalCostSfl += price;
         }
 
         const costPerEnergy = totalEnergyGained > 0 ? (totalCostSfl / totalEnergyGained) : 0;
@@ -250,6 +284,9 @@ async function archiveFarmPetsToTiDB(farmId, farmData) {
            ON DUPLICATE KEY UPDATE 
             energy_gained = VALUES(energy_gained),
             total_energy = VALUES(total_energy),
+            foods_fed = VALUES(foods_fed),
+            fed_at = VALUES(fed_at),
+            logged_at = VALUES(logged_at),
             cost_sfl = VALUES(cost_sfl),
             cost_per_energy = VALUES(cost_per_energy)`,
           [eventId, farmId, pet.name, fedAt, totalEnergyGained, totalPetEnergy, JSON.stringify(reqs.foodFed), totalCostSfl, costPerEnergy]
@@ -671,9 +708,24 @@ async function processYieldCalculation(supabase) {
     }
 
     // ── Archive Pet Feed Events to TiDB Cloud if opted in ──
-    if (primaryUser.pet_tracker_opt_in) {
+    const isSupabaseOptedIn = primaryUser.pet_tracker_opt_in === true || primaryUser.pet_tracker_opt_in === 'true' || primaryUser.pet_tracker_opt_in === 1;
+    let shouldArchivePets = isSupabaseOptedIn;
+
+    if (!shouldArchivePets) {
       try {
-        await archiveFarmPetsToTiDB(cleanFarmId, currentData);
+        const pool = getTiDBPool();
+        if (pool) {
+          const [prefRows] = await pool.query('SELECT opt_in FROM pet_preferences WHERE farm_id = ? LIMIT 1', [cleanFarmId]);
+          if (prefRows && prefRows[0] && Boolean(prefRows[0].opt_in)) {
+            shouldArchivePets = true;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (shouldArchivePets) {
+      try {
+        await archiveFarmPetsToTiDB(cleanFarmId, currentData, flatPrices);
       } catch (petErr) {
         console.warn(`Notice: TiDB pet archive failed for Farm #${cleanFarmId}:`, petErr.message);
       }
