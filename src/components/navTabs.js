@@ -7,6 +7,9 @@ export function renderNavTabs() {
       <button id="tab-dashboard-btn" class="bg-sfl-wood text-amber-200 px-4 py-2 rounded-xl font-bold text-xs border-2 border-sfl-dirt shadow-md flex items-center gap-1.5 cursor-pointer">
         <span>📊</span> Dashboard
       </button>
+      <button id="tab-pets-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
+        <span>🐾</span> Pets
+      </button>
       <button id="tab-calc-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
         <span>🌾</span> Daily Tracker
       </button>
@@ -21,9 +24,6 @@ export function renderNavTabs() {
       </button>
       <button id="tab-market-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
         <span>📈</span> Market
-      </button>
-      <button id="tab-pets-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
-        <span>🐾</span> Pets
       </button>
     </div>
   `;

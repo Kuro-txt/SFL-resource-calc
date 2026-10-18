@@ -42,7 +42,7 @@ export const PanelManager = {
   },
 
   switch(targetId, updateUrlHash = true) {
-    const validTabs = ['dashboard', 'calc', 'tradehistory', 'npc', 'wishlist', 'market', 'pets'];
+    const validTabs = ['dashboard', 'pets', 'calc', 'tradehistory', 'npc', 'wishlist', 'market'];
     if (!validTabs.includes(targetId)) {
       targetId = 'dashboard';
     }

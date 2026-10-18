@@ -57,14 +57,12 @@ export function initPetsPanel() {
   if (isInitialized) return;
   isInitialized = true;
 
-  // Listen to live farm data sync from auth bar / API
   window.addEventListener('farmDataSynced', (e) => {
     ingestLivePetFeedData(e.detail?.farmData || window.farmData);
     renderPetsCards();
     renderEnergyLedger();
   });
 
-  // Listen to price updates
   window.addEventListener('pricesLoaded', () => {
     renderPetsCards();
     renderEnergyLedger();
@@ -80,14 +78,18 @@ export function mountPetsPanel() {
     bindPetsEventListeners();
   }
 
-  // Start UTC countdown timer
   startUtcResetTimer();
-
-  // Ingest any feedings from current farmData
   ingestLivePetFeedData(window.farmData);
 
   renderPetsCards();
   renderEnergyLedger();
+}
+
+export function unmountPetsPanel() {
+  if (resetTimerInterval) {
+    clearInterval(resetTimerInterval);
+    resetTimerInterval = null;
+  }
 }
 
 function startUtcResetTimer() {
@@ -97,15 +99,16 @@ function startUtcResetTimer() {
     const el = document.getElementById('pets-utc-reset-timer');
     if (!el) return;
     const t = getTimeUntilUtcReset();
-    el.textContent = t.formatted;
+    el.textContent = `${t.hours}h ${String(t.minutes).padStart(2, '0')}m`;
   };
 
   updateTimer();
-  resetTimerInterval = setInterval(updateTimer, 1000);
+  // 30 second interval eliminates [Violation] setInterval warnings
+  resetTimerInterval = setInterval(updateTimer, 30000);
 }
 
 /**
- * Checks live pets for fed foods and records them to the energy ledger
+ * Checks live pets for fed foods and records them strictly to local ledger
  */
 function ingestLivePetFeedData(farmData) {
   if (!farmData) return;
@@ -121,7 +124,6 @@ function ingestLivePetFeedData(farmData) {
         costSfl += getFoodPrice(foodName);
       });
 
-      // Energy calculation: Slot 0 gives ~45, Slot 1 ~75, Slot 2 ~115 (avg ~75)
       const estimatedEnergyGained = requests.foodFed.length * (70 + (pet.energyBonus || 0));
       const costPerEnergy = estimatedEnergyGained > 0 ? (costSfl / estimatedEnergyGained) : 0;
 
@@ -146,9 +148,9 @@ function bindPetsEventListeners() {
   filterBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       filterBtns.forEach(b => {
-        b.className = "pets-filter-btn bg-amber-100/70 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-3 py-1 rounded-lg text-xs font-bold border border-amber-300/60 dark:border-slate-700 cursor-pointer transition";
+        b.className = "pets-filter-btn bg-amber-100/70 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-2.5 py-0.5 rounded-lg text-xs font-bold border border-amber-300/60 dark:border-slate-700 cursor-pointer transition";
       });
-      btn.className = "pets-filter-btn bg-sfl-wood text-amber-200 px-3 py-1 rounded-lg text-xs font-bold border border-sfl-dirt cursor-pointer transition";
+      btn.className = "pets-filter-btn bg-sfl-wood text-amber-200 px-2.5 py-0.5 rounded-lg text-xs font-bold border border-sfl-dirt cursor-pointer transition";
       activeFilter = btn.getAttribute('data-filter') || 'all';
       renderPetsCards();
     });
@@ -175,7 +177,7 @@ function bindPetsEventListeners() {
       setTimeout(() => {
         if (icon) icon.classList.remove('animate-spin');
         mountPetsPanel();
-      }, 800);
+      }, 600);
     });
   }
 
@@ -184,9 +186,9 @@ function bindPetsEventListeners() {
   periodBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       periodBtns.forEach(b => {
-        b.className = "ledger-period-btn hover:bg-amber-200/60 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition";
+        b.className = "ledger-period-btn hover:bg-amber-200/60 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-2.5 py-0.5 rounded text-[11px] font-bold cursor-pointer transition";
       });
-      btn.className = "ledger-period-btn bg-sfl-wood text-amber-200 px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition";
+      btn.className = "ledger-period-btn bg-sfl-wood text-amber-200 px-2.5 py-0.5 rounded text-[11px] font-bold cursor-pointer transition";
       activePeriod = btn.getAttribute('data-period') || 'daily';
       renderEnergyLedger();
     });
@@ -208,7 +210,6 @@ export function renderPetsCards() {
   const inventory = farm.inventory || {};
   let pets = parseFarmPets(dataToUse);
 
-  // Apply filters
   if (activeFilter === 'common') {
     pets = pets.filter(p => p.rarity.toLowerCase() === 'common');
   } else if (activeFilter === 'rare') {
@@ -220,7 +221,6 @@ export function renderPetsCards() {
     });
   }
 
-  // Apply search
   if (searchQuery) {
     pets = pets.filter(p => {
       const matchName = p.name.toLowerCase().includes(searchQuery);
@@ -234,10 +234,10 @@ export function renderPetsCards() {
 
   if (pets.length === 0) {
     container.innerHTML = `
-      <div class="col-span-full py-12 text-center bg-sfl-card/40 dark:bg-slate-900/40 rounded-2xl border-2 border-dashed border-sfl-cardBorder dark:border-slate-800">
-        <div class="text-4xl mb-2">🐾</div>
-        <div class="text-sm font-bold text-sfl-wood dark:text-amber-200">No Pets Match Your Filter</div>
-        <div class="text-xs text-sfl-woodLight dark:text-slate-400 mt-1">Try changing your search or filter pill above.</div>
+      <div class="col-span-full py-8 text-center bg-sfl-card/40 dark:bg-slate-900/40 rounded-xl border border-dashed border-sfl-cardBorder dark:border-slate-800">
+        <div class="text-2xl mb-1">🐾</div>
+        <div class="text-xs font-bold text-sfl-wood dark:text-amber-200">No Pets Found</div>
+        <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 mt-0.5">Try adjusting your filter or search.</div>
       </div>
     `;
     return;
@@ -246,22 +246,21 @@ export function renderPetsCards() {
   let html = '';
   if (isPreview) {
     html += `
-      <div class="col-span-full bg-amber-100/90 dark:bg-slate-800/90 border border-amber-300 dark:border-slate-700 px-3 py-2 rounded-xl text-xs text-sfl-dirt dark:text-amber-100 flex items-center justify-between">
-        <span class="flex items-center gap-1.5 font-bold">
-          <span>ℹ️</span> Showing Sample Preview Data. Enter your Farm ID in the top bar and click "Sync Farm" to view your live pets!
+      <div class="col-span-full bg-amber-100/90 dark:bg-slate-800/90 border border-amber-300 dark:border-slate-700 px-2.5 py-1.5 rounded-lg text-[11px] text-sfl-dirt dark:text-amber-100 flex items-center justify-between">
+        <span class="flex items-center gap-1 font-bold">
+          <span>ℹ️</span> Sample Preview: Sync your Farm ID above to view live pets!
         </span>
       </div>
     `;
   }
 
-  pets.forEach(pet => {
+  pets.forEach((pet, petIdx) => {
     const levelStats = pet.levelStats;
     const petLevel = levelStats.level;
     const foodReqs = checkFoodAvailability(pet.requests, inventory, petLevel);
     const fedCount = foodReqs.filter(f => f.isFed).length;
     const totalRequests = foodReqs.length;
 
-    // Fetch capacity calculation based on current energy
     const fetchCap = calculateFetchingCapacity(
       pet.energy || 0,
       petLevel,
@@ -270,194 +269,131 @@ export function renderPetsCards() {
     );
 
     html += `
-      <div class="bg-sfl-card/95 dark:bg-slate-900/90 rounded-2xl border-2 border-sfl-cardBorder dark:border-slate-800 p-4 shadow-sm space-y-4 hover:border-sfl-gold/60 transition">
+      <div class="bg-sfl-card/95 dark:bg-slate-900/90 rounded-xl border border-sfl-cardBorder dark:border-slate-800 p-3 shadow-xs space-y-2.5 hover:border-sfl-gold/60 transition">
 
-        <!-- CARD HEADER -->
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-2xl bg-amber-100/80 dark:bg-slate-800 border border-amber-300/60 dark:border-slate-700 flex items-center justify-center text-3xl shadow-xs shrink-0">
-              ${pet.emoji}
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <h4 class="text-base font-extrabold text-sfl-wood dark:text-amber-100">${pet.name}</h4>
-                <span class="bg-amber-100 dark:bg-slate-800 text-sfl-wood dark:text-amber-200 border border-amber-300/80 dark:border-slate-700 text-[10px] font-black uppercase px-2 py-0.5 rounded-md">
-                  ${pet.rarity}
-                </span>
-                <!-- CATEGORY BADGE -->
-                <span class="bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
-                  <span>${pet.categoryInfo?.icon || '🌾'}</span>
-                  <span>${pet.category} ➔ ${pet.categoryInfo?.resource || 'Resource'}</span>
+        <!-- COMPACT HEADER ROW -->
+        <div class="flex items-center justify-between gap-2 border-b border-sfl-cardBorder/40 dark:border-slate-800 pb-2">
+          <div class="flex items-center gap-2 overflow-hidden">
+            <span class="text-2xl shrink-0 leading-none">${pet.emoji}</span>
+            <div class="truncate">
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold text-sfl-wood dark:text-amber-100 truncate">${pet.name}</span>
+                <span class="bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 text-[9px] font-bold px-1.5 py-0.2 rounded shrink-0">
+                  ${pet.categoryInfo?.icon || '🌾'} ${pet.categoryInfo?.resource || 'Resource'}
                 </span>
               </div>
-              <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-semibold line-clamp-1 mt-0.5">
-                ${pet.desc || 'Faithful farm companion'}
-              </p>
+              <div class="text-[9.5px] text-sfl-woodLight dark:text-slate-400 font-semibold truncate">
+                ${pet.rarity} • Lv. ${levelStats.level} (${levelStats.progress}%)
+              </div>
             </div>
           </div>
 
+          <!-- ENERGY PILL -->
           <div class="text-right shrink-0">
-            <div class="inline-block bg-gradient-to-r from-amber-500 to-amber-600 text-white font-black text-xs px-2.5 py-0.5 rounded-lg shadow-xs">
-              Lv. ${levelStats.level}
-            </div>
-            <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono mt-0.5">
-              ${levelStats.progress}%
+            <div class="inline-flex items-center gap-1 bg-amber-100/90 dark:bg-slate-800 border border-amber-300/80 dark:border-slate-700 text-amber-700 dark:text-amber-300 font-mono font-black text-xs px-2 py-0.5 rounded-lg shadow-xs">
+              <span>⚡</span> ${pet.energy || 0}
             </div>
           </div>
         </div>
 
-        <!-- CURRENT ENERGY CAPACITY DISPLAY -->
-        <div class="bg-gradient-to-r from-amber-100/80 to-amber-200/50 dark:from-slate-800/80 dark:to-slate-800/40 p-3 rounded-xl border border-amber-300/80 dark:border-slate-700 flex items-center justify-between shadow-xs">
-          <div>
-            <div class="text-[10px] uppercase font-bold text-sfl-woodLight dark:text-slate-400 flex items-center gap-1">
-              <span>⚡</span> Stored Energy Reserve
-            </div>
-            <div class="text-xl font-extrabold text-amber-600 dark:text-amber-300 font-mono">
-              ${(pet.energy || 0).toLocaleString()} ⚡
-            </div>
-          </div>
-          <div class="text-right text-[10px] text-sfl-woodLight dark:text-slate-400 font-semibold">
-            <div>Bonus: <span class="text-amber-600 dark:text-amber-300 font-bold">+${pet.energyBonus || 0}⚡</span> / food</div>
-            <div class="text-[9px] text-sfl-woodLight/80 dark:text-slate-500">Resets never expire</div>
-          </div>
+        <!-- THIN PROGRESS BAR -->
+        <div class="w-full bg-amber-200/50 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+          <div class="bg-amber-500 h-full rounded-full" style="width: ${levelStats.progress}%"></div>
         </div>
 
-        <!-- FOOD REQUESTS & COST PER ENERGY ECONOMICS -->
-        <div class="space-y-2">
-          <div class="flex justify-between items-center">
-            <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 uppercase tracking-wide flex items-center gap-1.5">
-              <span>🍲</span> Daily Diet & Energy Costs
-            </span>
-            <span class="text-[11px] font-bold ${fedCount === totalRequests ? 'text-emerald-600 dark:text-emerald-400' : 'text-sfl-woodLight dark:text-slate-400'}">
-              ${fedCount} / ${totalRequests} Fed
+        <!-- COMPACT FOOD REQUESTS & COST PER ENERGY -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center text-[10px] font-bold uppercase text-sfl-wood dark:text-amber-200">
+            <span>🍲 Food Diet & Energy Costs</span>
+            <span class="${fedCount === totalRequests ? 'text-emerald-600' : 'text-sfl-woodLight dark:text-slate-400'}">
+              ${fedCount}/${totalRequests} Fed
             </span>
           </div>
 
-          <div class="space-y-2">
-            ${foodReqs.map(food => {
+          <div class="space-y-1">
+            ${foodReqs.map((food, fIdx) => {
               let badgeHtml = '';
-              let bgStyle = 'bg-amber-50/50 dark:bg-slate-800/40 border-amber-200/60 dark:border-slate-700';
+              let rowStyle = 'bg-amber-50/60 dark:bg-slate-800/40 border-amber-200/60 dark:border-slate-700';
 
               if (food.status === 'fed') {
-                badgeHtml = '<span class="text-emerald-700 dark:text-emerald-400 font-bold text-[10px] flex items-center gap-1">✅ Fed</span>';
-                bgStyle = 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300/60 dark:border-emerald-800/50';
+                badgeHtml = '<span class="text-emerald-700 dark:text-emerald-400 font-bold text-[9px]">✅ Fed</span>';
+                rowStyle = 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300/50 dark:border-emerald-800/40';
               } else if (food.status === 'ready') {
-                badgeHtml = `<span class="bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold text-[10px] px-2 py-0.5 rounded-md border border-emerald-300/80">In Bag: ${food.inBagCount}</span>`;
+                badgeHtml = `<span class="bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold text-[9px] px-1.5 py-0.2 rounded border border-emerald-300/80">Bag: ${food.inBagCount}</span>`;
               } else if (food.status === 'can_cook') {
-                badgeHtml = '<span class="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 font-bold text-[10px] px-2 py-0.5 rounded-md border border-indigo-300/80">🍳 Can Cook!</span>';
+                badgeHtml = '<span class="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 font-bold text-[9px] px-1.5 py-0.2 rounded border border-indigo-300/80">🍳 Cook</span>';
               } else {
-                badgeHtml = '<span class="text-orange-600 dark:text-orange-400 font-semibold text-[10px]">Need Ingredients</span>';
+                badgeHtml = '<span class="text-orange-600 dark:text-orange-400 font-semibold text-[9px]">Missing</span>';
               }
 
-              // Recipe ingredient tags
-              let recipeDetailsHtml = '';
-              if (food.ingredientDetails && food.ingredientDetails.length > 0) {
-                const ingsList = food.ingredientDetails.map(ing => `
-                  <span class="inline-flex items-center gap-0.5 ${ing.hasEnough ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'} font-mono">
-                    ${ing.name}: ${ing.available}/${ing.required}
-                  </span>
-                `).join('<span class="text-sfl-cardBorder"> • </span>');
-
-                recipeDetailsHtml = `
-                  <div class="mt-1 pt-1 border-t border-amber-200/40 dark:border-slate-700/40 text-[9.5px]">
-                    <span class="font-bold text-sfl-woodLight dark:text-slate-400">Recipe:</span> ${ingsList}
-                  </div>
-                `;
-              }
+              const detailId = `recipe-pet-${petIdx}-food-${fIdx}`;
 
               return `
-                <div class="p-2.5 rounded-xl border ${bgStyle} flex flex-col gap-1">
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                      <span class="bg-amber-200/60 dark:bg-slate-700 text-sfl-wood dark:text-amber-200 text-[9.5px] font-black uppercase px-1.5 py-0.5 rounded">
+                <div class="p-1.5 rounded-lg border ${rowStyle} text-[10.5px]">
+                  <div class="flex items-center justify-between gap-1">
+                    <div class="flex items-center gap-1.5 truncate">
+                      <span class="bg-amber-200/60 dark:bg-slate-700 text-sfl-wood dark:text-amber-200 text-[8.5px] font-black uppercase px-1 py-0.2 rounded shrink-0">
                         ${food.slotTier}
                       </span>
-                      <span class="text-xs font-bold text-sfl-dirt dark:text-amber-100">
-                        ${food.foodName}
-                      </span>
+                      <span class="font-bold text-sfl-dirt dark:text-amber-100 truncate">${food.foodName}</span>
                       ${food.isBestValue ? `
-                        <span class="bg-amber-400 dark:bg-amber-500 text-sfl-dirt dark:text-slate-900 text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md shadow-xs animate-pulse">
+                        <span class="bg-amber-400 text-slate-900 text-[8px] font-black uppercase px-1 py-0.2 rounded shrink-0">
                           ⭐ Best Value
                         </span>
                       ` : ''}
                     </div>
 
-                    <div class="flex items-center gap-2">
-                      <span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5">
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <span class="text-[9.5px] text-sfl-green font-mono font-bold flex items-center">
                         ${food.price.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}
                       </span>
                       ${badgeHtml}
                     </div>
                   </div>
 
-                  <!-- ENERGY RETURN & COST PER ENERGY RATIO -->
-                  <div class="flex items-center justify-between text-[10px] bg-black/5 dark:bg-white/5 px-2 py-1 rounded-md">
+                  <!-- ENERGY & COST EFFICIENCY INLINE -->
+                  <div class="flex items-center justify-between text-[9.5px] mt-0.5 pt-0.5 border-t border-black/5 dark:border-white/5">
                     <span class="text-amber-700 dark:text-amber-300 font-bold font-mono">
-                      ⚡ Yields +${food.totalEnergy} Energy
+                      +${food.totalEnergy} ⚡
                     </span>
-                    <span class="text-indigo-600 dark:text-indigo-400 font-mono font-bold">
-                      Cost: ${food.costPerEnergy.toFixed(6)} SFL/⚡
+                    <span class="text-indigo-600 dark:text-indigo-400 font-mono font-semibold">
+                      ${food.costPerEnergy.toFixed(5)} SFL/⚡
                     </span>
+                    ${food.ingredientDetails?.length ? `
+                      <button type="button" onclick="document.getElementById('${detailId}').classList.toggle('hidden')" 
+                        class="text-[9px] text-sfl-woodLight hover:text-sfl-wood underline cursor-pointer">
+                        Recipe
+                      </button>
+                    ` : ''}
                   </div>
 
-                  ${recipeDetailsHtml}
+                  <!-- COLLAPSIBLE RECIPE INGREDIENTS -->
+                  ${food.ingredientDetails?.length ? `
+                    <div id="${detailId}" class="hidden mt-1 pt-1 border-t border-amber-200/50 dark:border-slate-700 text-[9px] text-sfl-woodLight dark:text-slate-400">
+                      ${food.ingredientDetails.map(ing => `
+                        <span class="${ing.hasEnough ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-red-500'} font-mono">
+                          ${ing.name}: ${ing.available}/${ing.required}
+                        </span>
+                      `).join(' • ')}
+                    </div>
+                  ` : ''}
                 </div>
               `;
             }).join('')}
           </div>
         </div>
 
-        <!-- INTERACTIVE FETCHING CAPACITY & RESOURCE SIMULATOR -->
-        <div class="bg-amber-100/40 dark:bg-slate-800/40 p-3 rounded-xl border border-amber-200/60 dark:border-slate-700/60 space-y-2">
-          <div class="flex justify-between items-center text-xs font-bold text-sfl-wood dark:text-amber-200">
-            <span class="flex items-center gap-1.5 uppercase">
-              <span>🏹</span> Resource Fetching Capacity
-            </span>
-            <span class="text-[10px] text-sfl-woodLight dark:text-slate-400">
-              Yield: +${fetchCap.decimalBonus}x bonus
-            </span>
+        <!-- COMPACT FETCHING CAPACITY ROW -->
+        <div class="bg-amber-100/40 dark:bg-slate-800/40 p-2 rounded-lg border border-amber-200/60 dark:border-slate-700/60 flex items-center justify-between text-[10px]">
+          <span class="font-bold text-sfl-wood dark:text-amber-200 uppercase flex items-center gap-1">
+            <span>🏹</span> Fetch Ready:
+          </span>
+          <div class="flex items-center gap-2 font-mono font-bold text-sfl-dirt dark:text-amber-100">
+            <span>🌰 ${fetchCap.acorn.maxFetches}x (${fetchCap.acorn.totalYield})</span>
+            <span>•</span>
+            <span>${fetchCap.category.icon} ${fetchCap.category.maxFetches}x (${fetchCap.category.totalYield})</span>
+            ${fetchCap.fossilShell.unlocked ? `<span>• 🐚 ${fetchCap.fossilShell.maxFetches}x</span>` : ''}
           </div>
-
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <!-- Acorn Option (100 Energy) -->
-            <div class="bg-white/80 dark:bg-slate-900/80 p-2 rounded-lg border border-amber-200 dark:border-slate-700">
-              <div class="flex justify-between items-center text-[11px] font-bold">
-                <span class="text-sfl-wood dark:text-amber-100">🌰 Acorns (100⚡)</span>
-                <span class="text-amber-600 font-bold">${fetchCap.acorn.maxFetches} fetches</span>
-              </div>
-              <div class="text-[10px] text-sfl-green font-mono font-bold mt-1">
-                Yield: ~${fetchCap.acorn.totalYield} Acorns
-              </div>
-              <div class="text-[9px] text-sfl-woodLight dark:text-slate-400">
-                (${fetchCap.acorn.yieldPerFetch} per fetch)
-              </div>
-            </div>
-
-            <!-- Category Resource (200 Energy) -->
-            <div class="bg-white/80 dark:bg-slate-900/80 p-2 rounded-lg border border-amber-200 dark:border-slate-700">
-              <div class="flex justify-between items-center text-[11px] font-bold">
-                <span class="text-sfl-wood dark:text-amber-100">${fetchCap.category.icon} ${fetchCap.category.name} (200⚡)</span>
-                <span class="text-amber-600 font-bold">${fetchCap.category.maxFetches} fetches</span>
-              </div>
-              <div class="text-[10px] text-sfl-green font-mono font-bold mt-1">
-                Yield: ~${fetchCap.category.totalYield} ${fetchCap.category.name}
-              </div>
-              <div class="text-[9px] text-sfl-woodLight dark:text-slate-400">
-                (${fetchCap.category.yieldPerFetch} per fetch)
-              </div>
-            </div>
-          </div>
-
-          ${fetchCap.fossilShell.unlocked ? `
-            <div class="bg-white/60 dark:bg-slate-900/60 px-2 py-1 rounded text-[10px] flex justify-between items-center text-sfl-woodLight dark:text-slate-400 font-semibold">
-              <span>🐚 Fossil Shells (300⚡):</span>
-              <span class="font-bold text-sfl-dirt dark:text-amber-200">${fetchCap.fossilShell.maxFetches} Shells ready to fetch</span>
-            </div>
-          ` : `
-            <div class="text-[9px] text-sfl-woodLight dark:text-slate-500 italic text-center">
-              Fossil Shells (300⚡) unlock at Level 20.
-            </div>
-          `}
         </div>
 
       </div>
@@ -496,8 +432,8 @@ function updateTopKpis(pets, inventory) {
   if (pendingEl) pendingEl.textContent = totalPendingFood;
   if (bestEffEl) {
     bestEffEl.textContent = lowestCostPerEnergy !== Infinity 
-      ? `${lowestCostPerEnergy.toFixed(5)} SFL/⚡` 
-      : '0.0000 SFL/⚡';
+      ? `${lowestCostPerEnergy.toFixed(5)} SFL` 
+      : '0.0000 SFL';
   }
 }
 
@@ -573,13 +509,13 @@ export function renderEnergyLedger() {
 
   if (totalEnergyEl) totalEnergyEl.textContent = `+${totalEnergy.toLocaleString()} ⚡`;
   if (totalCostEl) totalCostEl.innerHTML = `<span>${totalCost.toFixed(4)}</span> ${FLOWER_IMG_SMALL_HTML}`;
-  if (avgEffEl) avgEffEl.textContent = `${avgCostPerEnergy.toFixed(6)} SFL/⚡`;
+  if (avgEffEl) avgEffEl.textContent = `${avgCostPerEnergy.toFixed(6)}`;
 
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="p-6 text-center text-sfl-woodLight dark:text-slate-400 italic">
-          No feeding logs recorded for this period. Feed your pets and sync your farm to record entries!
+        <td colspan="6" class="p-4 text-center text-sfl-woodLight dark:text-slate-400 italic text-[11px]">
+          No local feeding logs for this period. Feed your pets and sync your farm to record entries.
         </td>
       </tr>
     `;
@@ -595,12 +531,12 @@ export function renderEnergyLedger() {
 
     return `
       <tr class="hover:bg-amber-100/40 dark:hover:bg-slate-800/40 transition">
-        <td class="p-2.5 font-mono text-[11px] text-sfl-woodLight dark:text-slate-400">${dateStr}</td>
-        <td class="p-2.5 font-bold text-sfl-wood dark:text-amber-100">${row.petName}</td>
-        <td class="p-2.5 text-sfl-dirt dark:text-slate-300">${foodsStr}</td>
-        <td class="p-2.5 text-right font-mono font-bold text-amber-600 dark:text-amber-300">+${row.energyGained} ⚡</td>
-        <td class="p-2.5 text-right font-mono font-bold text-sfl-green dark:text-emerald-400">${row.costSfl.toFixed(4)}</td>
-        <td class="p-2.5 text-right font-mono text-[11px] text-indigo-600 dark:text-indigo-400 font-bold">${row.costPerEnergy.toFixed(6)}</td>
+        <td class="p-2 font-mono text-[10px] text-sfl-woodLight dark:text-slate-400">${dateStr}</td>
+        <td class="p-2 font-bold text-sfl-wood dark:text-amber-100">${row.petName}</td>
+        <td class="p-2 text-sfl-dirt dark:text-slate-300 truncate max-w-[140px]" title="${foodsStr}">${foodsStr}</td>
+        <td class="p-2 text-right font-mono font-bold text-amber-600 dark:text-amber-300">+${row.energyGained} ⚡</td>
+        <td class="p-2 text-right font-mono font-bold text-sfl-green dark:text-emerald-400">${row.costSfl.toFixed(4)}</td>
+        <td class="p-2 text-right font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">${row.costPerEnergy.toFixed(6)}</td>
       </tr>
     `;
   }).join('');
