@@ -3,6 +3,14 @@
     {
       "source": "/api/nfts",
       "destination": "/api/nft"
+    },
+    {
+      "source": "/api/weeklyYields",
+      "destination": "/api/yields?type=weekly"
+    },
+    {
+      "source": "/api/monthlyYields",
+      "destination": "/api/yields?type=monthly"
     }
   ],
   "headers": [

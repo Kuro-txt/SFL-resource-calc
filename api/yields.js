@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const { farmId, userId } = req.query;
+      const { farmId, userId, type } = req.query;
 
       const requestedUserId = userId ? String(userId).trim() : '';
       const cleanFarmId = farmId ? String(farmId).trim() : '';
@@ -66,6 +66,50 @@ export default async function handler(req, res) {
             if (p.id && !targetUserIds.includes(p.id)) targetUserIds.push(p.id);
           });
         }
+      }
+
+      if (type === 'weekly') {
+        let query = supabase
+          .from('weekly_yields')
+          .select('*')
+          .order('week_start', { ascending: false });
+
+        if (cleanFarmId && targetUserIds.length > 0) {
+          query = query.or(`farm_id.eq.${cleanFarmId},user_id.in.(${targetUserIds.join(',')})`);
+        } else if (cleanFarmId) {
+          query = query.eq('farm_id', cleanFarmId);
+        } else if (targetUserIds.length > 0) {
+          query = query.in('user_id', targetUserIds);
+        } else {
+          return res.status(200).json({ success: true, data: [] });
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        res.setHeader('Cache-Control', 'private, s-maxage=60, stale-while-revalidate=120');
+        return res.status(200).json({ success: true, data: data || [] });
+      }
+
+      if (type === 'monthly') {
+        let query = supabase
+          .from('monthly_yields')
+          .select('*')
+          .order('month_start', { ascending: false });
+
+        if (cleanFarmId && targetUserIds.length > 0) {
+          query = query.or(`farm_id.eq.${cleanFarmId},user_id.in.(${targetUserIds.join(',')})`);
+        } else if (cleanFarmId) {
+          query = query.eq('farm_id', cleanFarmId);
+        } else if (targetUserIds.length > 0) {
+          query = query.in('user_id', targetUserIds);
+        } else {
+          return res.status(200).json({ success: true, data: [] });
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        res.setHeader('Cache-Control', 'private, s-maxage=60, stale-while-revalidate=120');
+        return res.status(200).json({ success: true, data: data || [] });
       }
 
       let query = supabase

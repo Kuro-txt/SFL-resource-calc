@@ -4,7 +4,8 @@
   "description": "Backend auto-sync server for Sunflower Land Calculator",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "echo 'Build complete'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
