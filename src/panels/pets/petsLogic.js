@@ -6,10 +6,54 @@ import {
   FETCHING_ENERGY_COSTS, 
   PET_FOOD_FALLBACK_PRICES,
   FETCHED_RESOURCE_FALLBACK_PRICES,
-  NON_REQUESTED_FOODS
+  NON_REQUESTED_FOODS,
+  TIER_BASE_ENERGY,
+  WALRUS_ONESIE_ENERGY_BOOST,
+  PET_FOOD_DIFFICULTY_TIERS
 } from './petsData.js';
 import { getRecipe } from '../../data/recipes.js';
 import { normalizeItemKey } from '../../utils/formatters.js';
+
+// ── Walrus Onesie Boost Helpers (+5 Energy) ──────────────────────────────────
+const WALRUS_ONESIE_STORAGE_KEY = 'sfl_pets_walrus_onesie';
+
+export function hasWalrusOnesieInWardrobe(farmData) {
+  try {
+    const farm = farmData?.farm || farmData || {};
+    const wardrobe = farm.wardrobe || {};
+    const inventory = farm.inventory || {};
+    const bumpkinEquipped = farm.bumpkin?.equipped || farm.equipped || {};
+    return Boolean(
+      wardrobe['Walrus Onesie'] ||
+      inventory['Walrus Onesie'] ||
+      bumpkinEquipped.suit === 'Walrus Onesie'
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+export function isWalrusOnesieActive(farmData = null) {
+  try {
+    const stored = localStorage.getItem(WALRUS_ONESIE_STORAGE_KEY);
+    if (stored !== null) {
+      return stored === 'true';
+    }
+    // Auto-detect from farm wardrobe if not explicitly set
+    if (farmData || (typeof window !== 'undefined' && window.farmData)) {
+      return hasWalrusOnesieInWardrobe(farmData || window.farmData);
+    }
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
+
+export function setWalrusOnesieActive(active) {
+  try {
+    localStorage.setItem(WALRUS_ONESIE_STORAGE_KEY, active ? 'true' : 'false');
+  } catch (_) {}
+}
 
 /**
  * Calculates level using the quadratic SFL formula:
@@ -60,13 +104,32 @@ export function getEnergyBonusPerFood(level) {
 }
 
 /**
+ * Resolves difficulty tier and base energy for any food dish
+ */
+export function getFoodTierAndEnergy(foodName, slotIndex = 0) {
+  if (foodName) {
+    const cleanKey = normalizeItemKey(foodName);
+    if (PET_FOOD_DIFFICULTY_TIERS[cleanKey]) {
+      return PET_FOOD_DIFFICULTY_TIERS[cleanKey];
+    }
+  }
+
+  const fallbackTiers = ['Easy', 'Medium', 'Hard'];
+  const fallbackEnergies = [TIER_BASE_ENERGY.Easy, TIER_BASE_ENERGY.Medium, TIER_BASE_ENERGY.Hard];
+  const tier = fallbackTiers[slotIndex] || 'Medium';
+  const baseEnergy = fallbackEnergies[slotIndex] || TIER_BASE_ENERGY.Medium;
+
+  return { tier, baseEnergy };
+}
+
+/**
  * Base energy per food slot (Slot 0 = Easy, Slot 1 = Medium, Slot 2 = Hard)
  */
 export function getBaseEnergyForSlot(slotIndex) {
-  if (slotIndex === 0) return 40;  // Easy
-  if (slotIndex === 1) return 70;  // Medium
-  if (slotIndex === 2) return 110; // Hard
-  return 80;                       // 4th/5th slot (NFT)
+  if (slotIndex === 0) return TIER_BASE_ENERGY.Easy;   // 20
+  if (slotIndex === 1) return TIER_BASE_ENERGY.Medium; // 100
+  if (slotIndex === 2) return TIER_BASE_ENERGY.Hard;   // 300
+  return TIER_BASE_ENERGY.Medium;
 }
 
 /**
@@ -164,23 +227,23 @@ export function getFoodPrice(foodName) {
 /**
  * Checks requested foods against current farm inventory, evaluates Energy Gained and Cost / Energy
  */
-export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, auraMultiplier = 1) {
+export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, auraMultiplier = 1, walrusOnesieActive = null) {
   if (!requests || !Array.isArray(requests.food)) return [];
 
   const foodList = requests.food;
   const foodFed = Array.isArray(requests.foodFed) ? requests.foodFed : [];
   const energyBonus = getEnergyBonusPerFood(petLevel);
-
-  const slotTiers = ['Easy', 'Medium', 'Hard', 'Expert', 'Master'];
+  const isWalrus = walrusOnesieActive !== null ? Boolean(walrusOnesieActive) : isWalrusOnesieActive();
+  const walrusBonus = isWalrus ? WALRUS_ONESIE_ENERGY_BOOST : 0;
 
   const results = foodList.map((foodName, slotIdx) => {
     const isFed = foodFed.includes(foodName);
     const inBagCount = Math.floor(parseFloat(inventory?.[foodName] || 0));
     const price = getFoodPrice(foodName);
 
-    // Energy calculation: (Base Slot Energy + Level Bonus) * Aura Multiplier
-    const baseEnergy = getBaseEnergyForSlot(slotIdx);
-    const totalEnergy = Math.round((baseEnergy + energyBonus) * auraMultiplier);
+    // Energy calculation: (Base Tier Energy [20/100/300] + Level Bonus + Walrus Onesie) * Aura Multiplier
+    const { tier, baseEnergy } = getFoodTierAndEnergy(foodName, slotIdx);
+    const totalEnergy = Math.round((baseEnergy + energyBonus + walrusBonus) * auraMultiplier);
     const costPerEnergy = totalEnergy > 0 ? (price / totalEnergy) : 0;
     const costPer100Energy = totalEnergy > 0 ? ((price / totalEnergy) * 100) : 0;
 
@@ -217,7 +280,10 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
 
     return {
       foodName,
-      slotTier: slotTiers[slotIdx] || 'Custom',
+      slotTier: tier,
+      baseEnergy,
+      walrusBonus,
+      energyBonus,
       isFed,
       inBagCount,
       price,

@@ -8,8 +8,12 @@ import {
   recordFeedEvent,
   getFoodPrice,
   isPetTrackerOptedIn,
-  setPetTrackerOptIn
+  setPetTrackerOptIn,
+  isWalrusOnesieActive,
+  setWalrusOnesieActive,
+  getFoodTierAndEnergy
 } from './petsLogic.js';
+import { WALRUS_ONESIE_ENERGY_BOOST } from './petsData.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 
 let activeFilter = 'all';
@@ -134,23 +138,28 @@ function ingestLivePetFeedData(farmData) {
   const farm = farmData.farm || farmData;
   const farmId = farmData.farmId || window.currentFarmId || 'preview';
   const pets = parseFarmPets(farmData);
+  const walrusBonus = isWalrusOnesieActive(farmData) ? WALRUS_ONESIE_ENERGY_BOOST : 0;
 
   pets.forEach(pet => {
     const requests = pet.requests;
     if (requests && requests.fedAt && Array.isArray(requests.foodFed) && requests.foodFed.length > 0) {
       let costSfl = 0;
-      requests.foodFed.forEach(foodName => {
+      let totalEnergyGained = 0;
+      const energyBonus = pet.energyBonus || 0;
+
+      requests.foodFed.forEach((foodName, fIdx) => {
         costSfl += getFoodPrice(foodName);
+        const { baseEnergy } = getFoodTierAndEnergy(foodName, fIdx);
+        totalEnergyGained += (baseEnergy + energyBonus + walrusBonus);
       });
 
-      const estimatedEnergyGained = requests.foodFed.length * (70 + (pet.energyBonus || 0));
-      const costPerEnergy = estimatedEnergyGained > 0 ? (costSfl / estimatedEnergyGained) : 0;
+      const costPerEnergy = totalEnergyGained > 0 ? (costSfl / totalEnergyGained) : 0;
 
       recordFeedEvent({
         farmId: String(farmId),
         petName: pet.name,
         fedAt: requests.fedAt,
-        energyGained: estimatedEnergyGained,
+        energyGained: totalEnergyGained,
         totalEnergy: pet.energy || 0,
         foodsFed: requests.foodFed,
         costSfl: Math.round(costSfl * 10000) / 10000,
@@ -218,13 +227,24 @@ function bindPetsEventListeners() {
   if (optOutBtn) {
     optOutBtn.addEventListener('click', () => {
       const confirmOptOut = window.confirm(
-        'Opt out of Pet Tracker?\\n\\nYour local ledger entries will be preserved, but automatic pet tracking and calculations will be paused.'
+        'Opt out of Pet Tracker?\n\nYour local ledger entries will be preserved, but automatic pet tracking and calculations will be paused.'
       );
       if (confirmOptOut) {
         setPetTrackerOptIn(false);
         unmountPetsPanel();
         mountPetsPanel();
       }
+    });
+  }
+
+  // 6. Walrus Onesie toggle
+  const walrusToggle = document.getElementById('pets-walrus-onesie-toggle');
+  if (walrusToggle) {
+    walrusToggle.checked = isWalrusOnesieActive(window.farmData);
+    walrusToggle.addEventListener('change', (e) => {
+      setWalrusOnesieActive(e.target.checked);
+      renderPetsCards();
+      renderEnergyLedger();
     });
   }
 }
@@ -243,6 +263,11 @@ export function renderPetsCards() {
   const farm = dataToUse.farm || dataToUse;
   const inventory = farm.inventory || {};
   let pets = parseFarmPets(dataToUse);
+  const isWalrusActive = isWalrusOnesieActive(dataToUse);
+  const walrusToggle = document.getElementById('pets-walrus-onesie-toggle');
+  if (walrusToggle && document.activeElement !== walrusToggle) {
+    walrusToggle.checked = isWalrusActive;
+  }
 
   if (activeFilter === 'common') {
     pets = pets.filter(p => p.rarity.toLowerCase() === 'common');
@@ -250,7 +275,7 @@ export function renderPetsCards() {
     pets = pets.filter(p => p.rarity.toLowerCase() !== 'common');
   } else if (activeFilter === 'hungry') {
     pets = pets.filter(p => {
-      const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1);
+      const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1, 1, isWalrusActive);
       return foodReqs.some(f => !f.isFed);
     });
   }
@@ -291,7 +316,7 @@ export function renderPetsCards() {
   pets.forEach((pet, petIdx) => {
     const levelStats = pet.levelStats;
     const petLevel = levelStats.level;
-    const foodReqs = checkFoodAvailability(pet.requests, inventory, petLevel);
+    const foodReqs = checkFoodAvailability(pet.requests, inventory, petLevel, 1, isWalrusActive);
     const fedCount = foodReqs.filter(f => f.isFed).length;
     const totalRequests = foodReqs.length;
 
@@ -366,13 +391,20 @@ export function renderPetsCards() {
                 badgeHtml = '<span class="text-orange-600 dark:text-orange-400 font-semibold text-[9px]">Missing</span>';
               }
 
+              let tierBadgeClass = 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-300/80';
+              if (food.slotTier === 'Easy') {
+                tierBadgeClass = 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300/80';
+              } else if (food.slotTier === 'Hard') {
+                tierBadgeClass = 'bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border-rose-300/80';
+              }
+
               const detailId = `recipe-pet-${petIdx}-food-${fIdx}`;
 
               return `
                 <div class="p-1.5 rounded-lg border ${rowStyle} text-[10.5px]">
                   <div class="flex items-center justify-between gap-1">
                     <div class="flex items-center gap-1.5 truncate">
-                      <span class="bg-amber-200/60 dark:bg-slate-700 text-sfl-wood dark:text-amber-200 text-[8.5px] font-black uppercase px-1 py-0.2 rounded shrink-0">
+                      <span class="${tierBadgeClass} border text-[8.5px] font-black uppercase px-1.5 py-0.2 rounded shrink-0">
                         ${food.slotTier}
                       </span>
                       <span class="font-bold text-sfl-dirt dark:text-amber-100 truncate">${food.foodName}</span>
@@ -393,8 +425,9 @@ export function renderPetsCards() {
 
                   <!-- ENERGY & COST PER 100 ENERGY INLINE -->
                   <div class="flex items-center justify-between text-[9.5px] mt-0.5 pt-0.5 border-t border-black/5 dark:border-white/5">
-                    <span class="text-amber-700 dark:text-amber-300 font-bold font-mono">
+                    <span class="text-amber-700 dark:text-amber-300 font-bold font-mono flex items-center gap-1">
                       +${food.totalEnergy} ⚡
+                      ${food.walrusBonus ? '<span class="text-[8px] text-emerald-600 dark:text-emerald-400 font-extrabold" title="Includes +5⚡ from Walrus Onesie">(+5🦭)</span>' : ''}
                     </span>
                     <span class="text-indigo-600 dark:text-indigo-400 font-mono font-bold" title="${food.costPerEnergy.toFixed(6)} SFL / 1⚡">
                       ${food.costPer100Energy.toFixed(4)} / 100⚡
@@ -478,13 +511,14 @@ function updateTopKpis(pets, inventory) {
   const pendingEl = document.getElementById('pets-stat-pending-food');
   const bestEffEl = document.getElementById('pets-stat-best-efficiency');
 
+  const isWalrusActive = isWalrusOnesieActive(window.farmData);
   let totalEnergy = 0;
   let totalPendingFood = 0;
   let lowestCostPerEnergy = Infinity;
 
   pets.forEach(p => {
     totalEnergy += parseInt(p.energy || 0);
-    const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1);
+    const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1, 1, isWalrusActive);
     
     foodReqs.forEach(f => {
       if (!f.isFed) {

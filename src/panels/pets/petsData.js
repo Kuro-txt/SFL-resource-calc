@@ -290,3 +290,90 @@ export const FETCHED_RESOURCE_FALLBACK_PRICES = {
   "Moonfur": 3.170
 };
 
+// Base Energy provided by difficulty tier
+export const TIER_BASE_ENERGY = {
+  Easy: 20,
+  Medium: 100,
+  Hard: 300
+};
+
+// Walrus Onesie wearable boost (+5 Energy to all pet food requests)
+export const WALRUS_ONESIE_ENERGY_BOOST = 5;
+
+// Official Pet Food Difficulty Tiers (from sfl.world/info/pets)
+export const PET_FOOD_DIFFICULTY_TIERS = {
+  // Easy Requests (Base: 20 Energy)
+  "mashed potato": { tier: "Easy", baseEnergy: 20 },
+  "rhubarb tart": { tier: "Easy", baseEnergy: 20 },
+  "pumpkin soup": { tier: "Easy", baseEnergy: 20 },
+  "reindeer carrot": { tier: "Easy", baseEnergy: 20 },
+  "bumpkin broth": { tier: "Easy", baseEnergy: 20 },
+  "popcorn": { tier: "Easy", baseEnergy: 20 },
+  "sunflower crunch": { tier: "Easy", baseEnergy: 20 },
+  "roast veggies": { tier: "Easy", baseEnergy: 20 },
+  "club sandwich": { tier: "Easy", baseEnergy: 20 },
+  "fruit salad": { tier: "Easy", baseEnergy: 20 },
+  "cheese": { tier: "Easy", baseEnergy: 20 },
+  "quick juice": { tier: "Easy", baseEnergy: 20 },
+  "carrot juice": { tier: "Easy", baseEnergy: 20 },
+  "purple smoothie": { tier: "Easy", baseEnergy: 20 },
+
+  // Medium Requests (Base: 100 Energy)
+  "boiled eggs": { tier: "Medium", baseEnergy: 100 },
+  "boiled egg": { tier: "Medium", baseEnergy: 100 },
+  "cabbers n mash": { tier: "Medium", baseEnergy: 100 },
+  "fried tofu": { tier: "Medium", baseEnergy: 100 },
+  "kale stew": { tier: "Medium", baseEnergy: 100 },
+  "cauliflower burger": { tier: "Medium", baseEnergy: 100 },
+  "bumpkin salad": { tier: "Medium", baseEnergy: 100 },
+  "goblin's treat": { tier: "Medium", baseEnergy: 100 },
+  "goblins treat": { tier: "Medium", baseEnergy: 100 },
+  "pancakes": { tier: "Medium", baseEnergy: 100 },
+  "pancake": { tier: "Medium", baseEnergy: 100 },
+  "bumpkin ganoush": { tier: "Medium", baseEnergy: 100 },
+  "tofu scramble": { tier: "Medium", baseEnergy: 100 },
+  "sunflower cake": { tier: "Medium", baseEnergy: 100 },
+  "cornbread": { tier: "Medium", baseEnergy: 100 },
+  "pumpkin cake": { tier: "Medium", baseEnergy: 100 },
+  "potato cake": { tier: "Medium", baseEnergy: 100 },
+  "apple pie": { tier: "Medium", baseEnergy: 100 },
+  "orange cake": { tier: "Medium", baseEnergy: 100 },
+  "carrot cake": { tier: "Medium", baseEnergy: 100 },
+  "fermented carrots": { tier: "Medium", baseEnergy: 100 },
+  "fermented carrot": { tier: "Medium", baseEnergy: 100 },
+  "blueberry jam": { tier: "Medium", baseEnergy: 100 },
+  "sauerkraut": { tier: "Medium", baseEnergy: 100 },
+  "fancy fries": { tier: "Medium", baseEnergy: 100 },
+  "orange juice": { tier: "Medium", baseEnergy: 100 },
+  "apple juice": { tier: "Medium", baseEnergy: 100 },
+  "power smoothie": { tier: "Medium", baseEnergy: 100 },
+  "bumpkin detox": { tier: "Medium", baseEnergy: 100 },
+  "sour shake": { tier: "Medium", baseEnergy: 100 },
+
+  // Hard Requests (Base: 300 Energy)
+  "kale omelette": { tier: "Hard", baseEnergy: 300 },
+  "rice bun": { tier: "Hard", baseEnergy: 300 },
+  "antipasto": { tier: "Hard", baseEnergy: 300 },
+  "pizza margherita": { tier: "Hard", baseEnergy: 300 },
+  "bumpkin roast": { tier: "Hard", baseEnergy: 300 },
+  "goblin brunch": { tier: "Hard", baseEnergy: 300 },
+  "steamed red rice": { tier: "Hard", baseEnergy: 300 },
+  "caprese salad": { tier: "Hard", baseEnergy: 300 },
+  "spaghetti al limone": { tier: "Hard", baseEnergy: 300 },
+  "cabbage cake": { tier: "Hard", baseEnergy: 300 },
+  "wheat cake": { tier: "Hard", baseEnergy: 300 },
+  "cauliflower cake": { tier: "Hard", baseEnergy: 300 },
+  "radish cake": { tier: "Hard", baseEnergy: 300 },
+  "beetroot cake": { tier: "Hard", baseEnergy: 300 },
+  "parsnip cake": { tier: "Hard", baseEnergy: 300 },
+  "eggplant cake": { tier: "Hard", baseEnergy: 300 },
+  "honey cake": { tier: "Hard", baseEnergy: 300 },
+  "lemon cheesecake": { tier: "Hard", baseEnergy: 300 },
+  "blue cheese": { tier: "Hard", baseEnergy: 300 },
+  "honey cheddar": { tier: "Hard", baseEnergy: 300 },
+  "banana blast": { tier: "Hard", baseEnergy: 300 },
+  "grape juice": { tier: "Hard", baseEnergy: 300 },
+  "slow juice": { tier: "Hard", baseEnergy: 300 },
+  "the lot": { tier: "Hard", baseEnergy: 300 }
+};
+

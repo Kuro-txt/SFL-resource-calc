@@ -98,9 +98,19 @@ export function renderPetsTemplate() {
           </button>
         </div>
 
-        <div class="w-full sm:w-56">
-          <input type="text" id="pets-search-input" placeholder="Search pet, category or food..."
-            class="sfl-input w-full rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-100 focus:ring-1 focus:ring-sfl-gold placeholder:text-sfl-woodLight/60">
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <!-- WALRUS ONESIE BOOST TOGGLE -->
+          <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100/80 hover:bg-amber-200/80 dark:bg-slate-800 dark:hover:bg-slate-700 border border-amber-300/70 dark:border-slate-700 cursor-pointer select-none transition shrink-0" title="Walrus Onesie wearable adds +5 Energy to all pet food requests">
+            <input type="checkbox" id="pets-walrus-onesie-toggle" class="rounded text-amber-600 focus:ring-amber-500 w-3.5 h-3.5 cursor-pointer">
+            <span class="text-xs font-bold text-sfl-wood dark:text-amber-200 flex items-center gap-1">
+              <span>🦭</span> Walrus Onesie <span class="text-emerald-700 dark:text-emerald-400 font-extrabold">(+5⚡)</span>
+            </span>
+          </label>
+
+          <div class="w-full sm:w-56">
+            <input type="text" id="pets-search-input" placeholder="Search pet, category or food..."
+              class="sfl-input w-full rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-100 focus:ring-1 focus:ring-sfl-gold placeholder:text-sfl-woodLight/60">
+          </div>
         </div>
       </div>
 
