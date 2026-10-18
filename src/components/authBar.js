@@ -536,7 +536,9 @@ export async function handleFarmSync() {
         if (farmId) {
           const farmObj = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
           if (farmObj) {
+            farmObj.farmId = farmId;
             window.farmData = farmObj;
+            window.currentFarmId = farmId;
             const liveInv = farmObj.inventory || {};
             window.farmInventoryData = liveInv;
             const liveBalance = parseFloat(farmObj.balance) || 0;
@@ -545,10 +547,13 @@ export async function handleFarmSync() {
               localStorage.setItem('sfl_farm_inventory', JSON.stringify(liveInv));
               localStorage.setItem('sfl_farm_balance', String(liveBalance));
               localStorage.setItem('sfl_farm_inventory_updated_at', new Date().toISOString());
+              if (farmObj.pets || farmObj.farm?.pets) {
+                localStorage.setItem('sfl_farm_pets', JSON.stringify(farmObj.pets || farmObj.farm?.pets));
+              }
             } catch (_) {}
             try {
               window.dispatchEvent(new CustomEvent('farmDataSynced', {
-                detail: { inventory: liveInv, balance: liveBalance }
+                detail: { inventory: liveInv, balance: liveBalance, farmData: farmObj, farmId }
               }));
             } catch (_) {}
             return farmObj;

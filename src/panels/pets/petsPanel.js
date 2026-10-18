@@ -15,7 +15,8 @@ import {
   fetchCloudPetLedger,
   getPetAuraMultiplier,
   getPetAuraKey,
-  setPetAura
+  setPetAura,
+  getEffectiveFarmId
 } from './petsLogic.js';
 import { WALRUS_ONESIE_ENERGY_BOOST, PET_AURA_MULTIPLIERS } from './petsData.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
@@ -106,14 +107,36 @@ export function mountPetsPanel() {
   }
 
   startUtcResetTimer();
-  ingestLivePetFeedData(window.farmData);
+
+  const effectiveFarmId = getEffectiveFarmId();
+
+  // If window.farmData is missing pets but localStorage has cached pets, hydrate window.farmData
+  if (!window.farmData || !parseFarmPets(window.farmData).length) {
+    try {
+      const cachedPets = JSON.parse(localStorage.getItem('sfl_farm_pets') || 'null');
+      if (cachedPets) {
+        const cachedInv = JSON.parse(localStorage.getItem('sfl_farm_inventory') || '{}');
+        window.farmData = {
+          ...(window.farmData || {}),
+          pets: cachedPets,
+          inventory: cachedInv,
+          farmId: effectiveFarmId !== 'preview' ? effectiveFarmId : undefined
+        };
+      }
+    } catch (_) {}
+  }
+
+  if (window.farmData && effectiveFarmId !== 'preview') {
+    window.farmData.farmId = effectiveFarmId;
+    window.currentFarmId = effectiveFarmId;
+    ingestLivePetFeedData(window.farmData);
+  }
 
   renderPetsCards();
   renderEnergyLedger();
 
-  const farmId = window.farmData?.farmId || window.currentFarmId;
-  if (farmId && farmId !== 'preview') {
-    fetchCloudPetLedger(farmId).then(events => {
+  if (effectiveFarmId && effectiveFarmId !== 'preview') {
+    fetchCloudPetLedger(effectiveFarmId).then(events => {
       if (events && events.length) {
         renderEnergyLedger();
       }
@@ -149,8 +172,9 @@ function startUtcResetTimer() {
 function ingestLivePetFeedData(farmData) {
   if (!isPetTrackerOptedIn()) return;
   if (!farmData) return;
-  const farm = farmData.farm || farmData;
-  const farmId = farmData.farmId || window.currentFarmId || 'preview';
+  const farmId = getEffectiveFarmId(farmData);
+  if (farmId === 'preview') return; // Do not record fake preview feed data
+  if (!farmData.farmId) farmData.farmId = farmId;
   const pets = parseFarmPets(farmData);
   const walrusBonus = isWalrusOnesieActive(farmData) ? WALRUS_ONESIE_ENERGY_BOOST : 0;
 
@@ -164,7 +188,9 @@ function ingestLivePetFeedData(farmData) {
 
       requests.foodFed.forEach((foodName, fIdx) => {
         costSfl += getFoodPrice(foodName);
-        const { baseEnergy } = getFoodTierAndEnergy(foodName, fIdx);
+        const slotIdx = Array.isArray(requests.food) ? requests.food.indexOf(foodName) : fIdx;
+        const effectiveSlotIdx = slotIdx >= 0 ? slotIdx : fIdx;
+        const { baseEnergy } = getFoodTierAndEnergy(foodName, effectiveSlotIdx);
         const baseWithAura = Math.round(baseEnergy * auraMultiplier);
         totalEnergyGained += (baseWithAura + energyBonus + walrusBonus);
       });
@@ -220,7 +246,7 @@ function bindPetsEventListeners() {
       refreshBtn.disabled = true;
 
       try {
-        const farmId = window.farmData?.farmId || window.currentFarmId || localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value?.trim();
+        const farmId = getEffectiveFarmId();
         const apiKey = localStorage.getItem('sfl_api_key') || document.getElementById('api-key')?.value?.trim() || '';
 
         if (!farmId || farmId === 'preview') {
@@ -231,11 +257,16 @@ function bindPetsEventListeners() {
         // Fetch live farm data specifically for pets & inventory (bypasses global sync)
         const freshFarm = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
         if (freshFarm) {
+          freshFarm.farmId = farmId;
           window.farmData = freshFarm;
+          window.currentFarmId = farmId;
           const liveInv = freshFarm.inventory || freshFarm.farm?.inventory || {};
           window.farmInventoryData = liveInv;
           try {
             localStorage.setItem('sfl_farm_inventory', JSON.stringify(liveInv));
+            if (freshFarm.pets || freshFarm.farm?.pets) {
+              localStorage.setItem('sfl_farm_pets', JSON.stringify(freshFarm.pets || freshFarm.farm?.pets));
+            }
           } catch (_) {}
 
           // Ingest live feed data into local ledger
@@ -325,9 +356,28 @@ export function renderPetsCards() {
 
   let dataToUse = window.farmData;
   let isPreview = false;
+  const currentEffectiveFarmId = getEffectiveFarmId(dataToUse);
+
   if (!dataToUse || !parseFarmPets(dataToUse).length) {
-    dataToUse = SAMPLE_PREVIEW_FARM;
-    isPreview = true;
+    if (currentEffectiveFarmId !== 'preview') {
+      container.innerHTML = `
+        <div class="col-span-full py-10 px-4 text-center bg-amber-50/60 dark:bg-slate-900/60 rounded-xl border border-dashed border-amber-300 dark:border-slate-700">
+          <div class="text-3xl mb-2">🐾</div>
+          <h3 class="text-sm font-bold text-sfl-wood dark:text-amber-100">Farm #${currentEffectiveFarmId} Companion Pets</h3>
+          <p class="text-xs text-sfl-woodLight dark:text-slate-400 mt-1 max-w-md mx-auto">
+            Companion pets for Farm #${currentEffectiveFarmId} have not been loaded yet. Click <strong>Sync</strong> above to load your live companion pets from Sunflower Land.
+          </p>
+          <button type="button" onclick="document.getElementById('pets-refresh-btn')?.click()" class="mt-3.5 px-4 py-1.5 bg-sfl-wood hover:bg-sfl-dirt text-amber-100 font-bold text-xs rounded-lg shadow transition cursor-pointer">
+            Sync Pets Now
+          </button>
+        </div>
+      `;
+      updateTopKpis([], {});
+      return;
+    } else {
+      dataToUse = SAMPLE_PREVIEW_FARM;
+      isPreview = true;
+    }
   }
 
   const farm = dataToUse.farm || dataToUse;
@@ -657,57 +707,20 @@ export function renderEnergyLedger() {
   const avgEffEl = document.getElementById('ledger-avg-efficiency');
   if (!tbody) return;
 
-  const farmId = window.farmData?.farmId || window.currentFarmId || 'preview';
+  const farmId = getEffectiveFarmId();
   let ledger = getStoredEnergyLedger(farmId);
-
-  // Fallback demo feeding entries for instant preview
-  if (ledger.length === 0) {
-    const today = new Date();
-    ledger = [
-      {
-        farmId,
-        petName: "Burro",
-        fedAt: today.getTime() - 3600000,
-        energyGained: 45,
-        foodsFed: ["Carrot Juice"],
-        costSfl: 0.05,
-        costPerEnergy: 0.001111,
-        loggedAt: new Date(today.getTime() - 3600000).toISOString()
-      },
-      {
-        farmId,
-        petName: "Burro",
-        fedAt: today.getTime() - 86400000,
-        energyGained: 120,
-        foodsFed: ["Carrot Juice", "Goblin's Treat"],
-        costSfl: 0.17,
-        costPerEnergy: 0.001416,
-        loggedAt: new Date(today.getTime() - 86400000).toISOString()
-      },
-      {
-        farmId,
-        petName: "Burro",
-        fedAt: today.getTime() - (86400000 * 3),
-        energyGained: 235,
-        foodsFed: ["Carrot Juice", "Goblin's Treat", "Caprese Salad"],
-        costSfl: 0.40,
-        costPerEnergy: 0.001702,
-        loggedAt: new Date(today.getTime() - (86400000 * 3)).toISOString()
-      }
-    ];
-  }
 
   let filtered = [...ledger];
 
   if (activePeriod === 'daily') {
     const cutoff = Date.now() - (24 * 60 * 60 * 1000);
-    filtered = ledger.filter(item => item.fedAt >= cutoff);
+    filtered = ledger.filter(item => Number(item.fedAt) >= cutoff);
   } else if (activePeriod === 'weekly') {
     const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
-    filtered = ledger.filter(item => item.fedAt >= cutoff);
+    filtered = ledger.filter(item => Number(item.fedAt) >= cutoff);
   } else if (activePeriod === 'monthly') {
     const cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
-    filtered = ledger.filter(item => item.fedAt >= cutoff);
+    filtered = ledger.filter(item => Number(item.fedAt) >= cutoff);
   }
 
   let totalEnergy = 0;
@@ -726,10 +739,14 @@ export function renderEnergyLedger() {
   if (avgEffEl) avgEffEl.textContent = `${avgCostPer100} SFL`;
 
   if (filtered.length === 0) {
+    const periodLabel = activePeriod === 'daily' ? 'in the last 24 hours' :
+                        activePeriod === 'weekly' ? 'in the last 7 days' :
+                        activePeriod === 'monthly' ? 'in the last 30 days' : 'recorded';
+    const farmDisplay = (farmId && farmId !== 'preview') ? `Farm #${farmId}` : 'your farm';
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="p-4 text-center text-sfl-woodLight dark:text-slate-400 italic text-[11px]">
-          No local feeding logs for this period. Feed your pets and sync your farm to record entries.
+        <td colspan="6" class="p-6 text-center text-sfl-woodLight dark:text-slate-400 italic text-[11px]">
+          No feeding logs found ${periodLabel} for ${farmDisplay}. Feed your companion pets in Sunflower Land and sync to record entries.
         </td>
       </tr>
     `;
@@ -737,7 +754,8 @@ export function renderEnergyLedger() {
   }
 
   tbody.innerHTML = filtered.map(row => {
-    const dateStr = row.loggedAt ? new Date(row.loggedAt).toLocaleString(undefined, { 
+    const fedTime = row.fedAt ? Number(row.fedAt) : (row.loggedAt ? new Date(row.loggedAt).getTime() : 0);
+    const dateStr = fedTime ? new Date(fedTime).toLocaleString(undefined, { 
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
     }) : 'Recent';
 
@@ -750,7 +768,7 @@ export function renderEnergyLedger() {
         <td class="p-2 font-bold text-sfl-wood dark:text-amber-100">${row.petName}</td>
         <td class="p-2 text-sfl-dirt dark:text-slate-300 truncate max-w-[140px]" title="${foodsStr}">${foodsStr}</td>
         <td class="p-2 text-right font-mono font-bold text-amber-600 dark:text-amber-300">+${row.energyGained} ⚡</td>
-        <td class="p-2 text-right font-mono font-bold text-sfl-green dark:text-emerald-400">${row.costSfl.toFixed(4)}</td>
+        <td class="p-2 text-right font-mono font-bold text-sfl-green dark:text-emerald-400">${Number(row.costSfl || 0).toFixed(4)}</td>
         <td class="p-2 text-right font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">${costPer100} SFL</td>
       </tr>
     `;

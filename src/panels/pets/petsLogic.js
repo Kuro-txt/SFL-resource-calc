@@ -691,81 +691,149 @@ export function getTimeUntilUtcReset() {
   };
 }
 
+// ── Farm ID Resolution Helper ────────────────────────────────────────────────
+export function getEffectiveFarmId(farmData = null) {
+  const candidate = 
+    farmData?.farmId ||
+    farmData?.id ||
+    farmData?.farm?.id ||
+    (typeof window !== 'undefined' ? (
+      window.farmData?.farmId ||
+      window.farmData?.id ||
+      window.farmData?.farm?.id ||
+      window.currentFarmId ||
+      localStorage.getItem('sfl_farm_id') ||
+      document.getElementById('farm-id')?.value?.trim()
+    ) : null);
+
+  const clean = candidate ? String(candidate).trim() : '';
+  return (clean && clean !== 'preview') ? clean : 'preview';
+}
+
 // ── Local Energy Feed Ledger Storage ──────────────────────────────────────────
 const LEDGER_STORAGE_KEY = 'sfl_pet_energy_ledger';
 
-export function getStoredEnergyLedger(farmId) {
+export function getAllStoredEnergyLedger() {
   try {
     const raw = localStorage.getItem(LEDGER_STORAGE_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw);
+    let parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    if (!farmId) return parsed;
-    return parsed.filter(item => String(item.farmId) === String(farmId));
+    // Purge any stale mock demo entries (e.g. sample Burro entries with fake dates)
+    return parsed.filter(item => item && item.petName && !(item.petName === 'Burro' && (item.farmId === 'preview' || !item.farmId)));
   } catch (_) {
     return [];
   }
 }
 
+export function getStoredEnergyLedger(farmId) {
+  const all = getAllStoredEnergyLedger();
+  const targetId = farmId !== undefined ? farmId : getEffectiveFarmId();
+  if (!targetId || targetId === 'all') return all;
+  return all.filter(item => String(item.farmId) === String(targetId));
+}
+
 export function recordFeedEvent(entry) {
   try {
-    const existing = getStoredEnergyLedger();
-    const exists = existing.some(e => 
-      String(e.farmId) === String(entry.farmId) &&
-      e.petName === entry.petName &&
-      Number(e.fedAt) === Number(entry.fedAt)
-    );
-    if (!exists) {
-      existing.unshift(entry);
-      const trimmed = existing.slice(0, 300);
-      localStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(trimmed));
+    if (!entry || !entry.petName) return;
+    const farmId = (entry.farmId && entry.farmId !== 'preview') ? String(entry.farmId) : getEffectiveFarmId();
+    entry.farmId = farmId;
+    if (!farmId || farmId === 'preview') return; // Do not record fake preview feed events into local ledger
 
-      // Asynchronously sync new feed event to TiDB Cloud if opted in
-      if (isPetTrackerOptedIn()) {
-        syncFeedEventToCloud(entry);
+    const existing = getAllStoredEnergyLedger();
+    const entryDate = entry.fedAt ? new Date(Number(entry.fedAt)).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    entry.id = `${farmId}_${entry.petName.replace(/[^a-zA-Z0-9]/g, '')}_${entryDate}`;
+
+    // Auto-migrate any legacy 'preview' entries for this pet to the real farmId
+    existing.forEach(e => {
+      if ((e.farmId === 'preview' || !e.farmId) && e.petName === entry.petName) {
+        e.farmId = farmId;
       }
+    });
+
+    // Find if an entry already exists for this farm + pet on this UTC date cycle
+    const matchIdx = existing.findIndex(e => {
+      if (String(e.farmId) !== farmId) return false;
+      if (e.petName !== entry.petName) return false;
+      const eDate = e.fedAt ? new Date(Number(e.fedAt)).toISOString().slice(0, 10) : '';
+      return eDate === entryDate;
+    });
+
+    if (matchIdx >= 0) {
+      const current = existing[matchIdx];
+      const currentFoodsCount = Array.isArray(current.foodsFed) ? current.foodsFed.length : 0;
+      const incomingFoodsCount = Array.isArray(entry.foodsFed) ? entry.foodsFed.length : 0;
+      
+      // Update in place with the latest feeding progress
+      if (incomingFoodsCount >= currentFoodsCount || Number(entry.fedAt) >= Number(current.fedAt)) {
+        existing[matchIdx] = {
+          ...current,
+          ...entry,
+          loggedAt: entry.loggedAt || new Date(Number(entry.fedAt)).toISOString()
+        };
+      }
+    } else {
+      existing.unshift(entry);
+    }
+
+    existing.sort((a, b) => (Number(b.fedAt) || 0) - (Number(a.fedAt) || 0));
+    const trimmed = existing.slice(0, 300);
+    localStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(trimmed));
+
+    // Asynchronously sync new feed event to TiDB Cloud if opted in
+    if (isPetTrackerOptedIn() && farmId !== 'preview') {
+      syncFeedEventToCloud(entry);
     }
   } catch (_) {}
 }
 
 // ── TiDB Cloud Ledger Synchronization ─────────────────────────────────────────
 export async function fetchCloudPetLedger(farmId) {
-  const cleanFarmId = farmId || (typeof window !== 'undefined' ? (window.farmData?.farmId || window.currentFarmId) : null);
-  if (!cleanFarmId || cleanFarmId === 'preview') return [];
+  const cleanFarmId = getEffectiveFarmId(farmId);
+  if (!cleanFarmId || cleanFarmId === 'preview') return getStoredEnergyLedger(cleanFarmId);
 
   try {
     const res = await fetch(`/api/pets?farmId=${cleanFarmId}&limit=100`, {
       signal: AbortSignal.timeout(8000)
     });
-    if (!res.ok) return [];
+    if (!res.ok) return getStoredEnergyLedger(cleanFarmId);
     const data = await res.json();
     if (data && Array.isArray(data.events)) {
-      const localLedger = getStoredEnergyLedger(cleanFarmId);
-      const merged = [...localLedger];
+      const allStored = getAllStoredEnergyLedger();
       
       data.events.forEach(cloudEvt => {
-        const exists = merged.some(m => 
+        if (!cloudEvt || !cloudEvt.farmId) return;
+        const cloudDate = cloudEvt.fedAt ? new Date(Number(cloudEvt.fedAt)).toISOString().slice(0, 10) : '';
+        const matchIdx = allStored.findIndex(m => 
           String(m.farmId) === String(cloudEvt.farmId) &&
           m.petName === cloudEvt.petName &&
-          Number(m.fedAt) === Number(cloudEvt.fedAt)
+          (cloudDate ? (m.fedAt && new Date(Number(m.fedAt)).toISOString().slice(0, 10) === cloudDate) : Number(m.fedAt) === Number(cloudEvt.fedAt))
         );
-        if (!exists) {
-          merged.push(cloudEvt);
+
+        if (matchIdx >= 0) {
+          const local = allStored[matchIdx];
+          const localCount = Array.isArray(local.foodsFed) ? local.foodsFed.length : 0;
+          const cloudCount = Array.isArray(cloudEvt.foodsFed) ? cloudEvt.foodsFed.length : 0;
+          if (cloudCount >= localCount || Number(cloudEvt.fedAt) >= Number(local.fedAt)) {
+            allStored[matchIdx] = { ...local, ...cloudEvt };
+          }
+        } else {
+          allStored.push(cloudEvt);
         }
       });
 
-      merged.sort((a, b) => (Number(b.fedAt) || 0) - (Number(a.fedAt) || 0));
-      const trimmed = merged.slice(0, 300);
+      allStored.sort((a, b) => (Number(b.fedAt) || 0) - (Number(a.fedAt) || 0));
+      const trimmed = allStored.slice(0, 300);
       try {
         localStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(trimmed));
       } catch (_) {}
 
-      return trimmed;
+      return trimmed.filter(item => String(item.farmId) === String(cleanFarmId));
     }
   } catch (err) {
     console.warn("Notice: Could not load pet ledger from TiDB Cloud:", err.message);
   }
-  return [];
+  return getStoredEnergyLedger(cleanFarmId);
 }
 
 export async function syncFeedEventToCloud(entry) {
@@ -817,7 +885,7 @@ export function setPetTrackerOptIn(optedIn) {
     }
 
     // 2. Persist to TiDB Cloud preferences
-    const farmId = (typeof window !== 'undefined') ? (window.farmData?.farmId || window.currentFarmId) : null;
+    const farmId = getEffectiveFarmId();
     if (farmId && farmId !== 'preview') {
       fetch('/api/pets', {
         method: 'POST',

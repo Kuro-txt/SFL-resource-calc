@@ -244,6 +244,9 @@ export default async function handler(req, res) {
            ON DUPLICATE KEY UPDATE 
             energy_gained = VALUES(energy_gained),
             total_energy = VALUES(total_energy),
+            foods_fed = VALUES(foods_fed),
+            fed_at = VALUES(fed_at),
+            logged_at = VALUES(logged_at),
             cost_sfl = VALUES(cost_sfl),
             cost_per_energy = VALUES(cost_per_energy)`,
           [eventId, cleanFarmId, petName, fedAt, energyGained, totalEnergy, foodsFed, costSfl, costPerEnergy, loggedAt]
