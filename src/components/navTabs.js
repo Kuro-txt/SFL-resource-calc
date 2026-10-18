@@ -22,6 +22,9 @@ export function renderNavTabs() {
       <button id="tab-market-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
         <span>📈</span> Market
       </button>
+      <button id="tab-pets-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
+        <span>🐾</span> Pets
+      </button>
     </div>
   `;
 }

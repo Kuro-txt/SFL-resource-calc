@@ -1,0 +1,66 @@
+// Catalog of Sunflower Land Pets, Milestone Perks & Food Fallbacks
+export const KNOWN_PETS = {
+  Barkley: { id: 2601, name: "Barkley", rarity: "Common", emoji: "🐶", desc: "Loyal dog ready to fetch acorns and help around the farm." },
+  Meowchi: { id: 2602, name: "Meowchi", rarity: "Common", emoji: "🐱", desc: "Gentle cat fond of sunbathing and quick naps." },
+  Twizzle: { id: 2603, name: "Twizzle", rarity: "Common", emoji: "🦝", desc: "Curious raccoon with quick paws and an eye for treasures." },
+  Burro: { id: 2604, name: "Burro", rarity: "Common", emoji: "🫏", desc: "Sturdy donkey with huge appetite and relentless stamina." },
+  Mudhorn: { id: 2605, name: "Mudhorn", rarity: "Common", emoji: "🦏", desc: "Mighty horned beast who loves wallowing and fetching rare soil gems." },
+  Nibbles: { id: 2606, name: "Nibbles", rarity: "Common", emoji: "🐿️", desc: "Energetic squirrel constantly searching for acorns and nuts." },
+  Waddles: { id: 2607, name: "Waddles", rarity: "Common", emoji: "🦆", desc: "Cheerful duckling who loves paddling in farm ponds." },
+  Ramsey: { id: 2608, name: "Ramsey", rarity: "NFT", emoji: "🐏", desc: "Legendary horned ram that climbs the steepest mountain rocks." },
+  Biscuit: { id: 2609, name: "Biscuit", rarity: "Common", emoji: "🐕", desc: "Playful pup always excited for his next food treat." },
+  Cloudy: { id: 2610, name: "Cloudy", rarity: "Common", emoji: "☁️", desc: "Fluffy and soft companion who floats around your crops." },
+  Butters: { id: 2611, name: "Butters", rarity: "Common", emoji: "🧈", desc: "Sweet-tempered pet known for high energy and affectionate nuzzles." },
+  Smokey: { id: 2612, name: "Smokey", rarity: "Common", emoji: "🦨", desc: "Distinctive buddy with a mysterious charm." },
+  Flicker: { id: 2613, name: "Flicker", rarity: "Common", emoji: "🦊", desc: "Cunning fox that darts through the undergrowth." },
+  Pippin: { id: 2614, name: "Pippin", rarity: "Common", emoji: "🐦", desc: "Quick-winged companion bringing tidings from across Sunflower Land." },
+  Pinto: { id: 2615, name: "Pinto", rarity: "Rare", emoji: "🐎", desc: "Spotted steed eager to trot across the fields." },
+  Roan: { id: 2616, name: "Roan", rarity: "Rare", emoji: "🐴", desc: "Noble steed with high endurance." },
+  Stallion: { id: 2617, name: "Stallion", rarity: "NFT", emoji: "🦄", desc: "Majestic stallion with unmatched speed and resource instincts." },
+  Bison: { id: 2618, name: "Bison", rarity: "Rare", emoji: "🦬", desc: "Ancient wanderer of the plains." },
+  Oxen: { id: 2619, name: "Oxen", rarity: "Rare", emoji: "🐂", desc: "Powerful beast of burden, boosting farm hauling." },
+  Peanuts: { id: 2620, name: "Peanuts", rarity: "Common", emoji: "🥜", desc: "Tiny pet with an outsized personality and enormous heart." },
+  Pip: { id: 2621, name: "Pip", rarity: "Common", emoji: "🐣", desc: "Newly hatched companion, eager to discover the farm world." },
+  Skipper: { id: 2622, name: "Skipper", rarity: "Common", emoji: "🐧", desc: "Aquatic adventurer who loves cool dips and fish treats." }
+};
+
+export const PET_MILESTONE_PERKS = [
+  { level: 3, perk: "Unlocks 1st Resource Category" },
+  { level: 5, perk: "+5 Energy per pet food" },
+  { level: 7, perk: "Unlocks 2nd Resource Category" },
+  { level: 10, perk: "Unlocks 3 Requests per day" },
+  { level: 12, perk: "Unlocks Moonfur fetching (NFT only)" },
+  { level: 15, perk: "10% Chance of Double Resource" },
+  { level: 18, perk: "+1 Acorn yield" },
+  { level: 20, perk: "Unlocks Fossil Shells" },
+  { level: 25, perk: "Unlocks 3rd Category (NFT only)" },
+  { level: 27, perk: "+10% Pet Experience Boost" },
+  { level: 30, perk: "Unlocks 4th request per day (NFT only)" },
+  { level: 35, perk: "+5 Energy per pet food (+10 total)" },
+  { level: 40, perk: "+15% Pet Experience Boost (+25% total)" },
+  { level: 50, perk: "15% Chance of Double Resource" },
+  { level: 60, perk: "+1 Non-acorn resource yield (NFT only)" },
+  { level: 75, perk: "+5 Energy per pet food (+15 total)" },
+  { level: 85, perk: "+25% Pet Experience Boost (+50% total)" },
+  { level: 100, perk: "25% Chance of Double Resource" },
+  { level: 150, perk: "50% Chance of +1 Moonfur yield (NFT only)" },
+  { level: 200, perk: "Access to 5th food request (NFT only)" }
+];
+
+export const PET_FOOD_FALLBACK_PRICES = {
+  "Carrot Juice": 0.05,
+  "Goblin's Treat": 0.12,
+  "Caprese Salad": 0.28,
+  "Mashed Potato": 0.03,
+  "Boiled Eggs": 0.04,
+  "Pancake": 0.08,
+  "Roast Veggies": 0.10,
+  "Chowder": 0.15,
+  "Pumpkin Soup": 0.06,
+  "Rhubarb Tart": 0.18,
+  "Apple Pie": 0.22,
+  "Sushi": 0.35,
+  "Orange Cake": 0.20,
+  "Sunflower Cake": 0.15,
+  "Beetroot Cake": 0.18
+};

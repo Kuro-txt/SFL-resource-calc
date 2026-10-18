@@ -7,7 +7,8 @@ const TAB_TO_HASH = {
   tradehistory: 'trades',
   npc: 'npc',
   wishlist: 'wishlist',
-  market: 'market'
+  market: 'market',
+  pets: 'pets'
 };
 
 const HASH_TO_TAB = {
@@ -30,7 +31,9 @@ const HASH_TO_TAB = {
   market: 'market',
   'market-prices': 'market',
   prices: 'market',
-  charts: 'market'
+  charts: 'market',
+  pets: 'pets',
+  pet: 'pets'
 };
 
 export const PanelManager = {
@@ -39,7 +42,7 @@ export const PanelManager = {
   },
 
   switch(targetId, updateUrlHash = true) {
-    const validTabs = ['dashboard', 'calc', 'tradehistory', 'npc', 'wishlist', 'market'];
+    const validTabs = ['dashboard', 'calc', 'tradehistory', 'npc', 'wishlist', 'market', 'pets'];
     if (!validTabs.includes(targetId)) {
       targetId = 'dashboard';
     }
@@ -98,6 +101,7 @@ export const PanelManager = {
     document.getElementById('tab-npc-btn')?.addEventListener('click', () => this.switch('npc'));
     document.getElementById('tab-wishlist-btn')?.addEventListener('click', () => this.switch('wishlist'));
     document.getElementById('tab-market-btn')?.addEventListener('click', () => this.switch('market'));
+    document.getElementById('tab-pets-btn')?.addEventListener('click', () => this.switch('pets'));
 
     // Listen to browser Back/Forward navigation or direct hash changes
     window.addEventListener('hashchange', () => {
