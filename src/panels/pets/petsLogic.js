@@ -1,8 +1,11 @@
 import { 
   KNOWN_PETS, 
   PET_CATEGORIES, 
+  PET_SPECIES,
+  RESOURCE_ICONS,
   FETCHING_ENERGY_COSTS, 
   PET_FOOD_FALLBACK_PRICES,
+  FETCHED_RESOURCE_FALLBACK_PRICES,
   NON_REQUESTED_FOODS
 } from './petsData.js';
 import { getRecipe } from '../../data/recipes.js';
@@ -83,6 +86,7 @@ export function parseFarmPets(farmData) {
     const knownMeta = KNOWN_PETS[name] || {
       id: 0,
       name,
+      species: 'Horse',
       category: 'Voyagers',
       rarity: categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1),
       emoji: '🐾',
@@ -97,6 +101,7 @@ export function parseFarmPets(farmData) {
       ...petObj,
       name,
       id: knownMeta.id,
+      species: knownMeta.species || 'Horse',
       rarity: knownMeta.rarity || 'Common',
       emoji: knownMeta.emoji || '🐾',
       desc: knownMeta.desc,
@@ -177,6 +182,7 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
     const baseEnergy = getBaseEnergyForSlot(slotIdx);
     const totalEnergy = Math.round((baseEnergy + energyBonus) * auraMultiplier);
     const costPerEnergy = totalEnergy > 0 ? (price / totalEnergy) : 0;
+    const costPer100Energy = totalEnergy > 0 ? ((price / totalEnergy) * 100) : 0;
 
     // Recipe ingredients check
     const recipe = getRecipe(foodName);
@@ -217,6 +223,7 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
       price,
       totalEnergy,
       costPerEnergy,
+      costPer100Energy,
       isBestValue: false, // populated below
       status,
       recipe,
@@ -245,14 +252,15 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
 }
 
 /**
- * Calculates Fetching Capacity & Yields based on pet Energy, Level, and Category
+ * Calculates Fetching Capacity & Yields based on specific pet Species, Level, and Energy
+ * Uses official unlock levels from https://sfl.world/info/pets
  */
-export function calculateFetchingCapacity(energy = 0, level = 1, categoryName = 'Voyagers', isNft = false) {
+export function calculateFetchingCapacity(energy = 0, level = 1, categoryName = 'Voyagers', isNft = false, petName = null) {
   const currentEnergy = Math.max(0, parseInt(energy) || 0);
   const lvl = parseInt(level) || 1;
   const category = PET_CATEGORIES[categoryName] || PET_CATEGORIES.Voyagers;
 
-  // Decimal yield bonus from levels
+  // Decimal yield bonus from levels (+0.1 at 15, +0.15 at 50, +0.25 at 100)
   let decimalBonus = 0;
   if (lvl >= 100) decimalBonus = 0.25;
   else if (lvl >= 50) decimalBonus = 0.15;
@@ -262,51 +270,129 @@ export function calculateFetchingCapacity(energy = 0, level = 1, categoryName = 
   const acornBaseYield = (lvl >= 18 ? 2.0 : 1.0) + decimalBonus;
   const categoryBaseYield = 1.0 + decimalBonus;
 
-  // Maximum fetches
-  const acornFetches = Math.floor(currentEnergy / FETCHING_ENERGY_COSTS.Acorn);
-  const categoryFetches = Math.floor(currentEnergy / FETCHING_ENERGY_COSTS.CategoryResource);
-  const fossilFetches = lvl >= 20 ? Math.floor(currentEnergy / FETCHING_ENERGY_COSTS["Fossil Shell"]) : 0;
-  const moonfurFetches = (isNft && lvl >= 12) ? Math.floor(currentEnergy / FETCHING_ENERGY_COSTS.Moonfur) : 0;
+  // Resolve species from petName or fallback
+  let speciesKey = null;
+  if (petName && KNOWN_PETS[petName]) {
+    speciesKey = KNOWN_PETS[petName].species || petName;
+  }
+  const speciesConfig = speciesKey ? PET_SPECIES[speciesKey] : null;
+
+  let availableFetches = [];
+
+  if (speciesConfig && Array.isArray(speciesConfig.fetches)) {
+    speciesConfig.fetches.forEach(f => {
+      const isUnlocked = lvl >= f.level;
+      let yieldPerFetch = 1.0;
+      if (f.resource === 'Acorn') {
+        yieldPerFetch = acornBaseYield;
+      } else if (f.energyCost === 200) {
+        yieldPerFetch = categoryBaseYield;
+      } else {
+        yieldPerFetch = 1.0;
+      }
+      yieldPerFetch = Math.round(yieldPerFetch * 100) / 100;
+
+      const maxFetches = isUnlocked ? Math.floor(currentEnergy / f.energyCost) : 0;
+      const totalYield = Math.round(maxFetches * yieldPerFetch * 10) / 10;
+      const unitPrice = getResourceUnitPrice(f.resource);
+      // SFL value generated per 100 energy: (yieldPerFetch * price) / (cost / 100)
+      const sflPer100Energy = (yieldPerFetch * unitPrice) / (f.energyCost / 100);
+
+      availableFetches.push({
+        resource: f.resource,
+        name: f.resource,
+        icon: f.icon || RESOURCE_ICONS[f.resource] || '📦',
+        levelReq: f.level,
+        energyCost: f.energyCost,
+        isUnlocked,
+        maxFetches,
+        yieldPerFetch,
+        totalYield,
+        unitPrice,
+        sflPer100Energy: Math.round(sflPer100Energy * 10000) / 10000
+      });
+    });
+  } else {
+    // Fallback if species not found in catalog
+    const acornFetches = Math.floor(currentEnergy / 100);
+    const catFetches = Math.floor(currentEnergy / 200);
+    const fossilFetches = lvl >= 20 ? Math.floor(currentEnergy / 300) : 0;
+    const catRes = category?.resource || "Ruffroot";
+
+    availableFetches = [
+      {
+        resource: "Acorn",
+        name: "Acorn",
+        icon: "🌰",
+        levelReq: 1,
+        energyCost: 100,
+        isUnlocked: true,
+        maxFetches: acornFetches,
+        yieldPerFetch: Math.round(acornBaseYield * 100) / 100,
+        totalYield: Math.round(acornFetches * acornBaseYield * 10) / 10,
+        unitPrice: getResourceUnitPrice("Acorn"),
+        sflPer100Energy: Math.round((acornBaseYield * getResourceUnitPrice("Acorn")) * 10000) / 10000
+      },
+      {
+        resource: catRes,
+        name: catRes,
+        icon: category?.icon || "🌿",
+        levelReq: 3,
+        energyCost: 200,
+        isUnlocked: lvl >= 3,
+        maxFetches: catFetches,
+        yieldPerFetch: Math.round(categoryBaseYield * 100) / 100,
+        totalYield: Math.round(catFetches * categoryBaseYield * 10) / 10,
+        unitPrice: getResourceUnitPrice(catRes),
+        sflPer100Energy: Math.round(((categoryBaseYield * getResourceUnitPrice(catRes)) / 2) * 10000) / 10000
+      },
+      {
+        resource: "Fossil Shell",
+        name: "Fossil Shell",
+        icon: "🐚",
+        levelReq: 20,
+        energyCost: 300,
+        isUnlocked: lvl >= 20,
+        maxFetches: fossilFetches,
+        yieldPerFetch: 1.0,
+        totalYield: fossilFetches,
+        unitPrice: getResourceUnitPrice("Fossil Shell"),
+        sflPer100Energy: Math.round((getResourceUnitPrice("Fossil Shell") / 3) * 10000) / 10000
+      }
+    ];
+  }
+
+  // Find Best Resource to Fetch by Price among currently UNLOCKED items
+  const unlocked = availableFetches.filter(f => f.isUnlocked);
+  unlocked.sort((a, b) => b.sflPer100Energy - a.sflPer100Energy);
+  const bestFetch = unlocked[0] || null;
 
   return {
     currentEnergy,
     decimalBonus,
-    acorn: {
-      name: "Acorn",
-      cost: FETCHING_ENERGY_COSTS.Acorn,
-      maxFetches: acornFetches,
-      yieldPerFetch: Math.round(acornBaseYield * 100) / 100,
-      totalYield: Math.round(acornFetches * acornBaseYield * 10) / 10,
-      energyRemaining: currentEnergy - (acornFetches * FETCHING_ENERGY_COSTS.Acorn)
-    },
-    category: {
-      name: category.resource,
-      categoryName: category.name,
-      icon: category.icon,
-      cost: FETCHING_ENERGY_COSTS.CategoryResource,
-      maxFetches: categoryFetches,
-      yieldPerFetch: Math.round(categoryBaseYield * 100) / 100,
-      totalYield: Math.round(categoryFetches * categoryBaseYield * 10) / 10,
-      energyRemaining: currentEnergy - (categoryFetches * FETCHING_ENERGY_COSTS.CategoryResource)
-    },
-    fossilShell: {
-      name: "Fossil Shell",
-      unlocked: lvl >= 20,
-      cost: FETCHING_ENERGY_COSTS["Fossil Shell"],
-      maxFetches: fossilFetches,
-      totalYield: fossilFetches,
-      energyRemaining: currentEnergy - (fossilFetches * FETCHING_ENERGY_COSTS["Fossil Shell"])
-    },
-    moonfur: {
-      name: "Moonfur",
-      unlocked: isNft && lvl >= 12,
-      cost: FETCHING_ENERGY_COSTS.Moonfur,
-      maxFetches: moonfurFetches,
-      totalYield: moonfurFetches,
-      energyRemaining: currentEnergy - (moonfurFetches * FETCHING_ENERGY_COSTS.Moonfur)
-    }
+    fetches: availableFetches,
+    bestFetch
   };
 }
+
+/**
+ * Resolves unit price for fetched resources from window.allPrices or fallback catalog
+ */
+export function getResourceUnitPrice(resourceName) {
+  if (!resourceName) return 0.02;
+  const cleanKey = normalizeItemKey(resourceName);
+
+  if (typeof window !== 'undefined' && window.allPrices && typeof window.allPrices === 'object') {
+    const matchedKey = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === cleanKey);
+    if (matchedKey) {
+      const p = parseFloat(window.allPrices[matchedKey]);
+      if (!isNaN(p) && p > 0) return p;
+    }
+  }
+
+  return FETCHED_RESOURCE_FALLBACK_PRICES[resourceName] || 0.02;
+}
+
 
 /**
  * Calculates remaining time until 00:00 UTC daily game reset
@@ -364,3 +450,21 @@ export function recordFeedEvent(entry) {
     }
   } catch (_) {}
 }
+
+// ── Opt-In State Management ───────────────────────────────────────────────────
+const PET_OPT_IN_KEY = 'sfl_pet_tracker_opt_in';
+
+export function isPetTrackerOptedIn() {
+  try {
+    return localStorage.getItem(PET_OPT_IN_KEY) === 'true';
+  } catch (_) {
+    return false;
+  }
+}
+
+export function setPetTrackerOptIn(optedIn) {
+  try {
+    localStorage.setItem(PET_OPT_IN_KEY, optedIn ? 'true' : 'false');
+  } catch (_) {}
+}
+

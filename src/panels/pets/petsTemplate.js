@@ -33,6 +33,14 @@ export function renderPetsTemplate() {
             <span id="pets-refresh-icon">🔄</span>
             <span>Sync</span>
           </button>
+
+          <!-- OPT-OUT BUTTON -->
+          <button type="button" id="pets-opt-out-btn"
+            class="bg-amber-100/70 hover:bg-red-100 dark:bg-slate-800 dark:hover:bg-red-950/40 text-sfl-woodLight hover:text-red-600 dark:text-slate-400 dark:hover:text-red-300 font-bold px-2 py-1 rounded-lg border border-amber-300/60 dark:border-slate-700 text-[10.5px] transition cursor-pointer flex items-center gap-1 whitespace-nowrap"
+            title="Opt out or disable pet tracking">
+            <span>⚙️</span>
+            <span>Opt Out</span>
+          </button>
         </div>
       </div>
 
@@ -65,7 +73,7 @@ export function renderPetsTemplate() {
         <div class="bg-sfl-card/80 dark:bg-slate-900/70 p-2.5 rounded-xl border border-sfl-cardBorder dark:border-slate-800 flex items-center gap-2.5 shadow-xs">
           <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-slate-800 flex items-center justify-center text-base shrink-0">🎯</div>
           <div>
-            <div class="text-[9px] uppercase font-bold text-sfl-woodLight dark:text-slate-400">Best Cost/⚡</div>
+            <div class="text-[9px] uppercase font-bold text-sfl-woodLight dark:text-slate-400">Best Cost/100⚡</div>
             <div id="pets-stat-best-efficiency" class="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 truncate">
               0.0000 SFL
             </div>
@@ -144,9 +152,9 @@ export function renderPetsTemplate() {
             </div>
           </div>
           <div class="bg-amber-50/70 dark:bg-slate-800/60 p-2 rounded-lg border border-amber-200/80 dark:border-slate-700">
-            <div class="text-[9px] font-bold text-sfl-woodLight dark:text-slate-400 uppercase">🎯 Cost/⚡</div>
+            <div class="text-[9px] font-bold text-sfl-woodLight dark:text-slate-400 uppercase">🎯 Cost/100⚡</div>
             <div id="ledger-avg-efficiency" class="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 mt-0.5 truncate">
-              0.000000
+              0.0000 SFL
             </div>
           </div>
         </div>
@@ -161,7 +169,7 @@ export function renderPetsTemplate() {
                 <th class="p-2">Foods Fed</th>
                 <th class="p-2 text-right">Energy</th>
                 <th class="p-2 text-right">SFL</th>
-                <th class="p-2 text-right">Cost/⚡</th>
+                <th class="p-2 text-right">Cost/100⚡</th>
               </tr>
             </thead>
             <tbody id="pets-ledger-table-body" class="divide-y divide-sfl-cardBorder/30 dark:divide-slate-800 text-[11px]">
@@ -172,6 +180,85 @@ export function renderPetsTemplate() {
 
       </div>
 
+    </div>
+  `;
+}
+
+export function renderPetsOptInGate() {
+  const container = document.getElementById('pets-section');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="max-w-2xl mx-auto py-4 px-2">
+      <div class="bg-sfl-card/95 dark:bg-slate-900/95 rounded-2xl border-2 border-sfl-cardBorder dark:border-slate-800 p-6 sm:p-8 space-y-6 shadow-xl text-center">
+        
+        <!-- ICON & BADGE -->
+        <div class="flex flex-col items-center gap-2">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-200 to-amber-400 dark:from-amber-600 dark:to-amber-800 flex items-center justify-center text-3xl shadow-inner border border-amber-300">
+            🐾
+          </div>
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-slate-800 text-amber-800 dark:text-amber-200 text-xs font-extrabold uppercase border border-amber-300/60 dark:border-slate-700">
+            <span>✨</span> Beta Feature • Optional Opt-In
+          </div>
+          <h2 class="text-xl sm:text-2xl font-black text-sfl-wood dark:text-amber-200 uppercase tracking-tight">
+            Pet Energy & Economics Tracker
+          </h2>
+          <p class="text-xs sm:text-sm text-sfl-woodLight dark:text-slate-300 max-w-lg">
+            Track daily pet food costs in SFL, calculate cost per 100 energy, discover the cheapest dishes to cook, and simulate resource fetching yields.
+          </p>
+        </div>
+
+        <!-- FEATURE HIGHLIGHTS GRID -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+          <div class="bg-amber-50/70 dark:bg-slate-800/60 p-3 rounded-xl border border-amber-200/80 dark:border-slate-700/80 flex items-start gap-2.5">
+            <span class="text-xl shrink-0">⚡</span>
+            <div>
+              <div class="text-xs font-bold text-sfl-wood dark:text-amber-200">Cost per 100⚡</div>
+              <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-medium">Exact SFL required per 100 energy gained from requested foods.</p>
+            </div>
+          </div>
+
+          <div class="bg-amber-50/70 dark:bg-slate-800/60 p-3 rounded-xl border border-amber-200/80 dark:border-slate-700/80 flex items-start gap-2.5">
+            <span class="text-xl shrink-0">⭐</span>
+            <div>
+              <div class="text-xs font-bold text-sfl-wood dark:text-amber-200">Best Value Dishes</div>
+              <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-medium">Flags the most budget-friendly meals using current market and recipe crafting prices.</p>
+            </div>
+          </div>
+
+          <div class="bg-amber-50/70 dark:bg-slate-800/60 p-3 rounded-xl border border-amber-200/80 dark:border-slate-700/80 flex items-start gap-2.5">
+            <span class="text-xl shrink-0">🏹</span>
+            <div>
+              <div class="text-xs font-bold text-sfl-wood dark:text-amber-200">Fetching Simulator</div>
+              <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-medium">Simulates ready fetches and decimal bonus yields for Acorns, Category items, and Fossil Shells.</p>
+            </div>
+          </div>
+
+          <div class="bg-amber-50/70 dark:bg-slate-800/60 p-3 rounded-xl border border-amber-200/80 dark:border-slate-700/80 flex items-start gap-2.5">
+            <span class="text-xl shrink-0">📊</span>
+            <div>
+              <div class="text-xs font-bold text-sfl-wood dark:text-amber-200">Local Diet Ledger</div>
+              <p class="text-[11px] text-sfl-woodLight dark:text-slate-400 font-medium">Tracks foods fed, energy gained, and total SFL spent across Daily, Weekly, and Monthly cycles.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- PRIVACY / LOCAL NOTE -->
+        <div class="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 p-2.5 rounded-xl text-left flex items-start gap-2 text-[11px] text-emerald-800 dark:text-emerald-200">
+          <span class="text-base shrink-0">🔒</span>
+          <span><strong>100% Client-Side & Private:</strong> This feature does not connect to any cloud server or external database. All feeding history is stored strictly in your browser. You can opt out at any time.</span>
+        </div>
+
+        <!-- OPT-IN ACTION BUTTON -->
+        <div class="pt-2">
+          <button type="button" id="pets-opt-in-btn"
+            class="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 hover:from-amber-500 hover:to-amber-600 text-amber-100 font-black text-sm rounded-xl border-2 border-amber-900 shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2 mx-auto">
+            <span>🐾</span>
+            <span>Opt In & Activate Pet Tracker</span>
+          </button>
+        </div>
+
+      </div>
     </div>
   `;
 }

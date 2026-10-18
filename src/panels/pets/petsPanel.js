@@ -1,4 +1,4 @@
-import { renderPetsTemplate } from './petsTemplate.js';
+import { renderPetsTemplate, renderPetsOptInGate } from './petsTemplate.js';
 import { 
   parseFarmPets, 
   checkFoodAvailability, 
@@ -6,7 +6,9 @@ import {
   getTimeUntilUtcReset,
   getStoredEnergyLedger, 
   recordFeedEvent,
-  getFoodPrice
+  getFoodPrice,
+  isPetTrackerOptedIn,
+  setPetTrackerOptIn
 } from './petsLogic.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 
@@ -58,12 +60,14 @@ export function initPetsPanel() {
   isInitialized = true;
 
   window.addEventListener('farmDataSynced', (e) => {
+    if (!isPetTrackerOptedIn()) return;
     ingestLivePetFeedData(e.detail?.farmData || window.farmData);
     renderPetsCards();
     renderEnergyLedger();
   });
 
   window.addEventListener('pricesLoaded', () => {
+    if (!isPetTrackerOptedIn()) return;
     renderPetsCards();
     renderEnergyLedger();
   });
@@ -72,6 +76,20 @@ export function initPetsPanel() {
 export function mountPetsPanel() {
   const container = document.getElementById('pets-section');
   if (!container) return;
+
+  // OPT-IN CHECK: If user has not opted in, show clean opt-in gate
+  if (!isPetTrackerOptedIn()) {
+    unmountPetsPanel();
+    renderPetsOptInGate();
+    const optInBtn = document.getElementById('pets-opt-in-btn');
+    if (optInBtn) {
+      optInBtn.addEventListener('click', () => {
+        setPetTrackerOptIn(true);
+        mountPetsPanel();
+      });
+    }
+    return;
+  }
 
   if (!container.innerHTML.trim() || !document.getElementById('pets-cards-container')) {
     renderPetsTemplate();
@@ -111,6 +129,7 @@ function startUtcResetTimer() {
  * Checks live pets for fed foods and records them strictly to local ledger
  */
 function ingestLivePetFeedData(farmData) {
+  if (!isPetTrackerOptedIn()) return;
   if (!farmData) return;
   const farm = farmData.farm || farmData;
   const farmId = farmData.farmId || window.currentFarmId || 'preview';
@@ -193,6 +212,21 @@ function bindPetsEventListeners() {
       renderEnergyLedger();
     });
   });
+
+  // 5. Opt-out button
+  const optOutBtn = document.getElementById('pets-opt-out-btn');
+  if (optOutBtn) {
+    optOutBtn.addEventListener('click', () => {
+      const confirmOptOut = window.confirm(
+        'Opt out of Pet Tracker?\\n\\nYour local ledger entries will be preserved, but automatic pet tracking and calculations will be paused.'
+      );
+      if (confirmOptOut) {
+        setPetTrackerOptIn(false);
+        unmountPetsPanel();
+        mountPetsPanel();
+      }
+    });
+  }
 }
 
 export function renderPetsCards() {
@@ -265,8 +299,14 @@ export function renderPetsCards() {
       pet.energy || 0,
       petLevel,
       pet.category,
-      pet.rarity === 'NFT'
+      pet.rarity === 'NFT',
+      pet.name
     );
+
+    const readyFetches = fetchCap.fetches.filter(f => f.isUnlocked && f.maxFetches > 0);
+    const readyFetchesHtml = readyFetches.length > 0 
+      ? readyFetches.map(f => `<span>${f.icon} ${f.maxFetches}x (${f.totalYield})</span>`).join(' • ')
+      : `<span class="text-sfl-woodLight dark:text-slate-400 font-normal">None ready (need 100⚡)</span>`;
 
     html += `
       <div class="bg-sfl-card/95 dark:bg-slate-900/90 rounded-xl border border-sfl-cardBorder dark:border-slate-800 p-3 shadow-xs space-y-2.5 hover:border-sfl-gold/60 transition">
@@ -351,13 +391,13 @@ export function renderPetsCards() {
                     </div>
                   </div>
 
-                  <!-- ENERGY & COST EFFICIENCY INLINE -->
+                  <!-- ENERGY & COST PER 100 ENERGY INLINE -->
                   <div class="flex items-center justify-between text-[9.5px] mt-0.5 pt-0.5 border-t border-black/5 dark:border-white/5">
                     <span class="text-amber-700 dark:text-amber-300 font-bold font-mono">
                       +${food.totalEnergy} ⚡
                     </span>
-                    <span class="text-indigo-600 dark:text-indigo-400 font-mono font-semibold">
-                      ${food.costPerEnergy.toFixed(5)} SFL/⚡
+                    <span class="text-indigo-600 dark:text-indigo-400 font-mono font-bold" title="${food.costPerEnergy.toFixed(6)} SFL / 1⚡">
+                      ${food.costPer100Energy.toFixed(4)} / 100⚡
                     </span>
                     ${food.ingredientDetails?.length ? `
                       <button type="button" onclick="document.getElementById('${detailId}').classList.toggle('hidden')" 
@@ -383,17 +423,31 @@ export function renderPetsCards() {
           </div>
         </div>
 
-        <!-- COMPACT FETCHING CAPACITY ROW -->
-        <div class="bg-amber-100/40 dark:bg-slate-800/40 p-2 rounded-lg border border-amber-200/60 dark:border-slate-700/60 flex items-center justify-between text-[10px]">
-          <span class="font-bold text-sfl-wood dark:text-amber-200 uppercase flex items-center gap-1">
-            <span>🏹</span> Fetch Ready:
-          </span>
-          <div class="flex items-center gap-2 font-mono font-bold text-sfl-dirt dark:text-amber-100">
-            <span>🌰 ${fetchCap.acorn.maxFetches}x (${fetchCap.acorn.totalYield})</span>
-            <span>•</span>
-            <span>${fetchCap.category.icon} ${fetchCap.category.maxFetches}x (${fetchCap.category.totalYield})</span>
-            ${fetchCap.fossilShell.unlocked ? `<span>• 🐚 ${fetchCap.fossilShell.maxFetches}x</span>` : ''}
+        <!-- COMPACT FETCHING CAPACITY & BEST FETCH BY PRICE -->
+        <div class="bg-amber-100/40 dark:bg-slate-800/40 p-2 rounded-lg border border-amber-200/60 dark:border-slate-700/60 text-[10px] space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-sfl-wood dark:text-amber-200 uppercase flex items-center gap-1">
+              <span>🏹</span> Fetch Ready:
+            </span>
+            <div class="flex flex-wrap items-center gap-1.5 font-mono font-bold text-sfl-dirt dark:text-amber-100">
+              ${readyFetchesHtml}
+            </div>
           </div>
+
+          ${fetchCap.bestFetch ? `
+            <!-- BEST RESOURCE TO FETCH BY PRICE -->
+            <div class="flex items-center justify-between pt-1 border-t border-amber-200/50 dark:border-slate-700/50">
+              <span class="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                <span>⭐</span> Best Fetch:
+              </span>
+              <div class="flex items-center gap-1.5 font-bold text-sfl-wood dark:text-amber-200">
+                <span>${fetchCap.bestFetch.icon} ${fetchCap.bestFetch.name}</span>
+                <span class="font-mono text-[9px] text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-1 py-0.5 rounded border border-emerald-300 dark:border-emerald-800" title="Fetches yield ~${fetchCap.bestFetch.sflPer100Energy.toFixed(4)} SFL market value per 100 energy">
+                  ~${fetchCap.bestFetch.sflPer100Energy.toFixed(4)} SFL / 100⚡
+                </span>
+              </div>
+            </div>
+          ` : ''}
         </div>
 
       </div>
@@ -431,8 +485,9 @@ function updateTopKpis(pets, inventory) {
   if (energyEl) energyEl.textContent = `${totalEnergy.toLocaleString()} ⚡`;
   if (pendingEl) pendingEl.textContent = totalPendingFood;
   if (bestEffEl) {
-    bestEffEl.textContent = lowestCostPerEnergy !== Infinity 
-      ? `${lowestCostPerEnergy.toFixed(5)} SFL` 
+    const lowest100 = lowestCostPerEnergy !== Infinity ? (lowestCostPerEnergy * 100) : 0;
+    bestEffEl.textContent = lowest100 > 0 
+      ? `${lowest100.toFixed(4)} SFL` 
       : '0.0000 SFL';
   }
 }
@@ -506,10 +561,11 @@ export function renderEnergyLedger() {
   });
 
   const avgCostPerEnergy = totalEnergy > 0 ? (totalCost / totalEnergy) : 0;
+  const avgCostPer100 = (avgCostPerEnergy * 100).toFixed(4);
 
   if (totalEnergyEl) totalEnergyEl.textContent = `+${totalEnergy.toLocaleString()} ⚡`;
   if (totalCostEl) totalCostEl.innerHTML = `<span>${totalCost.toFixed(4)}</span> ${FLOWER_IMG_SMALL_HTML}`;
-  if (avgEffEl) avgEffEl.textContent = `${avgCostPerEnergy.toFixed(6)}`;
+  if (avgEffEl) avgEffEl.textContent = `${avgCostPer100} SFL`;
 
   if (filtered.length === 0) {
     tbody.innerHTML = `
@@ -528,6 +584,7 @@ export function renderEnergyLedger() {
     }) : 'Recent';
 
     const foodsStr = Array.isArray(row.foodsFed) ? row.foodsFed.join(', ') : 'Pet Food';
+    const costPer100 = (parseFloat(row.costPerEnergy || 0) * 100).toFixed(4);
 
     return `
       <tr class="hover:bg-amber-100/40 dark:hover:bg-slate-800/40 transition">
@@ -536,7 +593,7 @@ export function renderEnergyLedger() {
         <td class="p-2 text-sfl-dirt dark:text-slate-300 truncate max-w-[140px]" title="${foodsStr}">${foodsStr}</td>
         <td class="p-2 text-right font-mono font-bold text-amber-600 dark:text-amber-300">+${row.energyGained} ⚡</td>
         <td class="p-2 text-right font-mono font-bold text-sfl-green dark:text-emerald-400">${row.costSfl.toFixed(4)}</td>
-        <td class="p-2 text-right font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">${row.costPerEnergy.toFixed(6)}</td>
+        <td class="p-2 text-right font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">${costPer100} SFL</td>
       </tr>
     `;
   }).join('');
