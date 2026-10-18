@@ -39,7 +39,7 @@ export function getPetAuraMultiplier(petName, petObj = null) {
   // 1. Check user override in localStorage
   const auras = getStoredPetAuras();
   if (petName && auras[petName]) {
-    const key = String(auras[petName]).toLowerCase().trim();
+    const key = String(auras[petName]).toLowerCase().replace(/aura/g, '').trim();
     if (PET_AURA_MULTIPLIERS[key]) {
       return PET_AURA_MULTIPLIERS[key].multiplier;
     }
@@ -48,14 +48,14 @@ export function getPetAuraMultiplier(petName, petObj = null) {
     if (key === 'mega') return 3.0;
   }
 
-  // 2. Auto-detect from petObj (if live API includes aura property)
+  // 2. Auto-detect from petObj (supports petObj.traits.aura like 'Common Aura' from live API)
   if (petObj) {
-    const rawAura = petObj.aura ?? petObj.auraType ?? petObj.auraMultiplier;
+    const rawAura = petObj.traits?.aura ?? petObj.aura ?? petObj.auraType ?? petObj.auraMultiplier;
     if (typeof rawAura === 'number' && rawAura > 0) {
       return rawAura;
     }
     if (typeof rawAura === 'string') {
-      const lower = rawAura.toLowerCase().trim();
+      const lower = rawAura.toLowerCase().replace(/aura/g, '').trim();
       if (PET_AURA_MULTIPLIERS[lower]) {
         return PET_AURA_MULTIPLIERS[lower].multiplier;
       }
@@ -71,16 +71,16 @@ export function getPetAuraMultiplier(petName, petObj = null) {
 export function getPetAuraKey(petName, petObj = null) {
   const auras = getStoredPetAuras();
   if (petName && auras[petName]) {
-    const key = String(auras[petName]).toLowerCase().trim();
+    const key = String(auras[petName]).toLowerCase().replace(/aura/g, '').trim();
     if (PET_AURA_MULTIPLIERS[key]) return key;
     if (key === 'basic') return 'common';
     if (key === 'epic') return 'rare';
     if (key === 'mega') return 'mythic';
   }
   if (petObj) {
-    const rawAura = petObj.aura ?? petObj.auraType;
+    const rawAura = petObj.traits?.aura ?? petObj.aura ?? petObj.auraType;
     if (typeof rawAura === 'string') {
-      const lower = rawAura.toLowerCase().trim();
+      const lower = rawAura.toLowerCase().replace(/aura/g, '').trim();
       if (PET_AURA_MULTIPLIERS[lower]) return lower;
       if (lower === 'basic') return 'common';
       if (lower === 'epic') return 'rare';
@@ -231,18 +231,31 @@ export function parseFarmPets(farmData) {
   const processPetObj = (petName, petObj, categoryKey = 'common') => {
     if (!petObj || typeof petObj !== 'object') return;
     const name = petObj.name || petName;
-    const knownMeta = KNOWN_PETS[name] || {
-      id: 0,
+    const traitType = petObj.traits?.type;
+    const isNft = categoryKey === 'nfts' || categoryKey === 'nft' || Boolean(traitType) || Boolean(petObj.traits);
+
+    // Resolve metadata: check traits.type first for NFTs (e.g. Phoenix), then KNOWN_PETS[name]
+    const speciesMeta = traitType && KNOWN_PETS[traitType] ? KNOWN_PETS[traitType] : null;
+    const nameMeta = KNOWN_PETS[name] || null;
+    const knownMeta = speciesMeta || nameMeta || {
+      id: petObj.id || 0,
       name,
-      species: 'Horse',
+      species: traitType || 'Horse',
       category: 'Voyagers',
-      rarity: categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1),
-      emoji: '🐾',
-      desc: 'Farm companion pet.'
+      rarity: isNft ? 'NFT' : (categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1)),
+      emoji: isNft ? '🐉' : '🐾',
+      desc: isNft ? 'NFT Companion Pet.' : 'Farm companion pet.'
     };
 
+    const species = traitType || knownMeta.species || 'Horse';
+    const rarity = isNft ? 'NFT' : (knownMeta.rarity || 'Common');
+    const category = knownMeta.category || 'Voyagers';
+    const categoryInfo = PET_CATEGORIES[category] || PET_CATEGORIES.Voyagers;
+    const emoji = knownMeta.emoji || (isNft ? '🐉' : '🐾');
+    const desc = knownMeta.desc || (isNft ? 'NFT Companion Pet.' : 'Farm companion pet.');
+
     const levelStats = calculatePetLevel(petObj.experience || 0);
-    const categoryInfo = PET_CATEGORIES[knownMeta.category] || PET_CATEGORIES.Voyagers;
+    const categoryInfoResolved = PET_CATEGORIES[category] || categoryInfo || PET_CATEGORIES.Voyagers;
     const energyBonus = getEnergyBonusPerFood(levelStats.level);
     const auraMultiplier = getPetAuraMultiplier(name, petObj);
     const auraKey = getPetAuraKey(name, petObj);
@@ -250,13 +263,14 @@ export function parseFarmPets(farmData) {
     petList.push({
       ...petObj,
       name,
-      id: knownMeta.id,
-      species: knownMeta.species || 'Horse',
-      rarity: knownMeta.rarity || 'Common',
-      emoji: knownMeta.emoji || '🐾',
-      desc: knownMeta.desc,
-      category: knownMeta.category || 'Voyagers',
-      categoryInfo,
+      id: petObj.id || knownMeta.id,
+      species,
+      rarity,
+      emoji,
+      desc,
+      category,
+      categoryInfo: categoryInfoResolved,
+      traits: petObj.traits || null,
       levelStats,
       energyBonus,
       auraMultiplier,
@@ -457,7 +471,7 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
  * Calculates Fetching Capacity & Yields based on specific pet Species, Level, and Energy
  * Uses official unlock levels from https://sfl.world/info/pets
  */
-export function calculateFetchingCapacity(energy = 0, level = 1, categoryName = 'Voyagers', isNft = false, petName = null) {
+export function calculateFetchingCapacity(energy = 0, level = 1, categoryName = 'Voyagers', isNft = false, petName = null, petSpecies = null) {
   const currentEnergy = Math.max(0, parseInt(energy) || 0);
   const lvl = parseInt(level) || 1;
   const category = PET_CATEGORIES[categoryName] || PET_CATEGORIES.Voyagers;
@@ -472,10 +486,13 @@ export function calculateFetchingCapacity(energy = 0, level = 1, categoryName = 
   const acornBaseYield = (lvl >= 18 ? 2.0 : 1.0) + decimalBonus;
   const categoryBaseYield = 1.0 + decimalBonus;
 
-  // Resolve species from petName or fallback
-  let speciesKey = null;
-  if (petName && KNOWN_PETS[petName]) {
+  // Resolve species from petSpecies, petName or fallback
+  let speciesKey = petSpecies || null;
+  if (!speciesKey && petName && KNOWN_PETS[petName]) {
     speciesKey = KNOWN_PETS[petName].species || petName;
+  }
+  if (!speciesKey && petName && PET_SPECIES[petName]) {
+    speciesKey = petName;
   }
   const speciesConfig = speciesKey ? PET_SPECIES[speciesKey] : null;
 

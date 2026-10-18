@@ -395,7 +395,8 @@ export function renderPetsCards() {
       petLevel,
       pet.category,
       pet.rarity === 'NFT',
-      pet.name
+      pet.name,
+      pet.species
     );
 
     const readyFetches = fetchCap.fetches.filter(f => f.isUnlocked && f.maxFetches > 0);
@@ -432,6 +433,13 @@ export function renderPetsCards() {
               <div class="text-[9.5px] text-sfl-woodLight dark:text-slate-400 font-semibold truncate">
                 ${pet.species} • Lv. ${levelStats.level} (${levelStats.progress}%)
               </div>
+              ${pet.traits ? `
+                <div class="text-[8.5px] text-sfl-woodLight/80 dark:text-slate-400/80 font-medium truncate flex items-center gap-1 mt-0.5">
+                  ${pet.traits.fur ? `<span>Fur: ${pet.traits.fur}</span>` : ''}
+                  ${pet.traits.accessory ? `<span>• ${pet.traits.accessory}</span>` : ''}
+                  ${pet.traits.bib ? `<span>• ${pet.traits.bib}</span>` : ''}
+                </div>
+              ` : ''}
             </div>
           </div>
 
