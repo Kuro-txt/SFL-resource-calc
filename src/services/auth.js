@@ -158,21 +158,14 @@ export async function loadCloudUserData() {
   const cutoffDateStr = cutoff.toISOString().split('T')[0];
 
   let profile = null;
-  const { data: profWithPet, error: pErr } = await window.supabaseClient
+  const { data: prof, error: pErr } = await window.supabaseClient
     .from('profiles')
-    .select('farm_id, tracked_items, crop_base_yields, pet_tracker_opt_in')
+    .select('*')
     .eq('id', window.currentUser.id)
     .maybeSingle();
 
-  if (!pErr && profWithPet) {
-    profile = profWithPet;
-  } else {
-    const { data: profFallback } = await window.supabaseClient
-      .from('profiles')
-      .select('farm_id, tracked_items, crop_base_yields')
-      .eq('id', window.currentUser.id)
-      .maybeSingle();
-    profile = profFallback;
+  if (!pErr && prof) {
+    profile = prof;
   }
 
   if (profile) {

@@ -265,15 +265,7 @@ async function processYieldCalculation(supabase) {
   console.log("🔍 [CRON 22:30 UTC] Starting yield calculation process...");
   const todayDate = new Date().toISOString().split('T')[0];
   
-  let users = null;
-  let { data: usersWithPet, error } = await supabase.from('profiles').select('id, farm_id, tracked_items, crop_base_yields, pet_tracker_opt_in');
-  if (!error && usersWithPet) {
-    users = usersWithPet;
-  } else {
-    const { data: usersFallback, error: fbErr } = await supabase.from('profiles').select('id, farm_id, tracked_items, crop_base_yields');
-    users = usersFallback;
-    error = fbErr;
-  }
+  let { data: users, error } = await supabase.from('profiles').select('*');
 
   if (error || !users || users.length === 0) {
     console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
