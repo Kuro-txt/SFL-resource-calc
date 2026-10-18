@@ -28,32 +28,14 @@ export async function loadCloudBaseYields() {
     }
   } catch (e) {}
 
-  if (client && user) {
-    try {
-      const { data } = await client.from('profiles').select('crop_base_yields').eq('id', user.id).maybeSingle();
-      if (data?.crop_base_yields) {
-        cropBaseYields = data.crop_base_yields;
-        localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
-
-        if (cropBaseYields['_global'] !== undefined) {
-          globalAvgYield = parseFloat(cropBaseYields['_global']) || 1.0;
-          localStorage.setItem('sfl_global_avg_yield', globalAvgYield.toString());
-          syncMainGlobalInput(globalAvgYield);
-          syncWeeklyGlobalInput(globalAvgYield);
-        }
-        renderCropTrackerRows();
-      }
-    } catch (err) {
-      console.warn("Could not load cloud crop multipliers:", err.message);
-    }
-  }
+  renderCropTrackerRows();
 }
 
 export function debouncedCloudSave() {
   clearTimeout(cloudSaveTimer);
   cloudSaveTimer = setTimeout(() => {
     saveBaseYieldSettings(false);
-  }, 1000);
+  }, 500);
 }
 
 export async function saveBaseYieldSettings(showAlert = false) {
@@ -61,20 +43,7 @@ export async function saveBaseYieldSettings(showAlert = false) {
   localStorage.setItem('sfl_crop_base_yields', JSON.stringify(cropBaseYields));
   localStorage.setItem('sfl_global_avg_yield', globalAvgYield.toString());
 
-  const client = window.supabaseClient;
-  const user = window.currentUser;
-
-  if (client && user) {
-    try {
-      await client.from('profiles').upsert({
-        id: user.id,
-        crop_base_yields: cropBaseYields
-      }, { onConflict: 'id' });
-      if (showAlert) alert("✅ Avg Yield per Plot multipliers saved to cloud and local storage!");
-    } catch (err) {
-      if (showAlert) alert("⚠️ Saved locally, but failed to reach Supabase: " + err.message);
-    }
-  } else if (showAlert) {
+  if (showAlert) {
     alert("✅ Avg Yield per Plot settings saved locally!");
   }
 

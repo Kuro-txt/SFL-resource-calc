@@ -382,39 +382,6 @@ export function initTrackingModal() {
   saveBtn?.addEventListener('click', async () => {
     localStorage.setItem('sfl_tracked_targets', JSON.stringify(window.trackedTargets));
 
-    const client = window.supabaseClient || (typeof supabaseClient !== 'undefined' ? supabaseClient : null);
-
-    if (client) {
-      try {
-        const activeUser = window.currentUser || (await client.auth.getUser())?.data?.user;
-
-        if (activeUser) {
-          window.currentUser = activeUser;
-          const { error } = await client
-            .from('profiles')
-            .upsert({ 
-              id: activeUser.id,
-              tracked_items: window.trackedTargets 
-            }, { onConflict: 'id' });
-
-          if (error) {
-            console.warn("Supabase profile save notice:", error.message);
-          }
-        } else {
-          // Farm-ID-only user (not authenticated via Supabase auth) — update by farm_id
-          const currentFarmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value.trim();
-          if (currentFarmId) {
-            const { error: fErr } = await client
-              .from('profiles')
-              .update({ tracked_items: window.trackedTargets })
-              .eq('farm_id', currentFarmId);
-            if (fErr) console.warn("Supabase farm profile save notice:", fErr.message);
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to reach Supabase:", err.message);
-      }
-    }
 
     renderTrackedBadges();
     if (typeof window.renderSnapshotHistory === 'function') {

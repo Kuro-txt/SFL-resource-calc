@@ -467,8 +467,7 @@ function bindWelcomeGateEvents() {
             .from('profiles')
             .upsert({
               id: data.user.id,
-              farm_id: farmId,
-              tracked_items: window.trackedTargets || []
+              farm_id: farmId
             }, { onConflict: 'id' });
 
           if (profileErr) {

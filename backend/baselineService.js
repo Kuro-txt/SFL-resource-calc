@@ -2,7 +2,7 @@ const { fetchAllFarmsBatched, normalizeFarmId } = require('./farmBatchSync');
 
 async function processBaselineSnapshot(supabase) {
   console.log("🔍 [CRON 00:01 UTC] Starting baseline snapshot process (batch mode)...");
-  const { data: users, error } = await supabase.from('profiles').select('id, farm_id, tracked_items');
+  const { data: users, error } = await supabase.from('profiles').select('id, farm_id');
   if (error || !users || users.length === 0) {
     console.warn("⚠️ No user profiles found or Supabase error:", error?.message);
     return { success: false, error: error?.message || 'No user profiles found' };

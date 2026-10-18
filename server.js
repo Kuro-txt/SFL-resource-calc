@@ -991,8 +991,4 @@ cron.schedule('0 2,6,10,14,20 * * *', () => {
 
 app.listen(PORT, () => {
   console.log(`🚀 SFL Resource Calculator Backend listening on port ${PORT}`);
-  // Run repair once on startup in case any past baseline was missed
-  repairMissingBaselines(supabase)
-    .then(res => console.log('Startup baseline repair status:', res))
-    .catch(err => console.warn('Startup baseline repair notice:', err.message));
 });

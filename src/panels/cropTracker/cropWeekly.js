@@ -70,7 +70,7 @@ export function renderCropWeeklySummary() {
     let cleanDate = rawDate.split('T')[0];
 
     if (cleanDate >= mondayStr && cleanDate <= sundayStr) {
-      let cropList = entry.cropActivityYields || entry.crop_activity_yields || [];
+      let cropList = entry.cropActivityYields || entry.crop_activity_yields || entry.crops || [];
       if (!Array.isArray(cropList) || cropList.length === 0) return;
 
       let validCrops = cropList.filter(item => {

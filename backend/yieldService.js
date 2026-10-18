@@ -324,10 +324,6 @@ async function processYieldCalculation(supabase) {
   let savedYieldsCount = 0;
 
   for (const [cleanFarmId, primaryUser] of uniqueFarmEntries.entries()) {
-    let targets = primaryUser.tracked_items;
-    if (typeof targets === 'string') {
-      try { targets = JSON.parse(targets); } catch (e) { targets = []; }
-    }
 
     let baselineRecord = null;
     const { data: exactBaseline, error: baselineErr } = await supabase
@@ -544,7 +540,6 @@ async function processYieldCalculation(supabase) {
       }
     });
 
-    const baseYields = primaryUser.crop_base_yields || {};
     let cropActivityYields = [];
 
     for (let actKey in currActivity) {
@@ -561,15 +556,14 @@ async function processYieldCalculation(supabase) {
         let harvestCycles = Math.max(0, grossCycles - priorCycles);
 
         if (harvestCycles > 0) {
-          let baseYield = parseFloat(baseYields[cleanCropKey] || baseYields['_global']) || 1.0;
-          let totalProduced = Math.ceil((harvestCycles * baseYield) * 10) / 10;
+          let totalProduced = harvestCycles;
           let unitPrice = getFlowerUnitPrice(cleanCropKey, flatPrices);
           let netFlowers = Math.ceil((unitPrice * totalProduced * 0.9) * 1000) / 1000;
 
           cropActivityYields.push({
             crop: cropName,
             harvestCount: harvestCycles,
-            baseYield: baseYield,
+            baseYield: 1.0,
             totalProduced: totalProduced,
             unitPrice: unitPrice,
             netFlowers: netFlowers
@@ -712,7 +706,7 @@ async function processYieldCalculation(supabase) {
 
 async function backfillDailyYields(supabase) {
   console.log("🔄 Starting daily yields backfill from preharvest_baselines...");
-  const { data: users, error: uErr } = await supabase.from('profiles').select('id, farm_id, tracked_items, crop_base_yields');
+  const { data: users, error: uErr } = await supabase.from('profiles').select('id, farm_id');
   if (uErr || !users || users.length === 0) return { success: false, error: "No user profiles found: " + uErr?.message };
 
   const { data: baselines, error: bErr } = await supabase
@@ -734,7 +728,7 @@ async function backfillDailyYields(supabase) {
     const list = userBaselines.get(user.id);
     if (!list || list.length < 2) continue;
 
-    const baseYields = user.crop_base_yields || {};
+    const baseYields = {};
 
     for (let i = 0; i < list.length - 1; i++) {
       const startRecord = list[i];
@@ -812,7 +806,7 @@ async function backfillDailyYields(supabase) {
 
 async function repairMissingBaselines(supabase) {
   console.log("🔧 [Repair] Starting repair of missing Sep 10 baselines & duplicate yields...");
-  const { data: users, error: uErr } = await supabase.from('profiles').select('id, farm_id, tracked_items, crop_base_yields');
+  const { data: users, error: uErr } = await supabase.from('profiles').select('id, farm_id');
   if (uErr || !users || users.length === 0) return { success: false, error: "No users: " + uErr?.message };
 
   let repairedCount = 0;

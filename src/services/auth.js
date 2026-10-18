@@ -120,8 +120,7 @@ export async function setLoggedInUser(user) {
       .from('profiles')
       .upsert({ 
         id: user.id, 
-        farm_id: currentFarmId,
-        tracked_items: window.trackedTargets || [] 
+        farm_id: currentFarmId
       }, { onConflict: 'id' });
   }
 }
@@ -179,22 +178,14 @@ export async function loadCloudUserData() {
       localStorage.setItem('sfl_pet_tracker_opt_in', profile.pet_tracker_opt_in ? 'true' : 'false');
     }
 
-    if (Array.isArray(profile.tracked_items) && profile.tracked_items.length > 0) {
-      window.trackedTargets = profile.tracked_items;
-      localStorage.setItem('sfl_tracked_targets', JSON.stringify(profile.tracked_items));
-    } else {
-      try {
-        const localSaved = localStorage.getItem('sfl_tracked_targets');
-        window.trackedTargets = localSaved ? (JSON.parse(localSaved) || []) : [];
-      } catch (e) {
-        window.trackedTargets = [];
-      }
+    try {
+      const localSaved = localStorage.getItem('sfl_tracked_targets');
+      window.trackedTargets = localSaved ? (JSON.parse(localSaved) || []) : [];
+    } catch (e) {
+      window.trackedTargets = [];
     }
 
-    if (profile.crop_base_yields) {
-      localStorage.setItem('sfl_crop_base_yields', JSON.stringify(profile.crop_base_yields));
-      if (typeof window.loadCloudBaseYields === 'function') window.loadCloudBaseYields();
-    }
+    if (typeof window.loadCloudBaseYields === 'function') window.loadCloudBaseYields();
 
     if (typeof window.renderTrackedBadges === 'function') window.renderTrackedBadges();
     if (typeof window.renderSnapshotHistory === 'function') window.renderSnapshotHistory();
@@ -332,8 +323,7 @@ function bindAuthEventListeners() {
         .from('profiles')
         .upsert({ 
           id: data.user.id, 
-          farm_id: farmId,
-          tracked_items: window.trackedTargets || [] 
+          farm_id: farmId
         }, { onConflict: 'id' });
 
       if (profileErr) {
@@ -360,8 +350,7 @@ function bindAuthEventListeners() {
         .from('profiles')
         .upsert({ 
           id: window.currentUser.id, 
-          farm_id: farmId,
-          tracked_items: window.trackedTargets || [] 
+          farm_id: farmId
         }, { onConflict: 'id' });
     }
   }, 400);
