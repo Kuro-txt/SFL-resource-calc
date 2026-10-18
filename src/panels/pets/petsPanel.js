@@ -17,7 +17,9 @@ import {
   getPetAuraKey,
   setPetAura,
   getEffectiveFarmId,
-  enrichLedgerEntry
+  enrichLedgerEntry,
+  clearStoredEnergyLedger,
+  deleteCloudPetLedger
 } from './petsLogic.js';
 import { WALRUS_ONESIE_ENERGY_BOOST, PET_AURA_MULTIPLIERS } from './petsData.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
@@ -307,7 +309,28 @@ function bindPetsEventListeners() {
     });
   });
 
-  // 5. Opt-out button
+  // 5. Clear Ledger button
+  const clearLedgerBtn = document.getElementById('pets-clear-ledger-btn');
+  if (clearLedgerBtn) {
+    clearLedgerBtn.addEventListener('click', async () => {
+      const farmId = getEffectiveFarmId();
+      const farmDisplay = (farmId && farmId !== 'preview') ? `Farm #${farmId}` : 'your farm';
+      const confirmed = window.confirm(
+        `Clear Pet Diet History?\n\nThis will remove previously saved feeding logs for ${farmDisplay} both locally and from the cloud database so you can start fresh with the new dynamic ledger.`
+      );
+      if (!confirmed) return;
+
+      clearStoredEnergyLedger(farmId);
+      if (farmId && farmId !== 'preview') {
+        try {
+          await deleteCloudPetLedger(farmId);
+        } catch (_) {}
+      }
+      renderEnergyLedger();
+    });
+  }
+
+  // 6. Opt-out button
   const optOutBtn = document.getElementById('pets-opt-out-btn');
   if (optOutBtn) {
     optOutBtn.addEventListener('click', () => {

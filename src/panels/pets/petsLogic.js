@@ -713,6 +713,15 @@ export function getEffectiveFarmId(farmData = null) {
 
 // ── Local Energy Feed Ledger Storage ──────────────────────────────────────────
 const LEDGER_STORAGE_KEY = 'sfl_pet_energy_ledger';
+const LEDGER_PURGE_V2_KEY = 'sfl_pet_ledger_cleared_v2';
+
+// Automatically purge legacy/stale pre-v2 saved data once across client browsers
+try {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem(LEDGER_PURGE_V2_KEY) !== 'true') {
+    localStorage.removeItem(LEDGER_STORAGE_KEY);
+    localStorage.setItem(LEDGER_PURGE_V2_KEY, 'true');
+  }
+} catch (_) {}
 
 export function getAllStoredEnergyLedger() {
   try {
@@ -732,6 +741,22 @@ export function getStoredEnergyLedger(farmId) {
   const targetId = farmId !== undefined ? farmId : getEffectiveFarmId();
   if (!targetId || targetId === 'all') return all;
   return all.filter(item => String(item.farmId) === String(targetId));
+}
+
+export function clearStoredEnergyLedger(farmId = null) {
+  try {
+    const targetId = (farmId !== null && farmId !== undefined && farmId !== 'all') ? String(farmId) : null;
+    if (!targetId || targetId === 'preview') {
+      localStorage.removeItem(LEDGER_STORAGE_KEY);
+      return [];
+    }
+    const all = getAllStoredEnergyLedger();
+    const remaining = all.filter(item => String(item.farmId) !== targetId && item.farmId !== 'preview');
+    localStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(remaining));
+    return remaining;
+  } catch (_) {
+    return [];
+  }
 }
 
 /**
@@ -926,6 +951,22 @@ export async function syncFeedEventToCloud(entry) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: payload,
+        signal: AbortSignal.timeout(8000)
+      });
+      if (res.ok) break;
+    } catch (_) {}
+  }
+}
+
+export async function deleteCloudPetLedger(farmId) {
+  const cleanFarmId = getEffectiveFarmId(farmId);
+  if (!cleanFarmId || cleanFarmId === 'preview') return;
+
+  const endpoints = getPetApiEndpoints(`/api/pets?farmId=${cleanFarmId}`);
+  for (const ep of endpoints) {
+    try {
+      const res = await fetch(ep, {
+        method: 'DELETE',
         signal: AbortSignal.timeout(8000)
       });
       if (res.ok) break;

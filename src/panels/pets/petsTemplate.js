@@ -134,19 +134,32 @@ export function renderPetsTemplate() {
             </p>
           </div>
 
-          <!-- TIME-PERIOD TOGGLES -->
-          <div class="flex items-center gap-1 bg-amber-100/70 dark:bg-slate-800 p-0.5 rounded-lg border border-amber-300/60 dark:border-slate-700" id="pets-ledger-period-toggles">
-            <button type="button" data-period="daily" class="ledger-period-btn bg-sfl-wood text-amber-200 px-2.5 py-0.5 rounded text-[11px] font-bold cursor-pointer transition">
-              Daily
-            </button>
-            <button type="button" data-period="weekly" class="ledger-period-btn hover:bg-amber-200/60 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-2.5 py-0.5 rounded text-[11px] font-bold cursor-pointer transition">
-              Weekly
-            </button>
-            <button type="button" data-period="monthly" class="ledger-period-btn hover:bg-amber-200/60 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-2.5 py-0.5 rounded text-[11px] font-bold cursor-pointer transition">
-              Monthly
-            </button>
-            <button type="button" data-period="all" class="ledger-period-btn hover:bg-amber-200/60 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-2.5 py-0.5 rounded text-[11px] font-bold cursor-pointer transition">
-              All Time
+          <!-- TIME-PERIOD TOGGLES & CLEAR ACTION -->
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <div class="flex items-center gap-1 bg-amber-100/70 dark:bg-slate-800 p-0.5 rounded-lg border border-amber-300/60 dark:border-slate-700" id="pets-ledger-period-toggles">
+              <button type="button" data-period="daily" class="ledger-period-btn bg-sfl-wood text-amber-200 px-2.5 py-0.5 rounded text-[11px] font-bold cursor-pointer transition">
+                Daily
+              </button>
+              <button type="button" data-period="weekly" class="ledger-period-btn hover:bg-amber-200/60 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-2.5 py-0.5 rounded text-[11px] font-bold cursor-pointer transition">
+                Weekly
+              </button>
+              <button type="button" data-period="monthly" class="ledger-period-btn hover:bg-amber-200/60 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-2.5 py-0.5 rounded text-[11px] font-bold cursor-pointer transition">
+                Monthly
+              </button>
+              <button type="button" data-period="all" class="ledger-period-btn hover:bg-amber-200/60 dark:hover:bg-slate-700 text-sfl-dirt dark:text-amber-100 px-2.5 py-0.5 rounded text-[11px] font-bold cursor-pointer transition">
+                All Time
+              </button>
+            </div>
+            <button 
+              type="button" 
+              id="pets-clear-ledger-btn" 
+              title="Clear previously saved pet feeding logs"
+              class="flex items-center gap-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded text-[11px] font-bold cursor-pointer transition border border-rose-200/80 dark:border-rose-900/50"
+            >
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>Clear</span>
             </button>
           </div>
         </div>

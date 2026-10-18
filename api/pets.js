@@ -136,7 +136,7 @@ function generateEventId(farmId, petName, fedAt) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
 
   if (req.method === 'OPTIONS') {
@@ -273,6 +273,38 @@ export default async function handler(req, res) {
         success: true,
         farmId: cleanFarmId,
         savedCount
+      });
+    }
+
+    // ── DELETE: Clear Pet Feeding Ledger ──────────────────────────────────────
+    if (req.method === 'DELETE') {
+      const queryFarmId = req.query?.farmId || req.body?.farmId;
+      const clearAll = req.query?.clearAll === 'true' || req.body?.clearAll === true || queryFarmId === 'all';
+
+      if (clearAll) {
+        const [result] = await tidbPool.query(`DELETE FROM pet_feed_events`);
+        return res.status(200).json({
+          success: true,
+          deletedRows: result.affectedRows || 0,
+          message: 'Cleared all pet feed events'
+        });
+      }
+
+      const cleanFarmId = queryFarmId ? String(queryFarmId).replace(/[^0-9]/g, '') : '';
+      if (!cleanFarmId) {
+        return res.status(400).json({ error: 'Valid farmId query parameter or body is required' });
+      }
+
+      const [result] = await tidbPool.query(
+        `DELETE FROM pet_feed_events WHERE farm_id = ?`,
+        [cleanFarmId]
+      );
+
+      return res.status(200).json({
+        success: true,
+        farmId: cleanFarmId,
+        deletedRows: result.affectedRows || 0,
+        message: `Cleared pet ledger for farm ${cleanFarmId}`
       });
     }
 
