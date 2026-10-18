@@ -12,9 +12,12 @@ import {
   isWalrusOnesieActive,
   setWalrusOnesieActive,
   getFoodTierAndEnergy,
-  fetchCloudPetLedger
+  fetchCloudPetLedger,
+  getPetAuraMultiplier,
+  getPetAuraKey,
+  setPetAura
 } from './petsLogic.js';
-import { WALRUS_ONESIE_ENERGY_BOOST } from './petsData.js';
+import { WALRUS_ONESIE_ENERGY_BOOST, PET_AURA_MULTIPLIERS } from './petsData.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { ApiService } from '../../services/api.js';
 
@@ -157,11 +160,13 @@ function ingestLivePetFeedData(farmData) {
       let costSfl = 0;
       let totalEnergyGained = 0;
       const energyBonus = pet.energyBonus || 0;
+      const auraMultiplier = getPetAuraMultiplier(pet.name, pet);
 
       requests.foodFed.forEach((foodName, fIdx) => {
         costSfl += getFoodPrice(foodName);
         const { baseEnergy } = getFoodTierAndEnergy(foodName, fIdx);
-        totalEnergyGained += (baseEnergy + energyBonus + walrusBonus);
+        const baseWithAura = Math.round(baseEnergy * auraMultiplier);
+        totalEnergyGained += (baseWithAura + energyBonus + walrusBonus);
       });
 
       const costPerEnergy = totalEnergyGained > 0 ? (costSfl / totalEnergyGained) : 0;
@@ -295,6 +300,20 @@ function bindPetsEventListeners() {
       renderEnergyLedger();
     });
   }
+
+  // 7. Pet Aura selector (event delegation on cards container)
+  const cardsContainer = document.getElementById('pets-cards-container');
+  if (cardsContainer && !cardsContainer.dataset.boundAura) {
+    cardsContainer.dataset.boundAura = 'true';
+    cardsContainer.addEventListener('change', (e) => {
+      if (e.target && e.target.classList.contains('pet-aura-select')) {
+        const petName = e.target.getAttribute('data-pet-name');
+        const newAura = e.target.value;
+        setPetAura(petName, newAura);
+        renderPetsCards();
+      }
+    });
+  }
 }
 
 export function renderPetsCards() {
@@ -323,7 +342,8 @@ export function renderPetsCards() {
     pets = pets.filter(p => p.rarity.toLowerCase() !== 'common');
   } else if (activeFilter === 'hungry') {
     pets = pets.filter(p => {
-      const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1, 1, isWalrusActive);
+      const auraMul = getPetAuraMultiplier(p.name, p);
+      const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1, auraMul, isWalrusActive);
       return foodReqs.some(f => !f.isFed);
     });
   }
@@ -364,7 +384,9 @@ export function renderPetsCards() {
   pets.forEach((pet, petIdx) => {
     const levelStats = pet.levelStats;
     const petLevel = levelStats.level;
-    const foodReqs = checkFoodAvailability(pet.requests, inventory, petLevel, 1, isWalrusActive);
+    const auraMultiplier = getPetAuraMultiplier(pet.name, pet);
+    const auraKey = getPetAuraKey(pet.name, pet);
+    const foodReqs = checkFoodAvailability(pet.requests, inventory, petLevel, auraMultiplier, isWalrusActive);
     const fedCount = foodReqs.filter(f => f.isFed).length;
     const totalRequests = foodReqs.length;
 
@@ -396,11 +418,16 @@ export function renderPetsCards() {
           <div class="flex items-center gap-2 overflow-hidden">
             <span class="text-2xl shrink-0 leading-none">${pet.emoji}</span>
             <div class="truncate">
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="text-xs font-bold text-sfl-wood dark:text-amber-100 truncate">${pet.name}</span>
                 <span class="${rarityBadgeClass} border text-[8.5px] font-black uppercase px-1.5 py-0.2 rounded shrink-0">
                   ${pet.rarity}
                 </span>
+                ${auraMultiplier > 1 ? `
+                  <span class="bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 text-[8.5px] font-extrabold px-1.5 py-0.2 rounded shrink-0 flex items-center gap-0.5" title="Aura multiplier: ${auraMultiplier}x to base energy">
+                    <span>✨</span> ${auraMultiplier}x
+                  </span>
+                ` : ''}
               </div>
               <div class="text-[9.5px] text-sfl-woodLight dark:text-slate-400 font-semibold truncate">
                 ${pet.species} • Lv. ${levelStats.level} (${levelStats.progress}%)
@@ -408,10 +435,21 @@ export function renderPetsCards() {
             </div>
           </div>
 
-          <!-- ENERGY PILL -->
-          <div class="text-right shrink-0">
+          <!-- ENERGY PILL & AURA SELECTOR -->
+          <div class="flex flex-col items-end gap-1 shrink-0">
             <div class="inline-flex items-center gap-1 bg-amber-100/90 dark:bg-slate-800 border border-amber-300/80 dark:border-slate-700 text-amber-700 dark:text-amber-300 font-mono font-black text-xs px-2 py-0.5 rounded-lg shadow-xs">
               <span>⚡</span> ${pet.energy || 0}
+            </div>
+            <div class="flex items-center gap-1">
+              <label for="pet-aura-select-${petIdx}" class="text-[9px] font-bold text-sfl-woodLight dark:text-slate-400 flex items-center gap-0.5" title="Aura multiplies base food energy (Common 1.5x, Rare 2x, Mythic 3x)">
+                <span>✨</span> Aura:
+              </label>
+              <select id="pet-aura-select-${petIdx}" data-pet-name="${pet.name}" class="pet-aura-select bg-amber-50 dark:bg-slate-800 text-[9.5px] font-bold text-sfl-wood dark:text-amber-200 border border-amber-300/70 dark:border-slate-700 rounded px-1 py-0.5 cursor-pointer focus:ring-1 focus:ring-amber-500">
+                <option value="none" ${auraKey === 'none' ? 'selected' : ''}>None (1x)</option>
+                <option value="common" ${auraKey === 'common' ? 'selected' : ''}>Common (1.5x)</option>
+                <option value="rare" ${auraKey === 'rare' ? 'selected' : ''}>Rare (2x)</option>
+                <option value="mythic" ${auraKey === 'mythic' ? 'selected' : ''}>Mythic (3x)</option>
+              </select>
             </div>
           </div>
         </div>
@@ -482,6 +520,7 @@ export function renderPetsCards() {
                   <div class="flex items-center justify-between text-[9.5px] mt-0.5 pt-0.5 border-t border-black/5 dark:border-white/5">
                     <span class="text-amber-700 dark:text-amber-300 font-bold font-mono flex items-center gap-1">
                       +${food.totalEnergy} ⚡
+                      ${food.auraMultiplier > 1 ? `<span class="text-[8px] text-amber-600 dark:text-amber-400 font-extrabold" title="Base energy multiplied by ${food.auraMultiplier}x aura">(${food.auraMultiplier}x✨)</span>` : ''}
                       ${food.walrusBonus ? '<span class="text-[8px] text-emerald-600 dark:text-emerald-400 font-extrabold" title="Includes +5⚡ from Walrus Onesie">(+5🦭)</span>' : ''}
                     </span>
                     <span class="text-indigo-600 dark:text-indigo-400 font-mono font-bold" title="${food.costPerEnergy.toFixed(6)} SFL / 1⚡">
@@ -497,12 +536,15 @@ export function renderPetsCards() {
 
                   <!-- COLLAPSIBLE RECIPE INGREDIENTS -->
                   ${food.ingredientDetails?.length ? `
-                    <div id="${detailId}" class="hidden mt-1 pt-1 border-t border-amber-200/50 dark:border-slate-700 text-[9px] text-sfl-woodLight dark:text-slate-400">
-                      ${food.ingredientDetails.map(ing => `
-                        <span class="${ing.hasEnough ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-red-500'} font-mono">
-                          ${ing.name}: ${ing.available}/${ing.required}
-                        </span>
-                      `).join(' • ')}
+                    <div id="${detailId}" class="hidden mt-1 pt-1 border-t border-amber-200/50 dark:border-slate-700 text-[9px] text-sfl-woodLight dark:text-slate-400 space-y-0.5">
+                      <div class="flex flex-wrap gap-x-2 gap-y-0.5">
+                        ${food.ingredientDetails.map(ing => `
+                          <span class="${ing.hasEnough ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-red-500 font-bold'} font-mono">
+                            ${ing.name}: ${ing.available}/${ing.required}
+                            ${ing.subRecipeInfo ? `<span class="text-[8.5px] font-normal italic ${ing.hasEnough ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-500'}">(${ing.subRecipeInfo})</span>` : ''}
+                          </span>
+                        `).join(' • ')}
+                      </div>
                     </div>
                   ` : ''}
                 </div>
@@ -573,7 +615,8 @@ function updateTopKpis(pets, inventory) {
 
   pets.forEach(p => {
     totalEnergy += parseInt(p.energy || 0);
-    const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1, 1, isWalrusActive);
+    const auraMul = getPetAuraMultiplier(p.name, p);
+    const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1, auraMul, isWalrusActive);
     
     foodReqs.forEach(f => {
       if (!f.isFed) {

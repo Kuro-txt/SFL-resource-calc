@@ -9,10 +9,89 @@ import {
   NON_REQUESTED_FOODS,
   TIER_BASE_ENERGY,
   WALRUS_ONESIE_ENERGY_BOOST,
-  PET_FOOD_DIFFICULTY_TIERS
+  PET_FOOD_DIFFICULTY_TIERS,
+  PET_AURA_MULTIPLIERS
 } from './petsData.js';
-import { getRecipe } from '../../data/recipes.js';
+import { getRecipe, getBaseIngredients, canCraftRecipe } from '../../data/recipes.js';
 import { normalizeItemKey } from '../../utils/formatters.js';
+
+// ── Pet Aura Multipliers & State Management ───────────────────────────────────
+const PET_AURAS_STORAGE_KEY = 'sfl_pet_auras';
+
+export function getStoredPetAuras() {
+  try {
+    const raw = localStorage.getItem(PET_AURAS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+export function setPetAura(petName, auraKey) {
+  try {
+    const auras = getStoredPetAuras();
+    auras[petName] = auraKey;
+    localStorage.setItem(PET_AURAS_STORAGE_KEY, JSON.stringify(auras));
+  } catch (_) {}
+}
+
+export function getPetAuraMultiplier(petName, petObj = null) {
+  // 1. Check user override in localStorage
+  const auras = getStoredPetAuras();
+  if (petName && auras[petName]) {
+    const key = String(auras[petName]).toLowerCase().trim();
+    if (PET_AURA_MULTIPLIERS[key]) {
+      return PET_AURA_MULTIPLIERS[key].multiplier;
+    }
+    if (key === 'basic') return 1.5;
+    if (key === 'epic') return 2.0;
+    if (key === 'mega') return 3.0;
+  }
+
+  // 2. Auto-detect from petObj (if live API includes aura property)
+  if (petObj) {
+    const rawAura = petObj.aura ?? petObj.auraType ?? petObj.auraMultiplier;
+    if (typeof rawAura === 'number' && rawAura > 0) {
+      return rawAura;
+    }
+    if (typeof rawAura === 'string') {
+      const lower = rawAura.toLowerCase().trim();
+      if (PET_AURA_MULTIPLIERS[lower]) {
+        return PET_AURA_MULTIPLIERS[lower].multiplier;
+      }
+      if (lower === 'basic') return 1.5;
+      if (lower === 'epic') return 2.0;
+      if (lower === 'mega') return 3.0;
+    }
+  }
+
+  return 1.0;
+}
+
+export function getPetAuraKey(petName, petObj = null) {
+  const auras = getStoredPetAuras();
+  if (petName && auras[petName]) {
+    const key = String(auras[petName]).toLowerCase().trim();
+    if (PET_AURA_MULTIPLIERS[key]) return key;
+    if (key === 'basic') return 'common';
+    if (key === 'epic') return 'rare';
+    if (key === 'mega') return 'mythic';
+  }
+  if (petObj) {
+    const rawAura = petObj.aura ?? petObj.auraType;
+    if (typeof rawAura === 'string') {
+      const lower = rawAura.toLowerCase().trim();
+      if (PET_AURA_MULTIPLIERS[lower]) return lower;
+      if (lower === 'basic') return 'common';
+      if (lower === 'epic') return 'rare';
+      if (lower === 'mega') return 'mythic';
+    }
+    if (petObj.auraMultiplier === 1.5) return 'common';
+    if (petObj.auraMultiplier === 2) return 'rare';
+    if (petObj.auraMultiplier === 3) return 'mythic';
+  }
+  return 'none';
+}
 
 // ── Walrus Onesie Boost Helpers (+5 Energy) ──────────────────────────────────
 const WALRUS_ONESIE_STORAGE_KEY = 'sfl_pets_walrus_onesie';
@@ -165,6 +244,8 @@ export function parseFarmPets(farmData) {
     const levelStats = calculatePetLevel(petObj.experience || 0);
     const categoryInfo = PET_CATEGORIES[knownMeta.category] || PET_CATEGORIES.Voyagers;
     const energyBonus = getEnergyBonusPerFood(levelStats.level);
+    const auraMultiplier = getPetAuraMultiplier(name, petObj);
+    const auraKey = getPetAuraKey(name, petObj);
 
     petList.push({
       ...petObj,
@@ -177,7 +258,9 @@ export function parseFarmPets(farmData) {
       category: knownMeta.category || 'Voyagers',
       categoryInfo,
       levelStats,
-      energyBonus
+      energyBonus,
+      auraMultiplier,
+      auraKey
     });
   };
 
@@ -198,8 +281,9 @@ export function parseFarmPets(farmData) {
 
 /**
  * Resolves food price in Flower / SFL from window.allPrices or recipe crafting cost
+ * Supports recursive sub-recipe pricing (e.g. Cheese needed for Blue Cheese)
  */
-export function getFoodPrice(foodName) {
+export function getFoodPrice(foodName, visited = new Set()) {
   if (!foodName) return 0.05;
   const cleanKey = normalizeItemKey(foodName);
 
@@ -213,14 +297,25 @@ export function getFoodPrice(foodName) {
 
   // Calculate from recipe ingredients
   const recipe = getRecipe(foodName);
-  if (recipe && recipe.ingredients) {
+  if (recipe && recipe.ingredients && !visited.has(foodName)) {
+    visited.add(foodName);
     let totalCost = 0;
     for (const [ingName, count] of Object.entries(recipe.ingredients)) {
       const ingClean = normalizeItemKey(ingName);
-      let ingPrice = 0.005;
+      let ingPrice = 0;
       if (typeof window !== 'undefined' && window.allPrices) {
         const mKey = Object.keys(window.allPrices).find(k => normalizeItemKey(k) === ingClean);
-        if (mKey) ingPrice = parseFloat(window.allPrices[mKey]) || ingPrice;
+        if (mKey) ingPrice = parseFloat(window.allPrices[mKey]) || 0;
+      }
+      // If no market price, resolve from sub-recipe crafting cost
+      if (ingPrice <= 0) {
+        const subRecipe = getRecipe(ingName);
+        if (subRecipe) {
+          ingPrice = getFoodPrice(ingName, new Set(visited));
+        }
+      }
+      if (ingPrice <= 0) {
+        ingPrice = PET_FOOD_FALLBACK_PRICES[ingName] || 0.005;
       }
       totalCost += count * ingPrice;
     }
@@ -231,7 +326,9 @@ export function getFoodPrice(foodName) {
 }
 
 /**
- * Checks requested foods against current farm inventory, evaluates Energy Gained and Cost / Energy
+ * Checks requested foods against current farm inventory, evaluates Energy Gained and Cost / Energy.
+ * Base energy is multiplied by auraMultiplier (None: 1.0, Common: 1.5, Rare: 2.0, Mythic: 3.0),
+ * and intermediate recipe crafting (e.g. Cheese -> Blue Cheese) is evaluated.
  */
 export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, auraMultiplier = 1, walrusOnesieActive = null) {
   if (!requests || !Array.isArray(requests.food)) return [];
@@ -241,19 +338,21 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
   const energyBonus = getEnergyBonusPerFood(petLevel);
   const isWalrus = walrusOnesieActive !== null ? Boolean(walrusOnesieActive) : isWalrusOnesieActive();
   const walrusBonus = isWalrus ? WALRUS_ONESIE_ENERGY_BOOST : 0;
+  const aura = parseFloat(auraMultiplier) || 1.0;
 
   const results = foodList.map((foodName, slotIdx) => {
     const isFed = foodFed.includes(foodName);
     const inBagCount = Math.floor(parseFloat(inventory?.[foodName] || 0));
     const price = getFoodPrice(foodName);
 
-    // Energy calculation: (Base Tier Energy [20/100/300] + Level Bonus + Walrus Onesie) * Aura Multiplier
+    // Energy calculation: (Base Tier Energy [20/100/300] * Aura Multiplier) + Level Bonus + Walrus Onesie
     const { tier, baseEnergy } = getFoodTierAndEnergy(foodName, slotIdx);
-    const totalEnergy = Math.round((baseEnergy + energyBonus + walrusBonus) * auraMultiplier);
+    const baseWithAura = Math.round(baseEnergy * aura);
+    const totalEnergy = baseWithAura + energyBonus + walrusBonus;
     const costPerEnergy = totalEnergy > 0 ? (price / totalEnergy) : 0;
     const costPer100Energy = totalEnergy > 0 ? ((price / totalEnergy) * 100) : 0;
 
-    // Recipe ingredients check
+    // Recipe ingredients check (supports sub-recipes like Cheese -> Blue Cheese)
     const recipe = getRecipe(foodName);
     let canCook = false;
     let ingredientDetails = [];
@@ -262,14 +361,43 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
       let allIngredientsAvailable = true;
       for (const [ingName, requiredCount] of Object.entries(recipe.ingredients)) {
         const availableCount = Math.floor(parseFloat(inventory?.[ingName] || 0));
-        const hasEnough = availableCount >= requiredCount;
+        let hasEnough = availableCount >= requiredCount;
+        let subRecipeInfo = null;
+
+        // If player doesn't have enough of the intermediate crafted item, check its raw recipe ingredients
+        if (!hasEnough) {
+          const subRecipe = getRecipe(ingName);
+          if (subRecipe && subRecipe.ingredients) {
+            const missingCount = requiredCount - availableCount;
+            const subBases = getBaseIngredients(ingName, missingCount);
+            let canCraftSub = true;
+            const subMissingDetails = [];
+
+            for (const [bName, bReq] of Object.entries(subBases)) {
+              const bAvail = Math.floor(parseFloat(inventory?.[bName] || 0));
+              if (bAvail < bReq) {
+                canCraftSub = false;
+                subMissingDetails.push(`${bName}: ${bAvail}/${bReq}`);
+              }
+            }
+
+            if (canCraftSub) {
+              hasEnough = true;
+              subRecipeInfo = `Craft from ${Object.entries(subBases).map(([bn, bq]) => `${bq} ${bn}`).join(', ')}`;
+            } else {
+              subRecipeInfo = `Need ${subMissingDetails.join(', ')}`;
+            }
+          }
+        }
+
         if (!hasEnough) allIngredientsAvailable = false;
 
         ingredientDetails.push({
           name: ingName,
           required: requiredCount,
           available: availableCount,
-          hasEnough
+          hasEnough,
+          subRecipeInfo
         });
       }
       canCook = allIngredientsAvailable;
@@ -288,6 +416,8 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
       foodName,
       slotTier: tier,
       baseEnergy,
+      baseWithAura,
+      auraMultiplier: aura,
       walrusBonus,
       energyBonus,
       isFed,

@@ -297,6 +297,14 @@ export const TIER_BASE_ENERGY = {
   Hard: 300
 };
 
+// Official Pet Aura Multipliers (multiplies base energy: Easy 20, Medium 100, Hard 300)
+export const PET_AURA_MULTIPLIERS = {
+  none: { key: "none", label: "No Aura", multiplier: 1.0, shortLabel: "1x" },
+  common: { key: "common", label: "Common", multiplier: 1.5, shortLabel: "1.5x" },
+  rare: { key: "rare", label: "Rare", multiplier: 2.0, shortLabel: "2x" },
+  mythic: { key: "mythic", label: "Mythic", multiplier: 3.0, shortLabel: "3x" }
+};
+
 // Walrus Onesie wearable boost (+5 Energy to all pet food requests)
 export const WALRUS_ONESIE_ENERGY_BOOST = 5;
 
