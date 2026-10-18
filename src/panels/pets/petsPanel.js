@@ -16,6 +16,7 @@ import {
 } from './petsLogic.js';
 import { WALRUS_ONESIE_ENERGY_BOOST } from './petsData.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
+import { ApiService } from '../../services/api.js';
 
 let activeFilter = 'all';
 let searchQuery = '';
@@ -208,14 +209,42 @@ function bindPetsEventListeners() {
   if (refreshBtn) {
     refreshBtn.addEventListener('click', async () => {
       const icon = document.getElementById('pets-refresh-icon');
+      const label = document.getElementById('pets-refresh-label');
       if (icon) icon.classList.add('animate-spin');
-      if (typeof window.syncFarmCrops === 'function') {
-        try { await window.syncFarmCrops(); } catch (_) {}
-      }
-      setTimeout(() => {
+      if (label) label.textContent = 'Syncing...';
+      refreshBtn.disabled = true;
+
+      try {
+        if (typeof window.syncGlobalFarmData === 'function') {
+          await window.syncGlobalFarmData();
+        } else if (typeof window.handleFarmSync === 'function') {
+          await window.handleFarmSync();
+        } else {
+          const farmId = window.farmData?.farmId || window.currentFarmId || localStorage.getItem('sfl_farm_id');
+          const apiKey = localStorage.getItem('sfl_api_key') || '';
+          if (farmId) {
+            const freshFarm = await ApiService.getFarmFullData(farmId, apiKey, { force: true });
+            if (freshFarm) {
+              window.farmData = freshFarm;
+              ingestLivePetFeedData(freshFarm);
+            }
+          }
+        }
+
+        const farmId = window.farmData?.farmId || window.currentFarmId || localStorage.getItem('sfl_farm_id');
+        if (farmId && farmId !== 'preview') {
+          try {
+            await fetchCloudPetLedger(farmId);
+          } catch (_) {}
+        }
+      } catch (err) {
+        console.warn("Notice: Pets sync notice:", err.message);
+      } finally {
         if (icon) icon.classList.remove('animate-spin');
+        if (label) label.textContent = 'Sync';
+        refreshBtn.disabled = false;
         mountPetsPanel();
-      }, 600);
+      }
     });
   }
 
