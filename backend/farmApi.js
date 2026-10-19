@@ -34,11 +34,11 @@ function getSflHeaders(customApiKey = '') {
 // If an ID fetch fails, retries 11 seconds later (up to 3 retries).
 let syncQueueChain = Promise.resolve();
 let lastSuccessTimestamp = 0;
-const SUCCESS_COOLDOWN_MS = 6000; // At least 6.0s safe spacing between calls to prevent Sunflower Land 429 rate limits
+const SUCCESS_COOLDOWN_MS = 10000; // At least 10.0s safe spacing between calls to prevent Sunflower Land 429 rate limits
 
 function queueFarmSync(taskFn) {
   const queuedTask = syncQueueChain.then(async () => {
-    // Ensure at least 6.0s have passed before next fetch to avoid 429
+    // Ensure at least 10.0s have passed before next fetch to avoid 429
     if (lastSuccessTimestamp > 0) {
       const elapsed = Date.now() - lastSuccessTimestamp;
       if (elapsed < SUCCESS_COOLDOWN_MS) {
