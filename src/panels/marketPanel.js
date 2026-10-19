@@ -211,14 +211,7 @@ export function initMarketPanel() {
           </p>
         </div>
 
-        <div class="flex items-center gap-2 w-full md:w-auto">
-          <!-- Realtime Item Search -->
-          <div class="relative flex-1 md:w-56">
-            <input type="text" id="market-search-input" placeholder="🔍 Search item (e.g. Iron)..."
-              class="w-full bg-white dark:bg-amber-950/60 border-2 border-sfl-cardBorder dark:border-amber-700/60 rounded-xl px-3 py-1.5 text-xs text-sfl-dirt dark:text-amber-100 focus:outline-none focus:border-amber-500 transition font-sans">
-            <button id="market-search-clear" class="hidden absolute right-2 top-1.5 text-xs text-sfl-woodLight hover:text-sfl-dirt font-bold">✕</button>
-          </div>
-
+        <div class="flex items-center gap-2 w-full md:w-auto justify-end">
           <!-- Refresh Button -->
           <button id="market-refresh-btn" type="button"
             class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-amber-950 font-black px-3.5 py-1.5 rounded-xl border-2 border-amber-700 shadow-sm transition cursor-pointer flex items-center gap-1.5 text-xs uppercase shrink-0 group"
@@ -408,24 +401,6 @@ function bindMarketEvents() {
     }
   });
 
-  // Search input
-  const searchInput = document.getElementById('market-search-input');
-  const searchClear = document.getElementById('market-search-clear');
-  searchInput?.addEventListener('input', (e) => {
-    searchQuery = (e.target.value || '').trim().toLowerCase();
-    if (searchClear) {
-      if (searchQuery) searchClear.classList.remove('hidden');
-      else searchClear.classList.add('hidden');
-    }
-    renderItemsGrid();
-  });
-
-  searchClear?.addEventListener('click', () => {
-    if (searchInput) searchInput.value = '';
-    searchQuery = '';
-    searchClear.classList.add('hidden');
-    renderItemsGrid();
-  });
 
   // Movers window toggle
   document.getElementById('movers-window-24h')?.addEventListener('click', () => {
