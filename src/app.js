@@ -10,7 +10,7 @@ import { initAuth } from './services/auth.js';
 import { PanelManager } from './services/panelManager.js';
 import { initCalculatorPanel } from './panels/calculatorPanel.js';
 import { initTradeHistoryPanel, fetchMarketplaceTrades } from './panels/tradeHistory/index.js';
-import { initNpcGiftsPanel, renderNpcCards } from './panels/npc/npcGiftsPanel.js';
+import { initNpcGiftsPanel, renderNpcCards } from './panels/npc/npcGiftsPanel.js?v=2.6.0';
 import { initTrackerPanel, loadCloudYieldHistory } from './panels/trackerPanel.js';
 import { initWishlistPanel, renderWishlist } from './panels/wishlistPanel.js';
 import { initTrackingModal } from './modals/trackingModal.js';

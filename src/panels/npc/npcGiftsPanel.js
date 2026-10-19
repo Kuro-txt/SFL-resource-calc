@@ -6,7 +6,23 @@ import { getNpcFriendship, getNpcData, getItemFlowerPrice, calculateMilestonePro
 
 let activeLocationFilter = 'all';
 let favoriteNpcIds = new Set(JSON.parse(localStorage.getItem('sfl_favorite_npcs') || '[]'));
-let hasBlossomBonding = localStorage.getItem('sfl_blossom_bonding') === 'true';
+let blossomBondingRank = (() => {
+  const saved = localStorage.getItem('sfl_blossom_bonding_rank');
+  if (saved !== null && saved !== '') {
+    const r = parseInt(saved, 10);
+    if (!isNaN(r) && r >= 0 && r <= 3) return r;
+  }
+  // Backwards compatibility with previous toggle
+  return localStorage.getItem('sfl_blossom_bonding') === 'true' ? 1 : 0;
+})();
+
+export function getBlossomBondingBonus(rank = blossomBondingRank) {
+  const r = Number(rank);
+  if (r === 1) return 2;
+  if (r === 2) return 3;
+  if (r === 3) return 4;
+  return 0;
+}
 
 export function toggleFavoriteNpc(npcId) {
   if (favoriteNpcIds.has(npcId)) {
@@ -47,11 +63,18 @@ export function renderNpcGiftsTemplate() {
             <span id="npc-fetch-text">Fetch Farm NPCs</span>
           </button>
 
-          <!-- BLOSSOM BONDING SKILL TOGGLE (+2 PTS) -->
-          <label class="flex items-center gap-1.5 bg-pink-100/90 dark:bg-pink-950/40 border border-pink-300 dark:border-pink-800 px-2.5 py-1 rounded-lg shadow-xs cursor-pointer select-none">
-            <input type="checkbox" id="blossom-bonding-toggle" ${hasBlossomBonding ? 'checked' : ''} class="w-3.5 h-3.5 text-pink-600 rounded border-pink-400 focus:ring-0 cursor-pointer">
-            <span class="text-[11px] font-bold text-pink-900 dark:text-pink-300 whitespace-nowrap">🌸 Blossom Bonding (+2)</span>
-          </label>
+          <!-- BLOSSOM BONDING SKILL (RANKS 1-3) -->
+          <div class="flex items-center gap-1.5 bg-pink-100/90 dark:bg-pink-950/40 border border-pink-300 dark:border-pink-800 px-2 sm:px-2.5 py-1 rounded-lg shadow-xs select-none">
+            <span class="text-[11px] font-bold text-pink-900 dark:text-pink-300 whitespace-nowrap flex items-center gap-1" title="Blossom Bonding Skill: Rank 1 (+2 pts), Rank 2 (+3 pts), Rank 3 (+4 pts)">
+              <span>🌸</span> Blossom Bonding:
+            </span>
+            <select id="blossom-bonding-rank" class="bg-white/95 dark:bg-pink-950/80 text-pink-900 dark:text-pink-200 font-bold text-xs rounded border border-pink-400 dark:border-pink-700 px-1.5 sm:px-2 py-0.5 cursor-pointer focus:ring-1 focus:ring-pink-500 shadow-2xs">
+              <option value="0" ${blossomBondingRank === 0 ? 'selected' : ''}>Off (+0)</option>
+              <option value="1" ${blossomBondingRank === 1 ? 'selected' : ''}>Rank 1 (+2 pts)</option>
+              <option value="2" ${blossomBondingRank === 2 ? 'selected' : ''}>Rank 2 (+3 pts)</option>
+              <option value="3" ${blossomBondingRank === 3 ? 'selected' : ''}>Rank 3 (+4 pts)</option>
+            </select>
+          </div>
 
           <!-- SEARCH -->
           <input type="text" id="npc-search-input" placeholder="Search NPC or Flower..." class="sfl-input rounded-lg px-2.5 py-1 text-xs font-bold text-sfl-dirt dark:text-amber-100 w-full sm:w-36 focus:ring-1 focus:ring-sfl-gold">
@@ -106,9 +129,11 @@ export function initNpcGiftsPanel() {
     renderNpcCards();
   });
 
-  document.getElementById('blossom-bonding-toggle')?.addEventListener('change', (e) => {
-    hasBlossomBonding = e.target.checked;
-    localStorage.setItem('sfl_blossom_bonding', hasBlossomBonding ? 'true' : 'false');
+  document.getElementById('blossom-bonding-rank')?.addEventListener('change', (e) => {
+    const val = parseInt(e.target.value, 10);
+    blossomBondingRank = (!isNaN(val) && val >= 0 && val <= 3) ? val : 0;
+    localStorage.setItem('sfl_blossom_bonding_rank', String(blossomBondingRank));
+    localStorage.setItem('sfl_blossom_bonding', blossomBondingRank > 0 ? 'true' : 'false');
     renderNpcCards();
   });
 
@@ -285,7 +310,8 @@ export function renderNpcCards() {
     const favoritesHtml = npc.favorites.map(item => {
       const favName = typeof item === 'string' ? item : item.name;
       const basePts = typeof item === 'object' && typeof item.pts === 'number' ? item.pts : 0;
-      const effectivePts = basePts + (hasBlossomBonding ? 2 : 0);
+      const bonusPts = getBlossomBondingBonus(blossomBondingRank);
+      const effectivePts = basePts + bonusPts;
 
       const flowersNeeded = (progress.pointsNeeded > 0 && effectivePts > 0)
         ? Math.ceil(progress.pointsNeeded / effectivePts)
@@ -310,11 +336,15 @@ export function renderNpcCards() {
         ? `<span class="text-[9px] sm:text-[10px] font-mono font-extrabold text-amber-900 dark:text-amber-200 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 shrink-0 cursor-help" title="Total Crafting Cost: ${totalNeededCost} SFL (${price.toFixed(3)} × ${flowersNeeded})">${totalNeededCost}</span>`
         : '';
 
+      const ptsTooltip = bonusPts > 0 
+        ? `title="Base: ${basePts} pts + Blossom Bonding Rank ${blossomBondingRank} (+${bonusPts} pts)"`
+        : `title="Base: ${basePts} pts"`;
+
       return `
-        <div class="bg-amber-100/70 dark:bg-amber-950/40 p-1.5 sm:p-2 rounded-lg text-xs space-y-1">
+        <div class="flower-item-container bg-amber-100/70 dark:bg-amber-950/40 p-1.5 sm:p-2 rounded-lg text-xs space-y-1.5 border border-amber-200/60 dark:border-amber-900/40">
           <!-- Row 1: Full Flower Name & Crafting Price -->
-          <div class="flex justify-between items-center gap-1.5">
-            <span class="font-bold text-sfl-dirt dark:text-amber-100 text-[11px] sm:text-xs leading-tight">
+          <div class="flex justify-between items-baseline gap-1.5 min-w-0">
+            <span class="font-bold text-sfl-dirt dark:text-amber-100 text-[11px] sm:text-xs leading-snug whitespace-normal break-words overflow-visible">
               ${favName}
             </span>
             ${priceBadge}
@@ -322,7 +352,7 @@ export function renderNpcCards() {
 
           <!-- Row 2: Friendship Pts, Quantity Needed & Total Craft Cost -->
           <div class="flex items-center justify-between gap-1 text-[9px] sm:text-[10px] font-mono pt-0.5">
-            <span class="font-extrabold text-amber-800 dark:text-amber-300 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded shrink-0">
+            <span class="font-extrabold text-amber-800 dark:text-amber-300 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded shrink-0 cursor-help" ${ptsTooltip}>
               +${effectivePts} pts
             </span>
 
@@ -333,6 +363,22 @@ export function renderNpcCards() {
                 </span>
               ` : ''}
               ${calcBadge}
+            </div>
+          </div>
+
+          <!-- Row 3: Downside Arrow Toggle for Recipe Drawer -->
+          <div class="pt-0.5 border-t border-amber-200/40 dark:border-amber-900/40">
+            <button type="button" class="recipe-toggle-btn w-full flex items-center justify-center gap-1 py-0.5 text-sfl-woodLight dark:text-amber-400/80 hover:text-sfl-dirt dark:hover:text-amber-200 transition cursor-pointer select-none group" title="Click to view recipe for ${favName}">
+              <span class="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-sfl-woodLight group-hover:text-sfl-dirt dark:text-amber-400/70 dark:group-hover:text-amber-200">Recipe</span>
+              <svg class="recipe-toggle-arrow w-3 h-3 transition-transform duration-200 shrink-0 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div class="recipe-drawer hidden w-full mt-1 p-1.5 bg-amber-50/95 dark:bg-amber-900/50 rounded border border-amber-300/70 dark:border-amber-700/60 text-[9px] sm:text-[10px] font-mono text-sfl-dirt dark:text-amber-100 shadow-2xs">
+              <div class="flex items-start gap-1">
+                <span class="shrink-0 text-amber-700 dark:text-amber-300 font-extrabold">📜 Recipe:</span>
+                <span class="font-bold text-amber-950 dark:text-amber-100 whitespace-normal break-words">${recipeText || 'Crafting / Mutation'}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -409,7 +455,7 @@ export function renderNpcCards() {
         </div>
 
         <div class="text-[9px] sm:text-[10px] text-sfl-green dark:text-green-400 font-semibold border-t border-amber-200/40 dark:border-amber-700/30 pt-1 flex items-center gap-1 min-w-0">
-          <span class="shrink-0">🎁</span> <span class="shrink-0">Reward:</span> <strong class="text-sfl-dirt dark:text-amber-100 truncate">${progress.rewardText}</strong>
+          <span class="shrink-0">🎁</span> <span class="shrink-0">Reward:</span> <strong class="text-sfl-dirt dark:text-amber-100 whitespace-normal break-words">${progress.rewardText}</strong>
         </div>
       </div>
 
@@ -418,11 +464,26 @@ export function renderNpcCards() {
         <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-300 flex items-center gap-1">
           <span>🌸</span> Favorite Flowers:
         </span>
-        <div class="space-y-1 sm:space-y-1.5 max-h-32 sm:max-h-36 overflow-y-auto pr-0.5">
+        <div class="space-y-1.5 max-h-52 sm:max-h-60 overflow-y-auto pr-0.5">
           ${favoritesHtml}
         </div>
       </div>
     `;
+
+    // Bind recipe drawer toggle click listeners
+    card.querySelectorAll('.recipe-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const container = btn.closest('.flower-item-container');
+        const drawer = container?.querySelector('.recipe-drawer');
+        const arrow = btn.querySelector('.recipe-toggle-arrow');
+        if (drawer) {
+          const isClosed = drawer.classList.contains('hidden');
+          drawer.classList.toggle('hidden', !isClosed);
+          if (arrow) arrow.classList.toggle('rotate-180', isClosed);
+        }
+      });
+    });
 
     grid.appendChild(card);
   });
