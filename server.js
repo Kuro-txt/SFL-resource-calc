@@ -18,6 +18,14 @@ const fs      = require('fs');
 const cron    = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
 
+// ── Global Process Safety Guards (Prevents container crashes & Render restart loops)
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ [Server Safety] Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️ [Server Safety] Unhandled rejection at:', promise, 'reason:', reason);
+});
+
 // ── Auto-load local .env in development if present (.env* is gitignored) ─────
 try {
   const envPath = path.join(__dirname, '.env');
@@ -139,6 +147,15 @@ function clearServerCache(prefix) {
     if (k.startsWith(prefix)) serverCache.delete(k);
   }
 }
+
+// ── Lightweight keep-alive & ping endpoints for uptime monitors ───────────
+// Immediate 200 OK without any database or network latency
+app.get(['/ping', '/healthz'], (_req, res) => {
+  res.status(200).send('pong');
+});
+app.head(['/ping', '/healthz'], (_req, res) => {
+  res.status(200).end();
+});
 
 // ── Simple API proxy routes ────────────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
@@ -989,6 +1006,6 @@ cron.schedule('0 2,6,10,14,20 * * *', () => {
     .finally(() => { isTradesSyncRunning = false; });
 }, { scheduled: true, timezone: "UTC" });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 SFL Resource Calculator Backend listening on port ${PORT}`);
 });

@@ -65,6 +65,12 @@ function getTiDBPool() {
     } else {
       tidbPool = mysql.createPool({ uri: config.uri || rawUrl, database: 'test', ssl: { rejectUnauthorized: false } });
     }
+
+    try {
+      tidbPool.on('error', (err) => {
+        console.warn('⚠️ [TiDB Pool Notice]:', err ? err.message : 'Unknown pool event');
+      });
+    } catch (_) {}
   }
   return tidbPool;
 }
