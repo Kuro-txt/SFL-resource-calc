@@ -255,7 +255,7 @@ export function renderNpcCards() {
         : '';
 
       const calcBadge = (flowersNeeded > 0 && price > 0)
-        ? `<span class="text-[10px] font-mono font-extrabold text-amber-900 dark:text-amber-200 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 shrink-0 cursor-help" title="Total Crafting Cost: ${totalNeededCost} SFL (${price.toFixed(3)} X ${flowersNeeded})">${price.toFixed(3)} X ${flowersNeeded}</span>`
+        ? `<span class="text-[10px] font-mono font-extrabold text-amber-900 dark:text-amber-200 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 shrink-0 cursor-help" title="Total Crafting Cost: ${totalNeededCost} SFL (${price.toFixed(3)} × ${flowersNeeded})">${totalNeededCost}</span>`
         : '';
 
       return `
