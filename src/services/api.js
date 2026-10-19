@@ -60,18 +60,25 @@ export const ApiService = {
       const headers = apiKey ? { 'x-api-key': apiKey } : {};
       const keyQuery = apiKey ? `&apiKey=${encodeURIComponent(apiKey)}` : '';
 
-      // 1. Try Backend server proxy (Render) with 12s timeout
-      try {
-        const url = `${BACKEND_URL}/api/get-data?${force ? 'force=true' : ''}${keyQuery}`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
-        const response = await fetch(url, { headers, signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (response.ok) {
-          data = await response.json();
+      // 1. Try Backend server proxy (Render) with 12s timeout & transient retry
+      for (let attempt = 1; attempt <= 2 && !data; attempt++) {
+        try {
+          const url = `${BACKEND_URL}/api/get-data?${force ? 'force=true' : ''}${keyQuery}`;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 12000);
+          const response = await fetch(url, { headers, signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (response.ok) {
+            data = await response.json();
+            break;
+          }
+        } catch (err) {
+          if (attempt === 1) {
+            await new Promise(r => setTimeout(r, 800));
+          } else {
+            console.warn("Primary price proxy notice:", err.message);
+          }
         }
-      } catch (err) {
-        console.warn("Primary price proxy notice:", err.message);
       }
 
       // 2. Try secondary serverless proxy (/api/get-data)
