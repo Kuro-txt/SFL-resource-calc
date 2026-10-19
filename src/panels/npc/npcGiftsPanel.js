@@ -341,7 +341,7 @@ export function renderNpcCards() {
         : `title="Base: ${basePts} pts"`;
 
       return `
-        <div class="flower-item-container bg-amber-100/70 dark:bg-amber-950/40 p-1.5 sm:p-2 rounded-lg text-xs space-y-1.5 border border-amber-200/60 dark:border-amber-900/40">
+        <div class="bg-amber-100/70 dark:bg-amber-950/40 p-1.5 sm:p-2 rounded-lg text-xs space-y-1 border border-amber-200/50 dark:border-amber-900/40">
           <!-- Row 1: Full Flower Name & Crafting Price -->
           <div class="flex justify-between items-baseline gap-1.5 min-w-0">
             <span class="font-bold text-sfl-dirt dark:text-amber-100 text-[11px] sm:text-xs leading-snug whitespace-normal break-words overflow-visible">
@@ -363,22 +363,6 @@ export function renderNpcCards() {
                 </span>
               ` : ''}
               ${calcBadge}
-            </div>
-          </div>
-
-          <!-- Row 3: Downside Arrow Toggle for Recipe Drawer -->
-          <div class="pt-0.5 border-t border-amber-200/40 dark:border-amber-900/40">
-            <button type="button" class="recipe-toggle-btn w-full flex items-center justify-center gap-1 py-0.5 text-sfl-woodLight dark:text-amber-400/80 hover:text-sfl-dirt dark:hover:text-amber-200 transition cursor-pointer select-none group" title="Click to view recipe for ${favName}">
-              <span class="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-sfl-woodLight group-hover:text-sfl-dirt dark:text-amber-400/70 dark:group-hover:text-amber-200">Recipe</span>
-              <svg class="recipe-toggle-arrow w-3 h-3 transition-transform duration-200 shrink-0 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            <div class="recipe-drawer hidden w-full mt-1 p-1.5 bg-amber-50/95 dark:bg-amber-900/50 rounded border border-amber-300/70 dark:border-amber-700/60 text-[9px] sm:text-[10px] font-mono text-sfl-dirt dark:text-amber-100 shadow-2xs">
-              <div class="flex items-start gap-1">
-                <span class="shrink-0 text-amber-700 dark:text-amber-300 font-extrabold">📜 Recipe:</span>
-                <span class="font-bold text-amber-950 dark:text-amber-100 whitespace-normal break-words">${recipeText || 'Crafting / Mutation'}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -464,26 +448,11 @@ export function renderNpcCards() {
         <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-300 flex items-center gap-1">
           <span>🌸</span> Favorite Flowers:
         </span>
-        <div class="space-y-1.5 max-h-52 sm:max-h-60 overflow-y-auto pr-0.5">
+        <div class="space-y-1 sm:space-y-1.5 max-h-36 sm:max-h-40 overflow-y-auto pr-0.5">
           ${favoritesHtml}
         </div>
       </div>
     `;
-
-    // Bind recipe drawer toggle click listeners
-    card.querySelectorAll('.recipe-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const container = btn.closest('.flower-item-container');
-        const drawer = container?.querySelector('.recipe-drawer');
-        const arrow = btn.querySelector('.recipe-toggle-arrow');
-        if (drawer) {
-          const isClosed = drawer.classList.contains('hidden');
-          drawer.classList.toggle('hidden', !isClosed);
-          if (arrow) arrow.classList.toggle('rotate-180', isClosed);
-        }
-      });
-    });
 
     grid.appendChild(card);
   });
