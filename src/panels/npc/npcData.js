@@ -283,3 +283,110 @@ export const NPC_CATALOG = [
     ]
   }
 ];
+
+// Flower Crossbreeding & Crafting Recipes from https://github.com/Kuro-txt/SFL-chapter-tracker/blob/main/recipes.js
+export const FLOWER_RECIPES = {
+  // ==========================================
+  // PANSIES & COSMOS
+  // ==========================================
+  "yellow pansy": { "sunflower": 50, "coins": 16 },
+  "white pansy": { "yellow pansy": 1, "coins": 16 },
+  "purple cosmos": { "beetroot": 10, "coins": 16 },
+  "blue cosmos": { "cauliflower": 5, "coins": 16 },
+  "red pansy": { "radish": 5, "coins": 16 },
+  "red cosmos": { "red pansy": 1, "coins": 16 },
+  "purple pansy": { "beetroot": 10, "coins": 16 },
+  "blue pansy": { "cauliflower": 5, "coins": 16 },
+  "yellow cosmos": { "sunflower": 50, "coins": 16 },
+  "white cosmos": { "yellow cosmos": 1, "coins": 16 },
+
+  // ==========================================
+  // LOTUS & CARNATIONS
+  // ==========================================
+  "yellow carnation": { "sunflower": 50, "coins": 48 },
+  "red lotus": { "beetroot": 10, "coins": 48 },
+  "white lotus": { "cauliflower": 5, "coins": 48 },
+  "purple carnation": { "eggplant": 5, "coins": 48 },
+  "purple lotus": { "blue carnation": 1, "coins": 48 },
+  "blue lotus": { "blue pansy": 1, "coins": 48 },
+  "primula enigma": { "purple balloon flower": 1, "coins": 48 },
+  "blue carnation": { "purple daffodil": 1, "coins": 48 },
+  "red carnation": { "purple pansy": 1, "coins": 48 },
+  "yellow lotus": { "red pansy": 1, "coins": 48 },
+  "white carnation": { "yellow pansy": 1, "coins": 48 },
+
+  // ==========================================
+  // LAVENDER FLOWERS
+  // ==========================================
+  "white lavender": { "rhubarb": 25, "coins": 96 },
+  "red lavender": { "pepper": 15, "coins": 96 },
+  "blue lavender": { "blue clover": 1, "coins": 96 },
+  "purple lavender": { "purple gladiolus": 1, "coins": 96 },
+  "yellow lavender": { "yellow gladiolus": 1, "coins": 96 },
+
+  // ==========================================
+  // GLADIOLUS FLOWERS
+  // ==========================================
+  "blue gladiolus": { "rhubarb": 30, "coins": 96 },
+  "yellow gladiolus": { "pepper": 5, "coins": 96 },
+  "purple gladiolus": { "artichoke": 5, "coins": 96 },
+  "white gladiolus": { "white edelweiss": 1, "coins": 96 },
+  "red gladiolus": { "yellow gladiolus": 1, "coins": 96 },
+
+  // ==========================================
+  // EDELWEISS FLOWERS
+  // ==========================================
+  "purple edelweiss": { "rhubarb": 30, "coins": 96 },
+  "red edelweiss": { "artichoke": 5, "coins": 96 },
+  "yellow edelweiss": { "onion": 5, "coins": 96 },
+  "white edelweiss": { "blue edelweiss": 1, "coins": 96 },
+  "blue edelweiss": { "purple edelweiss": 1, "coins": 96 },
+
+  // ==========================================
+  // CLOVER FLOWERS
+  // ==========================================
+  "blue clover": { "rhubarb": 30, "coins": 96 },
+  "yellow clover": { "pepper": 5, "coins": 96 },
+  "white clover": { "blue edelweiss": 1, "coins": 96 },
+  "red clover": { "red edelweiss": 1, "coins": 96 },
+  "purple clover": { "red lavender": 1, "coins": 96 },
+
+  // ==========================================
+  // DAFFODIL & BALLOON FLOWERS
+  // ==========================================
+  "red balloon flower": { "sunflower": 50, "coins": 32 },
+  "blue balloon flower": { "cauliflower": 5, "coins": 32 },
+  "purple daffodil": { "radish": 5, "coins": 32 },
+  "purple balloon flower": { "blue carnation": 1, "coins": 32 },
+  "blue daffodil": { "purple carnation": 1, "coins": 32 },
+  "white balloon flower": { "white daffodil": 1, "coins": 32 },
+  "yellow daffodil": { "white lotus": 1, "coins": 32 },
+  "celestial frostbloom": { "white pansy": 1, "coins": 32 },
+  "white daffodil": { "yellow cosmos": 1, "coins": 32 },
+  "yellow balloon flower": { "yellow lotus": 1, "coins": 32 },
+  "red daffodil": { "yellow pansy": 1, "coins": 32 },
+
+  // ==========================================
+  // MUTATIONS / EXOTIC
+  // ==========================================
+  "prism petal": { "blue lotus": 1, "coins": 16 }
+};
+
+export function getFlowerRecipe(flowerName) {
+  if (!flowerName) return null;
+  const clean = String(flowerName).toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const [key, recipe] of Object.entries(FLOWER_RECIPES)) {
+    if (key.toLowerCase().replace(/[^a-z0-9]/g, '') === clean) {
+      return recipe;
+    }
+  }
+  return null;
+}
+
+export function formatFlowerRecipe(flowerName) {
+  const recipe = getFlowerRecipe(flowerName);
+  if (!recipe) return '';
+  return Object.entries(recipe)
+    .map(([k, v]) => `${v} ${k.charAt(0).toUpperCase() + k.slice(1)}`)
+    .join(' + ');
+}

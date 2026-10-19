@@ -1,7 +1,7 @@
 import { ApiService } from '../../services/api.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
-import { NPC_CATALOG } from './npcData.js';
+import { NPC_CATALOG, formatFlowerRecipe } from './npcData.js';
 import { getNpcFriendship, getNpcData, getItemFlowerPrice, calculateMilestoneProgress } from './npcLogic.js';
 
 let activeLocationFilter = 'all';
@@ -111,6 +111,13 @@ export function initNpcGiftsPanel() {
     localStorage.setItem('sfl_blossom_bonding', hasBlossomBonding ? 'true' : 'false');
     renderNpcCards();
   });
+
+  if (typeof window !== 'undefined' && !window._npcPricesBound) {
+    window._npcPricesBound = true;
+    window.addEventListener('pricesLoaded', () => {
+      renderNpcCards();
+    });
+  }
 }
 
 export async function handleFetchNpcData() {
@@ -244,9 +251,16 @@ export function renderNpcCards() {
 
       const cleanKey = normalizeItemKey(favName);
       const price = getItemFlowerPrice(cleanKey);
+      const recipeText = formatFlowerRecipe(favName);
+      const recipeTitle = recipeText
+        ? `Crafting Recipe: ${recipeText} (${price.toFixed(3)} SFL)`
+        : (price > 0 ? `${price.toFixed(3)} SFL` : '');
       const priceBadge = price > 0
-        ? `<span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5">${price.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>`
+        ? `<span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5 cursor-help" ${recipeTitle ? `title="${recipeTitle}"` : ''}>${price.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>`
         : '';
+
+      const totalNeededCost = (flowersNeeded > 0 && price > 0) ? (flowersNeeded * price).toFixed(3) : null;
+      const neededTitle = totalNeededCost ? `title="Total Crafting Cost: ${totalNeededCost} SFL"` : '';
 
       return `
         <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2.5 py-1.5 rounded text-xs gap-2">
@@ -259,7 +273,7 @@ export function renderNpcCards() {
 
           <div class="flex items-center gap-2 shrink-0">
             ${progress.pointsNeeded > 0 ? `
-              <span class="text-[10px] font-mono font-bold bg-amber-200/90 dark:bg-amber-900/50 text-sfl-wood dark:text-amber-200 px-1.5 py-0.5 rounded border border-amber-300/80 dark:border-amber-700">
+              <span class="text-[10px] font-mono font-bold bg-amber-200/90 dark:bg-amber-900/50 text-sfl-wood dark:text-amber-200 px-1.5 py-0.5 rounded border border-amber-300/80 dark:border-amber-700 cursor-help" ${neededTitle}>
                 ${flowersNeeded} needed
               </span>
             ` : ''}
