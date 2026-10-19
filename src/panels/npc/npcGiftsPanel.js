@@ -185,16 +185,28 @@ export function renderNpcCards() {
   const grid = document.getElementById('npc-cards-grid');
   if (!grid) return;
 
-  const liveNpcData = window.farmNpcData || JSON.parse(localStorage.getItem('sfl_farm_npcs') || '{}');
+  const liveNpcData = 
+    (window.farmNpcData && Object.keys(window.farmNpcData).length > 0 ? window.farmNpcData : null) || 
+    window.farmData?.npcs || 
+    window.farmData?.farm?.npcs || 
+    JSON.parse(localStorage.getItem('sfl_farm_npcs') || '{}');
   const query = document.getElementById('npc-search-input')?.value.toLowerCase().trim() || '';
   const filter = activeLocationFilter;
 
   const fullNpcList = NPC_CATALOG;
 
   const filteredNpcs = fullNpcList.filter(npc => {
-    const npcEntry = getNpcData(npc.id, liveNpcData);
-    const friendship = npcEntry.friendship || getNpcFriendship(npc.id, liveNpcData);
-    const giftedAt = normalizeTimestampMs(friendship.giftedAt || friendship.lastGiftedAt || npcEntry.giftedAt || 0);
+    const npcEntry = getNpcData(npc, liveNpcData);
+    const friendship = npcEntry.friendship || getNpcFriendship(npc, liveNpcData);
+    const giftedAt = normalizeTimestampMs(
+      friendship.giftedAt || 
+      npcEntry.giftedAt || 
+      friendship.lastGiftedAt || 
+      npcEntry.lastGiftedAt || 
+      friendship.gifted_at || 
+      npcEntry.gifted_at || 
+      0
+    );
     const hasGiftedToday = checkIsGiftedToday(giftedAt);
 
     let matchesLoc = true;
@@ -219,13 +231,17 @@ export function renderNpcCards() {
     if (!aFav && bFav) return 1;
 
     // Secondary sort: un-gifted NPCs come first
-    const aData = getNpcData(a.id, liveNpcData);
-    const aFriendship = aData.friendship || getNpcFriendship(a.id, liveNpcData);
-    const aGifted = checkIsGiftedToday(normalizeTimestampMs(aFriendship.giftedAt || aFriendship.lastGiftedAt || aData.giftedAt || 0));
+    const aData = getNpcData(a, liveNpcData);
+    const aFriendship = aData.friendship || getNpcFriendship(a, liveNpcData);
+    const aGifted = checkIsGiftedToday(normalizeTimestampMs(
+      aFriendship.giftedAt || aData.giftedAt || aFriendship.lastGiftedAt || aData.lastGiftedAt || 0
+    ));
 
-    const bData = getNpcData(b.id, liveNpcData);
-    const bFriendship = bData.friendship || getNpcFriendship(b.id, liveNpcData);
-    const bGifted = checkIsGiftedToday(normalizeTimestampMs(bFriendship.giftedAt || bFriendship.lastGiftedAt || bData.giftedAt || 0));
+    const bData = getNpcData(b, liveNpcData);
+    const bFriendship = bData.friendship || getNpcFriendship(b, liveNpcData);
+    const bGifted = checkIsGiftedToday(normalizeTimestampMs(
+      bFriendship.giftedAt || bData.giftedAt || bFriendship.lastGiftedAt || bData.lastGiftedAt || 0
+    ));
 
     if (!aGifted && bGifted) return -1;
     if (aGifted && !bGifted) return 1;
@@ -249,11 +265,19 @@ export function renderNpcCards() {
 
   filteredNpcs.forEach(npc => {
     const isFav = favoriteNpcIds.has(npc.id);
-    const npcEntry = getNpcData(npc.id, liveNpcData);
-    const friendship = npcEntry.friendship || getNpcFriendship(npc.id, liveNpcData);
+    const npcEntry = getNpcData(npc, liveNpcData);
+    const friendship = npcEntry.friendship || getNpcFriendship(npc, liveNpcData);
     const points = parseInt(friendship.points || 0, 10);
     const deliveryCount = parseInt(npcEntry.deliveryCount || 0, 10);
-    const giftedAt = normalizeTimestampMs(friendship.giftedAt || friendship.lastGiftedAt || npcEntry.giftedAt || 0);
+    const giftedAt = normalizeTimestampMs(
+      friendship.giftedAt || 
+      npcEntry.giftedAt || 
+      friendship.lastGiftedAt || 
+      npcEntry.lastGiftedAt || 
+      friendship.gifted_at || 
+      npcEntry.gifted_at || 
+      0
+    );
     const hasGiftedToday = checkIsGiftedToday(giftedAt);
 
     const progress = calculateMilestoneProgress(npc, points);
@@ -283,26 +307,33 @@ export function renderNpcCards() {
         : '';
 
       const calcBadge = (flowersNeeded > 0 && price > 0)
-        ? `<span class="text-[9px] sm:text-[10px] font-mono font-extrabold text-amber-900 dark:text-amber-200 bg-amber-200/80 dark:bg-amber-900/60 px-1 sm:px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 shrink-0 cursor-help" title="Total Crafting Cost: ${totalNeededCost} SFL (${price.toFixed(3)} × ${flowersNeeded})">${totalNeededCost}</span>`
+        ? `<span class="text-[9px] sm:text-[10px] font-mono font-extrabold text-amber-900 dark:text-amber-200 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 shrink-0 cursor-help" title="Total Crafting Cost: ${totalNeededCost} SFL (${price.toFixed(3)} × ${flowersNeeded})">${totalNeededCost}</span>`
         : '';
 
       return `
-        <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded text-[11px] sm:text-xs gap-1 min-w-0">
-          <div class="flex items-center gap-1 min-w-0 flex-1">
-            <span class="font-bold text-sfl-dirt dark:text-amber-100 truncate" title="${favName}">${favName}</span>
-            <span class="text-[9px] sm:text-[10px] font-mono font-extrabold text-amber-800 dark:text-amber-300 bg-amber-200/80 dark:bg-amber-900/60 px-1 sm:px-1.5 py-0.5 rounded shrink-0">
-              ${effectivePts} pts
+        <div class="bg-amber-100/70 dark:bg-amber-950/40 p-1.5 sm:p-2 rounded-lg text-xs space-y-1">
+          <!-- Row 1: Full Flower Name & Crafting Price -->
+          <div class="flex justify-between items-center gap-1.5">
+            <span class="font-bold text-sfl-dirt dark:text-amber-100 text-[11px] sm:text-xs leading-tight">
+              ${favName}
             </span>
+            ${priceBadge}
           </div>
 
-          <div class="flex items-center gap-1 shrink-0">
-            ${priceBadge}
-            ${progress.pointsNeeded > 0 ? `
-              <span class="text-[9px] sm:text-[10px] font-mono font-bold bg-amber-200/90 dark:bg-amber-900/50 text-sfl-wood dark:text-amber-200 px-1 sm:px-1.5 py-0.5 rounded border border-amber-300/80 dark:border-amber-700 cursor-help shrink-0" ${neededTitle}>
-                ${flowersNeeded} needed
-              </span>
-            ` : ''}
-            ${calcBadge}
+          <!-- Row 2: Friendship Pts, Quantity Needed & Total Craft Cost -->
+          <div class="flex items-center justify-between gap-1 text-[9px] sm:text-[10px] font-mono pt-0.5">
+            <span class="font-extrabold text-amber-800 dark:text-amber-300 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded shrink-0">
+              +${effectivePts} pts
+            </span>
+
+            <div class="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+              ${progress.pointsNeeded > 0 ? `
+                <span class="font-bold bg-amber-200/90 dark:bg-amber-900/50 text-sfl-wood dark:text-amber-200 px-1.5 py-0.5 rounded border border-amber-300/80 dark:border-amber-700 cursor-help shrink-0" ${neededTitle}>
+                  ${flowersNeeded} needed
+                </span>
+              ` : ''}
+              ${calcBadge}
+            </div>
           </div>
         </div>
       `;

@@ -2,18 +2,24 @@ import { getBettyUnitPrice, normalizeItemKey } from '../../utils/formatters.js';
 import { FLOWER_RECIPES } from './npcData.js';
 import { CROP_FLOWER_PRICES, getCoinFlowerRatio } from '../../config/constants.js';
 
-export function getNpcData(npcId, liveNpcData) {
+export function getNpcData(npcOrId, liveNpcData) {
   if (!liveNpcData || typeof liveNpcData !== 'object') return {};
 
-  if (liveNpcData[npcId]) {
-    return liveNpcData[npcId];
-  }
+  const unwrapped = liveNpcData.npcs || liveNpcData.farm?.npcs || liveNpcData;
 
-  const cleanTarget = String(npcId).toLowerCase().replace(/[^a-z0-9]/g, '');
-  for (let key in liveNpcData) {
+  const idStr = typeof npcOrId === 'object' ? (npcOrId.id || npcOrId.name || '') : String(npcOrId || '');
+  const nameStr = typeof npcOrId === 'object' ? (npcOrId.name || '') : '';
+
+  if (idStr && unwrapped[idStr]) return unwrapped[idStr];
+  if (nameStr && unwrapped[nameStr]) return unwrapped[nameStr];
+
+  const cleanTargetId = idStr.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const cleanTargetName = nameStr.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  for (let key in unwrapped) {
     const cleanKey = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (cleanKey === cleanTarget) {
-      return liveNpcData[key] || {};
+    if ((cleanTargetId && cleanKey === cleanTargetId) || (cleanTargetName && cleanKey === cleanTargetName)) {
+      return unwrapped[key] || {};
     }
   }
 

@@ -734,6 +734,12 @@ export async function handleFarmSync() {
               if (farmObj.pets || farmObj.farm?.pets) {
                 localStorage.setItem('sfl_farm_pets', JSON.stringify(farmObj.pets || farmObj.farm?.pets));
               }
+              const liveNpcs = farmObj.npcs || farmObj.farm?.npcs || (farmObj.blacksmith ? farmObj : null);
+              if (liveNpcs && typeof liveNpcs === 'object' && Object.keys(liveNpcs).length > 0) {
+                window.farmNpcData = liveNpcs;
+                localStorage.setItem('sfl_farm_npcs', JSON.stringify(liveNpcs));
+                localStorage.setItem('sfl_farm_npcs_synced_at', Date.now().toString());
+              }
             } catch (_) {}
             try {
               window.dispatchEvent(new CustomEvent('farmDataSynced', {
