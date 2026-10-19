@@ -39,9 +39,11 @@ export function renderNpcGiftsTemplate() {
         <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <!-- FETCH LIVE NPCS BUTTON -->
           <button type="button" id="npc-fetch-btn"
-            class="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-bold px-3 py-1.5 rounded-lg border border-emerald-800 shadow-xs transition cursor-pointer flex items-center gap-1.5 text-xs whitespace-nowrap"
+            class="bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600 active:translate-y-0.5 text-white font-bold px-3 py-1.5 rounded-lg border border-emerald-800 shadow-xs transition cursor-pointer flex items-center gap-1.5 text-xs whitespace-nowrap group"
             title="Fetch live NPC friendship points & deliveries from Sunflower Land Farm API">
-            <span id="npc-fetch-icon">🔄</span>
+            <svg id="npc-fetch-icon" class="w-3.5 h-3.5 shrink-0 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
             <span id="npc-fetch-text">Fetch Farm NPCs</span>
           </button>
 
@@ -69,18 +71,14 @@ export function renderNpcGiftsTemplate() {
 
       <!-- OVERVIEW METRICS -->
       <div class="bg-sfl-gold/20 border-2 border-sfl-gold rounded-xl p-4 shadow-inner">
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center items-center">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center items-center">
           <div>
             <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-300 block">NPCs Tracked</span>
             <h2 id="npc-total-count" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-dirt dark:text-amber-100 mt-0.5">14</h2>
           </div>
-          <div class="border-l border-sfl-cardBorder/40 px-2">
+          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
             <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-gold block">⭐ Favorited</span>
             <h2 id="npc-favorited-count" class="text-xl sm:text-2xl font-pixel font-bold text-amber-700 dark:text-amber-300 mt-0.5">0</h2>
-          </div>
-          <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-green dark:text-emerald-400 block">🎁 Ready to Claim</span>
-            <h2 id="npc-claimable-count" class="text-xl sm:text-2xl font-pixel font-bold text-sfl-green dark:text-emerald-300 mt-0.5">0</h2>
           </div>
           <div class="border-t sm:border-t-0 sm:border-l border-sfl-cardBorder/40 pt-2 sm:pt-0 px-2">
             <span class="text-[10px] font-bold uppercase tracking-wider text-sfl-woodLight dark:text-slate-400 block">🚜 Farm Live Sync</span>
@@ -141,7 +139,7 @@ export async function handleFetchNpcData() {
   }
 
   if (btn) btn.disabled = true;
-  if (icon) icon.className = 'inline-block animate-spin';
+  if (icon) icon.classList.add('animate-spin');
   if (text) text.textContent = 'Fetching...';
   if (statusEl) {
     statusEl.className = 'text-xs text-center font-bold py-1.5 px-3 rounded-lg border bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300 dark:border-amber-700 block animate-pulse';
@@ -175,7 +173,7 @@ export async function handleFetchNpcData() {
     }
   } finally {
     if (btn) btn.disabled = false;
-    if (icon) icon.className = '';
+    if (icon) icon.classList.remove('animate-spin');
     if (text) text.textContent = 'Fetch Farm NPCs';
   }
 }
@@ -207,11 +205,8 @@ export function renderNpcCards() {
     return 0;
   });
 
-  let claimableCount = 0;
-
   const countEl = document.getElementById('npc-total-count');
   const favEl = document.getElementById('npc-favorited-count');
-  const claimableEl = document.getElementById('npc-claimable-count');
   const farmSyncEl = document.getElementById('npc-farm-sync-display');
 
   if (countEl) countEl.textContent = `${fullNpcList.length} NPCs`;
@@ -219,7 +214,6 @@ export function renderNpcCards() {
 
   if (filteredNpcs.length === 0) {
     grid.innerHTML = `<div class="col-span-full py-8 text-center text-sfl-woodLight italic">No NPCs found matching your criteria.</div>`;
-    if (claimableEl) claimableEl.textContent = '0';
     return;
   }
 
@@ -233,10 +227,6 @@ export function renderNpcCards() {
     const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
     const unclaimed = Math.max(0, points - claimedAt);
     const deliveryCount = parseInt(npcEntry.deliveryCount || 0, 10);
-
-    if (unclaimed > 0) {
-      claimableCount++;
-    }
 
     const progress = calculateMilestoneProgress(npc, points);
 
@@ -256,28 +246,35 @@ export function renderNpcCards() {
         ? `Crafting Recipe: ${recipeText} (${price.toFixed(3)} SFL)`
         : (price > 0 ? `${price.toFixed(3)} SFL` : '');
       const priceBadge = price > 0
-        ? `<span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5 cursor-help" ${recipeTitle ? `title="${recipeTitle}"` : ''}>${price.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>`
+        ? `<span class="text-[10px] text-sfl-green font-mono font-bold flex items-center gap-0.5 cursor-help shrink-0" ${recipeTitle ? `title="${recipeTitle}"` : ''}>${price.toFixed(3)} ${FLOWER_IMG_SMALL_HTML}</span>`
         : '';
 
       const totalNeededCost = (flowersNeeded > 0 && price > 0) ? (flowersNeeded * price).toFixed(3) : null;
-      const neededTitle = totalNeededCost ? `title="Total Crafting Cost: ${totalNeededCost} SFL"` : '';
+      const neededTitle = progress.pointsNeeded > 0
+        ? `title="${flowersNeeded} flowers needed to reach next milestone (${progress.pointsNeeded} pts remaining)"`
+        : '';
+
+      const calcBadge = (flowersNeeded > 0 && price > 0)
+        ? `<span class="text-[10px] font-mono font-extrabold text-amber-900 dark:text-amber-200 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 shrink-0 cursor-help" title="Total Crafting Cost: ${totalNeededCost} SFL (${price.toFixed(3)} X ${flowersNeeded})">${price.toFixed(3)} X ${flowersNeeded}</span>`
+        : '';
 
       return `
-        <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2.5 py-1.5 rounded text-xs gap-2">
-          <div class="flex items-center gap-1.5 overflow-hidden">
+        <div class="flex justify-between items-center bg-amber-100/70 dark:bg-amber-950/40 px-2 py-1.5 rounded text-xs gap-1.5">
+          <div class="flex items-center gap-1.5 min-w-0">
             <span class="font-bold text-sfl-dirt dark:text-amber-100 truncate">${favName}</span>
             <span class="text-[10px] font-mono font-extrabold text-amber-800 dark:text-amber-300 bg-amber-200/80 dark:bg-amber-900/60 px-1.5 py-0.5 rounded shrink-0">
               ${effectivePts} pts
             </span>
           </div>
 
-          <div class="flex items-center gap-2 shrink-0">
+          <div class="flex items-center gap-1.5 shrink-0">
+            ${priceBadge}
             ${progress.pointsNeeded > 0 ? `
-              <span class="text-[10px] font-mono font-bold bg-amber-200/90 dark:bg-amber-900/50 text-sfl-wood dark:text-amber-200 px-1.5 py-0.5 rounded border border-amber-300/80 dark:border-amber-700 cursor-help" ${neededTitle}>
+              <span class="text-[10px] font-mono font-bold bg-amber-200/90 dark:bg-amber-900/50 text-sfl-wood dark:text-amber-200 px-1.5 py-0.5 rounded border border-amber-300/80 dark:border-amber-700 cursor-help shrink-0" ${neededTitle}>
                 ${flowersNeeded} needed
               </span>
             ` : ''}
-            ${priceBadge}
+            ${calcBadge}
           </div>
         </div>
       `;
@@ -365,7 +362,6 @@ export function renderNpcCards() {
     grid.appendChild(card);
   });
 
-  if (claimableEl) claimableEl.textContent = `${claimableCount}`;
   if (farmSyncEl) {
     const savedFarmId = localStorage.getItem('sfl_farm_id');
     const syncedAt = localStorage.getItem('sfl_farm_npcs_synced_at');
