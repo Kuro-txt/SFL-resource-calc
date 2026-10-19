@@ -58,12 +58,23 @@ export function renderAuthBar() {
             </div>
 
             <!-- Coin : Flower Ratio -->
-            <div class="w-28 sm:w-32">
-              <label for="coin-flower-ratio-input" class="block text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 mb-1 flex items-center gap-1" title="Number of Coins per 1 Flower token">
+            <div id="coin-ratio-wrapper" class="w-24 sm:w-28 transition-all duration-200">
+              <label for="coin-flower-ratio-select" class="block text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 mb-1 flex items-center gap-1" title="Number of Coins per 1 Flower token">
                 <span>🪙:🌸</span> Ratio
               </label>
-              <input type="number" id="coin-flower-ratio-input" placeholder="1000" min="1" step="10" value="1000"
-                class="w-full sfl-input rounded-xl px-2.5 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 shadow-2xs" title="Coin to Flower conversion ratio for dashboard calculations">
+              <div class="flex items-center gap-1">
+                <select id="coin-flower-ratio-select"
+                  class="w-full sfl-input rounded-xl px-2 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 dark:bg-amber-900/40 cursor-pointer shadow-2xs"
+                  title="Select Coin to Flower ratio or Free coins">
+                  <option value="free">Free</option>
+                  <option value="1000" selected>1000</option>
+                  <option value="1500">1500</option>
+                  <option value="custom">Custom</option>
+                </select>
+                <input type="number" id="coin-flower-ratio-input" placeholder="1000" min="1" step="10"
+                  class="hidden flex-1 min-w-0 sfl-input rounded-xl px-2 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 shadow-2xs"
+                  title="Enter custom coin to flower ratio">
+              </div>
             </div>
 
             <!-- Gem Packs Exchange Option -->
@@ -176,21 +187,105 @@ function bindFarmSyncEvents() {
     if (typeof window.renderGlobalGoalBanner === 'function') window.renderGlobalGoalBanner();
   });
 
-  const savedRatio = localStorage.getItem('sfl_coin_flower_ratio') || '1000';
-  const ratioEl = document.getElementById('coin-flower-ratio-input');
-  if (savedRatio && ratioEl) ratioEl.value = savedRatio;
+  setupCoinRatioControls();
+  setupGemPacksDropdown();
+}
 
-  ratioEl?.addEventListener('input', (e) => {
-    const val = parseFloat(e.target.value);
-    if (!isNaN(val) && val > 0) {
-      localStorage.setItem('sfl_coin_flower_ratio', val.toString());
-      if (typeof window.refreshDashboardView === 'function') {
-        window.refreshDashboardView();
+export function setupCoinRatioControls() {
+  const selectEl = document.getElementById('coin-flower-ratio-select');
+  const inputEl = document.getElementById('coin-flower-ratio-input');
+  const wrapperEl = document.getElementById('coin-ratio-wrapper');
+
+  if (!selectEl || !inputEl || !wrapperEl) return;
+
+  function updateRatioUI(isCustom) {
+    if (isCustom) {
+      wrapperEl.classList.remove('w-24', 'sm:w-28');
+      wrapperEl.classList.add('w-44', 'sm:w-52');
+      selectEl.classList.remove('w-full');
+      selectEl.classList.add('w-20', 'sm:w-24', 'shrink-0');
+      inputEl.classList.remove('hidden');
+    } else {
+      wrapperEl.classList.remove('w-44', 'sm:w-52');
+      wrapperEl.classList.add('w-24', 'sm:w-28');
+      selectEl.classList.remove('w-20', 'sm:w-24', 'shrink-0');
+      selectEl.classList.add('w-full');
+      inputEl.classList.add('hidden');
+    }
+  }
+
+  function notifyRatioChanged() {
+    if (typeof window.refreshDashboardView === 'function') {
+      window.refreshDashboardView();
+    }
+    if (typeof renderNpcCards === 'function') {
+      renderNpcCards();
+    } else if (typeof window.renderNpcCards === 'function') {
+      window.renderNpcCards();
+    }
+  }
+
+  let savedRatio = '1000';
+  let savedMode = null;
+  try {
+    savedRatio = localStorage.getItem('sfl_coin_flower_ratio');
+    savedMode = localStorage.getItem('sfl_coin_ratio_mode');
+  } catch (e) {}
+
+  if (savedMode === 'custom' || (savedRatio && savedRatio !== 'free' && savedRatio !== '1000' && savedRatio !== '1500')) {
+    selectEl.value = 'custom';
+    inputEl.value = (savedRatio && savedRatio !== 'free') ? savedRatio : '1000';
+    updateRatioUI(true);
+  } else if (savedRatio === 'free' || savedMode === 'free') {
+    selectEl.value = 'free';
+    updateRatioUI(false);
+  } else if (savedRatio === '1500' || savedMode === '1500') {
+    selectEl.value = '1500';
+    updateRatioUI(false);
+  } else {
+    selectEl.value = '1000';
+    updateRatioUI(false);
+  }
+
+  selectEl.addEventListener('change', () => {
+    const val = selectEl.value;
+    try {
+      if (val === 'custom') {
+        localStorage.setItem('sfl_coin_ratio_mode', 'custom');
+        updateRatioUI(true);
+        if (!inputEl.value || parseFloat(inputEl.value) <= 0) {
+          inputEl.value = '1000';
+        }
+        localStorage.setItem('sfl_coin_flower_ratio', inputEl.value);
+        inputEl.focus();
+        notifyRatioChanged();
+      } else if (val === 'free') {
+        localStorage.setItem('sfl_coin_ratio_mode', 'free');
+        localStorage.setItem('sfl_coin_flower_ratio', 'free');
+        updateRatioUI(false);
+        notifyRatioChanged();
+      } else {
+        localStorage.setItem('sfl_coin_ratio_mode', val);
+        localStorage.setItem('sfl_coin_flower_ratio', val);
+        inputEl.value = val;
+        updateRatioUI(false);
+        notifyRatioChanged();
       }
+    } catch (e) {
+      console.error('Error saving coin ratio selection:', e);
     }
   });
 
-  setupGemPacksDropdown();
+  inputEl.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    if (!isNaN(val) && val > 0) {
+      try {
+        localStorage.setItem('sfl_coin_flower_ratio', val.toString());
+        localStorage.setItem('sfl_coin_ratio_mode', 'custom');
+      } catch (e) {}
+      notifyRatioChanged();
+    }
+  });
 }
 
 export function setupGemPacksDropdown() {

@@ -71,7 +71,7 @@ export function computeFlowerCost(flowerName, visiting = new Set()) {
     if (numQty <= 0) continue;
 
     if (ingredient === 'coins' || ingredient === 'coin') {
-      totalCost += (numQty / ratio);
+      totalCost += (isFinite(ratio) && ratio > 0 ? (numQty / ratio) : 0);
     } else {
       const ingClean = normalizeItemKey(ingredient);
       const isSubFlower = Object.keys(FLOWER_RECIPES).some(k => normalizeItemKey(k) === ingClean);

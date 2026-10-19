@@ -69,7 +69,8 @@ export function getGemCount(stock) {
 function getItemPrice(name) {
   const clean = normalizeItemKey(name);
   if (clean === 'coins' || clean === 'coin') {
-    return 1 / getCoinFlowerRatio();
+    const ratio = getCoinFlowerRatio();
+    return isFinite(ratio) && ratio > 0 ? (1 / ratio) : 0;
   }
   if (clean === 'gem' || clean === 'gems') {
     return getGemFlowerPrice();
@@ -481,7 +482,9 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
   // Add Coins if spent > 0
   if (totalCoinsSpent > 0) {
     const ratio = getCoinFlowerRatio();
-    const coinSpentFlowers = parseFloat((totalCoinsSpent / ratio).toFixed(3));
+    const coinSpentFlowers = isFinite(ratio) && ratio > 0
+      ? parseFloat((totalCoinsSpent / ratio).toFixed(3))
+      : 0;
     result['Coins'] = { qty: Math.round(totalCoinsSpent), flowers: coinSpentFlowers };
   }
 
@@ -650,6 +653,7 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
     if (!coinsData || coinsData.qty <= 0) return '';
     const ratio = getCoinFlowerRatio();
     const marginClass = inGrid ? '' : 'mb-3';
+    const ratioLabel = isFinite(ratio) ? `1🌸 = ${ratio.toLocaleString()}🪙` : 'Free Coins (0 🌸)';
     return `
       <div class="bg-gradient-to-r from-orange-500/10 via-amber-500/15 to-orange-500/10 dark:from-orange-950/40 dark:to-amber-950/30 border border-orange-500/30 dark:border-orange-600/40 p-2.5 rounded-xl flex items-center justify-between shadow-2xs ${marginClass} min-h-[58px]">
         <div class="flex items-center gap-2.5">
@@ -665,7 +669,7 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
           <span class="text-xs font-bold text-orange-700 dark:text-orange-400 bg-orange-100/90 dark:bg-orange-950/80 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-lg shadow-2xs">
             -${coinsData.flowers.toFixed(3)} 🌸
           </span>
-          <p class="text-[9px] text-sfl-woodLight dark:text-slate-400 mt-1">1🌸 = ${ratio.toLocaleString()}🪙</p>
+          <p class="text-[9px] text-sfl-woodLight dark:text-slate-400 mt-1">${ratioLabel}</p>
         </div>
       </div>`;
   }

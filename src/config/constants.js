@@ -294,14 +294,25 @@ export function getItemTaxRate(itemName, globalTaxRate = null) {
 export const DEFAULT_COIN_FLOWER_RATIO = 1000;
 
 export function getCoinFlowerRatio() {
-  if (typeof localStorage !== 'undefined') {
-    const saved = localStorage.getItem('sfl_coin_flower_ratio');
-    const val = parseFloat(saved);
-    if (!isNaN(val) && val > 0) return val;
-  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('sfl_coin_flower_ratio');
+      if (saved === 'free' || saved === '0') return Infinity;
+      const val = parseFloat(saved);
+      if (!isNaN(val) && val > 0) return val;
+    }
+  } catch (e) {}
+
+  const ratioSelect = typeof document !== 'undefined' ? document.getElementById('coin-flower-ratio-select') : null;
+  if (ratioSelect && ratioSelect.value === 'free') return Infinity;
   const ratioInput = typeof document !== 'undefined' ? document.getElementById('coin-flower-ratio-input') : null;
   if (ratioInput) {
+    if (ratioInput.value === 'free' || ratioInput.value === '0') return Infinity;
     const val = parseFloat(ratioInput.value);
+    if (!isNaN(val) && val > 0) return val;
+  }
+  if (ratioSelect) {
+    const val = parseFloat(ratioSelect.value);
     if (!isNaN(val) && val > 0) return val;
   }
   return DEFAULT_COIN_FLOWER_RATIO;

@@ -117,7 +117,7 @@ export function convertArchiveToEarnedTotals(archive) {
   const coinsEarned = parseFloat(archive.coins_earned || archive.items_summary?.__currencies__?.coinsEarned || 0);
   if (coinsEarned > 0) {
     const ratio = getCoinFlowerRatio();
-    const coinFlowers = parseFloat((coinsEarned / ratio).toFixed(3));
+    const coinFlowers = isFinite(ratio) && ratio > 0 ? parseFloat((coinsEarned / ratio).toFixed(3)) : 0;
     totals['Coins'] = {
       qty: Math.round(coinsEarned),
       flowers: coinFlowers,
@@ -177,7 +177,7 @@ export function convertArchiveToSpentItems(archive) {
     spentList.push({
       name: 'Coins',
       qty: Math.round(coinsSpent),
-      flowers: parseFloat((coinsSpent / ratio).toFixed(3))
+      flowers: isFinite(ratio) && ratio > 0 ? parseFloat((coinsSpent / ratio).toFixed(3)) : 0
     });
   }
 
