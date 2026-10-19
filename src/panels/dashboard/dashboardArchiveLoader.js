@@ -1,4 +1,4 @@
-import { getCoinFlowerRatio } from '../../config/constants.js';
+import { getCoinFlowerRatio, getGemFlowerPrice } from '../../config/constants.js';
 
 const archiveMemoryCache = new Map();
 
@@ -183,13 +183,21 @@ export function convertArchiveToSpentItems(archive) {
 
   // Add Gems Spent if not already present
   const gemsSpent = parseFloat(archive.gems_spent || archive.items_summary?.__currencies__?.gemsSpent || 0);
+  const gemPrice = typeof getGemFlowerPrice === 'function' ? getGemFlowerPrice() : 0.06408;
   if (gemsSpent > 0 && !spentList.some(i => i.name === 'Gems')) {
     spentList.push({
       name: 'Gems',
       qty: Math.round(gemsSpent),
-      flowers: parseFloat((gemsSpent * 0.06408).toFixed(3))
+      flowers: parseFloat((gemsSpent * gemPrice).toFixed(3))
     });
   }
+
+  // Ensure all gem items in spentList obey current gem price (especially if Free Gems)
+  spentList.forEach(item => {
+    if (item.name === 'Gems' || item.name === 'Gem') {
+      item.flowers = parseFloat((item.qty * gemPrice).toFixed(3));
+    }
+  });
 
   return spentList.sort((a, b) => b.flowers - a.flowers);
 }

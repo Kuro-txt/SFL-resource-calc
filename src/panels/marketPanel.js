@@ -221,9 +221,12 @@ export function initMarketPanel() {
 
           <!-- Refresh Button -->
           <button id="market-refresh-btn" type="button"
-            class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-amber-950 font-black px-3.5 py-1.5 rounded-xl border-2 border-amber-700 shadow-sm transition cursor-pointer flex items-center gap-1.5 text-xs uppercase shrink-0">
-            <span id="market-refresh-icon">🔄</span>
-            <span>Refresh</span>
+            class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-amber-950 font-black px-3.5 py-1.5 rounded-xl border-2 border-amber-700 shadow-sm transition cursor-pointer flex items-center gap-1.5 text-xs uppercase shrink-0 group"
+            title="Refresh live marketplace floor prices">
+            <svg id="market-refresh-icon" class="w-3.5 h-3.5 shrink-0 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span id="market-refresh-label">Refresh</span>
           </button>
         </div>
       </div>
@@ -390,9 +393,19 @@ function bindMarketEvents() {
   const refreshBtn = document.getElementById('market-refresh-btn');
   refreshBtn?.addEventListener('click', async () => {
     const icon = document.getElementById('market-refresh-icon');
+    const label = document.getElementById('market-refresh-label');
+    if (refreshBtn) refreshBtn.disabled = true;
     if (icon) icon.classList.add('animate-spin');
-    await mountMarketPanel(true);
-    if (icon) icon.classList.remove('animate-spin');
+    if (label) label.textContent = 'Refreshing...';
+    try {
+      await mountMarketPanel(true);
+    } catch (err) {
+      console.error('Market refresh failed:', err);
+    } finally {
+      if (icon) icon.classList.remove('animate-spin');
+      if (label) label.textContent = 'Refresh';
+      if (refreshBtn) refreshBtn.disabled = false;
+    }
   });
 
   // Search input

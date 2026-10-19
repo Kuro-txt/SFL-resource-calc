@@ -337,6 +337,8 @@ export function getSelectedGemPack() {
 
 export function getSelectedGemRate() {
   if (typeof localStorage !== 'undefined') {
+    const savedPack = localStorage.getItem('sfl_selected_gem_pack');
+    if (savedPack === 'free') return 0;
     const saved = localStorage.getItem('sfl_selected_gem_rate');
     if (saved !== null && saved !== undefined && saved !== '') {
       const val = parseFloat(saved);
@@ -352,6 +354,24 @@ export function isGemDiscountActive() {
     return saved === null ? true : saved === 'true';
   }
   return true;
+}
+
+export function getGemFlowerPrice() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const pack = localStorage.getItem('sfl_selected_gem_pack');
+      if (pack === 'free') return 0;
+    }
+  } catch (_) {}
+  const selectedPack = getSelectedGemPack();
+  if (selectedPack === 'free') return 0;
+  const selectedRate = getSelectedGemRate();
+  if (selectedRate !== null && selectedRate !== undefined && !isNaN(selectedRate) && selectedRate >= 0) {
+    return selectedRate;
+  }
+  const isDiscount = isGemDiscountActive();
+  const baseRate = DEFAULT_GEM_PACKS?.['100']?.sfl1 || 0.0801;
+  return baseRate * (isDiscount ? 0.8 : 1.0);
 }
 
 if (typeof window !== 'undefined') {
@@ -378,4 +398,5 @@ if (typeof window !== 'undefined') {
   window.getSelectedGemPack = getSelectedGemPack;
   window.getSelectedGemRate = getSelectedGemRate;
   window.isGemDiscountActive = isGemDiscountActive;
+  window.getGemFlowerPrice = getGemFlowerPrice;
 }

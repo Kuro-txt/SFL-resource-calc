@@ -68,6 +68,12 @@ export function renderCalculatorTemplate() {
 
         <!-- AUTOMATED TRACKING & WEEKLY SUMMARY ACTION BAR -->
         <div class="flex flex-col sm:flex-row justify-center items-center gap-2 border-t-2 border-b-2 border-sfl-cardBorder/60 py-3">
+          <button id="tracker-refresh-btn" type="button" class="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 text-amber-100 font-bold py-2 px-3.5 rounded-xl border-2 border-sfl-dirt text-xs transition flex items-center justify-center gap-1.5 shadow-md cursor-pointer group" title="Refresh 00:00 UTC cloud yield baseline and 30-day history">
+            <svg id="tracker-refresh-icon" class="w-3.5 h-3.5 shrink-0 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span id="tracker-refresh-label">Sync Yields</span>
+          </button>
           <button id="open-tracking-modal-btn" class="w-full sm:w-auto bg-amber-700 text-amber-100 hover:bg-amber-800 font-bold py-2 px-4 rounded-xl border-2 border-sfl-dirt text-xs transition flex items-center justify-center gap-2 shadow-md cursor-pointer">
             <span>⚙️</span> Manage Automated Tracking Targets
           </button>
@@ -146,6 +152,29 @@ function bindCalculatorEvents() {
   document.getElementById('donate-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
     handleDonation();
+  });
+
+  document.getElementById('tracker-refresh-btn')?.addEventListener('click', async () => {
+    const icon = document.getElementById('tracker-refresh-icon');
+    const label = document.getElementById('tracker-refresh-label');
+    const btn = document.getElementById('tracker-refresh-btn');
+    if (btn) btn.disabled = true;
+    if (icon) icon.classList.add('animate-spin');
+    if (label) label.textContent = 'Syncing...';
+    try {
+      if (typeof window.loadCloudYieldHistory === 'function') {
+        await window.loadCloudYieldHistory(true);
+      }
+      if (typeof window.renderSnapshotHistory === 'function') {
+        window.renderSnapshotHistory();
+      }
+    } catch (err) {
+      console.error('Yield sync failed:', err);
+    } finally {
+      if (icon) icon.classList.remove('animate-spin');
+      if (label) label.textContent = 'Sync Yields';
+      if (btn) btn.disabled = false;
+    }
   });
 }
 

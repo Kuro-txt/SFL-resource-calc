@@ -29,7 +29,23 @@ export let searchQuery = '';
 export function initTradeHistoryPanel() {
   renderTradeHistoryTemplate();
 
-  document.getElementById('refresh-trade-history-btn')?.addEventListener('click', () => fetchMarketplaceTrades(true));
+  document.getElementById('refresh-trade-history-btn')?.addEventListener('click', async () => {
+    const icon = document.getElementById('trade-refresh-icon');
+    const label = document.getElementById('trade-refresh-label');
+    const btn = document.getElementById('refresh-trade-history-btn');
+    if (btn) btn.disabled = true;
+    if (icon) icon.classList.add('animate-spin');
+    if (label) label.textContent = 'Refreshing...';
+    try {
+      await fetchMarketplaceTrades(true);
+    } catch (err) {
+      console.error('Trades refresh failed:', err);
+    } finally {
+      if (icon) icon.classList.remove('animate-spin');
+      if (label) label.textContent = 'Refresh Trades';
+      if (btn) btn.disabled = false;
+    }
+  });
   document.getElementById('export-trades-csv-btn')?.addEventListener('click', exportTradesToCsv);
 
   document.getElementById('subtab-trades-btn')?.addEventListener('click', () => switchSubTab('trades'));
@@ -171,13 +187,15 @@ export function renderCurrentView() {
   }
 }
 
-window.switchSubTab = switchSubTab;
-window.setTradeFilter = setTradeFilter;
-window.setItemFilter = setItemFilter;
-window.exportTradesToCsv = exportTradesToCsv;
-window.stepDayOffset = stepDayOffset;
-window.stepWeekOffset = stepWeekOffset;
-window.stepMonthOffset = stepMonthOffset;
-window.resetPeriodOffsets = resetPeriodOffsets;
+if (typeof window !== 'undefined') {
+  window.switchSubTab = switchSubTab;
+  window.setTradeFilter = setTradeFilter;
+  window.setItemFilter = setItemFilter;
+  window.exportTradesToCsv = exportTradesToCsv;
+  window.stepDayOffset = stepDayOffset;
+  window.stepWeekOffset = stepWeekOffset;
+  window.stepMonthOffset = stepMonthOffset;
+  window.resetPeriodOffsets = resetPeriodOffsets;
+}
 
 export { fetchMarketplaceTrades, getTradeAmounts, renderTradeHistoryTemplate, setItemFilter };

@@ -268,9 +268,12 @@ function renderTemplate() {
 
           <!-- Refresh Button -->
           <button id="dashboard-refresh-btn"
-            class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 border-2 border-amber-300 dark:border-slate-600 px-3 py-1.5 rounded-xl font-bold text-xs shadow-xs transition cursor-pointer flex items-center gap-1 shrink-0">
-            <span>🔄</span>
-            <span>Refresh</span>
+            class="bg-amber-100 hover:bg-amber-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-950 dark:text-amber-300 border-2 border-amber-300 dark:border-slate-600 px-3 py-1.5 rounded-xl font-bold text-xs shadow-xs transition cursor-pointer flex items-center gap-1.5 shrink-0 group"
+            title="Refresh dashboard analytics">
+            <svg id="dashboard-refresh-icon" class="w-3.5 h-3.5 shrink-0 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span id="dashboard-refresh-label">Refresh</span>
           </button>
         </div>
       </div>
@@ -338,9 +341,23 @@ export function initDashboardPanel() {
   renderTimeRangeControls();
   initialized = true;
 
-  document.getElementById('dashboard-refresh-btn')?.addEventListener('click', () => {
-    clearBaselineMemoryCache();
-    populateSections(null, true);
+  document.getElementById('dashboard-refresh-btn')?.addEventListener('click', async () => {
+    const icon = document.getElementById('dashboard-refresh-icon');
+    const label = document.getElementById('dashboard-refresh-label');
+    const btn = document.getElementById('dashboard-refresh-btn');
+    if (btn) btn.disabled = true;
+    if (icon) icon.classList.add('animate-spin');
+    if (label) label.textContent = 'Refreshing...';
+    try {
+      clearBaselineMemoryCache();
+      await populateSections(null, true);
+    } catch (err) {
+      console.error('Dashboard refresh failed:', err);
+    } finally {
+      if (icon) icon.classList.remove('animate-spin');
+      if (label) label.textContent = 'Refresh';
+      if (btn) btn.disabled = false;
+    }
   });
 }
 
@@ -364,6 +381,9 @@ export async function mountDashboard() {
 
 if (typeof window !== 'undefined') {
   window.mountDashboard = mountDashboard;
-  window.refreshDashboardView = () => populateSections().catch(err => console.error('Dashboard refresh failed:', err));
+  window.refreshDashboardView = () => {
+    clearBaselineMemoryCache();
+    return populateSections(null, true).catch(err => console.error('Dashboard refresh failed:', err));
+  };
   window.populateSections = populateSections;
 }

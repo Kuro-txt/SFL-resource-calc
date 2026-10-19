@@ -58,22 +58,29 @@ export function renderAuthBar() {
             </div>
 
             <!-- Coin : Flower Ratio -->
-            <div id="coin-ratio-wrapper" class="w-24 sm:w-28 transition-all duration-200">
+            <div id="coin-ratio-wrapper" class="w-24 sm:w-28">
               <label for="coin-flower-ratio-select" class="block text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-200 mb-1 flex items-center gap-1" title="Number of Coins per 1 Flower token">
                 <span>🪙:🌸</span> Ratio
               </label>
-              <div class="flex items-center gap-1">
+              <div class="relative w-full">
                 <select id="coin-flower-ratio-select"
                   class="w-full sfl-input rounded-xl px-2 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 dark:bg-amber-900/40 cursor-pointer shadow-2xs"
                   title="Select Coin to Flower ratio or Free coins">
                   <option value="free">Free</option>
                   <option value="1000" selected>1000</option>
                   <option value="1500">1500</option>
-                  <option value="custom">Custom</option>
+                  <option value="custom">Custom...</option>
                 </select>
-                <input type="number" id="coin-flower-ratio-input" placeholder="1000" min="1" step="10"
-                  class="hidden flex-1 min-w-0 sfl-input rounded-xl px-2 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 shadow-2xs"
-                  title="Enter custom coin to flower ratio">
+                <div id="coin-custom-wrap" class="hidden relative w-full">
+                  <input type="number" id="coin-flower-ratio-input" placeholder="Custom" min="1" step="10"
+                    class="w-full sfl-input rounded-xl pl-2.5 pr-6 py-1.5 text-xs font-bold text-sfl-dirt dark:text-amber-100 shadow-2xs"
+                    title="Enter custom coin to flower ratio">
+                  <button type="button" id="coin-ratio-back-btn"
+                    class="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-sfl-woodLight hover:text-sfl-wood dark:text-slate-400 dark:hover:text-amber-200 px-1 py-0.5 rounded cursor-pointer select-none"
+                    title="Switch back to presets (Free, 1000, 1500)">
+                    ▼
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -194,23 +201,18 @@ function bindFarmSyncEvents() {
 export function setupCoinRatioControls() {
   const selectEl = document.getElementById('coin-flower-ratio-select');
   const inputEl = document.getElementById('coin-flower-ratio-input');
-  const wrapperEl = document.getElementById('coin-ratio-wrapper');
+  const customWrap = document.getElementById('coin-custom-wrap');
+  const backBtn = document.getElementById('coin-ratio-back-btn');
 
-  if (!selectEl || !inputEl || !wrapperEl) return;
+  if (!selectEl || !inputEl || !customWrap) return;
 
   function updateRatioUI(isCustom) {
     if (isCustom) {
-      wrapperEl.classList.remove('w-24', 'sm:w-28');
-      wrapperEl.classList.add('w-44', 'sm:w-52');
-      selectEl.classList.remove('w-full');
-      selectEl.classList.add('w-20', 'sm:w-24', 'shrink-0');
-      inputEl.classList.remove('hidden');
+      selectEl.classList.add('hidden');
+      customWrap.classList.remove('hidden');
     } else {
-      wrapperEl.classList.remove('w-44', 'sm:w-52');
-      wrapperEl.classList.add('w-24', 'sm:w-28');
-      selectEl.classList.remove('w-20', 'sm:w-24', 'shrink-0');
-      selectEl.classList.add('w-full');
-      inputEl.classList.add('hidden');
+      customWrap.classList.add('hidden');
+      selectEl.classList.remove('hidden');
     }
   }
 
@@ -258,6 +260,7 @@ export function setupCoinRatioControls() {
         }
         localStorage.setItem('sfl_coin_flower_ratio', inputEl.value);
         inputEl.focus();
+        inputEl.select();
         notifyRatioChanged();
       } else if (val === 'free') {
         localStorage.setItem('sfl_coin_ratio_mode', 'free');
@@ -273,6 +276,16 @@ export function setupCoinRatioControls() {
       }
     } catch (e) {
       console.error('Error saving coin ratio selection:', e);
+    }
+  });
+
+  backBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    updateRatioUI(false);
+    selectEl.focus();
+    if (typeof selectEl.showPicker === 'function') {
+      try { selectEl.showPicker(); } catch (err) {}
     }
   });
 

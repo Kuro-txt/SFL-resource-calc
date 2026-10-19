@@ -619,8 +619,8 @@ export function renderGoalTracker(wishlistItems = []) {
         </div>
 
         <div class="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end">
-          <button id="goal-refresh-inventory-btn" class="bg-sfl-wood hover:bg-sfl-dirt active:translate-y-0.5 text-amber-100 px-3 py-1.5 rounded-xl text-xs font-black border-2 border-sfl-dirt shadow-xs hover:shadow transition cursor-pointer flex items-center gap-1.5 shrink-0" title="Fetch live inventory and SFL balance via official Farm API">
-            <svg id="goal-refresh-icon" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <button id="goal-refresh-inventory-btn" class="bg-sfl-wood hover:bg-sfl-dirt active:translate-y-0.5 text-amber-100 px-3 py-1.5 rounded-xl text-xs font-black border-2 border-sfl-dirt shadow-xs hover:shadow transition cursor-pointer flex items-center gap-1.5 shrink-0 group" title="Fetch live inventory and SFL balance via official Farm API">
+            <svg id="goal-refresh-icon" class="w-3.5 h-3.5 shrink-0 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
             <span id="goal-refresh-text">Refresh Inventory</span>
           </button>
 

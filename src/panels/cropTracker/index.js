@@ -8,7 +8,23 @@ export let currentCropWeekOffset = 0;
 export function initCropTrackerPanel() {
   renderCropTrackerTemplate();
 
-  document.getElementById('refresh-crop-activity-btn')?.addEventListener('click', fetchLiveCropDiff);
+  document.getElementById('refresh-crop-activity-btn')?.addEventListener('click', async () => {
+    const icon = document.getElementById('crop-refresh-icon');
+    const label = document.getElementById('crop-refresh-label');
+    const btn = document.getElementById('refresh-crop-activity-btn');
+    if (btn) btn.disabled = true;
+    if (icon) icon.classList.add('animate-spin');
+    if (label) label.textContent = 'Checking...';
+    try {
+      await fetchLiveCropDiff();
+    } catch (err) {
+      console.error('Crop diff check failed:', err);
+    } finally {
+      if (icon) icon.classList.remove('animate-spin');
+      if (label) label.textContent = 'Check Live Today';
+      if (btn) btn.disabled = false;
+    }
+  });
   document.getElementById('save-base-yields-btn')?.addEventListener('click', () => saveBaseYieldSettings(true));
   document.getElementById('apply-global-yield-btn')?.addEventListener('click', applyGlobalYieldToAll);
   document.getElementById('apply-weekly-global-yield-btn')?.addEventListener('click', applyWeeklyGlobalYieldToAll);

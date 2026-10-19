@@ -10,7 +10,8 @@ import {
   DEFAULT_GEM_PACKS,
   getSelectedGemPack,
   getSelectedGemRate,
-  isGemDiscountActive
+  isGemDiscountActive,
+  getGemFlowerPrice
 } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice, formatItemUnitPrice } from '../../utils/formatters.js';
 import { tradeHistoryData } from '../tradeHistory/tradeData.js';
@@ -20,15 +21,7 @@ import { getDateRangeBounds } from './dashboardPanel.js';
 import { ITEM_CATEGORIES, CATEGORY_META, getItemCategory } from './dashboardEarned.js';
 import { fetchRollupArchive, convertArchiveToSpentItems } from './dashboardArchiveLoader.js';
 
-export function getGemFlowerPrice() {
-  const selectedRate = typeof getSelectedGemRate === 'function' ? getSelectedGemRate() : null;
-  if (selectedRate !== null && selectedRate !== undefined && !isNaN(selectedRate) && selectedRate >= 0) {
-    return selectedRate;
-  }
-  const isDiscount = typeof isGemDiscountActive === 'function' ? isGemDiscountActive() : true;
-  const baseRate = DEFAULT_GEM_PACKS?.['100']?.sfl1 || 0.0801;
-  return baseRate * (isDiscount ? 0.8 : 1.0);
-}
+export { getGemFlowerPrice };
 
 export function getNextDateStr(dateStr) {
   try {
@@ -144,7 +137,9 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
   const farmId = localStorage.getItem('sfl_farm_id') || document.getElementById('farm-id')?.value?.trim() || '';
 
   // 0. Check in-memory RAM cache for precomputed spent items
-  const spentCacheKey = `${farmId}_${minDateStr}_${maxDateStr}_${bounds.timeRange || ''}`;
+  const currentGemPrice = getGemFlowerPrice();
+  const currentRatio = getCoinFlowerRatio();
+  const spentCacheKey = `${farmId}_${minDateStr}_${maxDateStr}_${bounds.timeRange || ''}_${currentGemPrice}_${currentRatio}`;
   if (!force) {
     const cachedSpent = spentDataMemoryCache.get(spentCacheKey);
     if (cachedSpent && (Date.now() - cachedSpent.timestamp < SPENT_CACHE_TTL)) {
@@ -518,6 +513,16 @@ export async function loadSpentData(boundsInput = 'week', force = false) {
         finalItems = archiveSpent;
       }
     }
+  }
+
+  // Ensure gems obey the active gem price (e.g. Free Gems = 0 flowers)
+  if (currentGemPrice === 0) {
+    finalItems.forEach(item => {
+      if (item.name === 'Gems' || item.name === 'Gem') {
+        item.flowers = 0;
+        item.unitPrice = 0;
+      }
+    });
   }
 
   spentDataMemoryCache.set(spentCacheKey, { data: finalItems, timestamp: Date.now() });
