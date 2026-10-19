@@ -225,7 +225,6 @@ export function renderNpcCards() {
     const friendship = npcEntry.friendship || getNpcFriendship(npc.id, liveNpcData);
     const points = parseInt(friendship.points || 0, 10);
     const claimedAt = parseInt(friendship.giftClaimedAtPoints || 0, 10);
-    const unclaimed = Math.max(0, points - claimedAt);
     const deliveryCount = parseInt(npcEntry.deliveryCount || 0, 10);
 
     const progress = calculateMilestoneProgress(npc, points);
@@ -308,7 +307,7 @@ export function renderNpcCards() {
       </div>
 
       <!-- FRIENDSHIP POINTS & CLAIM STATS -->
-      <div class="grid grid-cols-3 gap-1.5 bg-amber-900/10 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-600/20 dark:border-amber-800/30 text-center font-mono">
+      <div class="grid grid-cols-2 gap-2 bg-amber-900/10 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-600/20 dark:border-amber-800/30 text-center font-mono">
         <div>
           <span class="text-[9px] font-bold text-sfl-wood dark:text-amber-300 uppercase block">Total Pts</span>
           <span class="text-xs font-black text-sfl-dirt dark:text-amber-100">${points}</span>
@@ -316,10 +315,6 @@ export function renderNpcCards() {
         <div class="border-l border-amber-600/20 dark:border-amber-800/30 px-1">
           <span class="text-[9px] font-bold text-sfl-wood dark:text-amber-300 uppercase block">Last Claim</span>
           <span class="text-xs font-bold text-sfl-woodLight dark:text-slate-400">${claimedAt} pts</span>
-        </div>
-        <div class="border-l border-amber-600/20 dark:border-amber-800/30 px-1">
-          <span class="text-[9px] font-bold text-sfl-green dark:text-emerald-400 uppercase block">Unclaimed</span>
-          <span class="text-xs font-black ${unclaimed > 0 ? 'text-sfl-green dark:text-emerald-400 font-extrabold' : 'text-sfl-woodLight dark:text-slate-500'}">+${unclaimed}</span>
         </div>
       </div>
 
