@@ -327,9 +327,9 @@ export function getSelectedGemPack() {
 export function getSelectedGemRate() {
   if (typeof localStorage !== 'undefined') {
     const saved = localStorage.getItem('sfl_selected_gem_rate');
-    if (saved) {
+    if (saved !== null && saved !== undefined && saved !== '') {
       const val = parseFloat(saved);
-      if (!isNaN(val) && val > 0) return val;
+      if (!isNaN(val) && val >= 0) return val;
     }
   }
   return null;

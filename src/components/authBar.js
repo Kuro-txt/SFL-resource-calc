@@ -240,7 +240,30 @@ export function setupGemPacksDropdown() {
   let selectedPackKey = localStorage.getItem('sfl_selected_gem_pack') || '';
 
   function persistSelection(gemKey, packData) {
-    if (gemKey && packData) {
+    if (gemKey === 'free') {
+      selectedPackKey = 'free';
+      const freePack = { gem: 0, usd: 0, sfl1: 0, sfl: 0, pol: 0, name: 'Free' };
+
+      try {
+        localStorage.setItem('sfl_selected_gem_pack', 'free');
+        localStorage.setItem('sfl_selected_gem_rate', '0');
+        localStorage.setItem('sfl_selected_gem_total_sfl', '0');
+        localStorage.setItem('sfl_selected_gem_usd', '0');
+        localStorage.setItem('sfl_selected_gem_discount_active', String(isDiscountActive));
+        localStorage.setItem('sfl_selected_gem_discount_pct', '0');
+        localStorage.setItem('sfl_selected_gem_base_rate', '0');
+        localStorage.setItem('sfl_selected_gem_data', JSON.stringify({
+          ...freePack,
+          discountActive: false,
+          discountPct: 0,
+          effectiveRate: 0,
+          effectiveTotalSfl: 0,
+          effectiveUsd: 0
+        }));
+      } catch (e) {}
+      window.selectedGemPack = 'free';
+      window.selectedGemRate = 0;
+    } else if (gemKey && packData) {
       selectedPackKey = String(gemKey);
       const discountMultiplier = isDiscountActive ? 0.8 : 1.0;
       const rate = Number(packData.sfl1 || 0) * discountMultiplier;
@@ -285,7 +308,7 @@ export function setupGemPacksDropdown() {
     try {
       window.dispatchEvent(new CustomEvent('gemPackChanged', {
         detail: {
-          gem: selectedPackKey ? Number(selectedPackKey) : null,
+          gem: selectedPackKey === 'free' ? 0 : (selectedPackKey ? Number(selectedPackKey) : null),
           rate: window.selectedGemRate,
           discountActive: isDiscountActive,
           pack: packData || null
@@ -309,7 +332,7 @@ export function setupGemPacksDropdown() {
       .filter(p => p.gem > 0)
       .sort((a, b) => a.gem - b.gem);
 
-    if (badge) badge.textContent = `${packs.length} packs${isDiscountActive ? ' (-20%)' : ''}`;
+    if (badge) badge.textContent = `${packs.length + 1} options${isDiscountActive ? ' (-20%)' : ''}`;
 
     if (packs.length === 0) {
       list.innerHTML = `<div class="text-center py-3 text-sfl-woodLight dark:text-slate-400">No gem packs available.</div>`;
@@ -317,11 +340,54 @@ export function setupGemPacksDropdown() {
     }
 
     // Keep stored selection rate in sync with latest rates and discount
-    if (selectedPackKey && gemsMap[selectedPackKey]) {
+    if (selectedPackKey === 'free') {
+      persistSelection('free', { gem: 0, usd: 0, sfl1: 0, sfl: 0, pol: 0, name: 'Free' });
+    } else if (selectedPackKey && gemsMap[selectedPackKey]) {
       persistSelection(selectedPackKey, gemsMap[selectedPackKey]);
     }
 
-    list.innerHTML = packs.map(pack => {
+    const isSelectedFree = selectedPackKey === 'free';
+    const freeHtml = `
+      <div class="gem-pack-item flex items-center justify-between p-2 rounded-xl border transition cursor-pointer select-none ${
+        isSelectedFree
+          ? 'bg-amber-100 dark:bg-amber-950/60 border-amber-500 shadow-2xs'
+          : 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300/80 dark:border-emerald-800/60 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/50'
+      }" data-gem="free">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg ${
+            isSelectedFree ? 'bg-emerald-600 text-white' : 'bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200'
+          } flex items-center justify-center font-bold text-sm shrink-0">
+            🎁
+          </div>
+          <div>
+            <div class="font-bold text-xs text-sfl-dirt dark:text-amber-200 flex items-center gap-1.5">
+              <span>Free Gems</span>
+              <span class="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.2 rounded-full uppercase">0 Cost</span>
+              ${isSelectedFree ? '<span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">✓ Selected</span>' : ''}
+            </div>
+            <div class="text-[10px] text-sfl-woodLight dark:text-slate-400 font-mono">
+              In-game earnings / free gems (0 🌸 cost)
+            </div>
+          </div>
+        </div>
+        <div class="text-right shrink-0">
+          <div class="flex items-center justify-end gap-1">
+            <span class="inline-block px-2 py-0.5 rounded-lg ${
+              isSelectedFree
+                ? 'bg-emerald-600 text-white font-bold'
+                : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-bold'
+            } font-mono text-[11px]">
+              0.0000 🌸
+            </span>
+          </div>
+          <div class="text-[9px] text-sfl-woodLight dark:text-slate-500 mt-0.5 font-sans">
+            free / gem
+          </div>
+        </div>
+      </div>
+    `;
+
+    list.innerHTML = freeHtml + packs.map(pack => {
       const isSelected = selectedPackKey && String(pack.gem) === String(selectedPackKey);
       const isBestValue = pack.gem >= 200000;
       const sfl1Val = isDiscountActive ? (pack.sfl1 * 0.8) : pack.sfl1;
@@ -384,6 +450,8 @@ export function setupGemPacksDropdown() {
         if (selectedPackKey === gemVal) {
           // Deselect
           persistSelection('', null);
+        } else if (gemVal === 'free') {
+          persistSelection('free', { gem: 0, usd: 0, sfl1: 0, sfl: 0, pol: 0, name: 'Free' });
         } else {
           const packData = currentGemsData[gemVal];
           persistSelection(gemVal, packData);
@@ -391,13 +459,18 @@ export function setupGemPacksDropdown() {
         renderList(currentGemsData);
         dropdown.classList.add('hidden');
         arrow.classList.remove('rotate-180');
+        if (typeof window.refreshDashboardView === 'function') {
+          window.refreshDashboardView();
+        }
       });
     });
   }
 
   function updateButtonLabel() {
     if (!labelEl) return;
-    if (selectedPackKey && currentGemsData[selectedPackKey]) {
+    if (selectedPackKey === 'free') {
+      labelEl.innerHTML = `<span>💎 Free Gems:</span> <span class="text-emerald-700 dark:text-emerald-400 font-mono font-bold">0.0000 🌸</span>`;
+    } else if (selectedPackKey && currentGemsData[selectedPackKey]) {
       const p = currentGemsData[selectedPackKey];
       const rate = isDiscountActive ? (p.sfl1 * 0.8) : p.sfl1;
       const sfl1 = Number(rate || 0).toFixed(4);
@@ -445,6 +518,9 @@ export function setupGemPacksDropdown() {
       e.stopPropagation();
       persistSelection('', null);
       renderList(currentGemsData);
+      if (typeof window.refreshDashboardView === 'function') {
+        window.refreshDashboardView();
+      }
     };
   }
 

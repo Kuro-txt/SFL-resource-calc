@@ -22,7 +22,9 @@ import { fetchRollupArchive, convertArchiveToSpentItems } from './dashboardArchi
 
 export function getGemFlowerPrice() {
   const selectedRate = typeof getSelectedGemRate === 'function' ? getSelectedGemRate() : null;
-  if (selectedRate && selectedRate > 0) return selectedRate;
+  if (selectedRate !== null && selectedRate !== undefined && !isNaN(selectedRate) && selectedRate >= 0) {
+    return selectedRate;
+  }
   const isDiscount = typeof isGemDiscountActive === 'function' ? isGemDiscountActive() : true;
   const baseRate = DEFAULT_GEM_PACKS?.['100']?.sfl1 || 0.0801;
   return baseRate * (isDiscount ? 0.8 : 1.0);
@@ -673,8 +675,10 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
     const gemPrice = getGemFlowerPrice();
     const isDiscount = isGemDiscountActive();
     const selectedPack = getSelectedGemPack();
-    const packLabel = selectedPack ? `${selectedPack} Pack` : '100 Pack';
-    const discountBadge = isDiscount ? '<span class="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-100/80 dark:bg-emerald-950/50 px-1 py-0.2 rounded border border-emerald-300/60 dark:border-emerald-700/60">-20%</span>' : '';
+    const packLabel = selectedPack === 'free' ? 'Free Gems' : (selectedPack ? `${Number(selectedPack).toLocaleString()} Pack` : '100 Pack');
+    const discountBadge = (selectedPack === 'free')
+      ? '<span class="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-100/80 dark:bg-emerald-950/50 px-1 py-0.2 rounded border border-emerald-300/60 dark:border-emerald-700/60">Free</span>'
+      : (isDiscount ? '<span class="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-100/80 dark:bg-emerald-950/50 px-1 py-0.2 rounded border border-emerald-300/60 dark:border-emerald-700/60">-20%</span>' : '');
     const marginClass = inGrid ? '' : 'mb-3';
 
     let diffTooltip = `1💎 = ${gemPrice.toFixed(4)}🌸 • ${packLabel}`;
