@@ -150,3 +150,31 @@ export function calculateMilestoneProgress(npc, points) {
     };
   }
 }
+
+export function normalizeTimestampMs(ts) {
+  const num = parseInt(ts || 0, 10);
+  if (!num || isNaN(num) || num <= 0) return 0;
+  return num < 10000000000 ? num * 1000 : num;
+}
+
+export function checkIsGiftedToday(timestamp, nowMs = Date.now()) {
+  const ts = normalizeTimestampMs(timestamp);
+  if (!ts) return false;
+  const now = new Date(nowMs);
+  const startOfTodayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return ts >= startOfTodayUtc;
+}
+
+export function formatGiftedAt(timestamp, nowMs = Date.now()) {
+  const ts = normalizeTimestampMs(timestamp);
+  if (!ts) return 'Never gifted';
+  const diffMs = nowMs - ts;
+  if (diffMs < 0) return 'Just now';
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
