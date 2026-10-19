@@ -58,6 +58,7 @@ const RESOURCE_FLOWER_FALLBACK_PRICES = {
   "ruffroot": 0.05,
   "chewedbone": 0.05,
   "heartleaf": 0.05,
+  "crystalleaf": 0.05,
   "moonfur": 0.05,
   "ribbon": 0.05,
   "dewberry": 0.03,
@@ -80,7 +81,7 @@ const ALLOWED_DIFFERENCE_ITEMS = [
   "Honey", "Crimstone", "Leather", "Wool", "Merino Wool",
   "Feather", "Milk", "Obsidian", "Salt", "Goblin Emblem",
   "Bumpkin Emblem", "Sunflorian Emblem", "Nightshade Emblem", "Ruffroot", "Chewed Bone",
-  "Heart Leaf", "Moonfur", "Ribbon", "Dewberry", "Wild Grass",
+  "Heart Leaf", "Crystal Leaf", "Moonfur", "Ribbon", "Dewberry", "Wild Grass",
   "Frost Pebble", "Capsule Bait", "Umbrella Bait", "Crimson Baitfish"
 ];
 

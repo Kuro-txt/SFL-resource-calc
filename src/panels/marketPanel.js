@@ -68,7 +68,7 @@ export const ITEM_CATEGORIES = {
     label: '✨ Exotics & Forage',
     items: [
       'Celestine', 'Lunara', 'Duskberry', 'Saltwort',
-      'Ruffroot', 'Chewed Bone', 'Heart Leaf', 'Moonfur', 'Ribbon', 'Dewberry',
+      'Ruffroot', 'Chewed Bone', 'Heart Leaf', 'Crystal Leaf', 'Moonfur', 'Ribbon', 'Dewberry',
       'Wild Grass', 'Frost Pebble'
     ]
   }

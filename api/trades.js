@@ -239,6 +239,7 @@ async function ensureTableCreated(pool, dbName = 'test') {
       await pool.query(`UPDATE user_trades SET item_name = 'Frost Pebble' WHERE item_id = 2639 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
       await pool.query(`UPDATE user_trades SET item_name = 'Capsule Bait' WHERE item_id = 2986 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
       await pool.query(`UPDATE user_trades SET item_name = 'Umbrella Bait' WHERE item_id = 2987 AND (item_name LIKE 'Item #%' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
+      await pool.query(`UPDATE user_trades SET item_name = 'Crystal Leaf' WHERE item_id = 3091 AND (item_name LIKE 'Item #%' OR item_name = 'Brown Beetle Feed' OR item_name = '' OR item_name IS NULL);`).catch(() => {});
     }
     isTableReady = true;
   } catch (err) {

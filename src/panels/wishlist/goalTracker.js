@@ -32,7 +32,7 @@ export const RESOURCES_SET = new Set([
 
 export const EMBLEMS_SET = new Set([
   'goblinemblem', 'bumpkinemblem', 'sunflorianemblem', 'nightshadeemblem',
-  'ruffroot', 'chewedbone', 'heartleaf', 'moonfur', 'ribbon',
+  'ruffroot', 'chewedbone', 'heartleaf', 'crystalleaf', 'moonfur', 'ribbon',
   'dewberry', 'wildgrass', 'frostpebble', 'capsulebait', 'umbrellabait', 'crimsonbaitfish'
 ]);
 

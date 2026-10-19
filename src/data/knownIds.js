@@ -1504,7 +1504,7 @@ export const KNOWN_IDS = {
   "Mud": 3088,
   "Rawhide": 3089,
   "Truffle": 3090,
-  "Brown Beetle Feed": 3091,
+  "Crystal Leaf": 3091,
   "Blue Beetle Feed": 3092,
   "Pink Beetle Feed": 3093,
   "Amber Beetle Feed": 3094

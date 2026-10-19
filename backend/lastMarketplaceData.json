@@ -115,6 +115,8 @@
       "[P2P] Chewed Bone": 0.2672,
       "Heart Leaf": 0.28494,
       "[P2P] Heart Leaf": 0.28494,
+      "Crystal Leaf": 0.075,
+      "[P2P] Crystal Leaf": 0.075,
       "Moonfur": 1.821,
       "[P2P] Moonfur": 1.821,
       "Ribbon": 0.2844,
@@ -271,6 +273,8 @@
       "[P2P] Chewed Bone": 0.2672,
       "Heart Leaf": 0.28494,
       "[P2P] Heart Leaf": 0.28494,
+      "Crystal Leaf": 0.075,
+      "[P2P] Crystal Leaf": 0.075,
       "Moonfur": 1.821,
       "[P2P] Moonfur": 1.821,
       "Ribbon": 0.2844,
@@ -594,6 +598,15 @@
         "price": 0.28494,
         "floor": 0.28494,
         "latestSale": 0.28494
+      },
+      "Crystal Leaf": {
+        "price": 0.075,
+        "floor": 0.075,
+        "latestSale": 0.075,
+        "volume": 1432.63,
+        "trades": 1298,
+        "collection": "collectibles",
+        "itemId": "3091"
       },
       "Moonfur": {
         "price": 1.821,

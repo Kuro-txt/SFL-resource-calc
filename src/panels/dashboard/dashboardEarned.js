@@ -17,7 +17,7 @@ export const ITEM_CATEGORIES = {
 
   // Resources & Minerals
   wood: 'resources', stone: 'resources', iron: 'resources', gold: 'resources',
-  crimstone: 'resources', obsidian: 'resources', salt: 'resources',
+  crimstone: 'resources', obsidian: 'resources', salt: 'resources', crystalleaf: 'resources',
 
   // Animals & Barn
   egg: 'animals', honey: 'animals', leather: 'animals', wool: 'animals',
@@ -88,7 +88,7 @@ const ITEM_ICONS = {
   celestine: '💎', grape: '🍇', rice: '🌾', olive: '🫒', tomato: '🍅',
   lemon: '🍋', blueberry: '🫐', orange: '🍊', apple: '🍎', banana: '🍌',
   goblinemblem: '👺', bumpkinemblem: '🧑‍🌾', sunflorianemblem: '🌻', nightshadeemblem: '🌙',
-  ruffroot: '🌿', chewedbone: '🦴', heartleaf: '🍃', moonfur: '🐾', ribbon: '🎀',
+  ruffroot: '🌿', chewedbone: '🦴', heartleaf: '🍃', crystalleaf: '🍃', moonfur: '🐾', ribbon: '🎀',
   dewberry: '🫐', wildgrass: '🌾', frostpebble: '🪨', capsulebait: '💊', umbrellabait: '☂️',
   crimsonbaitfish: '🐟'
 };
