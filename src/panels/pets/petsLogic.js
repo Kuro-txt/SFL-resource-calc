@@ -456,13 +456,13 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
     };
   });
 
-  // Identify Best Value food among pending (unfed, unlocked) requests
-  const pending = results.filter(r => r.isUnlocked && !r.isFed && r.costPerEnergy > 0);
-  if (pending.length > 0) {
+  // Identify Best Value food among unlocked requests (persists even if completed/fed)
+  const available = results.filter(r => r.isUnlocked && r.costPerEnergy > 0);
+  if (available.length > 0) {
     let minCost = Infinity;
     let bestIdx = -1;
     results.forEach((r, idx) => {
-      if (r.isUnlocked && !r.isFed && r.costPerEnergy < minCost) {
+      if (r.isUnlocked && r.costPerEnergy < minCost) {
         minCost = r.costPerEnergy;
         bestIdx = idx;
       }
