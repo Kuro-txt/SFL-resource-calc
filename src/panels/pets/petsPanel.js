@@ -1,7 +1,8 @@
 import { renderPetsTemplate, renderPetsOptInGate } from './petsTemplate.js';
 import { 
   parseFarmPets, 
-  checkFoodAvailability, 
+  checkFoodAvailability,
+  getSlotRequiredLevel, 
   calculateFetchingCapacity,
   getTimeUntilUtcReset,
   getStoredEnergyLedger, 
@@ -420,8 +421,8 @@ export function renderPetsCards() {
   } else if (activeFilter === 'hungry') {
     pets = pets.filter(p => {
       const auraMul = getPetAuraMultiplier(p.name, p);
-      const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1, auraMul, isWalrusActive);
-      return foodReqs.some(f => !f.isFed);
+      const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1, auraMul, isWalrusActive, p.rarity === 'NFT');
+      return foodReqs.some(f => f.isUnlocked && !f.isFed);
     });
   }
 
@@ -463,9 +464,11 @@ export function renderPetsCards() {
     const petLevel = levelStats.level;
     const auraMultiplier = getPetAuraMultiplier(pet.name, pet);
     const auraKey = getPetAuraKey(pet.name, pet);
-    const foodReqs = checkFoodAvailability(pet.requests, inventory, petLevel, auraMultiplier, isWalrusActive);
-    const fedCount = foodReqs.filter(f => f.isFed).length;
-    const totalRequests = foodReqs.length;
+    const foodReqs = checkFoodAvailability(pet.requests, inventory, petLevel, auraMultiplier, isWalrusActive, pet.rarity === 'NFT');
+    const unlockedReqs = foodReqs.filter(f => f.isUnlocked);
+    const fedCount = unlockedReqs.filter(f => f.isFed).length;
+    const totalRequests = unlockedReqs.length;
+    const lockedCount = foodReqs.length - totalRequests;
 
     const fetchCap = calculateFetchingCapacity(
       pet.energy || 0,
@@ -548,8 +551,8 @@ export function renderPetsCards() {
         <div class="space-y-1.5">
           <div class="flex justify-between items-center text-[10px] font-bold uppercase text-sfl-wood dark:text-amber-200">
             <span>🍲 Food Diet & Energy Costs</span>
-            <span class="${fedCount === totalRequests ? 'text-emerald-600' : 'text-sfl-woodLight dark:text-slate-400'}">
-              ${fedCount}/${totalRequests} Fed
+            <span class="${fedCount === totalRequests && totalRequests > 0 ? 'text-emerald-600' : 'text-sfl-woodLight dark:text-slate-400'}">
+              ${fedCount}/${totalRequests} Fed${lockedCount > 0 ? ` <span class="text-[9px] font-semibold text-slate-500 dark:text-slate-400" title="${lockedCount} request(s) locked by pet level">(${lockedCount} locked)</span>` : ''}
             </span>
           </div>
 
@@ -558,7 +561,10 @@ export function renderPetsCards() {
               let badgeHtml = '';
               let rowStyle = 'bg-amber-50/60 dark:bg-slate-800/40 border-amber-200/60 dark:border-slate-700';
 
-              if (food.status === 'fed') {
+              if (!food.isUnlocked) {
+                badgeHtml = `<span class="bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-[9px] px-1.5 py-0.2 rounded border border-slate-300 dark:border-slate-700" title="Unlocks at Pet Level ${food.requiredLevel}">🔒 Lv. ${food.requiredLevel}</span>`;
+                rowStyle = 'bg-slate-100/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800/60 opacity-60';
+              } else if (food.status === 'fed') {
                 badgeHtml = '<span class="text-emerald-700 dark:text-emerald-400 font-bold text-[9px]">✅ Fed</span>';
                 rowStyle = 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300/50 dark:border-emerald-800/40';
               } else if (food.status === 'ready') {
@@ -701,10 +707,10 @@ function updateTopKpis(pets, inventory) {
   pets.forEach(p => {
     totalEnergy += parseInt(p.energy || 0);
     const auraMul = getPetAuraMultiplier(p.name, p);
-    const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1, auraMul, isWalrusActive);
+    const foodReqs = checkFoodAvailability(p.requests, inventory, p.levelStats?.level || 1, auraMul, isWalrusActive, p.rarity === 'NFT');
     
     foodReqs.forEach(f => {
-      if (!f.isFed) {
+      if (f.isUnlocked && !f.isFed) {
         totalPendingFood++;
         if (f.costPerEnergy > 0 && f.costPerEnergy < lowestCostPerEnergy) {
           lowestCostPerEnergy = f.costPerEnergy;

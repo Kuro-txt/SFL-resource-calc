@@ -337,7 +337,15 @@ export function getFoodPrice(foodName, visited = new Set()) {
  * Base energy is multiplied by auraMultiplier (None: 1.0, Common: 1.5, Rare: 2.0, Mythic: 3.0),
  * and intermediate recipe crafting (e.g. Cheese -> Blue Cheese) is evaluated.
  */
-export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, auraMultiplier = 1, walrusOnesieActive = null) {
+export function getSlotRequiredLevel(slotIdx, isNft = false) {
+  if (slotIdx <= 1) return 1;
+  if (slotIdx === 2) return 10;
+  if (slotIdx === 3) return 30;
+  if (slotIdx >= 4) return 200;
+  return 1;
+}
+
+export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, auraMultiplier = 1, walrusOnesieActive = null, isNft = false) {
   if (!requests || !Array.isArray(requests.food)) return [];
 
   const foodList = requests.food;
@@ -351,6 +359,8 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
     const isFed = foodFed.includes(foodName);
     const inBagCount = Math.floor(parseFloat(inventory?.[foodName] || 0));
     const price = getFoodPrice(foodName);
+    const requiredLevel = getSlotRequiredLevel(slotIdx, Boolean(isNft));
+    const isUnlocked = petLevel >= requiredLevel;
 
     // Energy calculation: (Base Tier Energy [20/100/300] * Aura Multiplier) + Level Bonus + Walrus Onesie
     const { tier, baseEnergy } = getFoodTierAndEnergy(foodName, slotIdx);
@@ -411,7 +421,9 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
     }
 
     let status = 'missing';
-    if (isFed) {
+    if (!isUnlocked) {
+      status = 'locked';
+    } else if (isFed) {
       status = 'fed';
     } else if (inBagCount >= 1) {
       status = 'ready';
@@ -422,6 +434,9 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
     return {
       foodName,
       slotTier: tier,
+      slotIdx,
+      requiredLevel,
+      isUnlocked,
       baseEnergy,
       baseWithAura,
       auraMultiplier: aura,
@@ -441,13 +456,13 @@ export function checkFoodAvailability(requests, inventory = {}, petLevel = 1, au
     };
   });
 
-  // Identify Best Value food among pending (unfed) requests
-  const pending = results.filter(r => !r.isFed && r.costPerEnergy > 0);
+  // Identify Best Value food among pending (unfed, unlocked) requests
+  const pending = results.filter(r => r.isUnlocked && !r.isFed && r.costPerEnergy > 0);
   if (pending.length > 0) {
     let minCost = Infinity;
     let bestIdx = -1;
     results.forEach((r, idx) => {
-      if (!r.isFed && r.costPerEnergy < minCost) {
+      if (r.isUnlocked && !r.isFed && r.costPerEnergy < minCost) {
         minCost = r.costPerEnergy;
         bestIdx = idx;
       }
