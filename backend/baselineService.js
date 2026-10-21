@@ -1,6 +1,10 @@
 const { fetchAllFarmsBatched, normalizeFarmId } = require('./farmBatchSync');
+const { logCronSummary } = require('./cronLogger');
 
 async function processBaselineSnapshot(supabase) {
+  const startTime = Date.now();
+  const succeededFarms = [];
+  const failedFarms = [];
   console.log("🔍 [CRON 00:01 UTC] Starting baseline snapshot process (batch mode)...");
   const { data: users, error } = await supabase.from('profiles').select('id, farm_id');
   if (error || !users || users.length === 0) {
@@ -45,6 +49,7 @@ async function processBaselineSnapshot(supabase) {
     // Explicit key existence check
     if (!Object.prototype.hasOwnProperty.call(allFarms, cleanFarmId)) {
       console.warn(`⚠️ Farm #${cleanFarmId} not returned by SFL. Skipping.`);
+      failedFarms.push({ farmId: cleanFarmId, reason: 'Not returned by SFL' });
       continue;
     }
 
@@ -70,17 +75,38 @@ async function processBaselineSnapshot(supabase) {
 
       if (dbError) {
         console.error(`❌ [Supabase DB Error] Baseline save failed for Farm #${cleanFarmId}: ${dbError.message}`);
+        failedFarms.push({ farmId: cleanFarmId, reason: dbError.message });
       } else {
         savedCount++;
+        succeededFarms.push(cleanFarmId);
         console.log(`✅ 00:00 UTC Baseline saved for Farm #${cleanFarmId} on ${todayDate}`);
       }
     } catch (err) {
       console.error(`❌ Failed baseline save for Farm #${cleanFarmId}: ${err.message}`);
+      failedFarms.push({ farmId: cleanFarmId, reason: err.message });
     }
   }
 
-  console.log(`🏁 [Baseline Cron Finished] ${savedCount}/${uniqueFarmEntries.size} unique farms saved to preharvest_baselines.`);
-  return { success: true, processed: uniqueFarmEntries.size, saved: savedCount };
+  const summary = logCronSummary('00:01 UTC Baseline Snapshot Complete', {
+    startTime,
+    total: uniqueFarmEntries.size,
+    succeeded: succeededFarms.length,
+    failed: failedFarms.length,
+    failedIds: failedFarms.map(f => f.farmId),
+    extraMetrics: [
+      { label: 'Baselines Saved', value: `${savedCount} records` }
+    ]
+  });
+  return {
+    success: true,
+    processed: uniqueFarmEntries.size,
+    succeeded: succeededFarms.length,
+    failed: failedFarms.length,
+    failedFarmIds: failedFarms.map(f => f.farmId),
+    saved: savedCount,
+    duration: summary.duration,
+    elapsedMs: summary.elapsedMs
+  };
 }
 
 module.exports = { processBaselineSnapshot };

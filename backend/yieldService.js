@@ -7,6 +7,7 @@ const { fetchAllFarmsBatched, normalizeFarmId } = require('./farmBatchSync');
 const { getTodayTradesForFarm } = require('./tradeSync');
 const { KNOWN_IDS, getItemNameById } = require('./knownIds');
 const { fetchMarketplaceActivity } = require('./marketplaceService');
+const { logCronSummary } = require('./cronLogger');
 
 const CLEAN_TO_OFFICIAL_NAME = {};
 if (typeof KNOWN_IDS === 'object' && KNOWN_IDS !== null) {
@@ -299,6 +300,10 @@ async function archiveFarmPetsToTiDB(farmId, farmData, flatPrices = {}) {
 }
 
 async function processYieldCalculation(supabase) {
+  const startTime = Date.now();
+  const succeededFarms = [];
+  const failedFarms = [];
+  const skippedFarms = [];
   console.log("🔍 [CRON 22:30 UTC] Starting yield calculation process...");
   const todayDate = new Date().toISOString().split('T')[0];
   
@@ -407,6 +412,7 @@ async function processYieldCalculation(supabase) {
 
     if (!baselineRecord || !baselineRecord.farm_activity || Object.keys(baselineRecord.farm_activity).length === 0) {
       console.warn(`⚠️ Skipped 22:30 UTC calculation for Farm #${cleanFarmId}: No baseline found for ${todayDate} or earlier.`);
+      skippedFarms.push(cleanFarmId);
       continue;
     }
 
@@ -450,6 +456,7 @@ async function processYieldCalculation(supabase) {
 
     if (!Object.prototype.hasOwnProperty.call(allFarms, cleanFarmId)) {
       console.warn(`⚠️ Farm #${cleanFarmId} not returned by SFL batch API. Skipping Farm #${cleanFarmId} (User ${primaryUser.id}) at 22:30 UTC.`);
+      failedFarms.push({ farmId: cleanFarmId, reason: 'Not returned by SFL' });
       continue;
     }
 
@@ -686,6 +693,7 @@ async function processYieldCalculation(supabase) {
 
     if (totalHarvestCount <= 0 && yieldsList.length === 0 && spentList.length === 0 && cropActivityYields.length === 0 && Math.abs(netCoinsDiff) <= 0 && dailyCoinsEarned <= 0 && dailyCoinsSpent <= 0 && Math.abs(netGemsDiff) <= 0 && dailyGemsSpent <= 0 && dailySflEarned <= 0) {
       console.log(`ℹ️ [Yield Calculation] No harvest/trade/spent/coin/gem/delivery activity for Farm #${cleanFarmId} on ${todayDate}, skipping blank row save.`);
+      succeededFarms.push(cleanFarmId);
       await delay(20);
       continue;
     }
@@ -702,8 +710,10 @@ async function processYieldCalculation(supabase) {
 
     if (dbError) {
       console.error(`❌ [Supabase DB Error] Yield save failed for Farm #${cleanFarmId}: ${dbError.message}`);
+      failedFarms.push({ farmId: cleanFarmId, reason: dbError.message });
     } else {
       savedYieldsCount++;
+      succeededFarms.push(cleanFarmId);
       console.log(`✅ 22:30 UTC Yield saved for Farm #${cleanFarmId} on ${todayDate}`);
     }
 
@@ -732,7 +742,18 @@ async function processYieldCalculation(supabase) {
     }
   }
 
-  console.log(`🏁 [Yield Calculation] Completed: ${savedYieldsCount} farm yields saved to Supabase.`);
+  const summary = logCronSummary('22:30 UTC Daily Yield Calculation Complete', {
+    startTime,
+    total: uniqueFarmEntries.size,
+    succeeded: succeededFarms.length,
+    failed: failedFarms.length,
+    skipped: skippedFarms.length,
+    failedIds: failedFarms.map(f => f.farmId),
+    skippedIds: skippedFarms,
+    extraMetrics: [
+      { label: 'Yields Saved', value: `${savedYieldsCount} records` }
+    ]
+  });
 
   // Auto-aggregate completed weeks, completed months, and safely prune expired logs
   try {
@@ -753,7 +774,17 @@ async function processYieldCalculation(supabase) {
     console.error("⚠️ [Log Pruning Error]:", err.message);
   }
 
-  return { success: true, processed: uniqueFarmEntries.size, saved: savedYieldsCount };
+  return {
+    success: true,
+    processed: uniqueFarmEntries.size,
+    succeeded: succeededFarms.length,
+    failed: failedFarms.length,
+    failedFarmIds: failedFarms.map(f => f.farmId),
+    skipped: skippedFarms.length,
+    saved: savedYieldsCount,
+    duration: summary.duration,
+    elapsedMs: summary.elapsedMs
+  };
 }
 
 async function backfillDailyYields(supabase) {

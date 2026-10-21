@@ -3,6 +3,7 @@ const { getSflHeaders, queueFarmSync, delay } = require('./farmApi');
 const { getTiDBPool, recordExchangeRateInCloud } = require('./db');
 const { getItemNameById } = require('./knownIds');
 const { fetchMarketplaceActivity } = require('./marketplaceService');
+const { logCronSummary } = require('./cronLogger');
 
 async function fetchMarketplaceTradesRaw(farmId, apiKey = '', maxRetries = 1) {
   const totalAttempts = 1 + maxRetries; // 1 initial attempt + 1 retry = 2 attempts total
@@ -49,6 +50,9 @@ async function fetchMarketplaceTradesWithRetry(farmId, apiKey = '', maxRetries =
 }
 
 async function processAutoSyncTrades(supabase) {
+  const startTime = Date.now();
+  const succeededFarms = [];
+  const failedFarms = [];
   console.log("🚀 [Auto-Sync Trades] Starting 5x daily marketplace trades auto-sync (11s gap, 2 attempts)...");
   
   const farmMap = new Map();
@@ -178,15 +182,38 @@ async function processAutoSyncTrades(supabase) {
         }
         console.log(`✅ [Auto-Sync Trades] Farm #${farmId}: Synced ${rawTrades.length} trades.`);
         totalSynced += rawTrades.length;
+        succeededFarms.push(farmId);
       } else {
         console.log(`ℹ️ [Auto-Sync Trades] Farm #${farmId}: 0 trades found.`);
+        succeededFarms.push(farmId);
       }
     } catch (err) {
       console.warn(`⚠️ [Auto-Sync Trades] Error syncing Farm #${farmId}: ${err.message}`);
+      failedFarms.push({ farmId, error: err.message });
     }
   }
 
-  console.log(`🎉 [Auto-Sync Trades] Finished auto-sync batch for ${farmEntries.length} farms. Total trades: ${totalSynced}.`);
+  const summary = logCronSummary('Marketplace Trades Auto-Sync Complete', {
+    startTime,
+    total: farmEntries.length,
+    succeeded: succeededFarms.length,
+    failed: failedFarms.length,
+    failedIds: failedFarms.map(f => f.farmId),
+    extraMetrics: [
+      { label: 'Trades Synced', value: `${totalSynced} rows inserted` }
+    ]
+  });
+
+  return {
+    success: true,
+    total: farmEntries.length,
+    succeeded: succeededFarms.length,
+    failed: failedFarms.length,
+    failedFarmIds: failedFarms.map(f => f.farmId),
+    totalSynced,
+    duration: summary.duration,
+    elapsedMs: summary.elapsedMs
+  };
 }
 
 async function getTodayTradesForFarm(farmId, todayDate, allowLiveApi = false) {
