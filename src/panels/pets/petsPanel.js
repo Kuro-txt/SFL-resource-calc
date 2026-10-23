@@ -1,5 +1,5 @@
 import { renderPetsTemplate, renderPetsOptInGate } from './petsTemplate.js';
-import { getPetIconHtml } from '../../utils/petIcons.js';
+import { getPetIconHtml, preloadPetIcons } from '../../utils/petIcons.js';
 import { 
   parseFarmPets, 
   checkFoodAvailability,
@@ -73,6 +73,7 @@ const SAMPLE_PREVIEW_FARM = {
 export function initPetsPanel() {
   if (isInitialized) return;
   isInitialized = true;
+  preloadPetIcons();
 
   window.addEventListener('farmDataSynced', (e) => {
     if (!isPetTrackerOptedIn()) return;
