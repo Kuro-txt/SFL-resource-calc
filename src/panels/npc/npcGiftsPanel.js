@@ -2,6 +2,7 @@ import { ApiService } from '../../services/api.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
 import { getNpcIconHtml, preloadNpcIcons } from '../../utils/npcIcons.js';
+import { getItemIcon } from '../../utils/itemIcons.js';
 import { NPC_CATALOG, formatFlowerRecipe } from './npcData.js';
 import { getNpcFriendship, getNpcData, getItemFlowerPrice, calculateMilestoneProgress, checkIsGiftedToday, formatGiftedAt, normalizeTimestampMs } from './npcLogic.js';
 
@@ -345,9 +346,9 @@ export function renderNpcCards() {
       return `
         <div class="bg-amber-100/70 dark:bg-amber-950/40 p-1.5 sm:p-2 rounded-lg text-xs space-y-1 border border-amber-200/50 dark:border-amber-900/40">
           <!-- Row 1: Full Flower Name & Crafting Price -->
-          <div class="flex justify-between items-baseline gap-1.5 min-w-0">
-            <span class="font-bold text-sfl-dirt dark:text-amber-100 text-[11px] sm:text-xs leading-snug whitespace-normal break-words overflow-visible">
-              ${favName}
+          <div class="flex justify-between items-center gap-1.5 min-w-0">
+            <span class="font-bold text-sfl-dirt dark:text-amber-100 text-[11px] sm:text-xs leading-snug whitespace-normal break-words overflow-visible flex items-center gap-1.5 min-w-0">
+              ${getItemIcon(favName, { className: 'w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0 object-contain inline-block' })} <span>${favName}</span>
             </span>
             ${priceBadge}
           </div>
@@ -448,7 +449,7 @@ export function renderNpcCards() {
       <!-- FAVORITE FLOWERS WITH POINTS & FLOWERS NEEDED -->
       <div class="space-y-1 sm:space-y-1.5">
         <span class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-sfl-wood dark:text-amber-300 flex items-center gap-1">
-          <span>🌸</span> Favorite Flowers:
+          <span class="flex items-center gap-1"><span>🌸</span>${FLOWER_IMG_SMALL_HTML}</span> Favorite Flowers:
         </span>
         <div class="space-y-1 sm:space-y-1.5 max-h-36 sm:max-h-40 overflow-y-auto pr-0.5">
           ${favoritesHtml}
