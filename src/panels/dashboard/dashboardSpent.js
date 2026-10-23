@@ -14,6 +14,7 @@ import {
   getGemFlowerPrice
 } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice, formatItemUnitPrice } from '../../utils/formatters.js';
+import { getItemIcon } from '../../utils/itemIcons.js';
 import { tradeHistoryData } from '../tradeHistory/tradeData.js';
 import { ApiService } from '../../services/api.js';
 import { getItemNameById } from '../../data/knownIds.js';
@@ -82,28 +83,7 @@ function getItemPrice(name) {
   return 0.01;
 }
 
-const ITEM_ICONS = {
-  coins: '🪙', coin: '🪙', gem: '💎', gems: '💎',
-  egg: '🥚', milk: '🥛', feather: '🪶', leather: '👞', wool: '🧶',
-  merinowool: '🐑', honey: '🍯', wood: '🪵', stone: '🪨', iron: '⛓️',
-  gold: '🪙', crimstone: '💎', obsidian: '⬛', salt: '🧂',
-  sunflower: '🌻', potato: '🥔', pumpkin: '🎃', carrot: '🥕', cabbage: '🥬',
-  beetroot: '🟣', cauliflower: '🥦', parsnip: '🥕', eggplant: '🍆', corn: '🌽',
-  radish: '🔴', wheat: '🌾', kale: '🥬', soybean: '🫘', barley: '🌾',
-  rhubarb: '🌱', zucchini: '🥒', yam: '🍠', broccoli: '🥦', pepper: '🌶️',
-  onion: '🧅', turnip: '🪴', artichoke: '🌿', duskberry: '🫐', lunara: '✨',
-  celestine: '💎', grape: '🍇', rice: '🌾', olive: '🫒', tomato: '🍅',
-  lemon: '🍋', blueberry: '🫐', orange: '🍊', apple: '🍎', banana: '🍌',
-  goblinemblem: '👺', bumpkinemblem: '🧑‍🌾', sunflorianemblem: '🌻', nightshadeemblem: '🌙',
-  ruffroot: '🌿', chewedbone: '🦴', heartleaf: '🍃', crystalleaf: '🍃', moonfur: '🐾', ribbon: '🎀',
-  dewberry: '🫐', wildgrass: '🌾', frostpebble: '🪨', capsulebait: '💊', umbrellabait: '☂️',
-  crimsonbaitfish: '🐟'
-};
-
-function getItemIcon(name) {
-  const clean = normalizeItemKey(name);
-  return ITEM_ICONS[clean] || '📦';
-}
+// Item icons resolved via getItemIcon from src/utils/itemIcons.js
 
 const IGNORE_ITEMS = new Set([
   'flower', 'sfl', 'coin', 'coins', 'gem', 'blockbuck', 'loveletter', 'currentcoins'
@@ -621,7 +601,7 @@ export async function renderSpentSection(mountEl, boundsInput = 'day', preloaded
           title="Unit Price: ${formattedUnitPrice} 🌸 | Total Cost: -${flowers.toFixed(3)} 🌸">
           <!-- Column 1: Item (Icon + Name + Category + Micro Share Bar) -->
           <div class="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
-            <span class="text-base sm:text-lg shrink-0 select-none">${icon}</span>
+            <span class="w-6 h-6 shrink-0 flex items-center justify-center select-none">${icon}</span>
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="font-bold text-sfl-dirt dark:text-amber-100 text-[11px] sm:text-xs leading-snug break-words">${name}</span>
