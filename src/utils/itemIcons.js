@@ -358,8 +358,7 @@ export const ITEM_IMAGE_PATHS = {
   "sfl": "./assets/flower.webp",
   "flowertoken": "./assets/flower.webp",
   "deliveryflowers": "./assets/flower.webp",
-  "gems": "./public/icons/gem.webp",
-  "corncake": "./public/icons/food/cakes/corn_cake.png"
+  "gems": "./public/icons/gem.webp"
 };
 
 export const FALLBACK_EMOJIS = {
