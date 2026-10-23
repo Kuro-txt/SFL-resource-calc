@@ -1,15 +1,3 @@
-/**
- * server.js — Express app entry point & route wiring
- *
- * Business logic lives in backend/:
- *   backend/db.js             — TiDB pool & table setup
- *   backend/prices.js         — CROP_FLOWER_PRICES & getFlowerUnitPrice
- *   backend/farmApi.js        — SFL API fetching utilities
- *   backend/baselineService.js — processBaselineSnapshot()
- *   backend/yieldService.js   — processYieldCalculation(), backfillDailyYields()
- *   backend/tradeSync.js      — fetchMarketplaceTradesWithRetry(), processAutoSyncTrades()
- */
-
 const express = require('express');
 const cors    = require('cors');
 const axios   = require('axios');
