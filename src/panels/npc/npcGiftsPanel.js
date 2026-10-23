@@ -1,6 +1,7 @@
 import { ApiService } from '../../services/api.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
+import { getNpcIconHtml } from '../../utils/npcIcons.js';
 import { NPC_CATALOG, formatFlowerRecipe } from './npcData.js';
 import { getNpcFriendship, getNpcData, getItemFlowerPrice, calculateMilestoneProgress, checkIsGiftedToday, formatGiftedAt, normalizeTimestampMs } from './npcLogic.js';
 
@@ -382,7 +383,7 @@ export function renderNpcCards() {
       <!-- TOP HEADER -->
       <div class="flex justify-between items-start border-b border-sfl-cardBorder/40 dark:border-amber-900/40 pb-1.5 sm:pb-2 gap-2 min-w-0">
         <div class="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-          <span class="text-xl sm:text-2xl shrink-0">${npc.icon}</span>
+          ${getNpcIconHtml(npc.id || npc.name, { fallbackEmoji: npc.icon, className: 'w-7 h-7 sm:w-8 sm:h-8' })}
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5">
               <h4 class="font-bold text-sfl-dirt dark:text-amber-200 text-xs sm:text-sm truncate">${npc.name}</h4>
