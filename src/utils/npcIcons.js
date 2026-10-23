@@ -54,14 +54,34 @@ export function getNpcIconHtml(nameOrId, options = {}) {
   const imgPath = getNpcIconPath(key);
 
   if (imgPath) {
-    return `<img src="${imgPath}" class="${sizeClass} object-contain inline-block shrink-0 select-none" style="image-rendering: pixelated;" alt="${nameOrId}" loading="lazy" onerror="this.outerHTML='<span class=\\'${sizeClass} flex items-center justify-center text-xl select-none shrink-0\\'>${fallback}</span>'" />`;
+    return `<img src="${imgPath}" class="${sizeClass} object-contain inline-block shrink-0 select-none" style="image-rendering: pixelated;" alt="${nameOrId}" loading="eager" decoding="async" onerror="this.outerHTML='<span class=\\'${sizeClass} flex items-center justify-center text-xl select-none shrink-0\\'>${fallback}</span>'" />`;
   }
 
   return `<span class="${sizeClass} flex items-center justify-center text-xl select-none shrink-0">${fallback}</span>`;
 }
 
+/**
+ * Preloads NPC images into browser memory cache for zero-latency instant display.
+ */
+export function preloadNpcIcons(npcList = []) {
+  if (typeof window === 'undefined') return;
+  const list = npcList.length > 0 ? npcList : [
+    'betty', 'pumpkin_pete', 'blacksmith', 'bert', 'finley', 'raven',
+    'tywin', 'old_salty', 'miranda', 'finn', 'corale', 'cornwell',
+    'victoria', 'jester'
+  ];
+  list.forEach(name => {
+    const p = getNpcIconPath(name);
+    if (p) {
+      const img = new Image();
+      img.src = p;
+    }
+  });
+}
+
 if (typeof window !== 'undefined') {
   window.getNpcIconHtml = getNpcIconHtml;
   window.getNpcIconPath = getNpcIconPath;
+  window.preloadNpcIcons = preloadNpcIcons;
 }
 

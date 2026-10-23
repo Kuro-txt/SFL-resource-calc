@@ -90,13 +90,33 @@ export function getPetIconHtml(nameOrId, options = {}) {
   const imgPath = getPetIconPath(nameOrId, options);
 
   if (imgPath) {
-    return `<img src="${imgPath}" class="${sizeClass} object-contain inline-block shrink-0 select-none" style="image-rendering: pixelated;" alt="${nameOrId}" loading="lazy" onerror="this.outerHTML='<span class=\\'${sizeClass} flex items-center justify-center text-xl select-none shrink-0\\'>${fallback}</span>'" />`;
+    return `<img src="${imgPath}" class="${sizeClass} object-contain inline-block shrink-0 select-none" style="image-rendering: pixelated;" alt="${nameOrId}" loading="eager" decoding="async" onerror="this.outerHTML='<span class=\\'${sizeClass} flex items-center justify-center text-xl select-none shrink-0\\'>${fallback}</span>'" />`;
   }
 
   return `<span class="${sizeClass} flex items-center justify-center text-xl select-none shrink-0">${fallback}</span>`;
 }
 
+/**
+ * Preloads common pet images into browser memory cache.
+ */
+export function preloadPetIcons() {
+  if (typeof window === 'undefined') return;
+  const list = [
+    'barkley', 'biscuit', 'cloudy', 'meowchi', 'butters', 'smokey',
+    'twizzle', 'flicker', 'pippin', 'burro', 'pinto', 'roan', 'stallion',
+    'mudhorn', 'bison', 'oxen', 'nibbles', 'peanuts', 'waddles', 'pip', 'skipper', 'ramsey'
+  ];
+  list.forEach(name => {
+    const p = getPetIconPath(name);
+    if (p) {
+      const img = new Image();
+      img.src = p;
+    }
+  });
+}
+
 if (typeof window !== 'undefined') {
   window.getPetIconHtml = getPetIconHtml;
   window.getPetIconPath = getPetIconPath;
+  window.preloadPetIcons = preloadPetIcons;
 }

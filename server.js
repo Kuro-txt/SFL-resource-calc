@@ -97,8 +97,10 @@ app.use((req, res, next) => {
   next();
 });
 
+const staticCacheOpts = { maxAge: '7d', immutable: true };
+app.use('/icons', express.static(path.join(__dirname, 'public', 'icons'), staticCacheOpts));
+app.use('/public', express.static(path.join(__dirname, 'public'), staticCacheOpts));
 app.use(express.static(path.join(__dirname)));
-app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 
 // ── Auth helper ────────────────────────────────────────────────────────────
 function verifyCronAuth(req) {

@@ -1,7 +1,7 @@
 import { ApiService } from '../../services/api.js';
 import { FLOWER_IMG_SMALL_HTML } from '../../config/constants.js';
 import { normalizeItemKey, getBettyUnitPrice } from '../../utils/formatters.js';
-import { getNpcIconHtml } from '../../utils/npcIcons.js';
+import { getNpcIconHtml, preloadNpcIcons } from '../../utils/npcIcons.js';
 import { NPC_CATALOG, formatFlowerRecipe } from './npcData.js';
 import { getNpcFriendship, getNpcData, getItemFlowerPrice, calculateMilestoneProgress, checkIsGiftedToday, formatGiftedAt, normalizeTimestampMs } from './npcLogic.js';
 
@@ -120,6 +120,7 @@ export function renderNpcGiftsTemplate() {
 }
 
 export function initNpcGiftsPanel() {
+  preloadNpcIcons();
   renderNpcGiftsTemplate();
   renderNpcCards();
 
