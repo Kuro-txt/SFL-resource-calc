@@ -1,4 +1,5 @@
 import { renderPetsTemplate, renderPetsOptInGate } from './petsTemplate.js';
+import { getPetIconHtml } from '../../utils/petIcons.js';
 import { 
   parseFarmPets, 
   checkFoodAvailability,
@@ -497,7 +498,7 @@ export function renderPetsCards() {
         <!-- COMPACT HEADER ROW -->
         <div class="flex items-center justify-between gap-2 border-b border-sfl-cardBorder/40 dark:border-slate-800 pb-2">
           <div class="flex items-center gap-2 overflow-hidden">
-            <span class="text-2xl shrink-0 leading-none">${pet.emoji}</span>
+            ${getPetIconHtml(pet.name || pet.species, { fallbackEmoji: pet.emoji, className: 'w-7 h-7 sm:w-8 sm:h-8' })}
             <div class="truncate">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="text-xs font-bold text-sfl-wood dark:text-amber-100 truncate">${pet.name}</span>
