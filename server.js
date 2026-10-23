@@ -98,6 +98,7 @@ app.use((req, res, next) => {
 });
 
 app.use(express.static(path.join(__dirname)));
+app.use('/icons', express.static(path.join(__dirname, 'public', 'icons')));
 
 // ── Auth helper ────────────────────────────────────────────────────────────
 function verifyCronAuth(req) {
