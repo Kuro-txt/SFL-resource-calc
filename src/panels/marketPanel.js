@@ -46,7 +46,10 @@ export const ITEM_CATEGORIES = {
   resources: {
     key: 'resources',
     label: '🪨 Minerals & Resources',
-    items: ['Wood', 'Stone', 'Iron', 'Gold', 'Crimstone', 'Salt', 'Obsidian', 'Sunstone']
+    items: [
+      'Wood', 'Stone', 'Iron', 'Gold', 'Crimstone', 'Salt', 'Obsidian', 'Sunstone',
+      'Green Beetle', 'Blue Beetle', 'Pink Beetle', 'Amber Beetle', 'Pig Bristles', 'Truffle'
+    ]
   },
   animals: {
     key: 'animals',

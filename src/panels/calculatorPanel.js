@@ -20,7 +20,7 @@ export function getFallbackPrices() {
 // ── Price Cache Format Version ─────────────────────────────────────────────
 // Bump this string whenever the price format/scale changes so all browsers
 // automatically clear their stale localStorage cache on next load.
-const PRICE_FORMAT_VERSION = 'v4-type-isolated';
+const PRICE_FORMAT_VERSION = 'v5-chapter16-resources';
 
 export function getInitialPrices() {
   try {

@@ -109,7 +109,8 @@ export const ALLOWED_DIFFERENCE_ITEMS = [
   "Feather", "Milk", "Obsidian", "Salt", "Goblin Emblem",
   "Bumpkin Emblem", "Sunflorian Emblem", "Nightshade Emblem", "Ruffroot", "Chewed Bone",
   "Heart Leaf", "Crystal Leaf", "Moonfur", "Ribbon", "Dewberry", "Wild Grass",
-  "Frost Pebble", "Capsule Bait", "Umbrella Bait", "Crimson Baitfish"
+  "Frost Pebble", "Capsule Bait", "Umbrella Bait", "Crimson Baitfish",
+  "Green Beetle", "Blue Beetle", "Pink Beetle", "Amber Beetle", "Pig Bristles", "Truffle"
 ];
 
 export const ALLOWED_ITEM_NAMES = {};
@@ -119,6 +120,16 @@ ALLOWED_DIFFERENCE_ITEMS.forEach(name => {
   ALLOWED_ITEM_KEYS.add(clean);
   ALLOWED_ITEM_NAMES[clean] = name;
 });
+
+// Common plural, singular, and typo aliases
+ALLOWED_ITEM_KEYS.add('pigbristle');
+ALLOWED_ITEM_NAMES['pigbristle'] = 'Pig Bristles';
+ALLOWED_ITEM_KEYS.add('pigbritsles');
+ALLOWED_ITEM_NAMES['pigbritsles'] = 'Pig Bristles';
+ALLOWED_ITEM_KEYS.add('truffles');
+ALLOWED_ITEM_NAMES['truffles'] = 'Truffle';
+ALLOWED_ITEM_KEYS.add('bluebettle');
+ALLOWED_ITEM_NAMES['bluebettle'] = 'Blue Beetle';
 
 export function isAllowedDifferenceItem(name) {
   if (!name) return false;
@@ -240,11 +251,19 @@ export const RESOURCE_FLOWER_FALLBACK_PRICES = {
   "frostpebble": 0.05,
   "capsulebait": 0.06,
   "umbrellabait": 0.06,
-  "crimsonbaitfish": 0.08
+  "crimsonbaitfish": 0.08,
+  "greenbeetle": 0.05,
+  "bluebeetle": 0.10,
+  "pinkbeetle": 0.20,
+  "amberbeetle": 0.40,
+  "pigbristles": 0.08,
+  "pigbristle": 0.08,
+  "truffle": 0.15,
+  "truffles": 0.15
 };
 
 
-// Whitelist of 64 items that use the global tax rate (from tax-select / sfl_tax_rate).
+// Whitelist of items that use the global tax rate (from tax-select / sfl_tax_rate).
 // Everything else is taxed at a fixed 10% rate.
 export const RAW_GLOBAL_TAX_ITEMS = [
   'Sunflower', 'Potato', 'Pumpkin', 'Carrot', 'Cabbage',
@@ -259,7 +278,8 @@ export const RAW_GLOBAL_TAX_ITEMS = [
   'Feather', 'Milk', 'Salt', 'Goblin Emblem', 'Bumpkin Emblem',
   'Sunflorian Emblem', 'Nightshade Emblem', 'Ruffroot', 'Chewed Bone', 'Heart Leaf',
   'Crystal Leaf', 'Moonfur', 'Ribbon', 'Dewberry', 'Wild Grass', 'Frost Pebble',
-  'Capsule Bait', 'Umbrella Bait', 'Crimson Baitfish', 'Saltwort'
+  'Capsule Bait', 'Umbrella Bait', 'Crimson Baitfish', 'Saltwort',
+  'Green Beetle', 'Blue Beetle', 'Pink Beetle', 'Amber Beetle', 'Pig Bristles', 'Truffle'
 ];
 
 export const GLOBAL_TAX_ITEMS = new Set();

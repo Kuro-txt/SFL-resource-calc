@@ -16,6 +16,9 @@ function getItemIcon(cleanName) {
   if (cleanName === 'stone') return '🪨';
   if (['iron', 'gold', 'crimstone', 'obsidian'].includes(cleanName)) return '⛏️';
   if (['egg', 'milk', 'honey', 'wool', 'merino wool', 'feather', 'leather'].includes(cleanName)) return '🥚';
+  if (cleanName.includes('beetle')) return '🪲';
+  if (cleanName.includes('bristle')) return '🐗';
+  if (cleanName.includes('truffle')) return '🍄';
   if (cleanName.includes('emblem')) return '🏅';
   if (cleanName.includes('bait') || cleanName.includes('fish')) return '🎣';
   return '⭐';
@@ -25,7 +28,7 @@ function getItemCategory(cleanName) {
   if (SFL_PLOT_CROPS.has(cleanName) || SFL_GREENHOUSE_CROPS.has(cleanName) || SFL_FRUITS.has(cleanName)) {
     return 'Crops & Fruits';
   }
-  if (['wood', 'stone', 'iron', 'gold', 'crimstone', 'obsidian', 'salt'].includes(cleanName)) {
+  if (['wood', 'stone', 'iron', 'gold', 'crimstone', 'obsidian', 'salt', 'greenbeetle', 'bluebeetle', 'pinkbeetle', 'amberbeetle', 'pigbristles', 'pigbristle', 'truffle', 'truffles'].includes(cleanName) || cleanName.includes('beetle') || cleanName.includes('bristle') || cleanName.includes('truffle')) {
     return 'Resources & Minerals';
   }
   if (['egg', 'milk', 'honey', 'wool', 'merino wool', 'feather', 'leather'].includes(cleanName)) {

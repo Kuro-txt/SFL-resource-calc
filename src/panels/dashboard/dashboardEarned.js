@@ -19,6 +19,8 @@ export const ITEM_CATEGORIES = {
   // Resources & Minerals
   wood: 'resources', stone: 'resources', iron: 'resources', gold: 'resources',
   crimstone: 'resources', obsidian: 'resources', salt: 'resources', crystalleaf: 'resources',
+  greenbeetle: 'resources', bluebeetle: 'resources', pinkbeetle: 'resources', amberbeetle: 'resources',
+  pigbristles: 'resources', pigbristle: 'resources', truffle: 'resources', truffles: 'resources',
 
   // Animals & Barn
   egg: 'animals', honey: 'animals', leather: 'animals', wool: 'animals',

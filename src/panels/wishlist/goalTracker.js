@@ -27,7 +27,9 @@ export const CROPS_SET = new Set([
 export const RESOURCES_SET = new Set([
   'wood', 'stone', 'iron', 'gold', 'egg',
   'honey', 'crimstone', 'leather', 'wool', 'merinowool',
-  'feather', 'milk', 'obsidian', 'salt'
+  'feather', 'milk', 'obsidian', 'salt',
+  'greenbeetle', 'bluebeetle', 'pinkbeetle', 'amberbeetle',
+  'pigbristles', 'pigbristle', 'truffle', 'truffles'
 ]);
 
 export const EMBLEMS_SET = new Set([

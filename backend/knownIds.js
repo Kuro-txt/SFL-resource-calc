@@ -1498,11 +1498,15 @@ const KNOWN_IDS = {
   "Loyal Rarecrow": 3083,
   "Pigpen": 1027,
   "Brown Beetle": 3084,
+  "Green Beetle": 3084,
   "Blue Beetle": 3085,
   "Pink Beetle": 3086,
   "Amber Beetle": 3087,
   "Mud": 3088,
   "Rawhide": 3089,
+  "Pig Bristle": 3089,
+  "Pig Bristles": 3089,
+  "Truffles": 3090,
   "Truffle": 3090,
   "Crystal Leaf": 3091,
   "Blue Beetle Feed": 3092,
@@ -2101,6 +2105,20 @@ for (const [name, id] of Object.entries(KNOWN_IDS)) {
   KNOWN_ITEMS[`collectibles-${id}`] = name;
   KNOWN_ITEMS[`sft-${id}`] = name;
 }
+
+// Canonical Chapter 16 resources overrides
+KNOWN_ITEMS['3084'] = 'Green Beetle';
+KNOWN_ITEMS['collectibles-3084'] = 'Green Beetle';
+KNOWN_ITEMS['3085'] = 'Blue Beetle';
+KNOWN_ITEMS['collectibles-3085'] = 'Blue Beetle';
+KNOWN_ITEMS['3086'] = 'Pink Beetle';
+KNOWN_ITEMS['collectibles-3086'] = 'Pink Beetle';
+KNOWN_ITEMS['3087'] = 'Amber Beetle';
+KNOWN_ITEMS['collectibles-3087'] = 'Amber Beetle';
+KNOWN_ITEMS['3089'] = 'Pig Bristles';
+KNOWN_ITEMS['collectibles-3089'] = 'Pig Bristles';
+KNOWN_ITEMS['3090'] = 'Truffle';
+KNOWN_ITEMS['collectibles-3090'] = 'Truffle';
 
 const WEARABLE_ITEMS = {};
 for (const [name, id] of Object.entries(ITEM_IDS)) {
