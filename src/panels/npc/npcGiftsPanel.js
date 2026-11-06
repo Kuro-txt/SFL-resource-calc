@@ -7,7 +7,16 @@ import { NPC_CATALOG, formatFlowerRecipe } from './npcData.js';
 import { getNpcFriendship, getNpcData, getItemFlowerPrice, calculateMilestoneProgress, checkIsGiftedToday, formatGiftedAt, normalizeTimestampMs } from './npcLogic.js';
 
 let activeLocationFilter = 'all';
-let favoriteNpcIds = new Set(JSON.parse(localStorage.getItem('sfl_favorite_npcs') || '[]'));
+export function normalizeFavoriteId(id) {
+  if (!id || typeof id !== 'string') return '';
+  const clean = id.toLowerCase().trim().replace(/['\s-]+/g, '_');
+  if (clean === 'pumpkin_pete' || clean === 'pumpkinpete') return 'pumpkin_pete';
+  return id.trim();
+}
+
+let favoriteNpcIds = new Set(
+  (JSON.parse(localStorage.getItem('sfl_favorite_npcs') || '[]')).map(id => normalizeFavoriteId(id))
+);
 let blossomBondingRank = (() => {
   const saved = localStorage.getItem('sfl_blossom_bonding_rank');
   if (saved !== null && saved !== '') {
@@ -26,16 +35,35 @@ export function getBlossomBondingBonus(rank = blossomBondingRank) {
   return 0;
 }
 
+export function isNpcFavorited(npcOrId) {
+  if (!npcOrId) return false;
+  const id = typeof npcOrId === 'object' ? npcOrId.id : npcOrId;
+  const name = typeof npcOrId === 'object' ? npcOrId.name : '';
+  const normId = normalizeFavoriteId(id);
+  const normName = normalizeFavoriteId(name);
+  return favoriteNpcIds.has(id) || favoriteNpcIds.has(normId) || (name && favoriteNpcIds.has(name)) || (normName && favoriteNpcIds.has(normName));
+}
+
 export function toggleFavoriteNpc(npcId) {
-  if (favoriteNpcIds.has(npcId)) {
+  if (!npcId) return;
+  const normId = normalizeFavoriteId(npcId);
+  if (isNpcFavorited(normId)) {
+    favoriteNpcIds.delete(normId);
     favoriteNpcIds.delete(npcId);
+    favoriteNpcIds.delete("Pumpkin' Pete");
+    favoriteNpcIds.delete("pumpkin pete");
+    favoriteNpcIds.delete("pumpkin_pete");
   } else {
-    favoriteNpcIds.add(npcId);
+    favoriteNpcIds.add(normId);
   }
+  // Clean up any legacy representations
+  favoriteNpcIds.delete("Pumpkin' Pete");
+  favoriteNpcIds.delete("pumpkin pete");
   localStorage.setItem('sfl_favorite_npcs', JSON.stringify(Array.from(favoriteNpcIds)));
   renderNpcCards();
 }
 window.toggleFavoriteNpc = toggleFavoriteNpc;
+window.isNpcFavorited = isNpcFavorited;
 
 export function renderNpcGiftsTemplate() {
   const container = document.getElementById('npc-gifts-section');
@@ -132,6 +160,19 @@ export function initNpcGiftsPanel() {
     renderNpcCards();
   });
 
+  const cardsGrid = document.getElementById('npc-cards-grid');
+  if (cardsGrid && !cardsGrid._favBound) {
+    cardsGrid._favBound = true;
+    cardsGrid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.npc-fav-btn');
+      if (btn && btn.dataset.npcId) {
+        e.stopPropagation();
+        e.preventDefault();
+        toggleFavoriteNpc(btn.dataset.npcId);
+      }
+    });
+  }
+
   document.getElementById('blossom-bonding-rank')?.addEventListener('change', (e) => {
     const val = parseInt(e.target.value, 10);
     blossomBondingRank = (!isNaN(val) && val >= 0 && val <= 3) ? val : 0;
@@ -218,7 +259,7 @@ export function renderNpcCards() {
     window.farmData?.npcs || 
     window.farmData?.farm?.npcs || 
     JSON.parse(localStorage.getItem('sfl_farm_npcs') || '{}');
-  const query = document.getElementById('npc-search-input')?.value.toLowerCase().trim() || '';
+  const query = document.getElementById('npc-search-input')?.value?.toLowerCase().trim() || '';
   const filter = activeLocationFilter;
 
   const fullNpcList = NPC_CATALOG;
@@ -253,8 +294,8 @@ export function renderNpcCards() {
   });
 
   filteredNpcs.sort((a, b) => {
-    const aFav = favoriteNpcIds.has(a.id);
-    const bFav = favoriteNpcIds.has(b.id);
+    const aFav = isNpcFavorited(a);
+    const bFav = isNpcFavorited(b);
     if (aFav && !bFav) return -1;
     if (!aFav && bFav) return 1;
 
@@ -292,7 +333,7 @@ export function renderNpcCards() {
   grid.innerHTML = '';
 
   filteredNpcs.forEach(npc => {
-    const isFav = favoriteNpcIds.has(npc.id);
+    const isFav = isNpcFavorited(npc);
     const npcEntry = getNpcData(npc, liveNpcData);
     const friendship = npcEntry.friendship || getNpcFriendship(npc, liveNpcData);
     const points = parseInt(friendship.points || 0, 10);
@@ -389,7 +430,7 @@ export function renderNpcCards() {
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1.5">
               <h4 class="font-bold text-sfl-dirt dark:text-amber-200 text-xs sm:text-sm truncate">${npc.name}</h4>
-              <button onclick="toggleFavoriteNpc('${npc.id}')" title="${isFav ? 'Remove Favorite' : 'Favorite NPC'}" class="text-xs transition-transform hover:scale-125 cursor-pointer leading-none shrink-0">
+              <button type="button" data-npc-id="${npc.id}" title="${isFav ? 'Remove Favorite' : 'Favorite NPC'}" class="npc-fav-btn text-xs transition-transform hover:scale-125 cursor-pointer leading-none shrink-0 select-none">
                 ${isFav ? '⭐' : '☆'}
               </button>
             </div>
@@ -456,6 +497,15 @@ export function renderNpcCards() {
         </div>
       </div>
     `;
+
+    const favBtn = card.querySelector('.npc-fav-btn');
+    if (favBtn) {
+      favBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        toggleFavoriteNpc(npc.id);
+      });
+    }
 
     grid.appendChild(card);
   });

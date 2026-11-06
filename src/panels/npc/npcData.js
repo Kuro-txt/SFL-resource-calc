@@ -22,7 +22,7 @@ export const NPC_CATALOG = [
     ]
   },
   {
-    id: "Pumpkin' Pete",
+    id: "pumpkin_pete",
     name: "Pumpkin' Pete",
     location: "Plaza",
     icon: "🎃",
