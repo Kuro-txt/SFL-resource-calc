@@ -40,6 +40,8 @@ const { processBaselineSnapshot }                = require('./backend/baselineSe
 const { processYieldCalculation, backfillDailyYields, repairMissingBaselines, aggregateCompletedWeeks, aggregateCompletedMonths, pruneOldLogs, recalculateWeekForUser, getWeekRangeUTC } = require('./backend/yieldService');
 const { processAutoSyncTrades }                  = require('./backend/tradeSync');
 const { fetchMarketplaceActivity }               = require('./backend/marketplaceService');
+const { KNOWN_IDS, ITEM_IDS }                    = require('./backend/knownIds');
+const { getItemBoost }                           = require('./backend/itemBoosts');
 
 // ── App & Supabase setup ───────────────────────────────────────────────────
 const app  = express();
@@ -409,12 +411,120 @@ app.all('/api/pets', async (req, res) => {
   }
 });
 
+function getNftNames({ collection = 'all', search = '' } = {}) {
+  const col = String(collection || 'all').toLowerCase();
+  const names = new Set();
+  if (col === 'all' || col === 'collectibles' || col === 'sfts' || col === 'sft') {
+    Object.keys(KNOWN_IDS).forEach(n => names.add(n));
+  }
+  if (col === 'all' || col === 'wearables' || col === 'wearable') {
+    Object.keys(ITEM_IDS).forEach(n => names.add(n));
+  }
+  let list = Array.from(names).sort((a, b) => a.localeCompare(b));
+  if (search) {
+    const q = search.toLowerCase();
+    list = list.filter(n => n.toLowerCase().includes(q));
+  }
+  return list;
+}
+
+function getFullNftCatalog({ collection = 'all', search = '', priceMap = null } = {}) {
+  const col = String(collection || 'all').toLowerCase();
+  const catalog = [];
+
+  if (col === 'all' || col === 'collectibles' || col === 'sfts' || col === 'sft') {
+    for (const [name, id] of Object.entries(KNOWN_IDS)) {
+      const match = priceMap ? (priceMap.get(`collectibles-${id}`) || priceMap.get(name.toLowerCase())) : null;
+      catalog.push({
+        id,
+        name,
+        collection: 'collectibles',
+        boost: getItemBoost(name) || 'No Boost',
+        price: match ? match.price : null,
+        floor: match ? match.floor : null
+      });
+    }
+  }
+
+  if (col === 'all' || col === 'wearables' || col === 'wearable') {
+    for (const [name, id] of Object.entries(ITEM_IDS)) {
+      const match = priceMap ? (priceMap.get(`wearables-${id}`) || priceMap.get(name.toLowerCase())) : null;
+      catalog.push({
+        id,
+        name,
+        collection: 'wearables',
+        boost: getItemBoost(name) || 'No Boost',
+        price: match ? match.price : null,
+        floor: match ? match.floor : null
+      });
+    }
+  }
+
+  let list = catalog.sort((a, b) => a.name.localeCompare(b.name));
+  if (search) {
+    const q = search.toLowerCase();
+    list = list.filter(item => item.name.toLowerCase().includes(q));
+  }
+  return list;
+}
+
+app.get(['/api/nft-names', '/api/sft-names'], (req, res) => {
+  try {
+    const collection = (req.query.collection || 'all').toLowerCase();
+    const search = (req.query.search || req.query.q || '').trim();
+    const format = (req.query.format || '').toLowerCase();
+    const isFlat = format === 'array' || format === 'flat' || req.query.flat === 'true';
+
+    const names = getNftNames({ collection, search });
+    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+
+    if (isFlat) {
+      return res.json(names);
+    }
+
+    return res.json({
+      total: names.length,
+      collection,
+      ...(search ? { search } : {}),
+      names
+    });
+  } catch (err) {
+    res.status(500).json({ error: `Failed to get NFT names: ${err.message}` });
+  }
+});
+
 app.get(['/api/nfts', '/api/nft'], async (req, res) => {
   const force = req.query.force === 'true';
   const customApiKey = (req.query.apiKey || req.headers['x-api-key'] || '').trim();
+  const isNamesOnly = req.query.names === 'true' || req.query.namesOnly === 'true';
+  const isAllCatalog = req.query.all === 'true' || req.query.catalog === 'true';
+  const collection = (req.query.collection || 'all').toLowerCase();
+  const search = (req.query.search || req.query.q || '').trim();
+
+  // If user only requests names:
+  if (isNamesOnly) {
+    const format = (req.query.format || '').toLowerCase();
+    const isFlat = format === 'array' || format === 'flat' || req.query.flat === 'true' || !req.query.format;
+    const names = getNftNames({ collection, search });
+    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    if (isFlat) return res.json(names);
+    return res.json({ total: names.length, collection, names });
+  }
+
   try {
     const data = await fetchMarketplaceActivity(customApiKey, force);
     res.setHeader('Cache-Control', 'public, max-age=600');
+
+    if (isAllCatalog) {
+      const priceMap = new Map();
+      (data.nftsPayload || []).forEach(item => {
+        if (item.collection && item.itemId) priceMap.set(`${item.collection}-${item.itemId}`, item);
+        if (item.name) priceMap.set(item.name.toLowerCase(), item);
+      });
+      const catalog = getFullNftCatalog({ collection, search, priceMap });
+      return res.json(catalog);
+    }
+
     return res.json(data.nftsPayload);
   } catch (err) {
     res.status(500).json({ error: `Failed to fetch live NFTs: ${err.message}` });

@@ -6,6 +6,10 @@
       "destination": "/api/nft"
     },
     {
+      "source": "/api/sft-names",
+      "destination": "/api/nft-names"
+    },
+    {
       "source": "/api/weeklyYields",
       "destination": "/api/yields?type=weekly"
     },
