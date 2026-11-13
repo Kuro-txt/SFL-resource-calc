@@ -10,6 +10,9 @@ export function renderNavTabs() {
       <button id="tab-pets-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
         <span>🐾</span> Pets
       </button>
+      <button id="tab-inventory-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
+        <span>🎒</span> Inventory
+      </button>
       <button id="tab-calc-btn" class="bg-amber-100/60 text-sfl-woodLight px-4 py-2 rounded-xl font-bold text-xs border-2 border-transparent hover:bg-amber-200/60 transition flex items-center gap-1.5 cursor-pointer">
         <span>🌾</span> Daily Tracker
       </button>

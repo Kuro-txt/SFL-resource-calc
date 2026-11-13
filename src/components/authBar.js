@@ -725,10 +725,13 @@ export async function handleFarmSync() {
             window.currentFarmId = farmId;
             const liveInv = farmObj.inventory || {};
             window.farmInventoryData = liveInv;
+            const liveWardrobe = farmObj.wardrobe || farmObj.farm?.wardrobe || {};
+            window.farmWardrobeData = liveWardrobe;
             const liveBalance = parseFloat(farmObj.balance) || 0;
             window.farmBalance = liveBalance;
             try {
               localStorage.setItem('sfl_farm_inventory', JSON.stringify(liveInv));
+              localStorage.setItem('sfl_farm_wardrobe', JSON.stringify(liveWardrobe));
               localStorage.setItem('sfl_farm_balance', String(liveBalance));
               localStorage.setItem('sfl_farm_inventory_updated_at', new Date().toISOString());
               if (farmObj.pets || farmObj.farm?.pets) {

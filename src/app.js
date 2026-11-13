@@ -19,6 +19,7 @@ import { initDashboardPanel, mountDashboard } from './panels/dashboard/dashboard
 import { renderGlobalGoalBanner } from './panels/wishlist/goalTracker.js';
 import { initMarketPanel, mountMarketPanel } from './panels/marketPanel.js';
 import { initPetsPanel, mountPetsPanel, unmountPetsPanel } from './panels/pets/petsPanel.js?v=2.6.1';
+import { initInventoryPanel, mountInventoryPanel, unmountInventoryPanel } from './panels/inventory/inventoryPanel.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   console.log("🚀 Bootstrapping SFL Resource Calculator...");
@@ -42,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initWeeklySummaryModal();
   initMarketPanel();
   initPetsPanel();
+  initInventoryPanel();
 
   let lastYieldFetch = 0;
 
@@ -89,6 +91,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   PanelManager.register('pets', {
     onMount: () => mountPetsPanel(),
     onUnmount: () => unmountPetsPanel()
+  });
+
+  PanelManager.register('inventory', {
+    onMount: () => mountInventoryPanel(),
+    onUnmount: () => unmountInventoryPanel()
   });
 
   // Initializes tabs and restores last opened tab automatically
