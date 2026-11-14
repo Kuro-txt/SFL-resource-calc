@@ -157,6 +157,55 @@ export function getWardrobeQuantity(wardrobe, itemName) {
 }
 
 /**
+ * Retrieve quantity of a collectible placed on land (farm.collectibles) or inside the home (farm.home.collectibles).
+ */
+export function getPlacedCollectiblesQuantity(itemName) {
+  const targetClean = normalizeItemKey(itemName);
+  let count = 0;
+
+  const farmData = (typeof window !== 'undefined' && window.farmData) || {};
+  const farmObj = farmData.farm || farmData;
+
+  // 1. Check in-memory farm.collectibles (land) or localStorage
+  let landCollectibles = farmObj.collectibles;
+  if (!landCollectibles || typeof landCollectibles !== 'object') {
+    try {
+      landCollectibles = JSON.parse(localStorage.getItem('sfl_farm_collectibles') || '{}');
+    } catch (_) {
+      landCollectibles = {};
+    }
+  }
+
+  for (const [k, v] of Object.entries(landCollectibles || {})) {
+    if (normalizeItemKey(k) === targetClean) {
+      if (Array.isArray(v)) count += v.length;
+      else if (typeof v === 'number') count += v;
+      else if (v && typeof v === 'object') count += Object.keys(v).length;
+    }
+  }
+
+  // 2. Check in-memory farm.home.collectibles (home) or localStorage
+  let homeCollectibles = farmObj.home?.collectibles;
+  if (!homeCollectibles || typeof homeCollectibles !== 'object') {
+    try {
+      homeCollectibles = JSON.parse(localStorage.getItem('sfl_farm_home_collectibles') || '{}');
+    } catch (_) {
+      homeCollectibles = {};
+    }
+  }
+
+  for (const [k, v] of Object.entries(homeCollectibles || {})) {
+    if (normalizeItemKey(k) === targetClean) {
+      if (Array.isArray(v)) count += v.length;
+      else if (typeof v === 'number') count += v;
+      else if (v && typeof v === 'object') count += Object.keys(v).length;
+    }
+  }
+
+  return count;
+}
+
+/**
  * Resolves unit FLOWER price for a resource from P2P/fallback price maps.
  */
 export function getResourceUnitPrice(itemName, pricesData = null) {
@@ -323,8 +372,9 @@ export function computeBoostsInventory(nftsList = [], usdRate = 0) {
     // The 'Parsnip' in farm.inventory is the harvestable crop (SFT ID 208) and NOT a boost.
     const isWearableOnlyBoost = (cleanKey === 'parsnip');
     const invQty = isWearableOnlyBoost ? 0 : getItemQuantity(inventory, rawName);
+    const placedQty = isWearableOnlyBoost ? 0 : getPlacedCollectiblesQuantity(rawName);
     const wardrobeQty = getWardrobeQuantity(wardrobe, rawName);
-    const totalQty = invQty + wardrobeQty;
+    const totalQty = invQty + placedQty + wardrobeQty;
 
     const floorPrice = nftPriceMap.get(cleanKey) || 0;
     const grossValue = totalQty * floorPrice;
@@ -347,6 +397,7 @@ export function computeBoostsInventory(nftsList = [], usdRate = 0) {
       boostDesc,
       qty: totalQty,
       invQty,
+      placedQty,
       wardrobeQty,
       unitPrice: floorPrice,
       taxRate: BOOST_TAX_RATE,

@@ -364,7 +364,15 @@ export function renderBoostsTable(rows) {
           <div class="font-mono font-bold text-xs sm:text-sm ${row.qty > 0 ? 'text-sfl-wood dark:text-amber-100' : 'text-slate-400'}">
             ${row.qty.toLocaleString()}
           </div>
-          ${(row.invQty > 0 && row.wardrobeQty > 0) ? `
+          ${(row.placedQty > 0 && row.invQty > 0) ? `
+            <div class="text-[9px] text-slate-400 font-mono">
+              Placed: ${row.placedQty} | Chest: ${row.invQty}
+            </div>
+          ` : (row.placedQty > 0 ? `
+            <div class="text-[9px] text-lime-600 dark:text-lime-400 font-mono">
+              (Placed)
+            </div>
+          ` : ((row.invQty > 0 && row.wardrobeQty > 0) ? `
             <div class="text-[9px] text-slate-400 font-mono">
               Inv: ${row.invQty} | Wardrobe: ${row.wardrobeQty}
             </div>
@@ -372,7 +380,7 @@ export function renderBoostsTable(rows) {
             <div class="text-[9px] text-slate-400 font-mono">
               (Wardrobe)
             </div>
-          ` : '')}
+          ` : '')))}
         </td>
 
         <!-- Floor Price from Marketplace -->

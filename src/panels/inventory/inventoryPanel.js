@@ -347,6 +347,8 @@ function bindShellEventListeners() {
         try {
           localStorage.setItem('sfl_farm_inventory', JSON.stringify(liveInv));
           localStorage.setItem('sfl_farm_wardrobe', JSON.stringify(liveWardrobe));
+          localStorage.setItem('sfl_farm_collectibles', JSON.stringify(farmObj.collectibles || farmObj.farm?.collectibles || {}));
+          localStorage.setItem('sfl_farm_home_collectibles', JSON.stringify(farmObj.home?.collectibles || farmObj.farm?.home?.collectibles || {}));
           localStorage.setItem('sfl_farm_inventory_updated_at', new Date().toISOString());
         } catch (_) {}
 

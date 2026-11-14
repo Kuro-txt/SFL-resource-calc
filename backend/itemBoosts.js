@@ -240,7 +240,46 @@ const ITEM_BOOSTS = {
   "ancient shovel": "Dig treasure without Sand Shovel",
   "devil wings": "30% Chance of Instant Crops",
   "infernal pitchfork": "+3 Crops",
-  "master chef's cleaver": "x0.85 Cooking Time, -10% Chance of +1 Food from Cooking"
+  "master chef's cleaver": "x0.85 Cooking Time, -10% Chance of +1 Food from Cooking",
+
+  // Chapter 14: Salt Awakening (Traps, Fishing & Crafting)
+  "navigation table": "+100% Map Piece Odds",
+  "royal crab pot": "Trap without Trap Pots",
+  "crab house": "+2 Crustacean yield",
+  "speed trap": "-20% Trap Time",
+
+  // Chapter 15: The Ascension Age
+  "astrolabe": "15% chance to double Fermentation & Spice Rack output\n+5% XP from Aged Fish",
+  "winged vase": "+14% Prime Aged chance",
+  "ascension monument": "-20% Expansion Time",
+  "otty the otter": "+5 daily fishing reels\n+1 random fish every 15th reel",
+  "ascended chicken": "+0.1 Egg",
+  "ascended sheep": "+0.05 Wool",
+  "ascended cow": "-2.5% Cow Sleep Time",
+  "ruins flower": "+0.05 Honey from full beehives",
+  "dumbo octopus": "20% chance of +1 Fish",
+  "surfer hair": "-50% Salt cost for aging fish",
+  "ascended idol": "Harvest Salt without Salt Rakes",
+  "salt worker gnome": "-30% Salt Node recovery time\n+2 Salt per harvest",
+  "vibraphone": "Animal feed buffs last 6 harvests",
+  "rice shirt": "-50% Oil to plant Rice\n+1 Rice",
+  "alchemist apron": "-50% Potion House fee",
+  "moon hair": "+2 Full Moon Seed stock\n+0.5 Full Moon Fruit",
+  "salt bottle onesie": "+1 Spice Rack output",
+  "swamp armor": "+1 Shiny Feather",
+  "swamp pants": "+1 Shiny Feather",
+  "swamp lily hat": "+1 Shiny Feather",
+
+  // Chapter 16: Cave Dwellers
+  "mushroom chicken": "+0.5 Crimstone on 5th mine",
+  "ladybug cow": "+1 Oil",
+  "beetle sheep": "-7.5% Sheep Sleep Time",
+  "cyclops bloom": "-20% Fish Market processing time",
+  "duende monument": "-10% Expansion Resources & Time",
+
+  // Additional Wearables & Pets
+  "victoria's apron": "33% chance next Pet reset is free",
+  "training whistle": "+1 Leather"
 };
 
 function getItemBoost(name) {

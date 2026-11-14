@@ -732,6 +732,10 @@ export async function handleFarmSync() {
             try {
               localStorage.setItem('sfl_farm_inventory', JSON.stringify(liveInv));
               localStorage.setItem('sfl_farm_wardrobe', JSON.stringify(liveWardrobe));
+              const liveCollectibles = farmObj.collectibles || farmObj.farm?.collectibles || {};
+              const liveHomeCollectibles = farmObj.home?.collectibles || farmObj.farm?.home?.collectibles || {};
+              localStorage.setItem('sfl_farm_collectibles', JSON.stringify(liveCollectibles));
+              localStorage.setItem('sfl_farm_home_collectibles', JSON.stringify(liveHomeCollectibles));
               localStorage.setItem('sfl_farm_balance', String(liveBalance));
               localStorage.setItem('sfl_farm_inventory_updated_at', new Date().toISOString());
               if (farmObj.pets || farmObj.farm?.pets) {
