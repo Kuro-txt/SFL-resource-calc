@@ -245,7 +245,7 @@ export async function renderEarnedSection(mountEl, boundsInput = 'day', preloade
   const savedTax = typeof localStorage !== 'undefined' ? localStorage.getItem('sfl_tax_rate') : null;
   const parsedTax = savedTax !== null ? parseFloat(savedTax) : NaN;
   const currentTaxRate = (!isNaN(parsedTax)) ? parsedTax : 0.10;
-  const taxPct = Math.round(currentTaxRate * 100);
+  const taxPct = parseFloat((currentTaxRate * 100).toFixed(2));
 
   // Extract Coins for dedicated prominent card
   const coinsData = totals['Coins'] || null;

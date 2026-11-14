@@ -133,7 +133,7 @@ export function renderInventoryShell() {
  */
 export function renderSummaryCards({ subTab, summary, taxRate, globalTaxRate }) {
   const isResources = subTab === 'resources';
-  const taxPercentText = isResources ? `${Math.round(globalTaxRate * 100)}% (Global)` : '10% (Fixed)';
+  const taxPercentText = isResources ? `${parseFloat((globalTaxRate * 100).toFixed(2))}% (Global)` : '10% (Fixed)';
   const taxBadgeColor = isResources ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300';
 
   return `
@@ -233,7 +233,7 @@ export function renderResourcesTable(rows, globalTaxRate) {
   const tableRows = rows.map(row => {
     const iconHtml = getItemIcon(row.name, { className: 'w-6 h-6 object-contain shrink-0' });
     const badgeInfo = RESOURCE_CATEGORY_BADGES[row.category] || RESOURCE_CATEGORY_BADGES['Forage & Other'];
-    const taxPercent = Math.round(row.taxRate * 100);
+    const taxPercent = parseFloat((row.taxRate * 100).toFixed(2));
 
     return `
       <tr class="border-b border-amber-100 dark:border-slate-700/60 hover:bg-amber-50/60 dark:hover:bg-slate-700/40 transition">
@@ -308,7 +308,7 @@ export function renderResourcesTable(rows, globalTaxRate) {
             <th class="px-3 sm:px-4 py-2.5 text-right">Stock</th>
             <th class="px-3 sm:px-4 py-2.5 text-right">Unit Price</th>
             <th class="px-3 sm:px-4 py-2.5 text-right hidden md:table-cell">Gross</th>
-            <th class="px-3 sm:px-4 py-2.5 text-right hidden sm:table-cell">Tax (${Math.round(globalTaxRate * 100)}%)</th>
+            <th class="px-3 sm:px-4 py-2.5 text-right hidden sm:table-cell">Tax (${parseFloat((globalTaxRate * 100).toFixed(2))}%)</th>
             <th class="px-3 sm:px-4 py-2.5 text-right">Net Value</th>
           </tr>
         </thead>

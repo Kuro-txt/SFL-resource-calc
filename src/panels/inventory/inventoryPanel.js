@@ -151,7 +151,7 @@ function updateSubTabPillStyles() {
   const taxNoticeText = document.getElementById('inv-tax-notice-text');
 
   const globalTaxRate = getGlobalTaxRate();
-  const globalTaxPct = Math.round(globalTaxRate * 100);
+  const globalTaxPct = parseFloat((globalTaxRate * 100).toFixed(2));
 
   if (activeSubTab === 'resources') {
     if (resBtn) {

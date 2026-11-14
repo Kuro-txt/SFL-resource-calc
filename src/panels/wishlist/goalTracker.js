@@ -1044,7 +1044,7 @@ function renderInventoryTableRows(rows, usdRate) {
       </td>
       <td class="px-3 py-2 text-right font-mono ${item.isIncluded && item.flowerValue > 0 ? 'font-bold text-sfl-green dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}">
         <div>${item.flowerValue.toFixed(3)} 🌸</div>
-        ${item.taxDeduction > 0 && item.qty > 0 ? `<div class="text-[9px] text-sfl-woodLight dark:text-slate-400 font-normal">(-${(item.taxRate * 100).toFixed(0)}% tax)</div>` : ''}
+        ${item.taxDeduction > 0 && item.qty > 0 ? `<div class="text-[9px] text-sfl-woodLight dark:text-slate-400 font-normal">(-${parseFloat((item.taxRate * 100).toFixed(2))}% tax)</div>` : ''}
       </td>
       <td class="px-3 py-2 text-right font-mono ${item.isIncluded && item.usdValue > 0 ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}">
         ${formatUsdAmount(item.usdValue)}
