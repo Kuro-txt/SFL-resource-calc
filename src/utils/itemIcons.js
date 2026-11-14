@@ -4,6 +4,7 @@
  */
 import { normalizeItemKey } from './formatters.js';
 import { KNOWN_IDS, ITEM_IDS } from '../data/knownIds.js';
+import { TRANSPARENT_BOOST_SPRITES } from '../data/transparentBoostSprites.js';
 
 export const ITEM_IMAGE_PATHS = {
   "greenhousegoodie": "./public/icons/aging/greenhouse_goodie.webp",
@@ -461,15 +462,24 @@ const LOWER_ITEM_IDS = Object.fromEntries(
 
 /**
  * Resolves remote Edge CDN URLs for game items (Collectibles/SFTs and Bumpkin Wearables).
- * Primary: Official Sunflower Land Cloudflare Edge CDN (mirrors repo /public assets)
- * Fallback: GitHub Raw Fastly CDN
+ * Prioritizes raw in-game transparent sprites from Sunflower Land repo without background.
  */
 export function getItemCdnUrls(name, options = {}) {
   if (!name) return null;
   const rawClean = String(name).toLowerCase().trim();
   const normalized = normalizeItemKey(name);
 
-  // Wearables take priority if explicitly specified or if clean key is 'parsnip' (wearable tool boost)
+  // 1. Transparent in-game boost sprite check (Zero background!)
+  const boostSpritePath = TRANSPARENT_BOOST_SPRITES[rawClean] || TRANSPARENT_BOOST_SPRITES[normalized];
+  if (boostSpritePath && (options.isBoost || options.preferTransparent)) {
+    return {
+      type: 'transparent',
+      primary: `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/${boostSpritePath}`,
+      fallback: `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/${boostSpritePath}`
+    };
+  }
+
+  // 2. Wearables check
   const preferWearable = options.isWearable || (options.isBoost && normalized === 'parsnip');
 
   if (preferWearable) {
@@ -478,13 +488,22 @@ export function getItemCdnUrls(name, options = {}) {
       return {
         id: wearableId,
         type: 'wearable',
-        primary: `https://sunflower-land.com/play/wearables/images/${wearableId}.png`,
-        fallback: `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/public/wearables/images/${wearableId}.png`
+        primary: `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/wearables/${wearableId}.webp`,
+        fallback: `https://sunflower-land.com/play/wearables/images/${wearableId}.png`
       };
     }
   }
 
-  // Check ERC1155 / Collectibles
+  // 3. Fallback transparent sprite check if present
+  if (boostSpritePath) {
+    return {
+      type: 'transparent',
+      primary: `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/${boostSpritePath}`,
+      fallback: `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/${boostSpritePath}`
+    };
+  }
+
+  // 4. Collectibles / ERC1155 check
   const sftId = LOWER_KNOWN_IDS[rawClean] || LOWER_KNOWN_IDS[normalized];
   if (sftId) {
     return {
@@ -495,14 +514,14 @@ export function getItemCdnUrls(name, options = {}) {
     };
   }
 
-  // Fallback check in wearables if not found in collectibles
+  // 5. Fallback check in wearables if not found in collectibles
   const wearableId = LOWER_ITEM_IDS[rawClean] || LOWER_ITEM_IDS[normalized];
   if (wearableId) {
     return {
       id: wearableId,
       type: 'wearable',
-      primary: `https://sunflower-land.com/play/wearables/images/${wearableId}.png`,
-      fallback: `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/public/wearables/images/${wearableId}.png`
+      primary: `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/wearables/${wearableId}.webp`,
+      fallback: `https://sunflower-land.com/play/wearables/images/${wearableId}.png`
     };
   }
 
@@ -519,6 +538,14 @@ export function getItemIcon(name, options = {}) {
   const isParsnipWearable = options.isWearable || (options.isBoost && clean === 'parsnip');
   const fallback = options.fallback || (isParsnipWearable ? '⚡' : FALLBACK_EMOJIS[clean]) || (options.isBoost ? '⚡' : '📦');
   const sizeClass = options.className || 'w-5 h-5 sm:w-5.5 sm:h-5.5';
+
+  // For boosts, always prioritize the transparent sprite over any local crop/resource image
+  if (options.isBoost) {
+    const cdn = getItemCdnUrls(name, options);
+    if (cdn) {
+      return `<img src="${cdn.primary}" class="${sizeClass} object-contain inline-block shrink-0 select-none align-middle" alt="${name}" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='${cdn.fallback}'; this.onerror=function(){ this.outerHTML='<span class=\\'select-none\\'>${fallback}</span>'; };" />`;
+    }
+  }
 
   // 1. If local static asset exists in repository, use it directly (unless wearable override or forceRemote is requested)
   if (imgPath && !options.forceRemote && !isParsnipWearable) {
