@@ -1511,7 +1511,12 @@ const KNOWN_IDS = {
   "Crystal Leaf": 3091,
   "Blue Beetle Feed": 3092,
   "Pink Beetle Feed": 3093,
-  "Amber Beetle Feed": 3094
+  "Amber Beetle Feed": 3094,
+  "Mushroom Chicken": 3107,
+  "Ladybug Cow": 3108,
+  "Beetle Sheep": 3109,
+  "Cyclops Bloom": 3110,
+  "Duende Monument": 3111
 };
 
 const ITEM_IDS = {

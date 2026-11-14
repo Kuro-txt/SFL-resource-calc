@@ -399,6 +399,7 @@ export function computeBoostsInventory(nftsList = [], usdRate = 0) {
       invQty,
       placedQty,
       wardrobeQty,
+      isWearable: isWearableOnlyBoost || (wardrobeQty > 0 && invQty === 0 && placedQty === 0),
       unitPrice: floorPrice,
       taxRate: BOOST_TAX_RATE,
       grossValue,

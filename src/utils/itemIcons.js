@@ -1,8 +1,9 @@
 /**
  * Shared Item Icon Resolver for Dashboard and UI Panels.
- * Resolves local game asset icons with seamless fallback to emojis.
+ * Resolves local game asset icons with dynamic Edge CDN resolution and seamless fallback to emojis.
  */
 import { normalizeItemKey } from './formatters.js';
+import { KNOWN_IDS, ITEM_IDS } from '../data/knownIds.js';
 
 export const ITEM_IMAGE_PATHS = {
   "greenhousegoodie": "./public/icons/aging/greenhouse_goodie.webp",
@@ -450,29 +451,100 @@ export const FALLBACK_EMOJIS = {
   "chest": "📦"
 };
 
+// Pre-compute lowercased lookup maps for fast case-insensitive item resolution
+const LOWER_KNOWN_IDS = Object.fromEntries(
+  Object.entries(KNOWN_IDS || {}).map(([k, v]) => [k.toLowerCase().trim(), v])
+);
+const LOWER_ITEM_IDS = Object.fromEntries(
+  Object.entries(ITEM_IDS || {}).map(([k, v]) => [k.toLowerCase().trim(), v])
+);
+
 /**
- * Returns an HTML string rendering either the asset image icon or a fallback emoji.
+ * Resolves remote Edge CDN URLs for game items (Collectibles/SFTs and Bumpkin Wearables).
+ * Primary: Official Sunflower Land Cloudflare Edge CDN (mirrors repo /public assets)
+ * Fallback: GitHub Raw Fastly CDN
+ */
+export function getItemCdnUrls(name, options = {}) {
+  if (!name) return null;
+  const rawClean = String(name).toLowerCase().trim();
+  const normalized = normalizeItemKey(name);
+
+  // Wearables take priority if explicitly specified or if clean key is 'parsnip' (wearable tool boost)
+  const preferWearable = options.isWearable || (options.isBoost && normalized === 'parsnip');
+
+  if (preferWearable) {
+    const wearableId = LOWER_ITEM_IDS[rawClean] || LOWER_ITEM_IDS[normalized];
+    if (wearableId) {
+      return {
+        id: wearableId,
+        type: 'wearable',
+        primary: `https://sunflower-land.com/play/wearables/images/${wearableId}.png`,
+        fallback: `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/public/wearables/images/${wearableId}.png`
+      };
+    }
+  }
+
+  // Check ERC1155 / Collectibles
+  const sftId = LOWER_KNOWN_IDS[rawClean] || LOWER_KNOWN_IDS[normalized];
+  if (sftId) {
+    return {
+      id: sftId,
+      type: 'sft',
+      primary: `https://sunflower-land.com/play/erc1155/images/${sftId}.webp`,
+      fallback: `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/public/erc1155/images/${sftId}.webp`
+    };
+  }
+
+  // Fallback check in wearables if not found in collectibles
+  const wearableId = LOWER_ITEM_IDS[rawClean] || LOWER_ITEM_IDS[normalized];
+  if (wearableId) {
+    return {
+      id: wearableId,
+      type: 'wearable',
+      primary: `https://sunflower-land.com/play/wearables/images/${wearableId}.png`,
+      fallback: `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/public/wearables/images/${wearableId}.png`
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Returns an HTML string rendering either the asset image icon, dynamic Edge CDN icon, or a fallback emoji.
  * Sized appropriately for dashboard item rows and badges.
  */
 export function getItemIcon(name, options = {}) {
   const clean = normalizeItemKey(name);
   const imgPath = ITEM_IMAGE_PATHS[clean];
-  const fallback = FALLBACK_EMOJIS[clean] || '📦';
+  const isParsnipWearable = options.isWearable || (options.isBoost && clean === 'parsnip');
+  const fallback = options.fallback || (isParsnipWearable ? '⚡' : FALLBACK_EMOJIS[clean]) || (options.isBoost ? '⚡' : '📦');
   const sizeClass = options.className || 'w-5 h-5 sm:w-5.5 sm:h-5.5';
 
-  if (imgPath) {
-    return `<img src="${imgPath}" class="${sizeClass} object-contain inline-block shrink-0 select-none align-middle" alt="${name}" loading="lazy" onerror="this.outerHTML='<span class=select-none>${fallback}</span>'" />`;
+  // 1. If local static asset exists in repository, use it directly (unless wearable override or forceRemote is requested)
+  if (imgPath && !options.forceRemote && !isParsnipWearable) {
+    return `<img src="${imgPath}" class="${sizeClass} object-contain inline-block shrink-0 select-none align-middle" alt="${name}" loading="lazy" decoding="async" onerror="this.outerHTML='<span class=\\'select-none\\'>${fallback}</span>'" />`;
   }
 
+  // 2. Otherwise resolve dynamically from Sunflower Land Edge CDN (zero repo storage)
+  const cdn = getItemCdnUrls(name, options);
+  if (cdn) {
+    return `<img src="${cdn.primary}" class="${sizeClass} object-contain inline-block shrink-0 select-none align-middle" alt="${name}" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='${cdn.fallback}'; this.onerror=function(){ this.outerHTML='<span class=\\'select-none\\'>${fallback}</span>'; };" />`;
+  }
+
+  // 3. Fallback to emoji if no icon ID found
   return `<span class="select-none text-base sm:text-lg shrink-0">${fallback}</span>`;
 }
 
 /**
- * Returns the raw asset path if available, or null.
+ * Returns the raw asset path if available, or remote CDN URL, or null.
  */
-export function getItemIconPath(name) {
+export function getItemIconPath(name, options = {}) {
   const clean = normalizeItemKey(name);
-  return ITEM_IMAGE_PATHS[clean] || null;
+  if (ITEM_IMAGE_PATHS[clean] && !options.forceRemote) {
+    return ITEM_IMAGE_PATHS[clean];
+  }
+  const cdn = getItemCdnUrls(name, options);
+  return cdn ? cdn.primary : null;
 }
 
 /**

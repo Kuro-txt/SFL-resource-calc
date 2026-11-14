@@ -335,7 +335,12 @@ export function renderBoostsTable(rows) {
   }
 
   const tableRows = rows.map(row => {
-    const iconHtml = getItemIcon(row.name, { className: 'w-6 h-6 object-contain shrink-0' });
+    const isWearableItem = row.isWearable || row.wardrobeQty > 0 || (row.cleanKey === 'parsnip');
+    const iconHtml = getItemIcon(row.name, {
+      className: 'w-6 h-6 object-contain shrink-0',
+      isBoost: true,
+      isWearable: isWearableItem
+    });
     const boostLines = row.boostDesc.split('\n').filter(Boolean);
 
     return `
