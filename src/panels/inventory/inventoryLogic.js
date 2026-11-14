@@ -128,19 +128,32 @@ export function getItemQuantity(inventory, itemName) {
 }
 
 /**
- * Retrieve quantity of an item from wardrobe safely.
+ * Retrieve quantity of an item from wardrobe safely (including currently equipped items).
  */
 export function getWardrobeQuantity(wardrobe, itemName) {
-  if (!wardrobe || typeof wardrobe !== 'object') return 0;
   const targetClean = normalizeItemKey(itemName);
+  let count = 0;
 
-  for (const [k, v] of Object.entries(wardrobe)) {
-    if (normalizeItemKey(k) === targetClean) {
-      const parsed = parseFloat(v);
-      return !isNaN(parsed) && parsed > 0 ? parsed : 0;
+  if (wardrobe && typeof wardrobe === 'object') {
+    for (const [k, v] of Object.entries(wardrobe)) {
+      if (normalizeItemKey(k) === targetClean) {
+        const parsed = parseFloat(v);
+        if (!isNaN(parsed) && parsed > 0) count += parsed;
+      }
     }
   }
-  return 0;
+
+  // Also check if currently equipped on Bumpkin
+  const equipped = (typeof window !== 'undefined' && window.farmData?.bumpkin?.equipped) || {};
+  if (equipped && typeof equipped === 'object') {
+    for (const val of Object.values(equipped)) {
+      if (val && typeof val === 'string' && normalizeItemKey(val) === targetClean) {
+        if (count === 0) count = 1;
+      }
+    }
+  }
+
+  return count;
 }
 
 /**
@@ -306,7 +319,10 @@ export function computeBoostsInventory(nftsList = [], usdRate = 0) {
       .map(w => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ');
 
-    const invQty = getItemQuantity(inventory, rawName);
+    // For 'parsnip', the boost is strictly the Bumpkin Wearable tool (Wearable ID 56).
+    // The 'Parsnip' in farm.inventory is the harvestable crop (SFT ID 208) and NOT a boost.
+    const isWearableOnlyBoost = (cleanKey === 'parsnip');
+    const invQty = isWearableOnlyBoost ? 0 : getItemQuantity(inventory, rawName);
     const wardrobeQty = getWardrobeQuantity(wardrobe, rawName);
     const totalQty = invQty + wardrobeQty;
 
