@@ -34,7 +34,7 @@ try {
 // ── Backend service modules ────────────────────────────────────────────────
 // Note: TiDB is used exclusively for marketplace trades in backend/tradeSync.js & api/trades.js
 const { getTiDBPool, recordExchangeRateInCloud } = require('./backend/db');
-const { CROP_FLOWER_PRICES }                     = require('./backend/prices');
+const { CROP_FLOWER_PRICES, getResourcePrices }  = require('./backend/prices');
 const { fetchFarmFullDataWithRetry, getSflHeaders, formatNftItem } = require('./backend/farmApi');
 const { processBaselineSnapshot }                = require('./backend/baselineService');
 const { processYieldCalculation, backfillDailyYields, repairMissingBaselines, aggregateCompletedWeeks, aggregateCompletedMonths, pruneOldLogs, recalculateWeekForUser, getWeekRangeUTC } = require('./backend/yieldService');
@@ -227,6 +227,53 @@ app.get('/api/get-data', async (req, res) => {
     return res.json(data.pricesPayload);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch price data', details: err.message });
+  }
+});
+
+app.get(['/api/resource-prices', '/api/resources', '/api/resource-price'], async (req, res) => {
+  const force = req.query.force === 'true';
+  const customApiKey = (req.query.apiKey || req.headers['x-api-key'] || '').trim();
+  const category = (req.query.category || req.query.cat || 'all').toLowerCase();
+  const currency = (req.query.currency || req.query.curr || 'flower').toLowerCase();
+  const search = (req.query.search || req.query.q || '').trim();
+  const format = (req.query.format || '').toLowerCase();
+  const isFlat = format === 'flat' || format === 'simple' || req.query.flat === 'true';
+  const isArray = format === 'array' || format === 'list';
+
+  try {
+    const data = await fetchMarketplaceActivity(customApiKey, force);
+    const p2p = (data && data.pricesPayload && data.pricesPayload.p2p) || {};
+    const flowerPriceUsd = (data && (data.flowerPrice || (data.pricesPayload && data.pricesPayload.flowerPrice))) || 0.124309;
+
+    const { pricesMap, pricesList } = getResourcePrices({
+      p2p,
+      flowerPriceUsd,
+      category,
+      currency,
+      search
+    });
+
+    res.setHeader('Cache-Control', 'public, max-age=60');
+
+    if (isFlat) {
+      return res.json(pricesMap);
+    }
+
+    if (isArray) {
+      return res.json(pricesList);
+    }
+
+    return res.json({
+      updated_at: new Date().toISOString(),
+      flowerPriceUsd,
+      currency: currency.toUpperCase(),
+      total: Object.keys(pricesMap).length,
+      ...(category !== 'all' ? { category } : {}),
+      ...(search ? { search } : {}),
+      prices: pricesMap
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch resource prices', details: err.message });
   }
 });
 

@@ -136,6 +136,92 @@ function getFlowerUnitPrice(cleanKey, flatPrices = {}) {
   return 0.01;
 }
 
+const RESOURCE_CATEGORIES = {
+  // Plot Crops
+  sunflower: 'Crops', potato: 'Crops', pumpkin: 'Crops', carrot: 'Crops', cabbage: 'Crops',
+  beetroot: 'Crops', cauliflower: 'Crops', parsnip: 'Crops', radish: 'Crops', wheat: 'Crops',
+  kale: 'Crops', barley: 'Crops', rhubarb: 'Crops', zucchini: 'Crops', yam: 'Crops',
+  broccoli: 'Crops', pepper: 'Crops', onion: 'Crops', turnip: 'Crops', artichoke: 'Crops',
+  corn: 'Crops', eggplant: 'Crops',
+
+  // Fruits
+  apple: 'Fruits', blueberry: 'Fruits', orange: 'Fruits', banana: 'Fruits',
+  tomato: 'Fruits', lemon: 'Fruits',
+
+  // Greenhouse Crops
+  grape: 'Greenhouse', rice: 'Greenhouse', olive: 'Greenhouse', soybean: 'Greenhouse',
+  duskberry: 'Greenhouse', lunara: 'Greenhouse', celestine: 'Greenhouse',
+
+  // Minerals & Mining
+  wood: 'Minerals', stone: 'Minerals', iron: 'Minerals', gold: 'Minerals',
+  crimstone: 'Minerals', obsidian: 'Minerals',
+
+  // Animal Products
+  egg: 'Animal', milk: 'Animal', wool: 'Animal', merinowool: 'Animal',
+  feather: 'Animal', leather: 'Animal', honey: 'Animal',
+
+  // Beetles & Bugs
+  greenbeetle: 'Beetles', bluebeetle: 'Beetles', pinkbeetle: 'Beetles',
+  amberbeetle: 'Beetles', pigbristles: 'Beetles', truffle: 'Beetles',
+  pigbristle: 'Beetles', truffles: 'Beetles',
+
+  // Emblems, Bait, Forage & Exotics
+  salt: 'Forage & Other', ruffroot: 'Forage & Other', chewedbone: 'Forage & Other',
+  heartleaf: 'Forage & Other', crystalleaf: 'Forage & Other', moonfur: 'Forage & Other',
+  ribbon: 'Forage & Other', dewberry: 'Forage & Other', wildgrass: 'Forage & Other',
+  frostpebble: 'Forage & Other', capsulebait: 'Forage & Other', umbrellabait: 'Forage & Other',
+  crimsonbaitfish: 'Forage & Other',
+  goblinemblem: 'Forage & Other', bumpkinemblem: 'Forage & Other',
+  sunflorianemblem: 'Forage & Other', nightshadeemblem: 'Forage & Other'
+};
+
+function getResourcePrices({ p2p = {}, flowerPriceUsd = 0.124309, category = 'all', currency = 'flower', search = '' } = {}) {
+  const normCategory = String(category || 'all').toLowerCase().trim();
+  const normCurrency = String(currency || 'flower').toLowerCase().trim();
+  const normSearch = String(search || '').toLowerCase().trim();
+
+  const pricesMap = {};
+  const pricesList = [];
+
+  for (const name of ALLOWED_DIFFERENCE_ITEMS) {
+    const cleanKey = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const itemCat = RESOURCE_CATEGORIES[cleanKey] || 'Forage & Other';
+
+    if (normCategory !== 'all') {
+      if (itemCat.toLowerCase() !== normCategory && !itemCat.toLowerCase().startsWith(normCategory)) {
+        continue;
+      }
+    }
+
+    if (normSearch && !name.toLowerCase().includes(normSearch) && !cleanKey.includes(normSearch)) {
+      continue;
+    }
+
+    const priceFlower = getFlowerUnitPrice(cleanKey, p2p);
+    const priceUsd = parseFloat((priceFlower * flowerPriceUsd).toFixed(6));
+
+    let val;
+    if (normCurrency === 'usd') {
+      val = priceUsd;
+    } else if (normCurrency === 'both') {
+      val = { flower: priceFlower, usd: priceUsd };
+    } else {
+      val = priceFlower;
+    }
+
+    pricesMap[name] = val;
+    pricesList.push({
+      name,
+      category: itemCat,
+      priceFlower,
+      priceUsd,
+      value: val
+    });
+  }
+
+  return { pricesMap, pricesList };
+}
+
 module.exports = {
   CROP_FLOWER_PRICES,
   RESOURCE_FLOWER_FALLBACK_PRICES,
@@ -143,5 +229,7 @@ module.exports = {
   ALLOWED_DIFFERENCE_ITEMS,
   ALLOWED_ITEM_KEYS,
   ALLOWED_ITEM_NAMES,
-  isAllowedDifferenceItem
+  isAllowedDifferenceItem,
+  RESOURCE_CATEGORIES,
+  getResourcePrices
 };
