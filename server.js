@@ -34,7 +34,7 @@ try {
 // ── Backend service modules ────────────────────────────────────────────────
 // Note: TiDB is used exclusively for marketplace trades in backend/tradeSync.js & api/trades.js
 const { getTiDBPool, recordExchangeRateInCloud } = require('./backend/db');
-const { CROP_FLOWER_PRICES, getResourcePrices }  = require('./backend/prices');
+const { CROP_FLOWER_PRICES, getResourcePrices, getCollectiblePrices } = require('./backend/prices');
 const { fetchFarmFullDataWithRetry, getSflHeaders, formatNftItem } = require('./backend/farmApi');
 const { processBaselineSnapshot }                = require('./backend/baselineService');
 const { processYieldCalculation, backfillDailyYields, repairMissingBaselines, aggregateCompletedWeeks, aggregateCompletedMonths, pruneOldLogs, recalculateWeekForUser, getWeekRangeUTC } = require('./backend/yieldService');
@@ -274,6 +274,77 @@ app.get(['/api/resource-prices', '/api/resources', '/api/resource-price'], async
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch resource prices', details: err.message });
+  }
+});
+
+app.get(['/api/collectible-prices', '/api/collectibles', '/api/collectible-price', '/api/sft-prices'], async (req, res) => {
+  const force = req.query.force === 'true';
+  const customApiKey = (req.query.apiKey || req.headers['x-api-key'] || '').trim();
+  const collection = (req.query.collection || req.query.col || 'collectibles').toLowerCase();
+  const currency = (req.query.currency || req.query.curr || 'flower').toLowerCase();
+  const search = (req.query.search || req.query.q || '').trim();
+  const boostsOnly = req.query.boostsOnly === 'true' || req.query.boosts === 'true' || req.query.boost === 'true';
+  const hasPrice = req.query.hasPrice === 'true' || req.query.listedOnly === 'true' || req.query.listed === 'true';
+  const excludeResources = req.query.excludeResources !== 'false' && req.query.resources !== 'true';
+  const format = (req.query.format || '').toLowerCase();
+  const isFlat = format === 'flat' || format === 'simple' || req.query.flat === 'true';
+  const isArray = format === 'array' || format === 'list';
+
+  try {
+    const data = await fetchMarketplaceActivity(customApiKey, force);
+    const flowerPriceUsd = (data && (data.flowerPrice || (data.pricesPayload && data.pricesPayload.flowerPrice))) || 0.124309;
+    let nftsList = (data && data.nftsPayload) || [];
+    let rawItems = (data && data.pricesPayload && data.pricesPayload.items) || {};
+
+    if (nftsList.length === 0 && Object.keys(rawItems).length === 0) {
+      try {
+        const renderRes = await fetch('https://sfl-calculator-backend.onrender.com/api/nfts', {
+          signal: AbortSignal.timeout(6000)
+        });
+        if (renderRes.ok) {
+          const remoteNfts = await renderRes.json();
+          if (Array.isArray(remoteNfts) && remoteNfts.length > 0) {
+            nftsList = remoteNfts;
+          }
+        }
+      } catch (_) {}
+    }
+
+    const { pricesMap, pricesList } = getCollectiblePrices({
+      nftsList,
+      rawItems,
+      flowerPriceUsd,
+      collection,
+      boostsOnly,
+      hasPrice,
+      currency,
+      search,
+      excludeResources
+    });
+
+    res.setHeader('Cache-Control', 'public, max-age=60');
+
+    if (isFlat) {
+      return res.json(pricesMap);
+    }
+
+    if (isArray) {
+      return res.json(pricesList);
+    }
+
+    return res.json({
+      updated_at: new Date().toISOString(),
+      flowerPriceUsd,
+      currency: currency.toUpperCase(),
+      collection,
+      total: Object.keys(pricesMap).length,
+      ...(boostsOnly ? { boostsOnly: true } : {}),
+      ...(hasPrice ? { hasPrice: true } : {}),
+      ...(search ? { search } : {}),
+      prices: pricesMap
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch collectible prices', details: err.message });
   }
 });
 

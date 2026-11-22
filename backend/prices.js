@@ -222,6 +222,167 @@ function getResourcePrices({ p2p = {}, flowerPriceUsd = 0.124309, category = 'al
   return { pricesMap, pricesList };
 }
 
+function getCollectibleImageUrl(name, id, collection = 'collectibles') {
+  let TRANSPARENT_BOOST_SPRITES = {};
+  try {
+    TRANSPARENT_BOOST_SPRITES = require('./transparentBoostSprites').TRANSPARENT_BOOST_SPRITES || {};
+  } catch (_) {}
+
+  const cleanKey = String(name || '').toLowerCase().trim();
+  const sprite = TRANSPARENT_BOOST_SPRITES[cleanKey];
+  if (sprite) {
+    return `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/${sprite}`;
+  }
+  if (collection === 'wearables') {
+    return `https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/src/assets/wearables/${id}.webp`;
+  }
+  return `https://sunflower-land.com/play/erc1155/images/${id}.webp`;
+}
+
+function getCollectiblePrices({
+  nftsList = [],
+  rawItems = {},
+  flowerPriceUsd = 0.124309,
+  collection = 'collectibles',
+  boostsOnly = false,
+  hasPrice = false,
+  currency = 'flower',
+  search = '',
+  excludeResources = true
+} = {}) {
+  const { KNOWN_IDS, ITEM_IDS } = require('./knownIds');
+  const { getItemBoost } = require('./itemBoosts');
+
+  const normCol = String(collection || 'collectibles').toLowerCase().trim();
+  const normCurr = String(currency || 'flower').toLowerCase().trim();
+  const normSearch = String(search || '').toLowerCase().trim();
+
+  // Price lookup map
+  const priceMap = new Map();
+  if (Array.isArray(nftsList)) {
+    nftsList.forEach(n => {
+      const fl = parseFloat(n.floor || n.price);
+      if (!isNaN(fl) && fl > 0) {
+        if (n.name) priceMap.set(n.name.toLowerCase().trim(), fl);
+        if (n.collection && n.itemId) priceMap.set(`${n.collection}-${n.itemId}`, fl);
+      }
+    });
+  }
+  if (rawItems && typeof rawItems === 'object') {
+    Object.entries(rawItems).forEach(([k, v]) => {
+      const fl = parseFloat(v.floor || v.price || v.latestSale);
+      if (!isNaN(fl) && fl > 0) {
+        priceMap.set(k.toLowerCase().trim(), fl);
+        if (v.collection && v.itemId) priceMap.set(`${v.collection}-${v.itemId}`, fl);
+      }
+    });
+  }
+
+  const pricesMap = {};
+  const pricesList = [];
+
+  const includeCollectibles = normCol === 'all' || normCol === 'collectibles' || normCol === 'sfts' || normCol === 'sft';
+  const includeWearables = normCol === 'all' || normCol === 'wearables' || normCol === 'wearable';
+
+  // 1. Process Collectibles (SFTs)
+  if (includeCollectibles) {
+    for (const [name, id] of Object.entries(KNOWN_IDS)) {
+      const cleanKey = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (excludeResources && (ALLOWED_ITEM_KEYS.has(cleanKey) || id < 400)) {
+        continue;
+      }
+
+      if (normSearch && !name.toLowerCase().includes(normSearch) && !cleanKey.includes(normSearch)) {
+        continue;
+      }
+
+      const boost = getItemBoost(name);
+      const isBoosted = Boolean(boost && boost !== 'No Boost');
+      if (boostsOnly && !isBoosted) {
+        continue;
+      }
+
+      const floor = priceMap.get(`collectibles-${id}`) || priceMap.get(name.toLowerCase().trim()) || null;
+      if (hasPrice && (!floor || floor <= 0)) {
+        continue;
+      }
+
+      const priceFlower = floor;
+      const priceUsd = floor ? parseFloat((floor * flowerPriceUsd).toFixed(4)) : null;
+
+      let val;
+      if (normCurr === 'usd') {
+        val = priceUsd;
+      } else if (normCurr === 'both') {
+        val = { flower: priceFlower, usd: priceUsd };
+      } else {
+        val = priceFlower;
+      }
+
+      pricesMap[name] = val;
+      pricesList.push({
+        id,
+        name,
+        collection: 'collectibles',
+        priceFlower,
+        priceUsd,
+        value: val,
+        boost: isBoosted ? boost : null,
+        image: getCollectibleImageUrl(name, id, 'collectibles')
+      });
+    }
+  }
+
+  // 2. Process Wearables
+  if (includeWearables) {
+    for (const [name, id] of Object.entries(ITEM_IDS)) {
+      const cleanKey = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      if (normSearch && !name.toLowerCase().includes(normSearch) && !cleanKey.includes(normSearch)) {
+        continue;
+      }
+
+      const boost = getItemBoost(name);
+      const isBoosted = Boolean(boost && boost !== 'No Boost');
+      if (boostsOnly && !isBoosted) {
+        continue;
+      }
+
+      const floor = priceMap.get(`wearables-${id}`) || priceMap.get(name.toLowerCase().trim()) || null;
+      if (hasPrice && (!floor || floor <= 0)) {
+        continue;
+      }
+
+      const priceFlower = floor;
+      const priceUsd = floor ? parseFloat((floor * flowerPriceUsd).toFixed(4)) : null;
+
+      let val;
+      if (normCurr === 'usd') {
+        val = priceUsd;
+      } else if (normCurr === 'both') {
+        val = { flower: priceFlower, usd: priceUsd };
+      } else {
+        val = priceFlower;
+      }
+
+      const displayName = includeCollectibles && pricesMap[name] ? `${name} (Wearable)` : name;
+      pricesMap[displayName] = val;
+      pricesList.push({
+        id,
+        name,
+        collection: 'wearables',
+        priceFlower,
+        priceUsd,
+        value: val,
+        boost: isBoosted ? boost : null,
+        image: getCollectibleImageUrl(name, id, 'wearables')
+      });
+    }
+  }
+
+  return { pricesMap, pricesList };
+}
+
 module.exports = {
   CROP_FLOWER_PRICES,
   RESOURCE_FLOWER_FALLBACK_PRICES,
@@ -231,5 +392,7 @@ module.exports = {
   ALLOWED_ITEM_NAMES,
   isAllowedDifferenceItem,
   RESOURCE_CATEGORIES,
-  getResourcePrices
+  getResourcePrices,
+  getCollectiblePrices,
+  getCollectibleImageUrl
 };
