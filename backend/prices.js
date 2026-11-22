@@ -246,6 +246,8 @@ function getCollectiblePrices({
   collection = 'collectibles',
   boostsOnly = false,
   hasPrice = false,
+  tradeableOnly = false,
+  tradeable = false,
   currency = 'flower',
   search = '',
   excludeResources = true
@@ -253,6 +255,7 @@ function getCollectiblePrices({
   const { KNOWN_IDS, ITEM_IDS } = require('./knownIds');
   const { getItemBoost } = require('./itemBoosts');
 
+  const requirePrice = Boolean(hasPrice || tradeableOnly || tradeable);
   const normCol = String(collection || 'collectibles').toLowerCase().trim();
   const normCurr = String(currency || 'flower').toLowerCase().trim();
   const normSearch = String(search || '').toLowerCase().trim();
@@ -303,7 +306,7 @@ function getCollectiblePrices({
       }
 
       const floor = priceMap.get(`collectibles-${id}`) || priceMap.get(name.toLowerCase().trim()) || null;
-      if (hasPrice && (!floor || floor <= 0)) {
+      if (requirePrice && (!floor || floor <= 0)) {
         continue;
       }
 
@@ -349,7 +352,7 @@ function getCollectiblePrices({
       }
 
       const floor = priceMap.get(`wearables-${id}`) || priceMap.get(name.toLowerCase().trim()) || null;
-      if (hasPrice && (!floor || floor <= 0)) {
+      if (requirePrice && (!floor || floor <= 0)) {
         continue;
       }
 

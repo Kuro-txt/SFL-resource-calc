@@ -284,7 +284,7 @@ app.get(['/api/collectible-prices', '/api/collectibles', '/api/collectible-price
   const currency = (req.query.currency || req.query.curr || 'flower').toLowerCase();
   const search = (req.query.search || req.query.q || '').trim();
   const boostsOnly = req.query.boostsOnly === 'true' || req.query.boosts === 'true' || req.query.boost === 'true';
-  const hasPrice = req.query.hasPrice === 'true' || req.query.listedOnly === 'true' || req.query.listed === 'true';
+  const hasPrice = req.query.hasPrice === 'true' || req.query.listedOnly === 'true' || req.query.listed === 'true' || req.query.tradeable === 'true' || req.query.tradable === 'true' || req.query.tradeableOnly === 'true' || req.query.tradableOnly === 'true';
   const excludeResources = req.query.excludeResources !== 'false' && req.query.resources !== 'true';
   const format = (req.query.format || '').toLowerCase();
   const isFlat = format === 'flat' || format === 'simple' || req.query.flat === 'true';
