@@ -1,4 +1,4 @@
-import { KNOWN_IDS, ITEM_IDS } from '../src/data/knownIds.js';
+import { KNOWN_IDS, ITEM_IDS } from '../../src/data/knownIds.js';
 
 function getNftNames({ collection = 'all', search = '' } = {}) {
   const col = String(collection || 'all').toLowerCase();

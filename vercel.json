@@ -3,12 +3,28 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/nfts",
-      "destination": "/api/nft"
+      "source": "/api/config",
+      "destination": "/api/misc?route=config"
+    },
+    {
+      "source": "/api/get-land",
+      "destination": "/api/misc?route=get-land"
+    },
+    {
+      "source": "/api/get-marketplace",
+      "destination": "/api/misc?route=get-marketplace"
+    },
+    {
+      "source": "/api/nft-names",
+      "destination": "/api/misc?route=nft-names"
     },
     {
       "source": "/api/sft-names",
-      "destination": "/api/nft-names"
+      "destination": "/api/misc?route=nft-names"
+    },
+    {
+      "source": "/api/nfts",
+      "destination": "/api/nft"
     },
     {
       "source": "/api/weeklyYields",
