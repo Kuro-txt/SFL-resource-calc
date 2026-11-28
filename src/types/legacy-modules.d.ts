@@ -21,12 +21,31 @@ declare module "*/panels/npc/npcData.js" {
 }
 
 declare module "*/panels/pets/petsData.js" {
-  export const PET_SPECIES: Record<
-    string,
-    { category: string; fetch?: string[]; aura?: string }
-  >;
-  export const KNOWN_PETS: Record<string, string>;
+  export interface KnownPetMeta {
+    id: number;
+    name: string;
+    species: string;
+    category: string;
+    rarity: string;
+    emoji: string;
+    desc: string;
+  }
+  export interface PetCategoryMeta {
+    icon: string;
+    color: string;
+    fetches: Array<{ name: string; energy: number; minLevel?: number }>;
+  }
+  export const KNOWN_PETS: Record<string, KnownPetMeta>;
+  export const PET_CATEGORIES: Record<string, PetCategoryMeta>;
   export const FETCHING_ENERGY_COSTS: Record<string, number>;
+  export const ENERGY_LEVEL_PERKS: Array<{
+    level: number;
+    bonusEnergy?: number;
+    decimalYield?: number;
+    acornBonus?: number;
+    unlocksFossil?: boolean;
+    label: string;
+  }>;
 }
 
 declare module "*/data/itemBoosts.js" {

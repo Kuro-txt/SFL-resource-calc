@@ -102,11 +102,15 @@ export const EmptyCard: React.FC<EmptyCardProps> = ({
         transformPerspective: 950,
         rotateX,
         rotateY,
-        background: isDark ? "rgba(8, 14, 28, 0.86)" : "rgba(255, 253, 248, 0.88)",
-        border: "1px solid var(--border)",
+        background: isDark
+          ? "rgba(8, 14, 28, 0.86)"
+          : "linear-gradient(155deg, rgba(255, 252, 246, 0.94) 0%, rgba(251, 238, 220, 0.88) 100%)",
+        border: isDark ? "1px solid var(--border)" : "1px solid rgba(206, 152, 104, 0.55)",
         borderRadius: "16px",
         padding: "20px 22px",
-        boxShadow: "var(--shadow), inset 0 1px 0 var(--bevel)",
+        boxShadow: isDark
+          ? "var(--shadow), inset 0 1px 0 var(--bevel)"
+          : "0 14px 34px rgba(120, 62, 22, 0.11), 0 2px 6px rgba(120, 62, 22, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 0 rgba(217, 107, 39, 0.12)",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
@@ -115,6 +119,67 @@ export const EmptyCard: React.FC<EmptyCardProps> = ({
         willChange: "transform",
       }}
     >
+      {/* Light Mode: Sunlit Corner Sheen + Dual-Side Terracotta Edge Sweeps */}
+      {!isDark && (
+        <>
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(circle at 90% 8%, rgba(232, 122, 48, 0.14), transparent 52%), radial-gradient(circle at 10% 92%, rgba(245, 180, 92, 0.12), transparent 50%)",
+              pointerEvents: "none",
+              zIndex: 1,
+            }}
+          />
+          <motion.span
+            aria-hidden="true"
+            initial={{ clipPath: "inset(0% 100% 0% 0%)", opacity: 0 }}
+            animate={{
+              clipPath: hovered ? "inset(0% 50% 0% 0%)" : "inset(0% 94% 0% 0%)",
+              opacity: hovered ? 0.95 : 0.72,
+            }}
+            transition={{
+              duration: 0.42,
+              delay: hovered ? 0 : index * 0.05 + 0.12,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "16px",
+              border: "1.5px solid #e87a30",
+              boxShadow: "inset 0 0 10px rgba(232, 122, 48, 0.18), 0 0 10px rgba(232, 122, 48, 0.22)",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}
+          />
+          <motion.span
+            aria-hidden="true"
+            initial={{ clipPath: "inset(0% 0% 0% 100%)", opacity: 0 }}
+            animate={{
+              clipPath: hovered ? "inset(0% 0% 0% 50%)" : "inset(0% 0% 0% 94%)",
+              opacity: hovered ? 0.95 : 0.72,
+            }}
+            transition={{
+              duration: 0.42,
+              delay: hovered ? 0 : index * 0.05 + 0.12,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "16px",
+              border: "1.5px solid #d45526",
+              boxShadow: "inset 0 0 10px rgba(212, 85, 38, 0.16), 0 0 10px rgba(212, 85, 38, 0.2)",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}
+          />
+        </>
+      )}
+
       {/* Night Mode: Dual-Side Neon Blue Outlines Sweeping from Both Sides */}
       {isDark && (
         <>
@@ -184,12 +249,14 @@ export const EmptyCard: React.FC<EmptyCardProps> = ({
             className="mono"
             style={{
               fontSize: "0.7rem",
-              fontWeight: 600,
+              fontWeight: 700,
               padding: "3px 8px",
               borderRadius: "6px",
-              background: "var(--card-inner)",
-              color: "var(--muted)",
-              border: "1px solid var(--border)",
+              background: isDark
+                ? "var(--card-inner)"
+                : "linear-gradient(135deg, rgba(232, 122, 48, 0.18), rgba(212, 85, 38, 0.09))",
+              color: isDark ? "var(--muted)" : "var(--accent)",
+              border: isDark ? "1px solid var(--border)" : "1px solid rgba(217, 107, 39, 0.34)",
             }}
           >
             {slot}

@@ -6,15 +6,15 @@ import {
   LogOut,
   LayoutGrid,
   Backpack,
-  CalendarDays,
+  PawPrint,
   ArrowLeftRight,
   TrendingUp,
-  Heart,
+  Gift,
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
-export type TabId = "dashboard" | "inventory" | "tracker" | "trades" | "market" | "pets" | "settings";
+export type TabId = "dashboard" | "inventory" | "pets" | "trades" | "market" | "npc" | "settings";
 
 export interface TabMeta {
   id: TabId;
@@ -25,10 +25,10 @@ export interface TabMeta {
 export const TABS: TabMeta[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
   { id: "inventory", label: "Inventory", icon: Backpack },
-  { id: "tracker", label: "Tracker", icon: CalendarDays },
+  { id: "pets", label: "Pets", icon: PawPrint },
   { id: "trades", label: "Trades", icon: ArrowLeftRight },
   { id: "market", label: "Market", icon: TrendingUp },
-  { id: "pets", label: "Pets & NPC", icon: Heart },
+  { id: "npc", label: "NPC Gifts", icon: Gift },
   { id: "settings", label: "Settings", icon: SlidersHorizontal },
 ];
 

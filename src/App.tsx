@@ -33,11 +33,11 @@ const TAB_LAYOUTS: Record<TabId, CardSpec[]> = {
     { slot: "03", title: "Crops & Fruits Stock", span: "span-6", minHeight: 225, enterFrom: "left" },
     { slot: "04", title: "Minerals, Animals & Forage", span: "span-6", minHeight: 225, enterFrom: "right" },
   ],
-  tracker: [
-    { slot: "01", title: "90-Day Yield History", span: "span-8", minHeight: 265, enterFrom: "left" },
-    { slot: "02", title: "Crop & Resource Calculator", span: "span-4", minHeight: 265, enterFrom: "right" },
-    { slot: "03", title: "00:00 UTC Baseline vs Live", span: "span-6", minHeight: 220, enterFrom: "left" },
-    { slot: "04", title: "Weekly & Monthly Rollups", span: "span-6", minHeight: 220, enterFrom: "right" },
+  pets: [
+    { slot: "01", title: "Owned Farm & NFT Pets", span: "span-6", minHeight: 250, enterFrom: "left" },
+    { slot: "02", title: "Daily Food Requests", span: "span-6", minHeight: 250, enterFrom: "right" },
+    { slot: "03", title: "Pet Categories & Fetches", span: "span-6", minHeight: 230, enterFrom: "left" },
+    { slot: "04", title: "Level Perks & Milestones", span: "span-6", minHeight: 230, enterFrom: "right" },
   ],
   trades: [
     { slot: "01", title: "Trade History Ledger", span: "span-8", minHeight: 265, enterFrom: "left" },
@@ -51,9 +51,9 @@ const TAB_LAYOUTS: Record<TabId, CardSpec[]> = {
     { slot: "03", title: "NFT Wishlist & Goal Tracker", span: "span-6", minHeight: 230, enterFrom: "left" },
     { slot: "04", title: "Wearables Floor", span: "span-6", minHeight: 230, enterFrom: "right" },
   ],
-  pets: [
-    { slot: "01", title: "Pets & Shrines", span: "span-6", minHeight: 290, enterFrom: "left" },
-    { slot: "02", title: "NPC Daily Gifts", span: "span-6", minHeight: 290, enterFrom: "right" },
+  npc: [
+    { slot: "01", title: "Plaza & Island NPCs", span: "span-6", minHeight: 290, enterFrom: "left" },
+    { slot: "02", title: "Favorite Gifts & Prices", span: "span-6", minHeight: 290, enterFrom: "right" },
   ],
   settings: [
     { slot: "01", title: "Theme, Currency & API Key", span: "span-12", minHeight: 150, enterFrom: "left" },
@@ -384,14 +384,16 @@ export const App: React.FC = () => {
                     width: "100%",
                     maxWidth: "860px",
                     minHeight: "480px",
-                    background: isDark ? "rgba(8, 14, 28, 0.96)" : "rgba(255, 253, 248, 0.98)",
+                    background: isDark
+                      ? "rgba(8, 14, 28, 0.96)"
+                      : "linear-gradient(155deg, rgba(255, 252, 246, 0.98) 0%, rgba(251, 238, 220, 0.96) 100%)",
                     border: "1px solid",
-                    borderColor: isDark ? "rgba(0, 225, 255, 0.4)" : "var(--border-hover)",
+                    borderColor: isDark ? "rgba(0, 225, 255, 0.4)" : "rgba(217, 107, 39, 0.45)",
                     borderRadius: "20px",
                     padding: "28px 30px",
                     boxShadow: isDark
                       ? "0 30px 90px rgba(0, 0, 0, 0.85), 0 0 50px rgba(0, 212, 255, 0.25)"
-                      : "0 32px 80px rgba(28, 21, 14, 0.24)",
+                      : "0 32px 80px rgba(92, 50, 20, 0.24), 0 0 36px rgba(232, 122, 48, 0.14)",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
@@ -399,6 +401,48 @@ export const App: React.FC = () => {
                     willChange: "transform",
                   }}
                 >
+                  {!isDark && (
+                    <>
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          background:
+                            "radial-gradient(circle at 88% 10%, rgba(232, 122, 48, 0.12), transparent 52%)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <motion.span
+                        aria-hidden="true"
+                        initial={{ clipPath: "inset(0% 96% 0% 0%)", opacity: 0.4 }}
+                        animate={{ clipPath: "inset(0% 50% 0% 0%)", opacity: 0.9 }}
+                        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: "20px",
+                          border: "1.5px solid #e87a30",
+                          boxShadow: "inset 0 0 14px rgba(232, 122, 48, 0.18)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <motion.span
+                        aria-hidden="true"
+                        initial={{ clipPath: "inset(0% 0% 0% 96%)", opacity: 0.4 }}
+                        animate={{ clipPath: "inset(0% 0% 0% 50%)", opacity: 0.9 }}
+                        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: "20px",
+                          border: "1.5px solid #d45526",
+                          boxShadow: "inset 0 0 14px rgba(212, 85, 38, 0.18)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    </>
+                  )}
                   {isDark && (
                     <>
                       <motion.span

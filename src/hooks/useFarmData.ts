@@ -182,10 +182,12 @@ export function useFarmData(farmId: string, user: User | null, apiKey = ""): Far
     [apiKey, loadAuxCloudData]
   );
 
-  // Load wishlist from Supabase profile if available, and load auxiliary cloud data when farmId changes
+  // Auto-sync live farm when farmId is set (and load wishlist & aux cloud data)
   useEffect(() => {
-    if (farmId || user?.id) {
-      void loadAuxCloudData(farmId);
+    if (farmId) {
+      void syncFarm(farmId);
+    } else if (user?.id) {
+      void loadAuxCloudData("");
     }
     if (user?.id) {
       void (async () => {
@@ -198,7 +200,7 @@ export function useFarmData(farmId: string, user: User | null, apiKey = ""): Far
         }
       })();
     }
-  }, [farmId, user?.id, loadAuxCloudData]);
+  }, [farmId, user?.id]);
 
   const toggleWishlist = useCallback(
     (name: string) => {

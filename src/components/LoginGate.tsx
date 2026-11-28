@@ -153,19 +153,61 @@ export const LoginGate: React.FC<LoginGateProps> = ({
         transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
         style={{
           position: "relative",
-          background: isDark ? "rgba(8, 14, 28, 0.88)" : "rgba(255, 253, 248, 0.90)",
+          background: isDark
+            ? "rgba(8, 14, 28, 0.88)"
+            : "linear-gradient(155deg, rgba(255, 252, 246, 0.94) 0%, rgba(251, 238, 220, 0.90) 100%)",
           backdropFilter: "blur(18px)",
           WebkitBackdropFilter: "blur(18px)",
           border: "1px solid",
-          borderColor: isDark ? "rgba(56, 189, 248, 0.25)" : "var(--border)",
+          borderColor: isDark ? "rgba(56, 189, 248, 0.25)" : "rgba(206, 152, 104, 0.55)",
           borderRadius: "20px",
           padding: "28px",
           boxShadow: isDark
             ? "0 24px 64px rgba(0, 0, 0, 0.72), 0 0 36px rgba(0, 212, 255, 0.14)"
-            : "0 24px 60px rgba(28, 21, 14, 0.14), inset 0 1px 0 var(--bevel)",
+            : "0 24px 60px rgba(92, 50, 20, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.95)",
           overflow: "hidden",
         }}
       >
+        {/* Light Mode Sunlit Sheen + Terracotta Edge Beams */}
+        {!isDark && (
+          <>
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                inset: 0,
+                background:
+                  "radial-gradient(circle at 90% 8%, rgba(232, 122, 48, 0.14), transparent 52%), radial-gradient(circle at 10% 92%, rgba(245, 180, 92, 0.12), transparent 50%)",
+                pointerEvents: "none",
+              }}
+            />
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "20px",
+                border: "1.5px solid #e87a30",
+                clipPath: "inset(0% 92% 0% 0%)",
+                boxShadow: "inset 0 0 12px rgba(232, 122, 48, 0.2)",
+                pointerEvents: "none",
+              }}
+            />
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "20px",
+                border: "1.5px solid #d45526",
+                clipPath: "inset(0% 0% 0% 92%)",
+                boxShadow: "inset 0 0 12px rgba(212, 85, 38, 0.2)",
+                pointerEvents: "none",
+              }}
+            />
+          </>
+        )}
+
         {/* Night Mode Dual-Side Neon Edge Beams */}
         {isDark && (
           <>

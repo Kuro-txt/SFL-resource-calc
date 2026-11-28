@@ -5,8 +5,8 @@ import { useDashboardData } from "../hooks/useDashboardData";
 import { FarmDataState } from "../hooks/useFarmData";
 import { AppPreferences } from "./views/SharedUi";
 import { DashboardTabView, SettingsTabView } from "./views/SettingsAndDashboard";
-import { InventoryTabView, TrackerTabView } from "./views/InventoryAndTracker";
-import { MarketTabView, PetsAndNpcTabView, TradesTabView } from "./views/TradesMarketPets";
+import { InventoryTabView } from "./views/InventoryAndTracker";
+import { MarketTabView, NpcTabView, PetsTabView, TradesTabView } from "./views/TradesMarketPets";
 
 export type { AppPreferences, CurrencyMode, CoinRatioMode } from "./views/SharedUi";
 
@@ -39,14 +39,14 @@ export const CardContent: React.FC<CardViewProps> = ({ tab, ...rest }) => {
       return <DashboardTabView {...rest} />;
     case "inventory":
       return <InventoryTabView {...rest} />;
-    case "tracker":
-      return <TrackerTabView {...rest} />;
+    case "pets":
+      return <PetsTabView {...rest} />;
     case "trades":
       return <TradesTabView {...rest} />;
     case "market":
       return <MarketTabView {...rest} />;
-    case "pets":
-      return <PetsAndNpcTabView {...rest} />;
+    case "npc":
+      return <NpcTabView {...rest} />;
     case "settings":
       return <SettingsTabView {...rest} />;
     default:
