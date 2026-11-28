@@ -5,8 +5,10 @@ import { PixelCanvas } from "./components/PixelCanvas";
 import { Navbar, TabId, TABS } from "./components/Navbar";
 import { EmptyCard } from "./components/EmptyCard";
 import { AppPreferences, CardContent } from "./components/CardViews";
+import { LoginGate } from "./components/LoginGate";
 import { useMarketData } from "./hooks/useMarketData";
 import { useDashboardData } from "./hooks/useDashboardData";
+import { useAuth } from "./hooks/useAuth";
 
 interface CardSpec {
   slot: string;
@@ -82,12 +84,19 @@ export const App: React.FC = () => {
   const [direction, setDirection] = useState(1);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
 
+  const auth = useAuth();
   const market = useMarketData();
   const dashboard = useDashboardData(market.resources);
   const isDark = theme === "dark";
   const cards = TAB_LAYOUTS[activeTab];
   const expandedIndex = expandedSlot ? cards.findIndex((c) => c.slot === expandedSlot) : -1;
   const expandedCard = expandedIndex >= 0 ? cards[expandedIndex] : null;
+
+  useEffect(() => {
+    if (auth.linkedFarmId && auth.linkedFarmId !== dashboard.farmId) {
+      dashboard.setFarmId(auth.linkedFarmId);
+    }
+  }, [auth.linkedFarmId]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -148,24 +157,62 @@ export const App: React.FC = () => {
     <MotionConfig reducedMotion="user">
       <PixelCanvas theme={theme} />
 
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          maxWidth: "1080px",
-          margin: "0 auto",
-          padding: "28px 18px 64px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "24px",
-        }}
-      >
-        <Navbar
-          activeTab={activeTab}
-          onSelectTab={handleSelectTab}
+      {!auth.ready ? (
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            minHeight: "100vh",
+            display: "grid",
+            placeItems: "center",
+          }}
+        >
+          <div
+            className="mono"
+            style={{
+              padding: "10px 18px",
+              borderRadius: "999px",
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              color: "var(--muted)",
+              fontSize: "0.78rem",
+              backdropFilter: "blur(12px)",
+            }}
+          >
+            Connecting to Sun-Flux...
+          </div>
+        </div>
+      ) : !auth.user ? (
+        <LoginGate
           theme={theme}
           onToggleTheme={toggleTheme}
+          onSignUp={auth.signUp}
+          onSignIn={auth.signIn}
+          onAuthenticated={(farmId) => {
+            if (farmId) dashboard.setFarmId(farmId);
+          }}
         />
+      ) : (
+        <>
+          <div
+            style={{
+              position: "relative",
+              zIndex: 1,
+              maxWidth: "1080px",
+              margin: "0 auto",
+              padding: "28px 18px 64px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "24px",
+            }}
+          >
+            <Navbar
+              activeTab={activeTab}
+              onSelectTab={handleSelectTab}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              onSignOut={() => void auth.signOut()}
+            />
 
         <main style={{ position: "relative", minHeight: "520px", overflow: "hidden", padding: "6px 4px" }}>
           <AnimatePresence mode="popLayout" custom={direction}>
@@ -459,6 +506,8 @@ export const App: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+        </>
+      )}
     </MotionConfig>
   );
 };

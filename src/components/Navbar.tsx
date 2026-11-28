@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sun, Moon, LayoutGrid, Layers, FolderOpen, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { Sun, Moon, LogOut, LayoutGrid, Layers, FolderOpen, SlidersHorizontal, type LucideIcon } from "lucide-react";
 
 export type TabId = "overview" | "workspace" | "library" | "settings";
 
@@ -22,6 +22,7 @@ interface NavbarProps {
   onSelectTab: (tab: TabId) => void;
   theme: "light" | "dark";
   onToggleTheme: () => void;
+  onSignOut?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -29,6 +30,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectTab,
   theme,
   onToggleTheme,
+  onSignOut,
 }) => {
   return (
     <motion.header
@@ -130,42 +132,71 @@ export const Navbar: React.FC<NavbarProps> = ({
         })}
       </nav>
 
-      {/* Theme Switch sliding in from Right */}
-      <motion.button
-        type="button"
-        onClick={onToggleTheme}
-        initial={{ opacity: 0, x: 36 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-        whileHover={{ scale: 1.06 }}
-        whileTap={{ scale: 0.92 }}
-        aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
-        style={{
-          width: "36px",
-          height: "36px",
-          borderRadius: "10px",
-          border: "1px solid var(--border)",
-          background: "var(--card-inner)",
-          color: "var(--text)",
-          display: "grid",
-          placeItems: "center",
-          cursor: "pointer",
-          overflow: "hidden",
-        }}
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.span
-            key={theme}
-            initial={{ y: -14, opacity: 0, rotate: -30 }}
-            animate={{ y: 0, opacity: 1, rotate: 0 }}
-            exit={{ y: 14, opacity: 0, rotate: 30 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            style={{ display: "grid", placeItems: "center" }}
+      {/* Right Controls: Theme Switch + Sign Out */}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <motion.button
+          type="button"
+          onClick={onToggleTheme}
+          initial={{ opacity: 0, x: 36 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.92 }}
+          aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
+          style={{
+            width: "36px",
+            height: "36px",
+            borderRadius: "10px",
+            border: "1px solid var(--border)",
+            background: "var(--card-inner)",
+            color: "var(--text)",
+            display: "grid",
+            placeItems: "center",
+            cursor: "pointer",
+            overflow: "hidden",
+          }}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={theme}
+              initial={{ y: -14, opacity: 0, rotate: -30 }}
+              animate={{ y: 0, opacity: 1, rotate: 0 }}
+              exit={{ y: 14, opacity: 0, rotate: 30 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              style={{ display: "grid", placeItems: "center" }}
+            >
+              {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+            </motion.span>
+          </AnimatePresence>
+        </motion.button>
+
+        {onSignOut && (
+          <motion.button
+            type="button"
+            onClick={onSignOut}
+            initial={{ opacity: 0, x: 36 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.92 }}
+            title="Sign Out"
+            aria-label="Sign Out"
+            style={{
+              width: "36px",
+              height: "36px",
+              borderRadius: "10px",
+              border: "1px solid var(--border)",
+              background: "var(--card-inner)",
+              color: "var(--muted)",
+              display: "grid",
+              placeItems: "center",
+              cursor: "pointer",
+            }}
           >
-            {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
-          </motion.span>
-        </AnimatePresence>
-      </motion.button>
+            <LogOut size={15} />
+          </motion.button>
+        )}
+      </div>
     </motion.header>
   );
 };

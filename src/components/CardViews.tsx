@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Search, RefreshCw, Copy, Check, Sparkles, Coins, Calculator, Sun, Moon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Scale } from "lucide-react";
 import { MarketDataState, ResourceItem } from "../hooks/useMarketData";
 import { TimeRange, useDashboardData } from "../hooks/useDashboardData";
@@ -176,6 +176,9 @@ export const CardContent: React.FC<CardViewProps> = ({
 }) => {
   const [query, setQuery] = useState("");
   const [farmInput, setFarmInput] = useState(dashboard.farmId);
+  useEffect(() => {
+    setFarmInput(dashboard.farmId);
+  }, [dashboard.farmId]);
   const [taxInput, setTaxInput] = useState("100");
   const [taxRate, setTaxRate] = useState(prefs.defaultTax);
   const [bulkQty, setBulkQty] = useState("1000");
