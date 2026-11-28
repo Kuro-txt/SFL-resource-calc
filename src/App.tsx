@@ -71,13 +71,33 @@ export const App: React.FC = () => {
     return saved === "dark" ? "dark" : "light";
   });
   const [prefs, setPrefs] = useState<AppPreferences>(() => {
+    let currency: AppPreferences["currency"] = "flower";
+    let defaultTax = 10;
+    let coinFlowerRatio = 1000;
     try {
+      const savedTax = localStorage.getItem("sfl_tax_rate");
+      if (savedTax !== null) {
+        const t = parseFloat(savedTax);
+        if (!Number.isNaN(t)) defaultTax = parseFloat((t * 100).toFixed(2));
+      }
+      const savedRatio = localStorage.getItem("sfl_coin_flower_ratio");
+      if (savedRatio !== null) {
+        const r = parseFloat(savedRatio);
+        if (!Number.isNaN(r) && r > 0) coinFlowerRatio = r;
+      }
       const raw = localStorage.getItem("sfl_motion_prefs");
-      if (raw) return JSON.parse(raw) as AppPreferences;
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<AppPreferences>;
+        if (parsed.currency) currency = parsed.currency;
+        if (typeof parsed.defaultTax === "number") defaultTax = parsed.defaultTax;
+        if (typeof parsed.coinFlowerRatio === "number" && parsed.coinFlowerRatio > 0) {
+          coinFlowerRatio = parsed.coinFlowerRatio;
+        }
+      }
     } catch {
       // ignore
     }
-    return { currency: "flower", defaultTax: 7.5 };
+    return { currency, defaultTax, coinFlowerRatio };
   });
 
   const [activeTab, setActiveTab] = useState<TabId>("overview");
@@ -86,7 +106,13 @@ export const App: React.FC = () => {
 
   const auth = useAuth();
   const market = useMarketData();
-  const dashboard = useDashboardData(market.resources);
+  const dashboard = useDashboardData({
+    resources: market.resources,
+    flowerPriceUsd: market.flowerPriceUsd,
+    user: auth.user,
+    taxRatePct: prefs.defaultTax,
+    coinFlowerRatio: prefs.coinFlowerRatio,
+  });
   const isDark = theme === "dark";
   const cards = TAB_LAYOUTS[activeTab];
   const expandedIndex = expandedSlot ? cards.findIndex((c) => c.slot === expandedSlot) : -1;
@@ -107,6 +133,8 @@ export const App: React.FC = () => {
     setPrefs((prev) => {
       const next = { ...prev, ...patch };
       localStorage.setItem("sfl_motion_prefs", JSON.stringify(next));
+      localStorage.setItem("sfl_tax_rate", String(next.defaultTax / 100));
+      localStorage.setItem("sfl_coin_flower_ratio", String(next.coinFlowerRatio));
       return next;
     });
   };
@@ -256,6 +284,8 @@ export const App: React.FC = () => {
                       onUpdatePrefs={handleUpdatePrefs}
                       theme={theme}
                       onToggleTheme={toggleTheme}
+                      userEmail={auth.user?.email}
+                      onSignOut={() => void auth.signOut()}
                     />
                   </EmptyCard>
                 )
@@ -478,6 +508,8 @@ export const App: React.FC = () => {
                   onUpdatePrefs={handleUpdatePrefs}
                   theme={theme}
                   onToggleTheme={toggleTheme}
+                  userEmail={auth.user?.email}
+                  onSignOut={() => void auth.signOut()}
                   expanded
                 />
               </motion.div>

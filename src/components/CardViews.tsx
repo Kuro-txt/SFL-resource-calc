@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Search, RefreshCw, Copy, Check, Sparkles, Coins, Calculator, Sun, Moon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Scale } from "lucide-react";
+import { Search, RefreshCw, Copy, Check, Coins, Calculator, Sun, Moon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Scale, Eye, EyeOff, LogOut } from "lucide-react";
 import { MarketDataState, ResourceItem } from "../hooks/useMarketData";
 import { TimeRange, useDashboardData } from "../hooks/useDashboardData";
 import { TabId } from "./Navbar";
@@ -9,6 +9,7 @@ export type CurrencyMode = "flower" | "usd" | "both";
 export interface AppPreferences {
   currency: CurrencyMode;
   defaultTax: number;
+  coinFlowerRatio: number;
 }
 
 interface CardViewProps {
@@ -20,6 +21,8 @@ interface CardViewProps {
   onUpdatePrefs: (patch: Partial<AppPreferences>) => void;
   theme: "light" | "dark";
   onToggleTheme: () => void;
+  userEmail?: string | null;
+  onSignOut?: () => void;
   expanded?: boolean;
 }
 
@@ -172,9 +175,12 @@ export const CardContent: React.FC<CardViewProps> = ({
   onUpdatePrefs,
   theme,
   onToggleTheme,
+  userEmail,
+  onSignOut,
   expanded = false,
 }) => {
   const [query, setQuery] = useState("");
+  const [hideUser, setHideUser] = useState(() => localStorage.getItem("sfl_hide_username") === "true");
   const [farmInput, setFarmInput] = useState(dashboard.farmId);
   useEffect(() => {
     setFarmInput(dashboard.farmId);
@@ -264,6 +270,11 @@ export const CardContent: React.FC<CardViewProps> = ({
               <PillButton active={Boolean(dashboard.farmId)} onClick={() => dashboard.setFarmId(farmInput)}>
                 {dashboard.loading ? "..." : "Load"}
               </PillButton>
+              {dashboard.farmId && (
+                <PillButton onClick={() => void dashboard.refreshFarm()}>
+                  <RefreshCw size={12} />
+                </PillButton>
+              )}
             </form>
 
             <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
@@ -807,32 +818,85 @@ export const CardContent: React.FC<CardViewProps> = ({
     if (slot === "02") {
       return (
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", color: "var(--muted)" }}>
-            <Calculator size={14} /> Default Marketplace Tax Rate
-          </div>
-          <div style={{ display: "flex", gap: "6px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Calculator size={14} style={{ color: "var(--muted)" }} />
+            <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Tax Rate</span>
             {[7.5, 10, 15].map((r) => (
               <PillButton key={r} active={prefs.defaultTax === r} onClick={() => onUpdatePrefs({ defaultTax: r })}>
                 {r}%
               </PillButton>
             ))}
           </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Coins size={14} style={{ color: "var(--muted)" }} />
+            <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>Coins / 1 FL</span>
+            <input
+              type="number"
+              value={prefs.coinFlowerRatio}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                if (!Number.isNaN(val) && val > 0) {
+                  onUpdatePrefs({ coinFlowerRatio: val });
+                }
+              }}
+              style={{
+                width: "86px",
+                padding: "5px 9px",
+                borderRadius: "8px",
+                border: "1px solid var(--border)",
+                background: "var(--card-inner)",
+                color: "var(--text)",
+                fontSize: "0.78rem",
+                fontFamily: "JetBrains Mono, monospace",
+              }}
+            />
+          </div>
         </div>
       );
     }
 
     if (slot === "03") {
+      const toggleHideUser = () => {
+        const next = !hideUser;
+        setHideUser(next);
+        localStorage.setItem("sfl_hide_username", next ? "true" : "false");
+      };
+
       return (
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.8rem", color: "var(--muted)" }}>
-            <Sparkles size={14} />
-            <span className="mono">1-4: Tabs • ESC: Close • ←/→: Cycle</span>
-          </div>
-          <PillButton active={market.loading} onClick={() => void market.refresh(true)}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-              <RefreshCw size={13} /> {market.loading ? "Refreshing..." : "Refresh Live Prices"}
+            <span className="mono" style={{ color: "var(--text)", fontWeight: 600 }}>
+              {userEmail ? (hideUser ? "••••••••" : userEmail) : "Guest"}
             </span>
-          </PillButton>
+            {userEmail && (
+              <PillButton onClick={toggleHideUser}>
+                {hideUser ? <Eye size={12} /> : <EyeOff size={12} />}
+              </PillButton>
+            )}
+            <span className="mono">• 1-4: Tabs • ESC: Close</span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <PillButton
+              active={market.loading || dashboard.loading}
+              onClick={() => {
+                void market.refresh(true);
+                void dashboard.refreshFarm();
+              }}
+            >
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <RefreshCw size={13} /> {market.loading || dashboard.loading ? "Syncing..." : "Sync All Data"}
+              </span>
+            </PillButton>
+            {onSignOut && (
+              <PillButton onClick={onSignOut}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <LogOut size={13} /> Sign Out
+                </span>
+              </PillButton>
+            )}
+          </div>
         </div>
       );
     }

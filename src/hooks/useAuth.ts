@@ -13,7 +13,7 @@ export interface AuthState {
 
 let cachedSupabase: SupabaseClient | null = null;
 
-async function getOrInitSupabase(): Promise<SupabaseClient | null> {
+export async function getOrInitSupabase(): Promise<SupabaseClient | null> {
   if (cachedSupabase) return cachedSupabase;
 
   let url = "";
