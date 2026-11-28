@@ -4,6 +4,8 @@ import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { PixelCanvas } from "./components/PixelCanvas";
 import { Navbar, TabId, TABS } from "./components/Navbar";
 import { EmptyCard } from "./components/EmptyCard";
+import { AppPreferences, CardContent } from "./components/CardViews";
+import { useMarketData } from "./hooks/useMarketData";
 
 interface CardSpec {
   slot: string;
@@ -15,38 +17,38 @@ interface CardSpec {
 
 const TAB_LAYOUTS: Record<TabId, CardSpec[]> = {
   overview: [
-    { slot: "01", title: "Primary View", span: "span-8", minHeight: 280, enterFrom: "left" },
-    { slot: "02", title: "Summary Panel", span: "span-4", minHeight: 280, enterFrom: "right" },
-    { slot: "03", title: "Card Slot", span: "span-4", minHeight: 195, enterFrom: "left" },
-    { slot: "04", title: "Card Slot", span: "span-4", minHeight: 195, enterFrom: "center" },
-    { slot: "05", title: "Card Slot", span: "span-4", minHeight: 195, enterFrom: "right" },
+    { slot: "01", title: "Live Market Pulse", span: "span-8", minHeight: 280, enterFrom: "left" },
+    { slot: "02", title: "Economy Snapshot", span: "span-4", minHeight: 280, enterFrom: "right" },
+    { slot: "03", title: "Boost Spotlight", span: "span-4", minHeight: 195, enterFrom: "left" },
+    { slot: "04", title: "Minerals & Ores", span: "span-4", minHeight: 195, enterFrom: "center" },
+    { slot: "05", title: "Tax Calculator", span: "span-4", minHeight: 195, enterFrom: "right" },
   ],
   workspace: [
-    { slot: "01", title: "Module A", span: "span-4", minHeight: 225, enterFrom: "left" },
-    { slot: "02", title: "Module B", span: "span-4", minHeight: 225, enterFrom: "center" },
-    { slot: "03", title: "Module C", span: "span-4", minHeight: 225, enterFrom: "right" },
-    { slot: "04", title: "Module D", span: "span-6", minHeight: 215, enterFrom: "left" },
-    { slot: "05", title: "Module E", span: "span-6", minHeight: 215, enterFrom: "right" },
+    { slot: "01", title: "Crops Index", span: "span-4", minHeight: 225, enterFrom: "left" },
+    { slot: "02", title: "Fruits & Honey", span: "span-4", minHeight: 225, enterFrom: "center" },
+    { slot: "03", title: "Resource Finder", span: "span-4", minHeight: 225, enterFrom: "right" },
+    { slot: "04", title: "Bulk Trade Estimator", span: "span-6", minHeight: 215, enterFrom: "left" },
+    { slot: "05", title: "API Endpoints", span: "span-6", minHeight: 215, enterFrom: "right" },
   ],
   library: [
-    { slot: "01", title: "Collection A", span: "span-6", minHeight: 245, enterFrom: "left" },
-    { slot: "02", title: "Collection B", span: "span-6", minHeight: 245, enterFrom: "right" },
-    { slot: "03", title: "Collection C", span: "span-6", minHeight: 245, enterFrom: "left" },
-    { slot: "04", title: "Collection D", span: "span-6", minHeight: 245, enterFrom: "right" },
+    { slot: "01", title: "Boosted Collectibles", span: "span-6", minHeight: 245, enterFrom: "left" },
+    { slot: "02", title: "Wearables Floor", span: "span-6", minHeight: 245, enterFrom: "right" },
+    { slot: "03", title: "Top Market Value", span: "span-6", minHeight: 245, enterFrom: "left" },
+    { slot: "04", title: "Collectible Explorer", span: "span-6", minHeight: 245, enterFrom: "right" },
   ],
   settings: [
-    { slot: "01", title: "General", span: "span-12", minHeight: 150, enterFrom: "left" },
-    { slot: "02", title: "Appearance", span: "span-12", minHeight: 150, enterFrom: "right" },
-    { slot: "03", title: "Preferences", span: "span-12", minHeight: 150, enterFrom: "left" },
+    { slot: "01", title: "Theme & Currency", span: "span-12", minHeight: 150, enterFrom: "left" },
+    { slot: "02", title: "Default Tax Preset", span: "span-12", minHeight: 150, enterFrom: "right" },
+    { slot: "03", title: "Data Sync & Shortcuts", span: "span-12", minHeight: 150, enterFrom: "left" },
   ],
 };
 
-// Smooth GPU-only side-slide page variants (no expensive blur thrashing)
+// Smooth GPU-only side-slide page variants
 const pageVariants = {
   enter: (dir: number) => ({
     opacity: 0,
-    x: dir * 120,
-    scale: 0.985,
+    x: dir * 80,
+    scale: 0.99,
   }),
   center: {
     opacity: 1,
@@ -55,8 +57,8 @@ const pageVariants = {
   },
   exit: (dir: number) => ({
     opacity: 0,
-    x: dir * -120,
-    scale: 0.985,
+    x: dir * -80,
+    scale: 0.99,
   }),
 };
 
@@ -65,10 +67,21 @@ export const App: React.FC = () => {
     const saved = localStorage.getItem("canvas_theme");
     return saved === "dark" ? "dark" : "light";
   });
+  const [prefs, setPrefs] = useState<AppPreferences>(() => {
+    try {
+      const raw = localStorage.getItem("sfl_motion_prefs");
+      if (raw) return JSON.parse(raw) as AppPreferences;
+    } catch {
+      // ignore
+    }
+    return { currency: "flower", defaultTax: 7.5 };
+  });
+
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [direction, setDirection] = useState(1);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
 
+  const market = useMarketData();
   const isDark = theme === "dark";
   const cards = TAB_LAYOUTS[activeTab];
   const expandedIndex = expandedSlot ? cards.findIndex((c) => c.slot === expandedSlot) : -1;
@@ -78,6 +91,14 @@ export const App: React.FC = () => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("canvas_theme", theme);
   }, [theme]);
+
+  const handleUpdatePrefs = (patch: Partial<AppPreferences>) => {
+    setPrefs((prev) => {
+      const next = { ...prev, ...patch };
+      localStorage.setItem("sfl_motion_prefs", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const handleSelectTab = (next: TabId) => {
     if (next === activeTab) return;
@@ -90,6 +111,12 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) {
+        if (e.key === "Escape" && expandedSlot) {
+          setExpandedSlot(null);
+        }
+        return;
+      }
       if (e.key === "Escape" && expandedSlot) {
         setExpandedSlot(null);
         return;
@@ -113,6 +140,8 @@ export const App: React.FC = () => {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [activeTab, expandedSlot, expandedIndex, cards]);
 
+  const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
+
   return (
     <MotionConfig reducedMotion="user">
       <PixelCanvas theme={theme} />
@@ -133,11 +162,11 @@ export const App: React.FC = () => {
           activeTab={activeTab}
           onSelectTab={handleSelectTab}
           theme={theme}
-          onToggleTheme={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+          onToggleTheme={toggleTheme}
         />
 
-        <main style={{ minHeight: "520px", overflow: "hidden", padding: "6px 4px" }}>
-          <AnimatePresence mode="wait" custom={direction}>
+        <main style={{ position: "relative", minHeight: "520px", overflow: "hidden", padding: "6px 4px" }}>
+          <AnimatePresence mode="popLayout" custom={direction}>
             <motion.section
               key={activeTab}
               custom={direction}
@@ -145,7 +174,7 @@ export const App: React.FC = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
               className="card-grid-bento"
             >
               {cards.map((card, i) =>
@@ -168,7 +197,17 @@ export const App: React.FC = () => {
                     isDark={isDark}
                     enterFrom={card.enterFrom}
                     onOpen={() => setExpandedSlot(card.slot)}
-                  />
+                  >
+                    <CardContent
+                      tab={activeTab}
+                      slot={card.slot}
+                      market={market}
+                      prefs={prefs}
+                      onUpdatePrefs={handleUpdatePrefs}
+                      theme={theme}
+                      onToggleTheme={toggleTheme}
+                    />
+                  </EmptyCard>
                 )
               )}
             </motion.section>
@@ -184,7 +223,7 @@ export const App: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             onClick={() => setExpandedSlot(null)}
             style={{
               position: "fixed",
@@ -222,14 +261,13 @@ export const App: React.FC = () => {
                 willChange: "transform",
               }}
             >
-              {/* Night Mode: Full Dual-Side Neon Cyan/Blue Outlines Locked from Both Sides */}
               {isDark && (
                 <>
                   <motion.span
                     aria-hidden="true"
                     initial={{ clipPath: "inset(0% 96% 0% 0%)", opacity: 0.4 }}
                     animate={{ clipPath: "inset(0% 50% 0% 0%)", opacity: 1 }}
-                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                     style={{
                       position: "absolute",
                       inset: 0,
@@ -244,7 +282,7 @@ export const App: React.FC = () => {
                     aria-hidden="true"
                     initial={{ clipPath: "inset(0% 0% 0% 96%)", opacity: 0.4 }}
                     animate={{ clipPath: "inset(0% 0% 0% 50%)", opacity: 1 }}
-                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                     style={{
                       position: "absolute",
                       inset: 0,
@@ -262,7 +300,7 @@ export const App: React.FC = () => {
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.14, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ delay: 0.1, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -292,7 +330,7 @@ export const App: React.FC = () => {
                       {expandedCard.title}
                     </h2>
                     <span className="mono" style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
-                      {activeTab.toUpperCase()} // EXPANDED STAGE
+                      {activeTab.toUpperCase()} // LIVE VIEW
                     </span>
                   </div>
                 </div>
@@ -364,46 +402,40 @@ export const App: React.FC = () => {
                 </div>
               </motion.div>
 
-              {/* Expanded Empty Inner Stage */}
+              {/* Expanded Inner Content */}
               <motion.div
-                initial={{ opacity: 0, scale: 0.97, filter: "blur(6px)" }}
-                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                transition={{ delay: 0.18, duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, scale: 0.985 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.12, duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
                 style={{
                   flex: 1,
-                  margin: "22px 0",
+                  margin: "20px 0",
                   borderRadius: "14px",
                   border: "1px solid var(--border)",
                   background: "var(--card-inner)",
-                  display: "grid",
-                  placeItems: "center",
-                  padding: "32px",
+                  padding: "20px",
                   position: "relative",
                   zIndex: 2,
+                  overflowY: "auto",
                 }}
               >
-                <div style={{ textAlign: "center" }}>
-                  <div
-                    className="mono"
-                    style={{
-                      fontSize: "0.78rem",
-                      color: isDark ? "var(--accent)" : "var(--muted)",
-                      marginBottom: "6px",
-                    }}
-                  >
-                    SLOT {expandedCard.slot} READY
-                  </div>
-                  <p style={{ fontSize: "0.86rem", color: "var(--muted)" }}>
-                    Expanded container ready for future content.
-                  </p>
-                </div>
+                <CardContent
+                  tab={activeTab}
+                  slot={expandedCard.slot}
+                  market={market}
+                  prefs={prefs}
+                  onUpdatePrefs={handleUpdatePrefs}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
+                  expanded
+                />
               </motion.div>
 
               {/* Expanded Footer */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 0.75 }}
-                transition={{ delay: 0.22, duration: 0.3 }}
+                transition={{ delay: 0.16, duration: 0.25 }}
                 style={{
                   display: "flex",
                   alignItems: "center",

@@ -12,6 +12,7 @@ interface EmptyCardProps {
   isDark?: boolean;
   enterFrom?: "left" | "right" | "center";
   onOpen: () => void;
+  children?: React.ReactNode;
 }
 
 /**
@@ -30,6 +31,7 @@ export const EmptyCard: React.FC<EmptyCardProps> = ({
   isDark = false,
   enterFrom = "center",
   onOpen,
+  children,
 }) => {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [hovered, setHovered] = useState(false);
@@ -54,28 +56,31 @@ export const EmptyCard: React.FC<EmptyCardProps> = ({
     rawRy.set(0);
   };
 
-  const handleOpen = () => {
+  const handleOpen = (e?: React.MouseEvent<HTMLDivElement>) => {
+    if (e && e.target instanceof HTMLElement) {
+      const interactive = e.target.closest("input, button, select, textarea, a");
+      if (interactive && interactive !== cardRef.current) return;
+    }
     rawRx.set(0);
     rawRy.set(0);
     setHovered(false);
     onOpen();
   };
 
-  const initialX = enterFrom === "left" ? -48 : enterFrom === "right" ? 48 : 0;
+  const initialX = enterFrom === "left" ? -36 : enterFrom === "right" ? 36 : 0;
 
   return (
     <motion.div
       ref={cardRef}
       layoutId={layoutId}
       className={className}
-      initial={{ opacity: 0, x: initialX, y: 18, scale: 0.97 }}
-      animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+      initial={{ x: initialX, y: 14, scale: 0.98 }}
+      animate={{ x: 0, y: 0, scale: 1 }}
       transition={{
         layout: { type: "spring", stiffness: 310, damping: 30, mass: 0.85 },
-        opacity: { duration: 0.45, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] },
-        x: { duration: 0.55, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] },
-        y: { duration: 0.5, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] },
-        scale: { duration: 0.5, delay: index * 0.05, ease: [0.16, 1, 0.3, 1] },
+        x: { duration: 0.45, delay: index * 0.04, ease: [0.16, 1, 0.3, 1] },
+        y: { duration: 0.42, delay: index * 0.04, ease: [0.16, 1, 0.3, 1] },
+        scale: { duration: 0.42, delay: index * 0.04, ease: [0.16, 1, 0.3, 1] },
       }}
       whileHover={{ y: -4 }}
       whileTap={{ scale: 0.985 }}
@@ -211,6 +216,22 @@ export const EmptyCard: React.FC<EmptyCardProps> = ({
         >
           <Maximize2 size={12} />
         </motion.span>
+      </div>
+
+      {/* Card Body */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 3,
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          padding: "12px 0",
+          minHeight: 0,
+        }}
+      >
+        {children}
       </div>
 
       {/* Minimal Footer Indicator */}
