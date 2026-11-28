@@ -1,0 +1,117 @@
+:root {
+  --bg: #f5e6d3;
+  --card: rgba(255, 250, 242, 0.84);
+  --card-solid: #fffaf2;
+  --card-inner: rgba(247, 234, 216, 0.62);
+  --border: rgba(198, 158, 118, 0.45);
+  --border-hover: rgba(180, 122, 74, 0.72);
+  --accent: #d96b27;
+  --accent-soft: rgba(217, 107, 39, 0.14);
+  --text: #2e1d12;
+  --muted: #8a6b54;
+  --bevel: rgba(255, 252, 246, 0.94);
+  --shadow: 0 14px 36px rgba(92, 50, 20, 0.1), 0 2px 6px rgba(92, 50, 20, 0.05);
+  --shadow-hover: 0 26px 56px rgba(92, 50, 20, 0.17), 0 6px 14px rgba(92, 50, 20, 0.08);
+  --vignette: radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(84, 42, 16, 0.2) 100%);
+}
+
+[data-theme="dark"] {
+  --bg: #03050a;
+  --card: rgba(8, 13, 26, 0.68);
+  --card-solid: #080d1a;
+  --card-inner: rgba(5, 8, 18, 0.7);
+  --border: rgba(56, 189, 248, 0.18);
+  --border-hover: rgba(0, 238, 255, 0.55);
+  --accent: #00e1ff;
+  --accent-secondary: #3b82f6;
+  --accent-soft: rgba(0, 225, 255, 0.18);
+  --text: #f0f7ff;
+  --muted: #7a95ba;
+  --bevel: rgba(125, 225, 255, 0.16);
+  --shadow: 0 18px 44px rgba(0, 0, 0, 0.72), 0 0 28px rgba(0, 175, 255, 0.1);
+  --shadow-hover: 0 28px 64px rgba(0, 0, 0, 0.85), 0 0 42px rgba(0, 225, 255, 0.28);
+  --vignette: radial-gradient(ellipse at 50% 44%, transparent 32%, rgba(1, 3, 8, 0.82) 100%);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.45s ease, color 0.35s ease;
+  overflow-x: hidden;
+}
+
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cinematic-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--vignette);
+  transition: background 0.45s ease;
+}
+
+/* Subtle cinema film grain overlay */
+.film-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.038;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.card-grid-bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 18px;
+}
+
+.span-8 {
+  grid-column: span 8;
+}
+
+.span-4 {
+  grid-column: span 4;
+}
+
+.span-6 {
+  grid-column: span 6;
+}
+
+.span-12 {
+  grid-column: span 12;
+}
+
+@media (max-width: 820px) {
+  .span-8,
+  .span-4,
+  .span-6 {
+    grid-column: span 12;
+  }
+}

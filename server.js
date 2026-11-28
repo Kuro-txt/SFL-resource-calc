@@ -88,8 +88,12 @@ app.use((req, res, next) => {
 });
 
 const staticCacheOpts = { maxAge: '7d', immutable: true };
+const distDir = path.join(__dirname, 'dist');
 app.use('/icons', express.static(path.join(__dirname, 'public', 'icons'), staticCacheOpts));
 app.use('/public', express.static(path.join(__dirname, 'public'), staticCacheOpts));
+if (fs.existsSync(distDir)) {
+  app.use(express.static(distDir));
+}
 app.use(express.static(path.join(__dirname)));
 
 // ── Auth helper ────────────────────────────────────────────────────────────
@@ -1183,7 +1187,10 @@ app.post('/api/weekly-yields/recalc', async (req, res) => {
 });
 
 // ── Fallback: serve index.html for any unknown route (SPA) ────────────────
-app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('*', (_req, res) => {
+  const distIndex = path.join(__dirname, 'dist', 'index.html');
+  res.sendFile(fs.existsSync(distIndex) ? distIndex : path.join(__dirname, 'index.html'));
+});
 
 // ── Internal cron schedule (UTC timezone) ──────────────────────────────────
 // 1. Daily snapshot at 00:01 UTC (start of day post-midnight SFL reset)

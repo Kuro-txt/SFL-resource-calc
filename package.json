@@ -4,14 +4,28 @@
   "description": "Backend auto-sync server for Sunflower Land Calculator",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.6.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "framer-motion": "^11.15.0",
+    "lucide-react": "^0.468.0",
     "mysql2": "^3.9.7",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0"
   }
 }

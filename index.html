@@ -1,100 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sun-Flux | SFL Resource Calculator</title>
-  <link rel="icon" type="image/x-icon" href="./assets/flower.webp">
-  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            pixel: ['"VT323"', 'monospace'],
-            game: ['"Fredoka"', 'sans-serif'],
-          },
-          colors: {
-            sfl: {
-              green: '#3e8914',
-              dirt: '#2b1e17',
-              wood: '#633d1f',
-              woodLight: '#8a5832',
-              card: '#fff3db',
-              cardBorder: '#c49a6c',
-              gold: '#f2a900',
-              accent: '#e76f51'
-            }
-          }
-        }
-      }
-    }
-
-    if (localStorage.getItem('sfl_theme') === 'dark' || (!('sfl_theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-
-    // Pre-auth session check to eliminate gate flicker for returning farmers
-    try {
-      var hasSession = Object.keys(localStorage).some(function(k) {
-        return k.startsWith('sb-') && k.endsWith('-auth-token') && localStorage.getItem(k);
-      });
-      if (hasSession) {
-        document.documentElement.classList.add('sfl-pre-authed');
-      }
-    } catch (_) {}
-  </script>
-
-  <style>
-    /* Instant layout protection for returning sessions */
-    .sfl-pre-authed #welcome-gate-mount { display: none !important; }
-    .sfl-pre-authed #main-app-container { display: block !important; }
-  </style>
-
-  <link rel="stylesheet" href="styles.css?v=2.6.1">
-</head>
-<body class="font-game text-sfl-dirt min-h-screen p-4 sm:p-8 flex items-center justify-center transition-colors duration-200">
-
-  <!-- Welcome / Entry Gate Mount (Presented to unauthenticated visitors) -->
-  <div id="welcome-gate-mount" class="w-full max-w-5xl space-y-4"></div>
-
-  <!-- Main Application Container (Unlocked after registration or sign in) -->
-  <div id="main-app-container" class="w-full max-w-6xl space-y-4 hidden">
-    <!-- Header Mount -->
-    <div id="header-mount"></div>
-
-    <div class="sfl-panel rounded-2xl p-5 sm:p-7 relative space-y-5">
-      <!-- Auth Bar & Global Farm Sync Mount -->
-      <div id="auth-mount"></div>
-      
-      <!-- Navigation Tabs Mount -->
-      <div id="tabs-mount"></div>
-
-      <!-- Views Containers -->
-      <div id="dashboard-section"></div>
-      <div id="pets-section" class="hidden"></div>
-      <div id="inventory-section" class="hidden space-y-4"></div>
-      <div id="calc-section" class="hidden"></div>
-      <div id="trade-history-section" class="hidden"></div>
-      <div id="npc-gifts-section" class="hidden"></div>
-      <div id="wishlist-section" class="hidden"></div>
-      <div id="market-section" class="hidden space-y-4"></div>
-    </div>
-  </div>
-
-  <!-- Modal Mount Containers -->
-  <div id="tracking-modal-mount"></div>
-  <div id="weekly-modal-mount"></div>
-
-  <!-- Main ES Module Entry Point -->
-  <script type="module" src="./src/app.js?v=2.6.1"></script>
-
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Home</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
