@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { Search, RefreshCw, Copy, Check, Sparkles, Coins, Calculator, Sun, Moon } from "lucide-react";
+import { Search, RefreshCw, Copy, Check, Sparkles, Coins, Calculator, Sun, Moon, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Scale } from "lucide-react";
 import { MarketDataState, ResourceItem } from "../hooks/useMarketData";
+import { TimeRange, useDashboardData } from "../hooks/useDashboardData";
 import { TabId } from "./Navbar";
 
 export type CurrencyMode = "flower" | "usd" | "both";
@@ -14,6 +15,7 @@ interface CardViewProps {
   tab: TabId;
   slot: string;
   market: MarketDataState;
+  dashboard: ReturnType<typeof useDashboardData>;
   prefs: AppPreferences;
   onUpdatePrefs: (patch: Partial<AppPreferences>) => void;
   theme: "light" | "dark";
@@ -165,6 +167,7 @@ export const CardContent: React.FC<CardViewProps> = ({
   tab,
   slot,
   market,
+  dashboard,
   prefs,
   onUpdatePrefs,
   theme,
@@ -172,6 +175,7 @@ export const CardContent: React.FC<CardViewProps> = ({
   expanded = false,
 }) => {
   const [query, setQuery] = useState("");
+  const [farmInput, setFarmInput] = useState(dashboard.farmId);
   const [taxInput, setTaxInput] = useState("100");
   const [taxRate, setTaxRate] = useState(prefs.defaultTax);
   const [bulkQty, setBulkQty] = useState("1000");
@@ -223,45 +227,222 @@ export const CardContent: React.FC<CardViewProps> = ({
   // ── OVERVIEW ─────────────────────────────────────────────────────────────
   if (tab === "overview") {
     if (slot === "01") {
-      const keyNames = ["Sunflower", "Wood", "Stone", "Iron", "Gold", "Crimstone"];
-      const filtered = query
-        ? market.resources.filter((r) => r.name.toLowerCase().includes(query.toLowerCase()))
-        : expanded
+      const { earnedFlowers, earnedQty, spentFlowers, spentQty, netFlowers, earnedItems, spentItems, rangeLabel } =
+        dashboard.summary;
+      const isPositive = netFlowers >= 0;
+
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", height: "100%" }}>
+          {/* Farm ID + Time Range Controls */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                dashboard.setFarmId(farmInput);
+              }}
+              style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              <input
+                type="text"
+                value={farmInput}
+                onChange={(e) => setFarmInput(e.target.value)}
+                placeholder="Enter Farm ID..."
+                style={{
+                  width: "125px",
+                  padding: "5px 9px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  background: "var(--card-inner)",
+                  color: "var(--text)",
+                  fontSize: "0.76rem",
+                  fontFamily: "JetBrains Mono, monospace",
+                }}
+              />
+              <PillButton active={Boolean(dashboard.farmId)} onClick={() => dashboard.setFarmId(farmInput)}>
+                {dashboard.loading ? "..." : "Load"}
+              </PillButton>
+            </form>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              {(["day", "week", "month"] as TimeRange[]).map((tr) => (
+                <PillButton
+                  key={tr}
+                  active={dashboard.timeRange === tr}
+                  onClick={() => dashboard.setTimeRange(tr)}
+                >
+                  {tr.charAt(0).toUpperCase() + tr.slice(1)}
+                </PillButton>
+              ))}
+              <PillButton onClick={() => dashboard.setOffset(dashboard.offset + 1)}>
+                <ChevronLeft size={12} />
+              </PillButton>
+              <PillButton onClick={() => dashboard.setOffset(Math.max(0, dashboard.offset - 1))}>
+                <ChevronRight size={12} />
+              </PillButton>
+            </div>
+          </div>
+
+          {/* Active Date Label */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.72rem", color: "var(--muted)" }}>
+            <span className="mono">{rangeLabel}</span>
+            {dashboard.farmId ? (
+              <span className="mono">Farm #{dashboard.farmId}</span>
+            ) : (
+              <span>Enter a Farm ID to load Earned, Spent & Net</span>
+            )}
+          </div>
+
+          {/* 3 Core KPI Boxes: Net, Earned, Spent */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: "10px",
+            }}
+          >
+            {/* Net Output */}
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: "12px",
+                background: "var(--card-inner)",
+                border: `1.5px solid ${isPositive ? "rgba(16, 185, 129, 0.45)" : "rgba(239, 68, 68, 0.45)"}`,
+                display: "flex",
+                flexDirection: "column",
+                gap: "4px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.7rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
+                <span>Net Output</span>
+                <Scale size={13} style={{ color: isPositive ? "#10b981" : "#ef4444" }} />
+              </div>
+              <div className="mono" style={{ fontSize: "1.18rem", fontWeight: 700, color: isPositive ? "#10b981" : "#ef4444" }}>
+                {isPositive ? "+" : ""}{fmtFlower(netFlowers)} FL
+              </div>
+              <div className="mono" style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
+                {fmtUsd(netFlowers * market.flowerPriceUsd)} • {isPositive ? "Surplus" : "Deficit"}
+              </div>
+            </div>
+
+            {/* Items Earned */}
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: "12px",
+                background: "var(--card-inner)",
+                border: "1px solid var(--border)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "4px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.7rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
+                <span>Earned</span>
+                <TrendingUp size={13} style={{ color: "#10b981" }} />
+              </div>
+              <div className="mono" style={{ fontSize: "1.18rem", fontWeight: 700, color: "var(--text)" }}>
+                +{fmtFlower(earnedFlowers)} FL
+              </div>
+              <div className="mono" style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
+                {fmtUsd(earnedFlowers * market.flowerPriceUsd)} • {Math.round(earnedQty).toLocaleString()} items
+              </div>
+            </div>
+
+            {/* Items Spent */}
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: "12px",
+                background: "var(--card-inner)",
+                border: "1px solid var(--border)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "4px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.7rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
+                <span>Spent</span>
+                <TrendingDown size={13} style={{ color: "#f59e0b" }} />
+              </div>
+              <div className="mono" style={{ fontSize: "1.18rem", fontWeight: 700, color: "var(--text)" }}>
+                -{fmtFlower(spentFlowers)} FL
+              </div>
+              <div className="mono" style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
+                {fmtUsd(spentFlowers * market.flowerPriceUsd)} • {Math.round(spentQty).toLocaleString()} items
+              </div>
+            </div>
+          </div>
+
+          {/* Expanded Modal: Side-by-Side Earned & Spent Breakdown */}
+          {expanded && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: "14px",
+                marginTop: "6px",
+                maxHeight: "230px",
+                overflowY: "auto",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <div className="mono" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#10b981" }}>
+                  ITEMS EARNED ({earnedItems.length})
+                </div>
+                {earnedItems.length === 0 ? (
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>No earned items in this period.</div>
+                ) : (
+                  earnedItems.map((it) => (
+                    <MiniRow
+                      key={`earned-${it.name}`}
+                      label={`${it.name} (×${Math.round(it.qty).toLocaleString()})`}
+                      right={`+${fmtFlower(it.flowers)} FL`}
+                    />
+                  ))
+                )}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <div className="mono" style={{ fontSize: "0.72rem", fontWeight: 700, color: "#f59e0b" }}>
+                  ITEMS SPENT ({spentItems.length})
+                </div>
+                {spentItems.length === 0 ? (
+                  <div style={{ fontSize: "0.76rem", color: "var(--muted)" }}>No spent items in this period.</div>
+                ) : (
+                  spentItems.map((it) => (
+                    <MiniRow
+                      key={`spent-${it.name}`}
+                      label={`${it.name} (×${Math.round(it.qty).toLocaleString()})`}
+                      right={`-${fmtFlower(it.flowers)} FL`}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (slot === "02") {
+      const keyNames = ["Sunflower", "Wood", "Stone", "Gold", "Crimstone"];
+      const items = expanded
         ? market.resources
         : keyNames.map((n) => resourceMap.get(n.toLowerCase())).filter((x): x is ResourceItem => Boolean(x));
 
       return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px", height: "100%" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-              <span className="mono" style={{ fontSize: "1.35rem", fontWeight: 700, color: "var(--accent)" }}>
-                ${market.flowerPriceUsd.toFixed(4)}
-              </span>
-              <span style={{ fontSize: "0.74rem", color: "var(--muted)" }}>FLOWER / USD</span>
-            </div>
-            <span className="mono" style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
-              {market.resources.length} resources live
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+            <span className="mono" style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--accent)" }}>
+              ${market.flowerPriceUsd.toFixed(4)}
             </span>
+            <span className="mono" style={{ fontSize: "0.7rem", color: "var(--muted)" }}>FLOWER / USD</span>
           </div>
-
-          {expanded && (
-            <SearchInput value={query} onChange={setQuery} placeholder="Search any resource..." />
-          )}
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: expanded ? "repeat(auto-fill, minmax(220px, 1fr))" : "repeat(2, minmax(0, 1fr))",
-              gap: "8px",
-              overflowY: expanded ? "auto" : "visible",
-              maxHeight: expanded ? "310px" : undefined,
-            }}
-          >
-            {filtered.map((item) => (
+          <div style={{ display: "grid", gap: "6px", maxHeight: expanded ? "300px" : undefined, overflowY: expanded ? "auto" : undefined }}>
+            {items.map((item) => (
               <MiniRow
                 key={item.name}
                 label={item.name}
-                sub={expanded ? item.category : undefined}
                 right={formatValue(item.priceFlower, item.priceUsd, prefs.currency)}
               />
             ))}
@@ -270,39 +451,16 @@ export const CardContent: React.FC<CardViewProps> = ({
       );
     }
 
-    if (slot === "02") {
-      return (
-        <div style={{ display: "grid", gap: "8px" }}>
-          <MiniRow label="Tradeable Resources" right={String(market.resources.length)} />
-          <MiniRow label="Tradeable Collectibles" right={String(market.collectibles.length)} />
-          <MiniRow label="Boosted Collectibles" right={String(boostedCollectibles.length)} />
-          <MiniRow label="Tradeable Wearables" right={String(market.wearables.length)} />
-          {expanded && (
-            <MiniRow label="Last Synced" right={market.lastUpdated ? new Date(market.lastUpdated).toLocaleTimeString() : "Live"} />
-          )}
-        </div>
-      );
-    }
-
     if (slot === "03") {
-      if (expanded) {
+      const earned = dashboard.summary.earnedItems;
+      if (earned.length > 0) {
         return (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-              gap: "8px",
-              maxHeight: "340px",
-              overflowY: "auto",
-            }}
-          >
-            {boostedCollectibles.slice(0, 24).map((item) => (
+          <div style={{ display: "grid", gap: "6px", maxHeight: expanded ? "340px" : undefined, overflowY: expanded ? "auto" : undefined }}>
+            {(expanded ? earned : earned.slice(0, 3)).map((item) => (
               <MiniRow
-                key={`${item.collection}-${item.id}`}
-                label={item.name}
-                sub={item.boost || undefined}
-                image={item.image}
-                right={formatValue(item.priceFlower, item.priceUsd, prefs.currency)}
+                key={item.name}
+                label={`${item.name} (×${Math.round(item.qty).toLocaleString()})`}
+                right={`+${fmtFlower(item.flowers)} FL`}
               />
             ))}
           </div>
@@ -321,15 +479,7 @@ export const CardContent: React.FC<CardViewProps> = ({
             <div className="mono" style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--accent)", margin: "2px 0" }}>
               {formatValue(spotlight.priceFlower, spotlight.priceUsd, prefs.currency)}
             </div>
-            <div
-              style={{
-                fontSize: "0.72rem",
-                color: "var(--muted)",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
+            <div style={{ fontSize: "0.72rem", color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {spotlight.boost?.split("\n")[0] || "Collectible"}
             </div>
           </div>
@@ -338,8 +488,23 @@ export const CardContent: React.FC<CardViewProps> = ({
     }
 
     if (slot === "04") {
+      const spent = dashboard.summary.spentItems;
+      if (spent.length > 0) {
+        return (
+          <div style={{ display: "grid", gap: "6px", maxHeight: expanded ? "340px" : undefined, overflowY: expanded ? "auto" : undefined }}>
+            {(expanded ? spent : spent.slice(0, 3)).map((item) => (
+              <MiniRow
+                key={item.name}
+                label={`${item.name} (×${Math.round(item.qty).toLocaleString()})`}
+                right={`-${fmtFlower(item.flowers)} FL`}
+              />
+            ))}
+          </div>
+        );
+      }
+
       const minerals = market.resources.filter((r) => r.category.toLowerCase().includes("mineral"));
-      const shown = expanded ? minerals : minerals.slice(0, 4);
+      const shown = expanded ? minerals : minerals.slice(0, 3);
       return (
         <div style={{ display: "grid", gap: "6px", maxHeight: expanded ? "340px" : undefined, overflowY: expanded ? "auto" : undefined }}>
           {shown.map((item) => (

@@ -6,6 +6,7 @@ import { Navbar, TabId, TABS } from "./components/Navbar";
 import { EmptyCard } from "./components/EmptyCard";
 import { AppPreferences, CardContent } from "./components/CardViews";
 import { useMarketData } from "./hooks/useMarketData";
+import { useDashboardData } from "./hooks/useDashboardData";
 
 interface CardSpec {
   slot: string;
@@ -17,10 +18,10 @@ interface CardSpec {
 
 const TAB_LAYOUTS: Record<TabId, CardSpec[]> = {
   overview: [
-    { slot: "01", title: "Live Market Pulse", span: "span-8", minHeight: 280, enterFrom: "left" },
-    { slot: "02", title: "Economy Snapshot", span: "span-4", minHeight: 280, enterFrom: "right" },
-    { slot: "03", title: "Boost Spotlight", span: "span-4", minHeight: 195, enterFrom: "left" },
-    { slot: "04", title: "Minerals & Ores", span: "span-4", minHeight: 195, enterFrom: "center" },
+    { slot: "01", title: "Dashboard • Earned, Spent & Net", span: "span-8", minHeight: 280, enterFrom: "left" },
+    { slot: "02", title: "Live Market Pulse", span: "span-4", minHeight: 280, enterFrom: "right" },
+    { slot: "03", title: "Top Items Earned", span: "span-4", minHeight: 195, enterFrom: "left" },
+    { slot: "04", title: "Top Items Spent", span: "span-4", minHeight: 195, enterFrom: "center" },
     { slot: "05", title: "Tax Calculator", span: "span-4", minHeight: 195, enterFrom: "right" },
   ],
   workspace: [
@@ -82,6 +83,7 @@ export const App: React.FC = () => {
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
 
   const market = useMarketData();
+  const dashboard = useDashboardData(market.resources);
   const isDark = theme === "dark";
   const cards = TAB_LAYOUTS[activeTab];
   const expandedIndex = expandedSlot ? cards.findIndex((c) => c.slot === expandedSlot) : -1;
@@ -202,6 +204,7 @@ export const App: React.FC = () => {
                       tab={activeTab}
                       slot={card.slot}
                       market={market}
+                      dashboard={dashboard}
                       prefs={prefs}
                       onUpdatePrefs={handleUpdatePrefs}
                       theme={theme}
@@ -423,6 +426,7 @@ export const App: React.FC = () => {
                   tab={activeTab}
                   slot={expandedCard.slot}
                   market={market}
+                  dashboard={dashboard}
                   prefs={prefs}
                   onUpdatePrefs={handleUpdatePrefs}
                   theme={theme}
