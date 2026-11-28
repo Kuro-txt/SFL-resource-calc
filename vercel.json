@@ -1,5 +1,6 @@
 {
-  "outputDirectory": ".",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/api/nfts",
@@ -16,6 +17,10 @@
     {
       "source": "/api/monthlyYields",
       "destination": "/api/yields?type=monthly"
+    },
+    {
+      "source": "/((?!api/|.*\\..*).*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
