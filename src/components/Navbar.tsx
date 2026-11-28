@@ -1,8 +1,20 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sun, Moon, LogOut, LayoutGrid, Layers, FolderOpen, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import {
+  Sun,
+  Moon,
+  LogOut,
+  LayoutGrid,
+  Backpack,
+  CalendarDays,
+  ArrowLeftRight,
+  TrendingUp,
+  Heart,
+  SlidersHorizontal,
+  type LucideIcon,
+} from "lucide-react";
 
-export type TabId = "overview" | "workspace" | "library" | "settings";
+export type TabId = "dashboard" | "inventory" | "tracker" | "trades" | "market" | "pets" | "settings";
 
 export interface TabMeta {
   id: TabId;
@@ -11,9 +23,12 @@ export interface TabMeta {
 }
 
 export const TABS: TabMeta[] = [
-  { id: "overview", label: "Overview", icon: LayoutGrid },
-  { id: "workspace", label: "Workspace", icon: Layers },
-  { id: "library", label: "Library", icon: FolderOpen },
+  { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
+  { id: "inventory", label: "Inventory", icon: Backpack },
+  { id: "tracker", label: "Tracker", icon: CalendarDays },
+  { id: "trades", label: "Trades", icon: ArrowLeftRight },
+  { id: "market", label: "Market", icon: TrendingUp },
+  { id: "pets", label: "Pets & NPC", icon: Heart },
   { id: "settings", label: "Settings", icon: SlidersHorizontal },
 ];
 
@@ -34,16 +49,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   return (
     <motion.header
-      initial={{ opacity: 0, y: -16, filter: "blur(6px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+      initial={{ opacity: 0, y: -16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
       style={{
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         flexWrap: "wrap",
-        gap: "12px",
-        padding: "10px 14px",
+        gap: "10px",
+        padding: "9px 12px",
         background: "var(--card)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
@@ -53,13 +68,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         overflow: "hidden",
       }}
     >
-      {/* Segmented Tabs sliding in symmetrically from Left & Right sides */}
+      {/* Segmented Tabs sliding in symmetrically */}
       <nav
         aria-label="Primary tabs"
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "4px",
+          gap: "3px",
           padding: "4px",
           borderRadius: "11px",
           background: "var(--card-inner)",
@@ -71,18 +86,18 @@ export const Navbar: React.FC<NavbarProps> = ({
         {TABS.map((tab, idx) => {
           const isActive = tab.id === activeTab;
           const Icon = tab.icon;
-          const fromLeft = idx < TABS.length / 2;
-          const dist = fromLeft ? -(2 - idx) * 28 : (idx - 1) * 28;
+          const mid = (TABS.length - 1) / 2;
+          const dist = (idx - mid) * 16;
           return (
             <motion.button
               key={tab.id}
               type="button"
               onClick={() => onSelectTab(tab.id)}
-              initial={{ opacity: 0, x: dist, filter: "blur(4px)" }}
-              animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+              initial={{ opacity: 0, x: dist }}
+              animate={{ opacity: 1, x: 0 }}
               transition={{
-                duration: 0.65,
-                delay: 0.14 + Math.abs(idx - 1.5) * 0.05,
+                duration: 0.55,
+                delay: 0.08 + Math.abs(idx - mid) * 0.04,
                 ease: [0.16, 1, 0.3, 1],
               }}
               whileHover={{ y: -1 }}
@@ -91,18 +106,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                 position: "relative",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "7px",
-                padding: "7px 15px",
+                gap: "6px",
+                padding: "6px 11px",
                 borderRadius: "8px",
                 border: "none",
                 background: "transparent",
                 color: isActive ? (theme === "dark" ? "#040812" : "#ffffff") : "var(--muted)",
                 fontFamily: "inherit",
-                fontSize: "0.82rem",
+                fontSize: "0.78rem",
                 fontWeight: 600,
                 cursor: "pointer",
                 zIndex: 1,
-                transition: "color 0.22s ease",
+                transition: "color 0.2s ease",
               }}
             >
               {isActive && (
@@ -125,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   }}
                 />
               )}
-              <Icon size={14} />
+              <Icon size={13} />
               <span>{tab.label}</span>
             </motion.button>
           );
@@ -137,9 +152,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         <motion.button
           type="button"
           onClick={onToggleTheme}
-          initial={{ opacity: 0, x: 36 }}
+          initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.55, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
           whileHover={{ scale: 1.06 }}
           whileTap={{ scale: 0.92 }}
           aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
@@ -174,9 +189,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           <motion.button
             type="button"
             onClick={onSignOut}
-            initial={{ opacity: 0, x: 36 }}
+            initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.7, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.55, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
             whileHover={{ scale: 1.06 }}
             whileTap={{ scale: 0.92 }}
             title="Sign Out"

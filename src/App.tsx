@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { MotionConfig, AnimatePresence, motion } from "framer-motion";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { PixelCanvas } from "./components/PixelCanvas";
 import { Navbar, TabId, TABS } from "./components/Navbar";
 import { EmptyCard } from "./components/EmptyCard";
-import { AppPreferences, CardContent } from "./components/CardViews";
+import { AppPreferences, CardContent, CoinRatioMode, CurrencyMode } from "./components/CardViews";
 import { LoginGate } from "./components/LoginGate";
 import { useMarketData } from "./hooks/useMarketData";
 import { useDashboardData } from "./hooks/useDashboardData";
+import { useFarmData } from "./hooks/useFarmData";
 import { useAuth } from "./hooks/useAuth";
 
 interface CardSpec {
@@ -19,30 +20,45 @@ interface CardSpec {
 }
 
 const TAB_LAYOUTS: Record<TabId, CardSpec[]> = {
-  overview: [
+  dashboard: [
     { slot: "01", title: "Dashboard • Earned, Spent & Net", span: "span-8", minHeight: 280, enterFrom: "left" },
     { slot: "02", title: "Live Market Pulse", span: "span-4", minHeight: 280, enterFrom: "right" },
     { slot: "03", title: "Top Items Earned", span: "span-4", minHeight: 195, enterFrom: "left" },
     { slot: "04", title: "Top Items Spent", span: "span-4", minHeight: 195, enterFrom: "center" },
     { slot: "05", title: "Tax Calculator", span: "span-4", minHeight: 195, enterFrom: "right" },
   ],
-  workspace: [
-    { slot: "01", title: "Crops Index", span: "span-4", minHeight: 225, enterFrom: "left" },
-    { slot: "02", title: "Fruits & Honey", span: "span-4", minHeight: 225, enterFrom: "center" },
-    { slot: "03", title: "Resource Finder", span: "span-4", minHeight: 225, enterFrom: "right" },
-    { slot: "04", title: "Bulk Trade Estimator", span: "span-6", minHeight: 215, enterFrom: "left" },
-    { slot: "05", title: "API Endpoints", span: "span-6", minHeight: 215, enterFrom: "right" },
+  inventory: [
+    { slot: "01", title: "Resource Inventory Value", span: "span-6", minHeight: 250, enterFrom: "left" },
+    { slot: "02", title: "Owned Boosts & Wearables", span: "span-6", minHeight: 250, enterFrom: "right" },
+    { slot: "03", title: "Crops & Fruits Stock", span: "span-6", minHeight: 225, enterFrom: "left" },
+    { slot: "04", title: "Minerals, Animals & Forage", span: "span-6", minHeight: 225, enterFrom: "right" },
   ],
-  library: [
-    { slot: "01", title: "Boosted Collectibles", span: "span-6", minHeight: 245, enterFrom: "left" },
-    { slot: "02", title: "Wearables Floor", span: "span-6", minHeight: 245, enterFrom: "right" },
-    { slot: "03", title: "Top Market Value", span: "span-6", minHeight: 245, enterFrom: "left" },
-    { slot: "04", title: "Collectible Explorer", span: "span-6", minHeight: 245, enterFrom: "right" },
+  tracker: [
+    { slot: "01", title: "90-Day Yield History", span: "span-8", minHeight: 265, enterFrom: "left" },
+    { slot: "02", title: "Crop & Resource Calculator", span: "span-4", minHeight: 265, enterFrom: "right" },
+    { slot: "03", title: "00:00 UTC Baseline vs Live", span: "span-6", minHeight: 220, enterFrom: "left" },
+    { slot: "04", title: "Weekly & Monthly Rollups", span: "span-6", minHeight: 220, enterFrom: "right" },
+  ],
+  trades: [
+    { slot: "01", title: "Trade History Ledger", span: "span-8", minHeight: 265, enterFrom: "left" },
+    { slot: "02", title: "Trade P&L Summary", span: "span-4", minHeight: 265, enterFrom: "right" },
+    { slot: "03", title: "Recent Sold Trades", span: "span-6", minHeight: 220, enterFrom: "left" },
+    { slot: "04", title: "Recent Bought Trades", span: "span-6", minHeight: 220, enterFrom: "right" },
+  ],
+  market: [
+    { slot: "01", title: "Boosted Collectibles", span: "span-6", minHeight: 250, enterFrom: "left" },
+    { slot: "02", title: "Resource Market Prices", span: "span-6", minHeight: 250, enterFrom: "right" },
+    { slot: "03", title: "NFT Wishlist & Goal Tracker", span: "span-6", minHeight: 230, enterFrom: "left" },
+    { slot: "04", title: "Wearables Floor", span: "span-6", minHeight: 230, enterFrom: "right" },
+  ],
+  pets: [
+    { slot: "01", title: "Pets & Shrines", span: "span-6", minHeight: 290, enterFrom: "left" },
+    { slot: "02", title: "NPC Daily Gifts", span: "span-6", minHeight: 290, enterFrom: "right" },
   ],
   settings: [
-    { slot: "01", title: "Theme & Currency", span: "span-12", minHeight: 150, enterFrom: "left" },
-    { slot: "02", title: "Default Tax Preset", span: "span-12", minHeight: 150, enterFrom: "right" },
-    { slot: "03", title: "Data Sync & Shortcuts", span: "span-12", minHeight: 150, enterFrom: "left" },
+    { slot: "01", title: "Theme, Currency & API Key", span: "span-12", minHeight: 150, enterFrom: "left" },
+    { slot: "02", title: "Tax Rate, Coin Ratio & Gem Pack", span: "span-12", minHeight: 150, enterFrom: "right" },
+    { slot: "03", title: "Account, Sync & Shortcuts", span: "span-12", minHeight: 150, enterFrom: "left" },
   ],
 };
 
@@ -65,54 +81,85 @@ const pageVariants = {
   }),
 };
 
+function loadInitialPrefs(): AppPreferences {
+  let currency: CurrencyMode = "flower";
+  let defaultTax = 10;
+  let coinFlowerRatio = 1000;
+  let coinRatioMode: CoinRatioMode = "1000";
+  let gemPack = "100";
+  let gemDiscount = true;
+  let customApiKey = "";
+
+  try {
+    const savedTax = localStorage.getItem("sfl_tax_rate");
+    if (savedTax !== null) {
+      const t = parseFloat(savedTax);
+      if (!Number.isNaN(t)) defaultTax = parseFloat((t * 100).toFixed(2));
+    }
+
+    const savedRatio = localStorage.getItem("sfl_coin_flower_ratio");
+    const savedMode = localStorage.getItem("sfl_coin_ratio_mode");
+    if (savedRatio === "free" || savedMode === "free") {
+      coinRatioMode = "free";
+      coinFlowerRatio = 0;
+    } else if (savedRatio) {
+      const r = parseFloat(savedRatio);
+      if (!Number.isNaN(r) && r > 0) {
+        coinFlowerRatio = r;
+        coinRatioMode = r === 1000 ? "1000" : r === 1500 ? "1500" : "custom";
+      }
+    }
+
+    const savedGemPack = localStorage.getItem("sfl_selected_gem_pack");
+    if (savedGemPack) gemPack = savedGemPack;
+
+    const savedGemDisc = localStorage.getItem("sfl_gem_discount_active");
+    if (savedGemDisc !== null) gemDiscount = savedGemDisc === "true";
+
+    customApiKey = localStorage.getItem("sfl_api_key") || "";
+
+    const raw = localStorage.getItem("sfl_motion_prefs");
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<AppPreferences>;
+      if (parsed.currency) currency = parsed.currency;
+    }
+  } catch {
+    // ignore storage read errors
+  }
+
+  return { currency, defaultTax, coinFlowerRatio, coinRatioMode, gemPack, gemDiscount, customApiKey };
+}
+
 export const App: React.FC = () => {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     const saved = localStorage.getItem("canvas_theme");
     return saved === "dark" ? "dark" : "light";
   });
-  const [prefs, setPrefs] = useState<AppPreferences>(() => {
-    let currency: AppPreferences["currency"] = "flower";
-    let defaultTax = 10;
-    let coinFlowerRatio = 1000;
-    try {
-      const savedTax = localStorage.getItem("sfl_tax_rate");
-      if (savedTax !== null) {
-        const t = parseFloat(savedTax);
-        if (!Number.isNaN(t)) defaultTax = parseFloat((t * 100).toFixed(2));
-      }
-      const savedRatio = localStorage.getItem("sfl_coin_flower_ratio");
-      if (savedRatio !== null) {
-        const r = parseFloat(savedRatio);
-        if (!Number.isNaN(r) && r > 0) coinFlowerRatio = r;
-      }
-      const raw = localStorage.getItem("sfl_motion_prefs");
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<AppPreferences>;
-        if (parsed.currency) currency = parsed.currency;
-        if (typeof parsed.defaultTax === "number") defaultTax = parsed.defaultTax;
-        if (typeof parsed.coinFlowerRatio === "number" && parsed.coinFlowerRatio > 0) {
-          coinFlowerRatio = parsed.coinFlowerRatio;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return { currency, defaultTax, coinFlowerRatio };
-  });
-
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [prefs, setPrefs] = useState<AppPreferences>(loadInitialPrefs);
+  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [direction, setDirection] = useState(1);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
 
   const auth = useAuth();
   const market = useMarketData();
+
+  const selectedGemRate = useMemo(() => {
+    if (prefs.gemPack === "free") return 0;
+    const pack = market.gemPacks[prefs.gemPack] || market.gemPacks["100"];
+    if (!pack) return undefined;
+    return Number(pack.sfl1 || 0) * (prefs.gemDiscount ? 0.8 : 1);
+  }, [market.gemPacks, prefs.gemPack, prefs.gemDiscount]);
+
   const dashboard = useDashboardData({
     resources: market.resources,
     flowerPriceUsd: market.flowerPriceUsd,
     user: auth.user,
     taxRatePct: prefs.defaultTax,
     coinFlowerRatio: prefs.coinFlowerRatio,
+    selectedGemRate,
   });
+
+  const farm = useFarmData(dashboard.farmId, auth.user, prefs.customApiKey);
   const isDark = theme === "dark";
   const cards = TAB_LAYOUTS[activeTab];
   const expandedIndex = expandedSlot ? cards.findIndex((c) => c.slot === expandedSlot) : -1;
@@ -134,7 +181,14 @@ export const App: React.FC = () => {
       const next = { ...prev, ...patch };
       localStorage.setItem("sfl_motion_prefs", JSON.stringify(next));
       localStorage.setItem("sfl_tax_rate", String(next.defaultTax / 100));
-      localStorage.setItem("sfl_coin_flower_ratio", String(next.coinFlowerRatio));
+      localStorage.setItem("sfl_coin_ratio_mode", next.coinRatioMode);
+      localStorage.setItem(
+        "sfl_coin_flower_ratio",
+        next.coinRatioMode === "free" ? "free" : String(next.coinFlowerRatio)
+      );
+      localStorage.setItem("sfl_selected_gem_pack", next.gemPack);
+      localStorage.setItem("sfl_gem_discount_active", String(next.gemDiscount));
+      localStorage.setItem("sfl_api_key", next.customApiKey);
       return next;
     });
   };
@@ -217,7 +271,10 @@ export const App: React.FC = () => {
           onSignUp={auth.signUp}
           onSignIn={auth.signIn}
           onAuthenticated={(farmId) => {
-            if (farmId) dashboard.setFarmId(farmId);
+            if (farmId) {
+              dashboard.setFarmId(farmId);
+              void farm.syncFarm(farmId, prefs.customApiKey);
+            }
           }}
         />
       ) : (
@@ -242,302 +299,304 @@ export const App: React.FC = () => {
               onSignOut={() => void auth.signOut()}
             />
 
-        <main style={{ position: "relative", minHeight: "520px", overflow: "hidden", padding: "6px 4px" }}>
-          <AnimatePresence mode="popLayout" custom={direction}>
-            <motion.section
-              key={activeTab}
-              custom={direction}
-              variants={pageVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
-              className="card-grid-bento"
-            >
-              {cards.map((card, i) =>
-                expandedSlot === card.slot ? (
-                  <div
-                    key={`${activeTab}-${card.slot}`}
-                    className={card.span}
-                    style={{ minHeight: `${card.minHeight ?? 200}px` }}
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <EmptyCard
-                    key={`${activeTab}-${card.slot}`}
-                    layoutId={`card-${activeTab}-${card.slot}`}
-                    slot={card.slot}
-                    title={card.title}
-                    className={card.span}
-                    minHeight={card.minHeight}
-                    index={i}
-                    isDark={isDark}
-                    enterFrom={card.enterFrom}
-                    onOpen={() => setExpandedSlot(card.slot)}
+            <main style={{ position: "relative", minHeight: "520px", overflow: "hidden", padding: "6px 4px" }}>
+              <AnimatePresence mode="popLayout" custom={direction}>
+                <motion.section
+                  key={activeTab}
+                  custom={direction}
+                  variants={pageVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+                  className="card-grid-bento"
+                >
+                  {cards.map((card, i) =>
+                    expandedSlot === card.slot ? (
+                      <div
+                        key={`${activeTab}-${card.slot}`}
+                        className={card.span}
+                        style={{ minHeight: `${card.minHeight ?? 200}px` }}
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <EmptyCard
+                        key={`${activeTab}-${card.slot}`}
+                        layoutId={`card-${activeTab}-${card.slot}`}
+                        slot={card.slot}
+                        title={card.title}
+                        className={card.span}
+                        minHeight={card.minHeight}
+                        index={i}
+                        isDark={isDark}
+                        enterFrom={card.enterFrom}
+                        onOpen={() => setExpandedSlot(card.slot)}
+                      >
+                        <CardContent
+                          tab={activeTab}
+                          slot={card.slot}
+                          market={market}
+                          dashboard={dashboard}
+                          farm={farm}
+                          prefs={prefs}
+                          onUpdatePrefs={handleUpdatePrefs}
+                          theme={theme}
+                          onToggleTheme={toggleTheme}
+                          userEmail={auth.user?.email}
+                          onSignOut={() => void auth.signOut()}
+                        />
+                      </EmptyCard>
+                    )
+                  )}
+                </motion.section>
+              </AnimatePresence>
+            </main>
+          </div>
+
+          {/* Cinematic Expanded Card Stage */}
+          <AnimatePresence>
+            {expandedCard && (
+              <motion.div
+                key="expanded-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                onClick={() => setExpandedSlot(null)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 50,
+                  background: isDark ? "rgba(2, 5, 12, 0.76)" : "rgba(26, 20, 14, 0.42)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  display: "grid",
+                  placeItems: "center",
+                  padding: "24px",
+                }}
+              >
+                <motion.div
+                  layoutId={`card-${activeTab}-${expandedCard.slot}`}
+                  onClick={(e) => e.stopPropagation()}
+                  transition={{ type: "spring", stiffness: 310, damping: 30, mass: 0.85 }}
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    maxWidth: "860px",
+                    minHeight: "480px",
+                    background: isDark ? "rgba(8, 14, 28, 0.96)" : "rgba(255, 253, 248, 0.98)",
+                    border: "1px solid",
+                    borderColor: isDark ? "rgba(0, 225, 255, 0.4)" : "var(--border-hover)",
+                    borderRadius: "20px",
+                    padding: "28px 30px",
+                    boxShadow: isDark
+                      ? "0 30px 90px rgba(0, 0, 0, 0.85), 0 0 50px rgba(0, 212, 255, 0.25)"
+                      : "0 32px 80px rgba(28, 21, 14, 0.24)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    overflow: "hidden",
+                    willChange: "transform",
+                  }}
+                >
+                  {isDark && (
+                    <>
+                      <motion.span
+                        aria-hidden="true"
+                        initial={{ clipPath: "inset(0% 96% 0% 0%)", opacity: 0.4 }}
+                        animate={{ clipPath: "inset(0% 50% 0% 0%)", opacity: 1 }}
+                        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: "20px",
+                          border: "1.5px solid #00f0ff",
+                          boxShadow:
+                            "inset 0 0 22px rgba(0, 240, 255, 0.35), 0 0 24px rgba(0, 240, 255, 0.55)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <motion.span
+                        aria-hidden="true"
+                        initial={{ clipPath: "inset(0% 0% 0% 96%)", opacity: 0.4 }}
+                        animate={{ clipPath: "inset(0% 0% 0% 50%)", opacity: 1 }}
+                        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: "20px",
+                          border: "1.5px solid #38bdf8",
+                          boxShadow:
+                            "inset 0 0 22px rgba(56, 189, 248, 0.35), 0 0 24px rgba(56, 189, 248, 0.55)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    </>
+                  )}
+
+                  {/* Expanded Header */}
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      position: "relative",
+                      zIndex: 2,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                      <span
+                        className="mono"
+                        style={{
+                          fontSize: "0.76rem",
+                          fontWeight: 700,
+                          padding: "4px 10px",
+                          borderRadius: "7px",
+                          background: "var(--accent)",
+                          color: isDark ? "#03050a" : "#ffffff",
+                          boxShadow: isDark ? "0 0 14px rgba(0, 225, 255, 0.5)" : "none",
+                        }}
+                      >
+                        {expandedCard.slot}
+                      </span>
+                      <div>
+                        <h2 style={{ fontSize: "1.18rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
+                          {expandedCard.title}
+                        </h2>
+                        <span className="mono" style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
+                          {activeTab.toUpperCase()} // LIVE VIEW
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.06 }}
+                        whileTap={{ scale: 0.92 }}
+                        onClick={() =>
+                          setExpandedSlot(cards[(expandedIndex - 1 + cards.length) % cards.length].slot)
+                        }
+                        aria-label="Previous card"
+                        style={{
+                          width: "34px",
+                          height: "34px",
+                          borderRadius: "9px",
+                          border: "1px solid var(--border)",
+                          background: "var(--card-inner)",
+                          color: "var(--text)",
+                          display: "grid",
+                          placeItems: "center",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <ChevronLeft size={16} />
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.06 }}
+                        whileTap={{ scale: 0.92 }}
+                        onClick={() => setExpandedSlot(cards[(expandedIndex + 1) % cards.length].slot)}
+                        aria-label="Next card"
+                        style={{
+                          width: "34px",
+                          height: "34px",
+                          borderRadius: "9px",
+                          border: "1px solid var(--border)",
+                          background: "var(--card-inner)",
+                          color: "var(--text)",
+                          display: "grid",
+                          placeItems: "center",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <ChevronRight size={16} />
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.06, rotate: 90 }}
+                        whileTap={{ scale: 0.92 }}
+                        transition={{ type: "spring", stiffness: 320, damping: 22 }}
+                        onClick={() => setExpandedSlot(null)}
+                        aria-label="Close expanded card"
+                        style={{
+                          width: "34px",
+                          height: "34px",
+                          borderRadius: "9px",
+                          border: "1px solid var(--border)",
+                          background: "var(--card-inner)",
+                          color: "var(--text)",
+                          display: "grid",
+                          placeItems: "center",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <X size={16} />
+                      </motion.button>
+                    </div>
+                  </motion.div>
+
+                  {/* Expanded Inner Content */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.985 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.12, duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                    style={{
+                      flex: 1,
+                      margin: "20px 0",
+                      borderRadius: "14px",
+                      border: "1px solid var(--border)",
+                      background: "var(--card-inner)",
+                      padding: "20px",
+                      position: "relative",
+                      zIndex: 2,
+                      overflowY: "auto",
+                    }}
                   >
                     <CardContent
                       tab={activeTab}
-                      slot={card.slot}
+                      slot={expandedCard.slot}
                       market={market}
                       dashboard={dashboard}
+                      farm={farm}
                       prefs={prefs}
                       onUpdatePrefs={handleUpdatePrefs}
                       theme={theme}
                       onToggleTheme={toggleTheme}
                       userEmail={auth.user?.email}
                       onSignOut={() => void auth.signOut()}
+                      expanded
                     />
-                  </EmptyCard>
-                )
-              )}
-            </motion.section>
-          </AnimatePresence>
-        </main>
-      </div>
+                  </motion.div>
 
-      {/* Cinematic Expanded Card Stage */}
-      <AnimatePresence>
-        {expandedCard && (
-          <motion.div
-            key="expanded-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            onClick={() => setExpandedSlot(null)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 50,
-              background: isDark ? "rgba(2, 5, 12, 0.76)" : "rgba(26, 20, 14, 0.42)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              display: "grid",
-              placeItems: "center",
-              padding: "24px",
-            }}
-          >
-            <motion.div
-              layoutId={`card-${activeTab}-${expandedCard.slot}`}
-              onClick={(e) => e.stopPropagation()}
-              transition={{ type: "spring", stiffness: 310, damping: 30, mass: 0.85 }}
-              style={{
-                position: "relative",
-                width: "100%",
-                maxWidth: "840px",
-                minHeight: "480px",
-                background: isDark ? "rgba(8, 14, 28, 0.96)" : "rgba(255, 253, 248, 0.98)",
-                border: "1px solid",
-                borderColor: isDark ? "rgba(0, 225, 255, 0.4)" : "var(--border-hover)",
-                borderRadius: "20px",
-                padding: "28px 30px",
-                boxShadow: isDark
-                  ? "0 30px 90px rgba(0, 0, 0, 0.85), 0 0 50px rgba(0, 212, 255, 0.25)"
-                  : "0 32px 80px rgba(28, 21, 14, 0.24)",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                overflow: "hidden",
-                willChange: "transform",
-              }}
-            >
-              {isDark && (
-                <>
-                  <motion.span
-                    aria-hidden="true"
-                    initial={{ clipPath: "inset(0% 96% 0% 0%)", opacity: 0.4 }}
-                    animate={{ clipPath: "inset(0% 50% 0% 0%)", opacity: 1 }}
-                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                  {/* Expanded Footer */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.75 }}
+                    transition={{ delay: 0.16, duration: 0.25 }}
                     style={{
-                      position: "absolute",
-                      inset: 0,
-                      borderRadius: "20px",
-                      border: "1.5px solid #00f0ff",
-                      boxShadow:
-                        "inset 0 0 22px rgba(0, 240, 255, 0.35), 0 0 24px rgba(0, 240, 255, 0.55)",
-                      pointerEvents: "none",
-                    }}
-                  />
-                  <motion.span
-                    aria-hidden="true"
-                    initial={{ clipPath: "inset(0% 0% 0% 96%)", opacity: 0.4 }}
-                    animate={{ clipPath: "inset(0% 0% 0% 50%)", opacity: 1 }}
-                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      borderRadius: "20px",
-                      border: "1.5px solid #38bdf8",
-                      boxShadow:
-                        "inset 0 0 22px rgba(56, 189, 248, 0.35), 0 0 24px rgba(56, 189, 248, 0.55)",
-                      pointerEvents: "none",
-                    }}
-                  />
-                </>
-              )}
-
-              {/* Expanded Header */}
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "12px",
-                  position: "relative",
-                  zIndex: 2,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <span
-                    className="mono"
-                    style={{
-                      fontSize: "0.76rem",
-                      fontWeight: 700,
-                      padding: "4px 10px",
-                      borderRadius: "7px",
-                      background: "var(--accent)",
-                      color: isDark ? "#03050a" : "#ffffff",
-                      boxShadow: isDark ? "0 0 14px rgba(0, 225, 255, 0.5)" : "none",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      fontSize: "0.74rem",
+                      color: "var(--muted)",
+                      position: "relative",
+                      zIndex: 2,
                     }}
                   >
-                    {expandedCard.slot}
-                  </span>
-                  <div>
-                    <h2 style={{ fontSize: "1.18rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
-                      {expandedCard.title}
-                    </h2>
-                    <span className="mono" style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
-                      {activeTab.toUpperCase()} // LIVE VIEW
+                    <span className="mono">ESC to close • ← / → to cycle</span>
+                    <span className="mono">
+                      {expandedIndex + 1} / {cards.length}
                     </span>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <motion.button
-                    type="button"
-                    whileHover={{ scale: 1.06 }}
-                    whileTap={{ scale: 0.92 }}
-                    onClick={() =>
-                      setExpandedSlot(cards[(expandedIndex - 1 + cards.length) % cards.length].slot)
-                    }
-                    aria-label="Previous card"
-                    style={{
-                      width: "34px",
-                      height: "34px",
-                      borderRadius: "9px",
-                      border: "1px solid var(--border)",
-                      background: "var(--card-inner)",
-                      color: "var(--text)",
-                      display: "grid",
-                      placeItems: "center",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <ChevronLeft size={16} />
-                  </motion.button>
-                  <motion.button
-                    type="button"
-                    whileHover={{ scale: 1.06 }}
-                    whileTap={{ scale: 0.92 }}
-                    onClick={() => setExpandedSlot(cards[(expandedIndex + 1) % cards.length].slot)}
-                    aria-label="Next card"
-                    style={{
-                      width: "34px",
-                      height: "34px",
-                      borderRadius: "9px",
-                      border: "1px solid var(--border)",
-                      background: "var(--card-inner)",
-                      color: "var(--text)",
-                      display: "grid",
-                      placeItems: "center",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <ChevronRight size={16} />
-                  </motion.button>
-                  <motion.button
-                    type="button"
-                    whileHover={{ scale: 1.06, rotate: 90 }}
-                    whileTap={{ scale: 0.92 }}
-                    transition={{ type: "spring", stiffness: 320, damping: 22 }}
-                    onClick={() => setExpandedSlot(null)}
-                    aria-label="Close expanded card"
-                    style={{
-                      width: "34px",
-                      height: "34px",
-                      borderRadius: "9px",
-                      border: "1px solid var(--border)",
-                      background: "var(--card-inner)",
-                      color: "var(--text)",
-                      display: "grid",
-                      placeItems: "center",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <X size={16} />
-                  </motion.button>
-                </div>
+                  </motion.div>
+                </motion.div>
               </motion.div>
-
-              {/* Expanded Inner Content */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.985 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.12, duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-                style={{
-                  flex: 1,
-                  margin: "20px 0",
-                  borderRadius: "14px",
-                  border: "1px solid var(--border)",
-                  background: "var(--card-inner)",
-                  padding: "20px",
-                  position: "relative",
-                  zIndex: 2,
-                  overflowY: "auto",
-                }}
-              >
-                <CardContent
-                  tab={activeTab}
-                  slot={expandedCard.slot}
-                  market={market}
-                  dashboard={dashboard}
-                  prefs={prefs}
-                  onUpdatePrefs={handleUpdatePrefs}
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                  userEmail={auth.user?.email}
-                  onSignOut={() => void auth.signOut()}
-                  expanded
-                />
-              </motion.div>
-
-              {/* Expanded Footer */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.75 }}
-                transition={{ delay: 0.16, duration: 0.25 }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  fontSize: "0.74rem",
-                  color: "var(--muted)",
-                  position: "relative",
-                  zIndex: 2,
-                }}
-              >
-                <span className="mono">ESC to close • ← / → to cycle</span>
-                <span className="mono">
-                  {expandedIndex + 1} / {cards.length}
-                </span>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+          </AnimatePresence>
         </>
       )}
     </MotionConfig>

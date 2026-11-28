@@ -172,12 +172,14 @@ export function useDashboardData({
   user,
   taxRatePct,
   coinFlowerRatio,
+  selectedGemRate,
 }: {
   resources: ResourceItem[];
   flowerPriceUsd: number;
   user: User | null;
   taxRatePct: number;
   coinFlowerRatio: number;
+  selectedGemRate?: number;
 }) {
   const [farmId, setFarmIdState] = useState<string>(() => localStorage.getItem("sfl_farm_id") || "");
   const [timeRange, setTimeRange] = useState<TimeRange>("day");
@@ -455,8 +457,9 @@ export function useDashboardData({
     }
 
     // Add Gems Spent
+    const effectiveGemRate = selectedGemRate !== undefined ? selectedGemRate : gemPriceFlower;
     if (totalGemsSpent > 0) {
-      const gemFl = Number((totalGemsSpent * gemPriceFlower).toFixed(3));
+      const gemFl = Number((totalGemsSpent * effectiveGemRate).toFixed(3));
       spentMap.set("Gems", { name: "Gems", qty: Math.round(totalGemsSpent), flowers: gemFl });
     }
 
@@ -478,7 +481,7 @@ export function useDashboardData({
       spentItems,
       rangeLabel: bounds.label,
     };
-  }, [rows, trades, farmId, timeRange, offset, resourcePriceMap, taxRatePct, coinFlowerRatio, gemPriceFlower]);
+  }, [rows, trades, farmId, timeRange, offset, resourcePriceMap, taxRatePct, coinFlowerRatio, gemPriceFlower, selectedGemRate]);
 
   return {
     farmId,
@@ -492,6 +495,7 @@ export function useDashboardData({
     setOffset,
     loading,
     error,
+    rows,
     summary,
     refreshFarm: () => fetchFarmYields(farmId),
   };
